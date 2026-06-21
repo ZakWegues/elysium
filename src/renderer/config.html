@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Configurar NEUROAXIS</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: #07071a;
+      color: #f1f5f9;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 36px 32px;
+      gap: 0;
+      position: relative;
+      overflow: hidden;
+    }
+
+    body::before {
+      content: "";
+      position: absolute;
+      top: -60px; left: 50%; transform: translateX(-50%);
+      width: 280px; height: 280px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(109,40,217,0.15) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .logo {
+      width: 52px; height: 52px;
+      border-radius: 14px;
+      background: linear-gradient(145deg, #4c1d95, #8b5cf6);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 24px; font-weight: 800; color: #fff;
+      box-shadow: 0 4px 20px rgba(109,40,217,0.5);
+      margin-bottom: 16px;
+      z-index: 1;
+    }
+
+    h1 {
+      font-size: 20px; font-weight: 700;
+      color: #f1f5f9;
+      margin-bottom: 6px;
+      z-index: 1;
+    }
+
+    .subtitle {
+      font-size: 13px; color: #64748b; line-height: 1.5;
+      text-align: center; margin-bottom: 28px;
+      max-width: 300px; z-index: 1;
+    }
+    .subtitle a { color: #8b5cf6; text-decoration: none; }
+    .subtitle a:hover { text-decoration: underline; }
+
+    .field { width: 100%; max-width: 320px; z-index: 1; }
+
+    label {
+      display: block; font-size: 11px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.1em;
+      color: #475569; margin-bottom: 7px;
+    }
+
+    input[type="password"] {
+      display: block; width: 100%;
+      padding: 12px 14px;
+      background: #0f0f28;
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 10px;
+      color: #f1f5f9;
+      font-size: 14px; font-family: monospace;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      letter-spacing: 0.05em;
+    }
+    input[type="password"]:focus {
+      border-color: rgba(139,92,246,0.6);
+      box-shadow: 0 0 0 3px rgba(139,92,246,0.12);
+    }
+    input[type="password"]::placeholder { color: #334155; letter-spacing: normal; }
+
+    button {
+      margin-top: 14px; width: 100%;
+      padding: 13px;
+      background: linear-gradient(135deg, #5b21b6, #8b5cf6);
+      color: #fff; border: none; border-radius: 10px;
+      font-size: 14px; font-weight: 700; cursor: pointer;
+      transition: opacity 0.2s, transform 0.15s;
+      box-shadow: 0 4px 14px rgba(109,40,217,0.4);
+    }
+    button:hover  { opacity: 0.92; }
+    button:active { transform: scale(0.98); }
+
+    #status {
+      margin-top: 11px; font-size: 13px;
+      min-height: 18px; text-align: center;
+      z-index: 1;
+    }
+    .ok  { color: #34d399; }
+    .err { color: #f87171; }
+  </style>
+</head>
+<body>
+  <div class="logo">J</div>
+  <h1>NEUROAXIS</h1>
+  <p class="subtitle">Cole sua API key da Groq para começar.<br><a href="https://console.groq.com/keys" target="_blank">Criar chave gratuita →</a></p>
+
+  <div class="field">
+    <label for="key">Groq API Key</label>
+    <input type="password" id="key" placeholder="gsk_…" autocomplete="off" spellcheck="false"/>
+    <button id="save">Salvar e começar</button>
+  </div>
+  <div id="status"></div>
+
+  <script>
+    const inp    = document.getElementById("key");
+    const btn    = document.getElementById("save");
+    const status = document.getElementById("status");
+
+    window.neuroaxisConfig.getApiKey().then(k => { if (k) inp.value = k; });
+
+    btn.addEventListener("click", async () => {
+      const key = inp.value.trim();
+      if (!key || !key.startsWith("gsk_")) {
+        status.className = "err";
+        status.textContent = "Chave inválida — deve começar com gsk_";
+        return;
+      }
+      await window.neuroaxisConfig.setApiKey(key);
+      status.className = "ok";
+      status.textContent = "Pronto! Fechando…";
+      setTimeout(() => window.neuroaxisConfig.close(), 1000);
+    });
+
+    inp.addEventListener("keydown", e => { if (e.key === "Enter") btn.click(); });
+  </script>
+</body>
+</html>

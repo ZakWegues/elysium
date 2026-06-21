@@ -1,0 +1,11 @@
+{
+  "shortcut": "Ctrl+Shift+J",
+  "autoLaunch": false,
+  "silenceMs": 2500,
+  "maxRecordMs": 120000,
+  "voice": "pt-BR-FranciscaNeural",
+  "sttModel": "whisper-large-v3",
+  "brainModel": "llama-3.3-70b-versatile",
+  "chatHistoryTurns": 6,
+  "chatIdleResetMs": 300000
+}

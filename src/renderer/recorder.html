@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>NEUROAXIS Recorder</title></head>
+<body>
+<script>
+  const SILENCE_THRESHOLD = 0.01;
+
+  let mediaRecorder = null;
+  let audioCtx = null;
+  let analyser = null;
+  let chunks = [];
+  let silenceTimer = null;
+  let maxTimer = null;
+  let silenceMs = 1500;
+
+  window.neuroaxis.onStartRecording(async (cfg) => {
+    silenceMs = cfg.silenceMs;
+    chunks = [];
+    clearTimeout(silenceTimer);
+    clearTimeout(maxTimer);
+    silenceTimer = null;
+    maxTimer = null;
+
+    let stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    } catch (e) {
+      window.neuroaxis.sendError("Microfone: " + e.message);
+      return;
+    }
+
+    audioCtx = new AudioContext();
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 512;
+    const source = audioCtx.createMediaStreamSource(stream);
+    source.connect(analyser);
+
+    const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+      ? "audio/webm;codecs=opus"
+      : "audio/webm";
+
+    mediaRecorder = new MediaRecorder(stream, { mimeType });
+    mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+    mediaRecorder.onstop = async () => {
+      stream.getTracks().forEach((t) => t.stop());
+      if (audioCtx.state !== "closed") audioCtx.close();
+      const blob = new Blob(chunks, { type: mimeType });
+      const buf = await blob.arrayBuffer();
+      window.neuroaxis.sendAudio(buf);
+    };
+
+    mediaRecorder.start(100);
+
+    const freqData = new Uint8Array(analyser.frequencyBinCount);
+    function checkSilence() {
+      if (!mediaRecorder || mediaRecorder.state === "inactive") return;
+      analyser.getByteTimeDomainData(freqData);
+      let sum = 0;
+      for (const v of freqData) sum += Math.abs(v - 128);
+      const rms = sum / freqData.length / 128;
+
+      if (rms < SILENCE_THRESHOLD) {
+        if (!silenceTimer) silenceTimer = setTimeout(stopRecording, silenceMs);
+      } else {
+        clearTimeout(silenceTimer);
+        silenceTimer = null;
+      }
+      requestAnimationFrame(checkSilence);
+    }
+    requestAnimationFrame(checkSilence);
+
+    maxTimer = setTimeout(stopRecording, cfg.maxRecordMs);
+  });
+
+  function stopRecording() {
+    clearTimeout(silenceTimer);
+    clearTimeout(maxTimer);
+    silenceTimer = null;
+    maxTimer = null;
+    if (mediaRecorder && mediaRecorder.state !== "inactive") {
+      mediaRecorder.stop();
+      mediaRecorder = null;
+    }
+  }
+
+  window.neuroaxis.onPlayAudio(async (data) => {
+    const blob = new Blob([data], { type: "audio/mp3" });
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+    audio.onended = () => {
+      URL.revokeObjectURL(url);
+      window.neuroaxis.sendAudioDone();
+    };
+    audio.onerror = () => {
+      URL.revokeObjectURL(url);
+      window.neuroaxis.sendAudioDone();
+    };
+    audio.play().catch(() => {
+      URL.revokeObjectURL(url);
+      window.neuroaxis.sendAudioDone();
+    });
+  });
+</script>
+</body>
+</html>
