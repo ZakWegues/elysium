@@ -18,8 +18,9 @@ function actionLabel(action: BrainAction): { label: string; icon: string } | nul
   switch (action.action) {
     case "play_music": return { icon: "🎵", label: action.query };
     case "open_url":   return { icon: "🌐", label: action.url_or_query };
-    case "open_app":   return { icon: "💻", label: action.app_name };
-    default:           return null;
+    case "open_app":    return { icon: "💻", label: action.app_name };
+    case "run_preset":  return { icon: "🎮", label: action.preset_name };
+    default:            return null;
   }
 }
 

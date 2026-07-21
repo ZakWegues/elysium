@@ -1,5 +1,6 @@
 import { app } from "electron";
 import Store from "electron-store";
+import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
@@ -11,6 +12,11 @@ import * as path from "node:path";
  *   nunca hardcoded e nunca versionados.
  */
 
+export interface UiLayout {
+  order: string[];
+  hidden: string[];
+}
+
 export interface AppConfig {
   shortcut: string;
   autoLaunch: boolean;
@@ -21,6 +27,9 @@ export interface AppConfig {
   brainModel: string;
   chatHistoryTurns: number;
   chatIdleResetMs: number;
+  serverPort: number;
+  theme: string;
+  layout: UiLayout;
 }
 
 const DEFAULTS: AppConfig = {
@@ -33,6 +42,9 @@ const DEFAULTS: AppConfig = {
   brainModel: "llama-3.3-70b-versatile",
   chatHistoryTurns: 6,
   chatIdleResetMs: 300000,
+  serverPort: 4200,
+  theme: "default",
+  layout: { order: ["perf", "storage", "taskmgr"], hidden: [] },
 };
 
 function loadDefaults(): AppConfig {
@@ -50,9 +62,9 @@ function loadDefaults(): AppConfig {
 }
 
 // Store seguro no userData. A API key vive aqui.
-const store = new Store<{ apiKey: string; overrides: Partial<AppConfig> }>({
+const store = new Store<{ apiKey: string; overrides: Partial<AppConfig>; serverToken: string }>({
   name: "neuroaxis-config",
-  defaults: { apiKey: "", overrides: {} },
+  defaults: { apiKey: "", overrides: {}, serverToken: "" },
 });
 
 const fileDefaults = loadDefaults();
@@ -85,4 +97,12 @@ export function hasApiKey(): boolean {
 
 export function userDataPath(): string {
   return app.getPath("userData");
+}
+
+export function getOrCreateServerToken(): string {
+  const existing = store.get("serverToken", "");
+  if (existing && existing.length === 64) return existing;
+  const token = crypto.randomBytes(32).toString("hex");
+  store.set("serverToken", token);
+  return token;
 }

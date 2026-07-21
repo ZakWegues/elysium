@@ -5,138 +5,452 @@
   <title>Configurar NEUROAXIS</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
+    :root {
+      --purple: #8b5cf6; --purple-dark: #6d28d9;
+      --bg: #07071a; --surface: #0f0f28; --surface2: #13132e;
+      --border: rgba(139,92,246,0.14);
+      --text: #f1f5f9; --muted: #94a3b8; --dim: #475569;
+    }
+    html, body { height: 100%; overflow: hidden; }
     body {
       font-family: "Segoe UI", system-ui, sans-serif;
-      background: #07071a;
-      color: #f1f5f9;
-      height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 36px 32px;
-      gap: 0;
-      position: relative;
-      overflow: hidden;
+      background: var(--bg); color: var(--text);
+      display: flex; flex-direction: column;
     }
-
     body::before {
       content: "";
-      position: absolute;
-      top: -60px; left: 50%; transform: translateX(-50%);
-      width: 280px; height: 280px;
-      border-radius: 50%;
-      background: radial-gradient(circle, rgba(109,40,217,0.15) 0%, transparent 70%);
-      pointer-events: none;
+      position: fixed; top: -80px; left: 50%; transform: translateX(-50%);
+      width: 300px; height: 300px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(109,40,217,0.13) 0%, transparent 70%);
+      pointer-events: none; z-index: 0;
     }
 
+    /* ── header ── */
+    .cfg-header {
+      display: flex; align-items: center; gap: 12px;
+      padding: 14px 20px 10px;
+      flex-shrink: 0; z-index: 1; position: relative;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
     .logo {
-      width: 52px; height: 52px;
-      border-radius: 14px;
+      width: 34px; height: 34px; border-radius: 9px;
       background: linear-gradient(145deg, #4c1d95, #8b5cf6);
       display: flex; align-items: center; justify-content: center;
-      font-size: 24px; font-weight: 800; color: #fff;
-      box-shadow: 0 4px 20px rgba(109,40,217,0.5);
-      margin-bottom: 16px;
-      z-index: 1;
+      font-size: 13px; font-weight: 800; color: #fff;
+      box-shadow: 0 2px 12px rgba(109,40,217,0.5); flex-shrink: 0;
+    }
+    .cfg-header h1 { font-size: 14px; font-weight: 700; flex: 1; }
+    .cfg-header p  { font-size: 11px; color: var(--dim); }
+    .groq-link { color: var(--purple); text-decoration: none; font-size: 11px; }
+    .groq-link:hover { text-decoration: underline; }
+
+    /* ── body scroll ── */
+    .cfg-body {
+      flex: 1; overflow-y: auto; padding: 16px 20px 8px;
+      display: flex; flex-direction: column; gap: 0;
+      z-index: 1; position: relative;
+    }
+    ::-webkit-scrollbar { width: 3px; }
+    ::-webkit-scrollbar-thumb { background: rgba(139,92,246,.2); border-radius: 3px; }
+
+    /* ── section ── */
+    .section { margin-bottom: 18px; }
+    .section-title {
+      font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.12em; color: var(--dim); margin-bottom: 10px; padding-bottom: 5px;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
     }
 
-    h1 {
-      font-size: 20px; font-weight: 700;
-      color: #f1f5f9;
-      margin-bottom: 6px;
-      z-index: 1;
-    }
-
-    .subtitle {
-      font-size: 13px; color: #64748b; line-height: 1.5;
-      text-align: center; margin-bottom: 28px;
-      max-width: 300px; z-index: 1;
-    }
-    .subtitle a { color: #8b5cf6; text-decoration: none; }
-    .subtitle a:hover { text-decoration: underline; }
-
-    .field { width: 100%; max-width: 320px; z-index: 1; }
-
+    /* ── field ── */
+    .field { margin-bottom: 13px; }
     label {
-      display: block; font-size: 11px; font-weight: 600;
-      text-transform: uppercase; letter-spacing: 0.1em;
-      color: #475569; margin-bottom: 7px;
+      display: block; font-size: 11.5px; font-weight: 600; color: var(--muted);
+      margin-bottom: 6px;
     }
+    .label-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+    .label-row label { margin-bottom: 0; }
+    .label-val { font-size: 12px; color: var(--purple); font-weight: 700; font-variant-numeric: tabular-nums; }
 
-    input[type="password"] {
+    /* ── text input ── */
+    .input-wrap { position: relative; }
+    .input-wrap input[type="password"],
+    .input-wrap input[type="text"],
+    input[type="text"] {
       display: block; width: 100%;
-      padding: 12px 14px;
-      background: #0f0f28;
+      padding: 10px 40px 10px 13px;
+      background: var(--surface);
       border: 1px solid rgba(255,255,255,0.07);
-      border-radius: 10px;
-      color: #f1f5f9;
-      font-size: 14px; font-family: monospace;
-      outline: none;
+      border-radius: 9px; color: var(--text);
+      font-size: 13px; font-family: monospace; outline: none;
       transition: border-color 0.2s, box-shadow 0.2s;
-      letter-spacing: 0.05em;
     }
-    input[type="password"]:focus {
-      border-color: rgba(139,92,246,0.6);
-      box-shadow: 0 0 0 3px rgba(139,92,246,0.12);
+    .input-wrap input:focus, input[type="text"]:focus {
+      border-color: rgba(139,92,246,0.55);
+      box-shadow: 0 0 0 3px rgba(139,92,246,0.1);
     }
-    input[type="password"]::placeholder { color: #334155; letter-spacing: normal; }
+    input::placeholder { color: var(--dim); font-family: inherit; letter-spacing: normal; }
 
-    button {
-      margin-top: 14px; width: 100%;
-      padding: 13px;
-      background: linear-gradient(135deg, #5b21b6, #8b5cf6);
-      color: #fff; border: none; border-radius: 10px;
-      font-size: 14px; font-weight: 700; cursor: pointer;
-      transition: opacity 0.2s, transform 0.15s;
-      box-shadow: 0 4px 14px rgba(109,40,217,0.4);
+    .eye-btn {
+      position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+      background: none; border: none; cursor: pointer; padding: 4px;
+      color: var(--dim); display: flex; align-items: center; justify-content: center;
+      transition: color 0.2s; width: 26px; height: 26px;
     }
-    button:hover  { opacity: 0.92; }
-    button:active { transform: scale(0.98); }
+    .eye-btn:hover { color: var(--purple); }
+    .eye-btn svg { width: 15px; height: 15px; fill: currentColor; }
+
+    /* ── range slider ── */
+    input[type="range"] {
+      -webkit-appearance: none; width: 100%; height: 4px;
+      background: rgba(139,92,246,0.18); border-radius: 4px; outline: none;
+      cursor: pointer;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%;
+      background: var(--purple); box-shadow: 0 1px 6px rgba(109,40,217,0.5);
+      cursor: pointer;
+    }
+    input[type="range"]:focus::-webkit-slider-thumb { box-shadow: 0 0 0 3px rgba(139,92,246,0.2); }
+
+    /* ── toggle ── */
+    .toggle-wrap { display: flex; align-items: center; justify-content: space-between; }
+    .toggle-wrap label { cursor: pointer; }
+    .toggle {
+      position: relative; width: 40px; height: 22px; cursor: pointer;
+    }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .toggle-track {
+      position: absolute; inset: 0; border-radius: 22px;
+      background: rgba(255,255,255,0.08); transition: background 0.2s;
+    }
+    .toggle input:checked + .toggle-track { background: var(--purple); }
+    .toggle-thumb {
+      position: absolute; top: 3px; left: 3px; width: 16px; height: 16px;
+      border-radius: 50%; background: #fff; transition: transform 0.2s;
+    }
+    .toggle input:checked ~ .toggle-thumb { transform: translateX(18px); }
+
+    /* ── select / dropdown ── */
+    select {
+      display: block; width: 100%; padding: 10px 13px;
+      background: var(--surface); border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 9px; color: var(--text); font-size: 13px; font-family: inherit;
+      outline: none; cursor: pointer; appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%238b5cf6'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 10px center; background-size: 18px;
+    }
+    select:focus { border-color: rgba(139,92,246,0.55); box-shadow: 0 0 0 3px rgba(139,92,246,0.1); }
+    select option { background: #13132e; }
+
+    /* ── shortcut capture ── */
+    .shortcut-input {
+      display: block; width: 100%; padding: 10px 13px;
+      background: var(--surface); border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 9px; color: var(--purple); font-size: 13px;
+      font-family: monospace; font-weight: 700; text-align: center;
+      cursor: pointer; user-select: none; outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .shortcut-input:focus,
+    .shortcut-input.capturing { border-color: rgba(139,92,246,0.55); box-shadow: 0 0 0 3px rgba(139,92,246,0.1); }
+    .shortcut-hint { font-size: 10.5px; color: var(--dim); margin-top: 4px; }
+
+    /* ── footer ── */
+    .cfg-footer {
+      display: flex; gap: 8px; padding: 12px 20px 16px;
+      flex-shrink: 0; z-index: 1; position: relative;
+      border-top: 1px solid var(--border); background: var(--bg);
+    }
+    .btn-save {
+      flex: 1; padding: 11px;
+      background: linear-gradient(135deg, #5b21b6, #8b5cf6); color: #fff;
+      border: none; border-radius: 9px; font-size: 13px; font-weight: 700;
+      cursor: pointer; box-shadow: 0 3px 12px rgba(109,40,217,0.4);
+      transition: opacity 0.2s, transform 0.15s;
+    }
+    .btn-save:hover { opacity: 0.92; }
+    .btn-save:active { transform: scale(0.98); }
+    .btn-reset {
+      padding: 11px 14px;
+      background: transparent; color: var(--dim);
+      border: 1px solid rgba(255,255,255,0.07); border-radius: 9px;
+      font-size: 12px; cursor: pointer;
+      transition: background 0.2s, color 0.2s;
+    }
+    .btn-reset:hover { background: rgba(255,255,255,0.04); color: var(--muted); }
 
     #status {
-      margin-top: 11px; font-size: 13px;
-      min-height: 18px; text-align: center;
-      z-index: 1;
+      padding: 0 20px 6px; font-size: 12px; min-height: 20px;
+      text-align: center; z-index: 1;
     }
-    .ok  { color: #34d399; }
-    .err { color: #f87171; }
+    .ok  { color: #34d399; } .err { color: #f87171; }
   </style>
 </head>
 <body>
-  <div class="logo">J</div>
-  <h1>NEUROAXIS</h1>
-  <p class="subtitle">Cole sua API key da Groq para começar.<br><a href="https://console.groq.com/keys" target="_blank">Criar chave gratuita →</a></p>
-
-  <div class="field">
-    <label for="key">Groq API Key</label>
-    <input type="password" id="key" placeholder="gsk_…" autocomplete="off" spellcheck="false"/>
-    <button id="save">Salvar e começar</button>
+  <div class="cfg-header">
+    <div class="logo">NA</div>
+    <div>
+      <h1>NEUROAXIS — Configurações</h1>
+      <p>Groq API: <a class="groq-link" href="https://console.groq.com/keys" target="_blank">Criar chave →</a></p>
+    </div>
   </div>
+
+  <div class="cfg-body">
+
+    <!-- Conta -->
+    <div class="section">
+      <div class="section-title">Conta</div>
+      <div class="field">
+        <label for="apiKey">Groq API Key</label>
+        <div class="input-wrap">
+          <input type="password" id="apiKey" placeholder="gsk_…" autocomplete="off" spellcheck="false"/>
+          <button class="eye-btn" id="eyeBtn" type="button">
+            <svg id="eyeIcon" viewBox="0 0 24 24"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Gravação -->
+    <div class="section">
+      <div class="section-title">Gravação de voz</div>
+      <div class="field">
+        <div class="label-row">
+          <label for="silenceMs">Silêncio para parar</label>
+          <span class="label-val" id="silenceVal">2,5s</span>
+        </div>
+        <input type="range" id="silenceMs" min="500" max="5000" step="100"/>
+      </div>
+      <div class="field">
+        <div class="label-row">
+          <label for="maxRecordMs">Gravação máxima</label>
+          <span class="label-val" id="maxRecordVal">120s</span>
+        </div>
+        <input type="range" id="maxRecordMs" min="10000" max="300000" step="5000"/>
+      </div>
+    </div>
+
+    <!-- Histórico -->
+    <div class="section">
+      <div class="section-title">Histórico de conversa</div>
+      <div class="field">
+        <div class="label-row">
+          <label for="chatHistoryTurns">Turnos na memória</label>
+          <span class="label-val" id="historyVal">6</span>
+        </div>
+        <input type="range" id="chatHistoryTurns" min="2" max="20" step="1"/>
+      </div>
+      <div class="field">
+        <div class="label-row">
+          <label for="chatIdleResetMs">Reset por inatividade</label>
+          <span class="label-val" id="idleResetVal">5min</span>
+        </div>
+        <input type="range" id="chatIdleResetMs" min="60000" max="3600000" step="60000"/>
+      </div>
+    </div>
+
+    <!-- Modelos -->
+    <div class="section">
+      <div class="section-title">Modelos de IA</div>
+      <div class="field">
+        <label for="sttModel">Transcrição (STT)</label>
+        <select id="sttModel">
+          <option value="whisper-large-v3">Whisper Large v3 (melhor qualidade)</option>
+          <option value="whisper-large-v3-turbo">Whisper Large v3 Turbo (mais rápido)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="brainModel">Decisão (Brain)</label>
+        <select id="brainModel">
+          <option value="llama-3.3-70b-versatile">Llama 3.3 70B Versatile (melhor)</option>
+          <option value="llama-3.1-8b-instant">Llama 3.1 8B Instant (mais rápido)</option>
+          <option value="llama-3.3-70b-specdec">Llama 3.3 70B SpecDec</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Sistema -->
+    <div class="section">
+      <div class="section-title">Sistema</div>
+      <div class="field">
+        <label>Atalho de ativação</label>
+        <div class="shortcut-input" id="shortcutInput" tabindex="0">Ctrl+Shift+J</div>
+        <div class="shortcut-hint">Clique aqui e pressione a combinação de teclas desejada</div>
+      </div>
+      <div class="field">
+        <div class="toggle-wrap">
+          <label for="autoLaunchToggle">Iniciar com o Windows</label>
+          <label class="toggle">
+            <input type="checkbox" id="autoLaunchToggle"/>
+            <div class="toggle-track"></div>
+            <div class="toggle-thumb"></div>
+          </label>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
   <div id="status"></div>
 
+  <div class="cfg-footer">
+    <button class="btn-reset" id="resetBtn">Restaurar padrões</button>
+    <button class="btn-save"  id="saveBtn">Salvar</button>
+  </div>
+
   <script>
-    const inp    = document.getElementById("key");
-    const btn    = document.getElementById("save");
     const status = document.getElementById("status");
+    let capturedShortcut = null;
 
-    window.neuroaxisConfig.getApiKey().then(k => { if (k) inp.value = k; });
+    // ── load current config ────────────────────────────────────────────────────
+    async function loadAll() {
+      const [key, cfg] = await Promise.all([
+        window.neuroaxisConfig.getApiKey(),
+        window.neuroaxisConfig.getAll(),
+      ]);
+      if (key) document.getElementById("apiKey").value = key;
+      applyConfig(cfg);
+    }
 
-    btn.addEventListener("click", async () => {
-      const key = inp.value.trim();
-      if (!key || !key.startsWith("gsk_")) {
-        status.className = "err";
-        status.textContent = "Chave inválida — deve começar com gsk_";
-        return;
+    function applyConfig(cfg) {
+      if (!cfg) return;
+      setSlider("silenceMs",       cfg.silenceMs       ?? 2500);
+      setSlider("maxRecordMs",     cfg.maxRecordMs     ?? 120000);
+      setSlider("chatHistoryTurns",cfg.chatHistoryTurns ?? 6);
+      setSlider("chatIdleResetMs", cfg.chatIdleResetMs ?? 300000);
+      setSelect("sttModel",   cfg.sttModel   ?? "whisper-large-v3");
+      setSelect("brainModel", cfg.brainModel ?? "llama-3.3-70b-versatile");
+      document.getElementById("autoLaunchToggle").checked = cfg.autoLaunch !== false;
+      const sc = cfg.shortcut ?? "Control+Shift+J";
+      document.getElementById("shortcutInput").textContent = formatShortcut(sc);
+      capturedShortcut = sc;
+    }
+
+    loadAll();
+
+    // ── slider helpers ─────────────────────────────────────────────────────────
+    function setSlider(id, val) {
+      document.getElementById(id).value = val;
+      updateLabel(id, val);
+    }
+    function setSelect(id, val) {
+      const el = document.getElementById(id);
+      el.value = val;
+      if (!el.value) el.selectedIndex = 0;
+    }
+
+    function updateLabel(id, val) {
+      const n = Number(val);
+      switch (id) {
+        case "silenceMs":
+          document.getElementById("silenceVal").textContent = (n/1000).toFixed(1) + "s"; break;
+        case "maxRecordMs":
+          document.getElementById("maxRecordVal").textContent = (n/1000).toFixed(0) + "s"; break;
+        case "chatHistoryTurns":
+          document.getElementById("historyVal").textContent = n; break;
+        case "chatIdleResetMs":
+          document.getElementById("idleResetVal").textContent = (n/60000).toFixed(0) + "min"; break;
       }
-      await window.neuroaxisConfig.setApiKey(key);
-      status.className = "ok";
-      status.textContent = "Pronto! Fechando…";
-      setTimeout(() => window.neuroaxisConfig.close(), 1000);
+    }
+
+    ["silenceMs","maxRecordMs","chatHistoryTurns","chatIdleResetMs"].forEach(id => {
+      document.getElementById(id).addEventListener("input", e => updateLabel(id, e.target.value));
     });
 
-    inp.addEventListener("keydown", e => { if (e.key === "Enter") btn.click(); });
+    // ── shortcut capture ───────────────────────────────────────────────────────
+    function formatShortcut(electronStr) {
+      return electronStr
+        .replace("Control", "Ctrl")
+        .replace("Super", "Win")
+        .replace(/\+/g, " + ");
+    }
+    function toElectronKey(key) {
+      const MAP = { " ": "Space", "ArrowLeft": "Left", "ArrowRight": "Right",
+                    "ArrowUp": "Up", "ArrowDown": "Down" };
+      if (MAP[key]) return MAP[key];
+      if (key.length === 1) return key.toUpperCase();
+      return key;
+    }
+
+    const shortcutEl = document.getElementById("shortcutInput");
+    shortcutEl.addEventListener("click",   () => shortcutEl.classList.add("capturing"));
+    shortcutEl.addEventListener("focus",   () => shortcutEl.classList.add("capturing"));
+    shortcutEl.addEventListener("blur",    () => shortcutEl.classList.remove("capturing"));
+    shortcutEl.addEventListener("keydown", (e) => {
+      e.preventDefault(); e.stopPropagation();
+      if (e.key === "Escape") { shortcutEl.classList.remove("capturing"); shortcutEl.blur(); return; }
+      const mods = [];
+      if (e.ctrlKey)  mods.push("Control");
+      if (e.altKey)   mods.push("Alt");
+      if (e.shiftKey) mods.push("Shift");
+      if (e.metaKey)  mods.push("Super");
+      const base = toElectronKey(e.key);
+      if (["Control","Alt","Shift","Meta","Super"].includes(base)) return;
+      capturedShortcut = [...mods, base].join("+");
+      shortcutEl.textContent = formatShortcut(capturedShortcut);
+      shortcutEl.classList.remove("capturing");
+      shortcutEl.blur();
+    });
+
+    // ── eye toggle ─────────────────────────────────────────────────────────────
+    document.getElementById("eyeBtn").addEventListener("click", () => {
+      const inp = document.getElementById("apiKey");
+      const show = inp.type === "password";
+      inp.type = show ? "text" : "password";
+      document.getElementById("eyeIcon").innerHTML = show
+        ? '<path d="M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46C3.08 8.3 1.78 10.02 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.16c0-1.66-1.34-3-3-3l-.17.01z"/>'
+        : '<path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>';
+    });
+
+    // ── save ───────────────────────────────────────────────────────────────────
+    document.getElementById("saveBtn").addEventListener("click", async () => {
+      const key = document.getElementById("apiKey").value.trim();
+      if (key && !key.startsWith("gsk_")) {
+        status.className = "err";
+        status.textContent = "API key inválida — deve começar com gsk_";
+        return;
+      }
+      if (key) await window.neuroaxisConfig.setApiKey(key);
+      await window.neuroaxisConfig.setAll({
+        silenceMs:        Number(document.getElementById("silenceMs").value),
+        maxRecordMs:      Number(document.getElementById("maxRecordMs").value),
+        chatHistoryTurns: Number(document.getElementById("chatHistoryTurns").value),
+        chatIdleResetMs:  Number(document.getElementById("chatIdleResetMs").value),
+        sttModel:  document.getElementById("sttModel").value,
+        brainModel: document.getElementById("brainModel").value,
+        autoLaunch: document.getElementById("autoLaunchToggle").checked,
+        shortcut:   capturedShortcut,
+      });
+      status.className = "ok";
+      status.textContent = "Configurações salvas!";
+      setTimeout(() => window.neuroaxisConfig.close(), 1200);
+    });
+
+    // ── reset defaults ─────────────────────────────────────────────────────────
+    document.getElementById("resetBtn").addEventListener("click", async () => {
+      const btn = document.getElementById("resetBtn");
+      if (btn.dataset.confirm !== "1") {
+        btn.textContent = "Confirmar reset?";
+        btn.dataset.confirm = "1";
+        setTimeout(() => { btn.textContent = "Restaurar padrões"; delete btn.dataset.confirm; }, 3000);
+        return;
+      }
+      const defaults = await window.neuroaxisConfig.resetDefaults();
+      applyConfig({
+        silenceMs: 2500, maxRecordMs: 120000, chatHistoryTurns: 6, chatIdleResetMs: 300000,
+        sttModel: "whisper-large-v3", brainModel: "llama-3.3-70b-versatile",
+        autoLaunch: true, shortcut: "Control+Shift+J",
+      });
+      status.className = "ok";
+      status.textContent = "Padrões restaurados.";
+      btn.textContent = "Restaurar padrões";
+      delete btn.dataset.confirm;
+    });
+
+    document.addEventListener("keydown", e => {
+      if (e.key === "Escape") window.neuroaxisConfig.close();
+    });
   </script>
 </body>
 </html>

@@ -1,23 +1,29 @@
 import { app, BrowserWindow, globalShortcut, ipcMain } from "electron";
 import * as path from "node:path";
 import AutoLaunch from "auto-launch";
-import { getConfig, getApiKey, setApiKey, hasApiKey } from "./config";
+import { getConfig, getApiKey, setApiKey, hasApiKey, setOverride, getOrCreateServerToken, AppConfig } from "./config";
 import { state } from "./state";
 import { notify } from "./notify";
-import { createTray, refreshTray } from "./tray";
+import { createTray, refreshTray, updateLastCommand } from "./tray";
 import { transcribe } from "../services/stt";
 import { decideBrain, clearHistory } from "../services/brain";
 import { trackUsage, getTopHistory } from "../services/history";
-import { synthesize } from "../services/tts";
+import { synthesize, cancelSpeak } from "../services/tts";
 import { routeAction } from "../actions/router";
 import { NeuroaxisError } from "../services/errors";
+import { processCommand } from "../services/command";
+import { startServer } from "../services/server";
+import { startMonitor, getDashboardTelemetry, killProcess } from "../actions/systemInfo";
+import type { BrainAction } from "../services/brain";
+import { mediaControl } from "../actions/mediaControl";
+import { logAnomaly, getAnomalyHistory, getInsights } from "../services/telemetryLog";
+import { getAllPresets } from "../services/presetsStore";
 
 // ── windows ───────────────────────────────────────────────────────────────────
 
 let recorderWin: BrowserWindow | null = null;
 let configWin:   BrowserWindow | null = null;
-let chatWin:     BrowserWindow | null = null;
-let voiceWin:    BrowserWindow | null = null;
+let dashWin:     BrowserWindow | null = null;
 
 function createRecorderWindow(): BrowserWindow {
   const win = new BrowserWindow({
@@ -32,54 +38,60 @@ function createRecorderWindow(): BrowserWindow {
   });
   win.loadFile(path.join(__dirname, "../renderer/recorder.html"));
   win.on("closed", () => { recorderWin = null; });
+  win.webContents.on("render-process-gone", () => {
+    recorderWin = null;
+    recorderWin = createRecorderWindow();
+  });
   return win;
 }
 
-function openVoiceWindow(): void {
-  if (voiceWin) { voiceWin.focus(); return; }
-  voiceWin = new BrowserWindow({
-    width: 400,
-    height: 440,
-    resizable: false,
-    title: "NEUROAXIS — Voz",
+function openDashboard(): void {
+  if (dashWin && !dashWin.isDestroyed()) {
+    if (dashWin.isMinimized()) dashWin.restore();
+    dashWin.show(); dashWin.focus(); return;
+  }
+  dashWin = new BrowserWindow({
+    width:     1024,
+    height:    720,
+    minWidth:  800,
+    minHeight: 560,
+    resizable: true,
+    title:     "NEUROAXIS",
+    frame:     false,
+    titleBarStyle: "hidden",
     webPreferences: {
-      preload: path.join(__dirname, "../renderer/preload-voice.js"),
+      preload: path.join(__dirname, "../renderer/preload-dashboard.js"),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
     },
   });
-  voiceWin.setMenu(null);
-  voiceWin.loadFile(path.join(__dirname, "../renderer/voice-overlay.html"));
-  voiceWin.on("closed", () => { voiceWin = null; });
-}
+  dashWin.setMenu(null);
+  dashWin.loadFile(path.join(__dirname, "../renderer/dashboard.html"));
 
-function openChatWindow(): void {
-  if (chatWin) { chatWin.focus(); return; }
-  chatWin = new BrowserWindow({
-    width: 480,
-    height: 620,
-    title: "NEUROAXIS — Chat",
-    webPreferences: {
-      preload: path.join(__dirname, "../renderer/preload-chat.js"),
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: false,
-    },
+  // Push telemetry immediately when renderer finishes loading (no 3 s wait)
+  dashWin.webContents.once("did-finish-load", async () => {
+    try {
+      const t = await getDashboardTelemetry();
+      dashWin?.webContents.send("dash:telemetry", t);
+    } catch { /* best-effort */ }
   });
-  chatWin.setMenu(null);
-  chatWin.loadFile(path.join(__dirname, "../renderer/chat.html"));
-  chatWin.on("closed", () => { chatWin = null; });
+
+  // Hide to tray instead of destroying
+  dashWin.on("close", (e) => {
+    if (!appQuitting) { e.preventDefault(); dashWin?.hide(); }
+  });
+  dashWin.on("closed", () => { dashWin = null; });
 }
 
 function openConfigWindow(): void {
-  if (configWin) { configWin.focus(); return; }
+  if (configWin && !configWin.isDestroyed()) {
+    if (configWin.isMinimized()) configWin.restore();
+    configWin.show(); configWin.focus(); return;
+  }
   configWin = new BrowserWindow({
-    width: 440,
-    height: 320,
-    resizable: false,
-    title: "Configurar NEUROAXIS",
-    skipTaskbar: false,
+    width: 480, height: 580, resizable: false,
+    title: "Configurar NEUROAXIS", skipTaskbar: false,
     webPreferences: {
       preload: path.join(__dirname, "../renderer/preload-config.js"),
       contextIsolation: true,
@@ -92,11 +104,21 @@ function openConfigWindow(): void {
   configWin.on("closed", () => { configWin = null; });
 }
 
+let appQuitting = false;
+
 // ── speak queue ───────────────────────────────────────────────────────────────
 
 type SpeakItem = { text: string; resolve: () => void };
 const speakQueue: SpeakItem[] = [];
 let isSpeaking = false;
+let currentToken = 0;
+
+function interruptAll(): void {
+  currentToken++;
+  cancelSpeak();
+  speakQueue.length = 0;
+  isSpeaking = false;
+}
 
 function speak(text: string): Promise<void> {
   return new Promise((resolve) => {
@@ -109,110 +131,312 @@ async function drainSpeak(): Promise<void> {
   if (speakQueue.length === 0) { isSpeaking = false; return; }
   isSpeaking = true;
   const item = speakQueue.shift()!;
-  try {
-    const audio = await synthesize(item.text);
-    await playAudioInRenderer(audio);
-  } catch { /* best-effort — never crash on TTS failure */ }
+  try { await synthesize(item.text); } catch { /* best-effort */ }
   item.resolve();
   drainSpeak();
 }
 
-function playAudioInRenderer(audio: Buffer): Promise<void> {
-  return new Promise((resolve) => {
-    if (!recorderWin) { resolve(); return; }
-    const timeout = setTimeout(resolve, 60_000);
-    ipcMain.once("audio-playback-done", () => { clearTimeout(timeout); resolve(); });
-    recorderWin.webContents.send("play-audio", audio);
-  });
+// ── action label helper ───────────────────────────────────────────────────────
+
+function getActionLabel(action: BrainAction): string {
+  switch (action.action) {
+    case "open_app":       return `Abrindo ${action.app_name}…`;
+    case "close_app":      return `Fechando ${action.app_name}…`;
+    case "open_url":       return "Abrindo site…";
+    case "play_music":     return `Tocando ${action.query}…`;
+    case "volume_control": return "Ajustando volume…";
+    case "screenshot":     return "Capturando tela…";
+    case "system_info":    return "Consultando sistema…";
+    case "clipboard_read": return "Processando clipboard…";
+    case "run_preset":     return `Ativando ${action.preset_name}…`;
+    case "write_text":     return `Escrevendo ${action.description}…`;
+    case "create_file":    return "Criando arquivo…";
+    case "list_presets":   return "Listando presets…";
+    case "delete_preset":  return `Removendo ${action.preset_name}…`;
+    case "create_preset":  return `Criando preset ${action.preset_name}…`;
+    case "media_control":  return `Mídia: ${action.operation}…`;
+    case "window_management": return `Janela ${action.target_app}: ${action.operation}…`;
+    default:               return "Processando…";
+  }
+}
+
+function getActionsLabel(actions: BrainAction[]): string {
+  if (actions.length === 1) return getActionLabel(actions[0]);
+  return actions.map(a => getActionLabel(a).replace("…", "")).join(" + ") + "…";
+}
+
+// ── telemetry loop (every 3s) ─────────────────────────────────────────────────
+
+let _cpuHighCount  = 0;
+let _prevCpuPct    = 0;
+let _ramAlertedAt  = 0;
+const ANOM_COOLDOWN = 5 * 60_000; // 5 min between same-type RAM alerts
+
+function startTelemetryLoop(): void {
+  const tick = async () => {
+    try {
+      const t = await getDashboardTelemetry();
+      const now = Date.now();
+
+      // ── CPU sustained (≥95% for 2 consecutive ticks = ~6s) ──────────────
+      if (t.cpu_pct >= 95) {
+        _cpuHighCount++;
+        if (_cpuHighCount === 2) { // exactly 2 → log once, reset
+          logAnomaly({
+            type: "cpu_sustained",
+            value: t.cpu_pct,
+            topProcess: t.processes[0]?.name,
+            details: `CPU ${t.cpu_pct}% por ~6 s`,
+          });
+          _cpuHighCount = 0;
+        }
+      } else {
+        _cpuHighCount = 0;
+      }
+
+      // ── Spike: sudden jump >40 pp from a calm baseline ───────────────────
+      if (_prevCpuPct < 55 && t.cpu_pct - _prevCpuPct > 40) {
+        logAnomaly({
+          type: "spike",
+          value: t.cpu_pct,
+          topProcess: t.processes[0]?.name,
+          details: `Pico CPU: ${_prevCpuPct}% → ${t.cpu_pct}%`,
+        });
+      }
+      _prevCpuPct = t.cpu_pct;
+
+      // ── RAM high ─────────────────────────────────────────────────────────
+      if (t.ram_pct > 92 && now - _ramAlertedAt > ANOM_COOLDOWN) {
+        _ramAlertedAt = now;
+        logAnomaly({
+          type: "ram_high",
+          value: t.ram_pct,
+          topProcess: t.processes[0]?.name,
+          details: `RAM ${t.ram_pct}%`,
+        });
+      }
+
+      if (!dashWin || dashWin.isDestroyed() || !dashWin.isVisible()) return;
+      dashWin.webContents.send("dash:telemetry", t);
+    } catch { /* best-effort */ }
+  };
+  setInterval(() => { tick().catch(() => {}); }, 3_000);
 }
 
 // ── recording flow ────────────────────────────────────────────────────────────
 
 async function startListening(): Promise<void> {
-  if (!recorderWin) recorderWin = createRecorderWindow();
+  if (!recorderWin || recorderWin.isDestroyed()) {
+    recorderWin = createRecorderWindow();
+    await new Promise<void>((res) => recorderWin!.webContents.once("did-finish-load", res));
+  }
   state.set("listening");
   const cfg = getConfig();
   recorderWin.webContents.send("start-recording", {
-    silenceMs: cfg.silenceMs,
-    maxRecordMs: cfg.maxRecordMs,
+    silenceMs:    cfg.silenceMs,
+    maxRecordMs:  cfg.maxRecordMs,
   });
 }
 
 ipcMain.on("audio-data", async (_event, buffer: Buffer) => {
+  const token = ++currentToken;
   state.set("processing");
   try {
     const audio = new Uint8Array(buffer);
     const text  = await transcribe(audio);
-    if (!text) { state.set("idle"); return; }
+    if (currentToken !== token) return;
 
-    voiceWin?.webContents.send("voice:transcript", text);
+    if (!text) {
+      notify("NEUROAXIS", "Não entendi o áudio. Tente novamente.");
+      state.set("idle");
+      return;
+    }
 
-    const action = await decideBrain(text);
-    const reply  = await routeAction(action);
-    trackUsage(text, action);
+    dashWin?.webContents.send("voice:transcript", text);
 
-    voiceWin?.webContents.send("voice:reply", reply);
+    const actions = await decideBrain(text);
+    if (currentToken !== token) return;
+
+    const label = getActionsLabel(actions);
+    dashWin?.webContents.send("voice:action-label", label);
+    dashWin?.webContents.send("dash:action-log", { icon: "⚙️", text: label, ok: true });
+
+    const replies: string[] = [];
+    for (const action of actions) {
+      const reply = await routeAction(action);
+      trackUsage(text, action);
+      replies.push(reply);
+    }
+    updateLastCommand(text);
+    const combined = replies.filter(Boolean).join(" ");
+    notify("NEUROAXIS", combined);
+
+    dashWin?.webContents.send("voice:reply", combined);
     state.set("speaking");
-    await speak(reply);
+    await speak(combined);
   } catch (err) {
+    if (currentToken !== token) return;
     const msg = err instanceof NeuroaxisError ? err.spoken : "Tive um problema, mas já voltei ao normal.";
-    if (err instanceof NeuroaxisError) notify("NEUROAXIS", err.message);
-    voiceWin?.webContents.send("voice:error", msg);
+    if (err instanceof NeuroaxisError) notify("NEUROAXIS — Erro", err.message);
+    dashWin?.webContents.send("voice:error", msg);
     state.set("speaking");
     try { await speak(msg); } catch { /* ignore */ }
   } finally {
-    state.set("idle");
+    if (currentToken === token) state.set("idle");
   }
 });
 
 ipcMain.on("recorder-error", (_event, msg: string) => {
   notify("NEUROAXIS — Microfone", msg);
-  voiceWin?.webContents.send("voice:error", "Microfone indisponível. Verifique se está conectado.");
+  dashWin?.webContents.send("voice:error", "Microfone indisponível. Verifique se está conectado.");
   state.set("speaking");
   speak("Não consegui acessar o microfone.")
-    .catch(() => { })
+    .catch(() => {})
     .finally(() => state.set("idle"));
+});
+
+ipcMain.on("audio-level", (_event, level: number) => {
+  dashWin?.webContents.send("voice:audio-level", level);
 });
 
 // ── voice IPC ─────────────────────────────────────────────────────────────────
 
 ipcMain.on("voice:start", () => {
-  if (state.is("idle")) startListening();
+  if (!state.is("idle")) interruptAll();
+  startListening();
 });
 
 // ── chat IPC ──────────────────────────────────────────────────────────────────
 
 ipcMain.on("chat:send", async (_event, text: string) => {
-  if (!state.is("idle")) { chatWin?.webContents.send("chat:busy"); return; }
+  if (!state.is("idle")) { dashWin?.webContents.send("chat:busy"); return; }
   if (!hasApiKey()) {
-    chatWin?.webContents.send("chat:error", "API key não configurada.");
+    dashWin?.webContents.send("chat:error", "API key não configurada.");
     openConfigWindow();
     return;
   }
   state.set("processing");
   try {
-    const action = await decideBrain(text);
-    const reply  = await routeAction(action);
-    trackUsage(text, action);
-    chatWin?.webContents.send("chat:reply", reply);
+    const actions = await decideBrain(text);
+    const label = getActionsLabel(actions);
+    dashWin?.webContents.send("voice:action-label", label);
+    dashWin?.webContents.send("dash:action-log", { icon: "⚙️", text: label, ok: true });
+
+    const replies: string[] = [];
+    for (const action of actions) {
+      const reply = await routeAction(action);
+      trackUsage(text, action);
+      replies.push(reply);
+    }
+    updateLastCommand(text);
+    const combined = replies.filter(Boolean).join(" ");
+    notify("NEUROAXIS", combined);
+    dashWin?.webContents.send("chat:reply", combined);
     state.set("speaking");
-    await speak(reply);
+    await speak(combined);
   } catch (err) {
     const msg = err instanceof NeuroaxisError ? err.spoken : "Tive um problema, mas já voltei ao normal.";
-    chatWin?.webContents.send("chat:error", msg);
+    if (err instanceof NeuroaxisError) notify("NEUROAXIS — Erro", err.message);
+    dashWin?.webContents.send("chat:error", msg);
   } finally {
     state.set("idle");
   }
 });
 
-ipcMain.on("chat:clear", () => { clearHistory(); });
+ipcMain.on("chat:clear", () => {
+  clearHistory();
+  notify("NEUROAXIS", "Histórico apagado.");
+});
+
 ipcMain.handle("history:get", () => getTopHistory(8));
+
+// ── system IPC ────────────────────────────────────────────────────────────────
+
+ipcMain.on("tts:stop", () => {
+  interruptAll();
+  state.set("idle");
+});
+
+ipcMain.on("system:kill-process", async (_event, pid: number) => {
+  try { await killProcess(pid); } catch { /* best-effort */ }
+});
+
+ipcMain.on("media:direct", async (_event, op: string) => {
+  try {
+    const reply = await mediaControl(op as Parameters<typeof mediaControl>[0]);
+    dashWin?.webContents.send("dash:action-log", { icon: "🎵", text: reply, ok: true });
+  } catch { /* ignore */ }
+});
 
 // ── config IPC ────────────────────────────────────────────────────────────────
 
 ipcMain.handle("config:get-api-key", () => getApiKey());
-ipcMain.handle("config:set-api-key", (_e, key: string) => setApiKey(key));
+ipcMain.handle("config:set-api-key", (_e, key: string) => {
+  setApiKey(key);
+  notify("NEUROAXIS", "API key configurada! Pronto para usar.");
+});
 ipcMain.on("config:close", () => configWin?.close());
+ipcMain.on("config:open-window", () => openConfigWindow());
+
+ipcMain.handle("config:get-all", () => getConfig());
+ipcMain.handle("config:set-all", async (_e, patch: Partial<AppConfig>) => {
+  const prev = getConfig();
+  setOverride(patch);
+
+  if (patch.shortcut && patch.shortcut !== prev.shortcut) {
+    globalShortcut.unregisterAll();
+    const ok = globalShortcut.register(patch.shortcut, handleShortcut);
+    if (!ok) notify("NEUROAXIS — Aviso", `Atalho "${patch.shortcut}" não pôde ser registrado.`);
+  }
+
+  if (patch.autoLaunch !== undefined && patch.autoLaunch !== prev.autoLaunch) {
+    try {
+      const autoLauncher = new AutoLaunch({ name: "NEUROAXIS", isHidden: true });
+      if (patch.autoLaunch) await autoLauncher.enable();
+      else await autoLauncher.disable();
+    } catch { /* best-effort */ }
+  }
+
+  notify("NEUROAXIS", "Configurações salvas.");
+});
+
+ipcMain.handle("config:reset-defaults", () => {
+  setOverride({
+    shortcut: "Control+Shift+J",
+    autoLaunch: true,
+    silenceMs: 2500,
+    maxRecordMs: 120000,
+    sttModel: "whisper-large-v3",
+    brainModel: "llama-3.3-70b-versatile",
+    chatHistoryTurns: 6,
+    chatIdleResetMs: 300000,
+  });
+  notify("NEUROAXIS", "Configurações restauradas para os padrões.");
+});
+
+ipcMain.handle("presets:get", () => getAllPresets());
+
+ipcMain.handle("telemetry:get-history",  () => getAnomalyHistory());
+ipcMain.handle("telemetry:get-insights", () => getInsights());
+
+// ── shortcut handler ──────────────────────────────────────────────────────────
+
+function handleShortcut(): void {
+  if (!hasApiKey()) { openConfigWindow(); return; }
+  if (!state.is("idle")) {
+    interruptAll();
+    state.set("idle");
+  }
+  openDashboard();
+  if (!dashWin!.isVisible()) dashWin!.show();
+  dashWin!.focus();
+  const trigger = () => startListening();
+  if (dashWin!.webContents.isLoading()) {
+    dashWin!.webContents.once("did-finish-load", trigger);
+  } else {
+    trigger();
+  }
+}
 
 // ── app lifecycle ─────────────────────────────────────────────────────────────
 
@@ -220,27 +444,41 @@ if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
   app.on("second-instance", () => {
-    const win = voiceWin ?? chatWin ?? configWin;
-    win?.restore();
-    win?.focus();
+    openDashboard();
   });
 }
 
 app.on("ready", async () => {
   if (process.platform === "win32") app.setAppUserModelId("com.zak.neuroaxis");
 
-  const quit = () => { globalShortcut.unregisterAll(); app.exit(0); };
+  const quit = () => {
+    appQuitting = true;
+    globalShortcut.unregisterAll();
+    app.exit(0);
+  };
 
-  createTray(quit, openConfigWindow, openChatWindow, openVoiceWindow);
+  createTray(
+    quit,
+    openConfigWindow,
+    openDashboard,
+    () => { openDashboard(); startListening(); },
+    (text) => { openDashboard(); ipcMain.emit("chat:send", null, text); },
+  );
+
   state.on("change", (s) => {
     refreshTray(s);
-    voiceWin?.webContents.send("voice:state", s);
+    dashWin?.webContents.send("voice:state", s);
   });
 
   recorderWin = createRecorderWindow();
 
-  // Auto-launch sync
+  const serverToken = getOrCreateServerToken();
   const cfg = getConfig();
+  startServer(serverToken, processCommand, cfg.serverPort ?? 4200);
+
+  startMonitor(notify);
+  startTelemetryLoop();
+
   const autoLauncher = new AutoLaunch({ name: "NEUROAXIS", isHidden: true });
   try {
     const enabled = await autoLauncher.isEnabled();
@@ -248,24 +486,13 @@ app.on("ready", async () => {
     else if (!cfg.autoLaunch && enabled) await autoLauncher.disable();
   } catch { /* best-effort */ }
 
-  // API key check
   if (!hasApiKey()) openConfigWindow();
 
-  // Global shortcut → open voice window then start listening
-  const ok = globalShortcut.register(cfg.shortcut, () => {
-    if (!state.is("idle")) return;
-    if (!hasApiKey()) { openConfigWindow(); return; }
-    if (!voiceWin) {
-      openVoiceWindow();
-      voiceWin!.webContents.once("did-finish-load", () => startListening());
-    } else {
-      startListening();
-    }
-  });
-  if (!ok) notify("NEUROAXIS", `Atalho ${cfg.shortcut} não pôde ser registrado. Tente via bandeja.`);
+  const ok = globalShortcut.register(cfg.shortcut, handleShortcut);
+  if (!ok) notify("NEUROAXIS — Aviso", `Atalho ${cfg.shortcut} não pôde ser registrado. Tente via bandeja.`);
 
   notify("NEUROAXIS", "Pronto! Pressione Ctrl+Shift+J para falar.");
+  speak("Oi! O que faremos hoje?").catch(() => { /* best-effort */ });
 });
 
-// Keep alive in tray — never quit on window-all-closed
 app.on("window-all-closed", () => { /* intentional no-op */ });

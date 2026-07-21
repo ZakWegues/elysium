@@ -1,0 +1,1703 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>NEUROAXIS</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:        #0d0d1a;
+  --surface:   #1a1a2e;
+  --surface2:  #12122a;
+  --purple:    #7b5ea7;
+  --purple-bright: #9d7fd4;
+  --cyan:      #4ecdc4;
+  --cyan-dark: #38a89d;
+  --red:       #e05252;
+  --green:     #3ecf8e;
+  --yellow:    #f0c040;
+  --border:    rgba(125,94,167,0.22);
+  --border2:   rgba(78,205,196,0.15);
+  --text:      #e8eaf0;
+  --muted:     #5a5d7a;
+  --mono:      "Consolas", "Cascadia Code", monospace;
+}
+html, body { height: 100vh; overflow: hidden; background: var(--bg); color: var(--text); font-family: "Segoe UI", system-ui, sans-serif; font-size: 13px; }
+
+/* ── TOPBAR ─────────────────────────────────────────────── */
+#topbar {
+  display: flex; align-items: center; gap: 10px;
+  height: 42px; padding: 0 14px;
+  background: rgba(26,26,46,0.9);
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(12px);
+  -webkit-app-region: drag;
+  flex-shrink: 0;
+}
+.logo { display: flex; align-items: center; gap: 7px; }
+.logo-badge {
+  width: 24px; height: 24px; border-radius: 7px;
+  background: linear-gradient(135deg, var(--purple), var(--cyan-dark));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 800; color: #fff;
+  box-shadow: 0 0 8px rgba(123,94,167,0.6);
+}
+.logo-text { font-size: 12px; font-weight: 700; letter-spacing: 0.12em; color: var(--purple-bright); }
+#status-badge {
+  margin-left: 8px; padding: 2px 9px; border-radius: 20px;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  background: rgba(123,94,167,0.15); border: 1px solid rgba(123,94,167,0.3); color: var(--muted);
+  transition: all 0.3s;
+}
+#status-badge.listening  { background: rgba(123,94,167,0.3); border-color: var(--purple); color: var(--purple-bright); }
+#status-badge.processing { background: rgba(78,205,196,0.2); border-color: var(--cyan); color: var(--cyan); }
+#status-badge.speaking   { background: rgba(62,207,142,0.2); border-color: var(--green); color: var(--green); }
+#status-badge.error      { background: rgba(224,82,82,0.2);  border-color: var(--red);   color: var(--red); }
+.topbar-space { flex: 1; }
+.top-btn {
+  -webkit-app-region: no-drag;
+  width: 26px; height: 26px; border-radius: 7px; border: none;
+  background: rgba(255,255,255,0.04); color: var(--muted); cursor: pointer;
+  display: flex; align-items: center; justify-content: center; font-size: 14px;
+  transition: background 0.2s, color 0.2s;
+}
+.top-btn:hover { background: rgba(224,82,82,0.18); color: #f07070; }
+.top-btn.min:hover { background: rgba(255,255,255,0.08); color: var(--text); }
+
+/* ── MAIN LAYOUT ─────────────────────────────────────────── */
+#layout {
+  display: flex; height: calc(100vh - 42px);
+  overflow: hidden;
+  position: relative;
+}
+
+/* ── TOPBAR DRAWER TOGGLES ──────────────────────────────── */
+.top-btn.drawer-toggle.active { background: rgba(123,94,167,0.28); color: var(--purple-bright); }
+
+/* ── DRAWER BACKDROP ─────────────────────────────────────── */
+#drawer-backdrop {
+  display: none; position: absolute; inset: 0; z-index: 400;
+  background: rgba(0,0,0,0.4);
+}
+#drawer-backdrop.show { display: block; }
+
+/* ── LEFT DRAWER (sistema) ──────────────────────────────── */
+#drawer-left {
+  position: absolute; top: 0; bottom: 0; left: 0; z-index: 500;
+  width: 272px; flex-shrink: 0;
+  background: var(--surface2);
+  border-right: 1px solid var(--border);
+  overflow-y: auto; overflow-x: hidden;
+  padding: 10px 10px 16px;
+  scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+  transform: translateX(-100%);
+  transition: transform 0.22s ease;
+  box-shadow: 12px 0 32px rgba(0,0,0,0.35);
+}
+#drawer-left.open { transform: translateX(0); }
+#drawer-left::-webkit-scrollbar { width: 4px; }
+#drawer-left::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+.section-label {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--muted); margin: 10px 0 5px; padding-left: 2px;
+}
+
+/* Charts */
+.chart-wrap {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; padding: 8px; margin-bottom: 6px;
+}
+.chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.chart-label { font-size: 10px; font-weight: 600; color: var(--muted); }
+.chart-val   { font-family: var(--mono); font-size: 11px; font-weight: 700; }
+.chart-val.purple { color: var(--purple-bright); }
+.chart-val.cyan   { color: var(--cyan); }
+canvas.spark { width: 100%; height: 44px; display: block; border-radius: 4px; }
+
+/* Temp */
+#temp-row {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; padding: 7px 10px; margin-bottom: 6px;
+}
+.temp-icon { font-size: 14px; }
+.temp-label { font-size: 10px; color: var(--muted); flex: 1; }
+#temp-val { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--cyan); }
+
+/* Battery */
+#bat-row {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; padding: 7px 10px; margin-bottom: 6px;
+}
+.bat-icon { font-size: 14px; }
+.bat-label { font-size: 10px; color: var(--muted); flex: 1; }
+#bat-val { font-family: var(--mono); font-size: 12px; font-weight: 700; }
+.bat-bar-track {
+  height: 4px; background: rgba(255,255,255,0.08); border-radius: 4px; margin-top: 4px;
+}
+.bat-bar-fill { height: 100%; border-radius: 4px; transition: width 0.5s, background 0.5s; }
+
+/* Disks */
+#disks-wrap { margin-bottom: 6px; }
+.disk-card {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 7px; padding: 6px 9px; margin-bottom: 4px;
+}
+.disk-letter { font-family: var(--mono); font-size: 11px; font-weight: 700; color: var(--cyan); min-width: 18px; }
+.disk-info { flex: 1; min-width: 0; }
+.disk-bar-track { height: 3px; background: rgba(255,255,255,0.07); border-radius: 3px; margin-top: 3px; }
+.disk-bar-fill  { height: 100%; border-radius: 3px; transition: width 0.5s, background 0.5s; }
+.disk-nums { font-size: 10px; color: var(--muted); font-family: var(--mono); white-space: nowrap; }
+
+/* Processes */
+#proc-table { width: 100%; border-collapse: collapse; }
+#proc-table th {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.08em; color: var(--muted);
+  text-align: left; padding: 3px 4px; border-bottom: 1px solid var(--border);
+}
+#proc-table td { font-family: var(--mono); font-size: 10px; padding: 4px 4px; vertical-align: middle; }
+.proc-name { color: var(--text); max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
+.proc-cpu  { color: var(--purple-bright); text-align: right; }
+.proc-ram  { color: var(--cyan); text-align: right; }
+.kill-btn {
+  background: rgba(224,82,82,0.12); border: 1px solid rgba(224,82,82,0.25);
+  color: var(--red); border-radius: 4px; cursor: pointer; width: 18px; height: 18px;
+  font-size: 9px; display: flex; align-items: center; justify-content: center;
+  transition: background 0.2s; padding: 0;
+}
+.kill-btn:hover { background: rgba(224,82,82,0.3); }
+.proc-row.dying { opacity: 0; transition: opacity 0.5s; }
+
+/* ── CENTER ──────────────────────────────────────────────── */
+#center {
+  flex: 1; display: flex; flex-direction: column; min-width: 0;
+  background: var(--bg);
+}
+
+/* Timeline */
+#timeline {
+  flex: 1; overflow-y: auto; padding: 12px 16px;
+  scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+  display: flex; flex-direction: column; gap: 8px;
+}
+#timeline::-webkit-scrollbar { width: 4px; }
+#timeline::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+.bubble {
+  max-width: 82%; padding: 9px 13px; border-radius: 12px; line-height: 1.55;
+  animation: pop-in 0.18s ease-out;
+}
+@keyframes pop-in { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+.bubble.user {
+  align-self: flex-end;
+  background: rgba(123,94,167,0.18); border: 1px solid rgba(123,94,167,0.35);
+  color: #c4b5fd; border-bottom-right-radius: 3px;
+}
+.bubble.assistant {
+  align-self: flex-start;
+  background: var(--surface); border: 1px solid var(--border2);
+  color: var(--text); border-bottom-left-radius: 3px;
+}
+.bubble.system {
+  align-self: center; font-size: 11px;
+  background: rgba(78,205,196,0.08); border: 1px solid rgba(78,205,196,0.2);
+  color: var(--cyan-dark); border-radius: 6px; padding: 5px 12px;
+}
+.bubble.error {
+  align-self: center; font-size: 11px;
+  background: rgba(224,82,82,0.1); border: 1px solid rgba(224,82,82,0.25);
+  color: #f08080; border-radius: 6px; padding: 5px 12px;
+}
+.log-card {
+  align-self: flex-start; display: flex; align-items: center; gap: 8px;
+  background: rgba(26,26,46,0.7); border: 1px solid rgba(123,94,167,0.15);
+  border-left: 2px solid var(--purple); border-radius: 6px; padding: 5px 10px;
+  font-size: 11px; color: var(--muted); font-family: var(--mono);
+}
+.log-card .log-icon { font-size: 12px; }
+.log-card .log-ok   { color: var(--green); margin-left: auto; font-size: 10px; }
+.log-card .log-err  { color: var(--red); margin-left: auto; font-size: 10px; }
+
+/* Markdown in bubbles */
+.bubble p  { margin: 0 0 6px; }
+.bubble p:last-child { margin-bottom: 0; }
+.bubble ul, .bubble ol { padding-left: 18px; margin: 4px 0; }
+.bubble li  { margin: 2px 0; }
+.bubble strong { color: #d0bcff; font-weight: 700; }
+.bubble em     { color: #a5f3fc; font-style: italic; }
+.bubble code   { font-family: var(--mono); font-size: 11px; background: rgba(0,0,0,0.35); padding: 1px 5px; border-radius: 4px; color: #86efac; }
+.bubble pre    { background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.06); border-radius: 6px; padding: 8px 10px; overflow-x: auto; margin: 6px 0; }
+.bubble pre code { background: none; padding: 0; color: var(--text); }
+.kw  { color: #c792ea; }
+.str { color: #c3e88d; }
+.num { color: #f78c6c; }
+.cmt { color: #546e7a; font-style: italic; }
+
+/* Stop TTS kill switch */
+#stop-zone {
+  display: none; justify-content: center; align-items: center;
+  padding: 8px 0 4px;
+}
+#stop-btn {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 22px; border-radius: 10px; cursor: pointer;
+  background: rgba(224,82,82,0.12); border: 1px solid rgba(224,82,82,0.5);
+  color: var(--red); font-size: 12px; font-weight: 700; letter-spacing: 0.04em;
+  animation: pulse-red 1.5s ease-in-out infinite;
+  transition: background 0.15s, box-shadow 0.15s;
+}
+#stop-btn:hover {
+  background: rgba(224,82,82,0.28);
+  box-shadow: 0 0 28px rgba(224,82,82,0.5);
+}
+@keyframes pulse-red {
+  0%, 100% { box-shadow: 0 0 8px  rgba(224,82,82,0.22); }
+  50%       { box-shadow: 0 0 20px rgba(224,82,82,0.52); }
+}
+
+/* Voice input bar */
+#input-bar {
+  border-top: 1px solid var(--border); padding: 10px 12px;
+  background: var(--surface2);
+}
+#voice-zone {
+  display: none; flex-direction: column; align-items: center; gap: 6px;
+  padding: 10px 0 4px;
+}
+#voice-zone.active { display: flex; }
+#wave-status { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--purple-bright); }
+#bars-row { display: flex; align-items: flex-end; gap: 5px; height: 40px; }
+.vbar { width: 5px; border-radius: 4px; background: var(--purple-bright); filter: drop-shadow(0 0 5px var(--purple)); transition: filter 0.3s, background 0.3s; }
+.state-processing .vbar { background: var(--cyan); filter: drop-shadow(0 0 5px var(--cyan)); }
+
+#text-zone { display: flex; gap: 8px; align-items: center; }
+#text-zone.hidden { display: none; }
+#cmd-input {
+  flex: 1; background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+  border-radius: 8px; padding: 8px 12px; color: var(--text); font-size: 13px; outline: none;
+  transition: border-color 0.2s;
+}
+#cmd-input:focus { border-color: var(--purple); }
+#cmd-input::placeholder { color: var(--muted); }
+.send-btn {
+  width: 34px; height: 34px; border-radius: 8px; border: none; cursor: pointer;
+  background: rgba(123,94,167,0.25); color: var(--purple-bright);
+  display: flex; align-items: center; justify-content: center; font-size: 15px;
+  transition: background 0.2s;
+}
+.send-btn:hover { background: rgba(123,94,167,0.45); }
+.mic-btn {
+  width: 34px; height: 34px; border-radius: 8px; border: none; cursor: pointer;
+  background: rgba(123,94,167,0.15); color: var(--muted);
+  display: flex; align-items: center; justify-content: center; font-size: 15px;
+  transition: background 0.2s, color 0.2s;
+}
+.mic-btn:hover, .mic-btn.active { background: rgba(123,94,167,0.35); color: var(--purple-bright); }
+
+/* ── RIGHT DRAWER (config/presets/mídia/personalização) ─── */
+#drawer-right {
+  position: absolute; top: 0; bottom: 0; right: 0; z-index: 500;
+  width: 262px; flex-shrink: 0;
+  background: var(--surface2);
+  border-left: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  transform: translateX(100%);
+  transition: transform 0.22s ease;
+  box-shadow: -12px 0 32px rgba(0,0,0,0.35);
+}
+#drawer-right.open { transform: translateX(0); }
+
+#rtabs {
+  display: flex; flex-shrink: 0;
+  border-bottom: 1px solid var(--border);
+  background: rgba(13,13,26,0.5);
+}
+.rtab-btn {
+  flex: 1; padding: 9px 4px; background: none; border: none; cursor: pointer;
+  color: var(--muted); font-size: 15px;
+  border-bottom: 2px solid transparent;
+  transition: color 0.2s, border-color 0.2s, background 0.2s;
+}
+.rtab-btn:hover { background: rgba(255,255,255,0.03); color: var(--text); }
+.rtab-btn.active { color: var(--purple-bright); border-bottom-color: var(--purple); background: rgba(123,94,167,0.08); }
+
+#rtab-panels {
+  flex: 1; overflow-y: auto; overflow-x: hidden;
+  padding: 10px 10px 16px;
+  scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+}
+#rtab-panels::-webkit-scrollbar { width: 4px; }
+#rtab-panels::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+.rtab-panel { display: none; }
+.rtab-panel.active { display: block; }
+
+#open-config-btn {
+  width: 100%; padding: 9px; border-radius: 8px; border: none; cursor: pointer;
+  background: rgba(123,94,167,0.22); color: var(--purple-bright);
+  font-size: 12px; font-weight: 700; margin-bottom: 10px;
+  transition: background 0.2s;
+}
+#open-config-btn:hover { background: rgba(123,94,167,0.4); }
+
+/* Media */
+#media-card {
+  background: var(--surface); border: 1px solid var(--border2);
+  border-radius: 10px; padding: 12px; margin-bottom: 8px;
+  text-align: center;
+}
+#media-title { font-size: 11px; color: var(--muted); margin-bottom: 8px; }
+#media-controls { display: flex; justify-content: center; gap: 10px; }
+.media-btn {
+  width: 36px; height: 36px; border-radius: 9px; border: none; cursor: pointer;
+  background: rgba(78,205,196,0.12); color: var(--cyan);
+  display: flex; align-items: center; justify-content: center; font-size: 16px;
+  transition: background 0.2s, box-shadow 0.2s;
+}
+.media-btn:hover { background: rgba(78,205,196,0.28); box-shadow: 0 0 10px rgba(78,205,196,0.3); }
+
+/* Presets */
+#presets-grid { display: flex; flex-direction: column; gap: 5px; margin-bottom: 8px; }
+.preset-card {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; padding: 8px 10px; cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+.preset-card:hover { border-color: var(--purple); background: rgba(123,94,167,0.1); }
+.preset-icon { font-size: 14px; }
+.preset-name { font-size: 11px; font-weight: 600; }
+
+/* Quick commands */
+#quick-wrap { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
+.quick-pill {
+  padding: 4px 8px; border-radius: 20px; font-size: 10px; cursor: pointer;
+  background: rgba(123,94,167,0.1); border: 1px solid rgba(123,94,167,0.25); color: var(--purple-bright);
+  transition: background 0.2s; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis;
+}
+.quick-pill:hover { background: rgba(123,94,167,0.25); }
+
+/* Config shortcut */
+#shortcut-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 9px; padding: 10px;
+}
+#shortcut-card .sc-label { font-size: 9px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+#shortcut-input {
+  width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--border);
+  border-radius: 6px; padding: 6px 9px; color: var(--cyan);
+  font-family: var(--mono); font-size: 11px; cursor: pointer; outline: none;
+  text-align: center; transition: border-color 0.2s;
+}
+#shortcut-input:focus { border-color: var(--cyan); }
+#shortcut-hint { font-size: 9px; color: var(--muted); text-align: center; margin-top: 4px; }
+
+/* API key */
+#apikey-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 9px; padding: 10px; margin-top: 6px;
+}
+#apikey-card .sc-label { font-size: 9px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+#apikey-input {
+  width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--border);
+  border-radius: 6px; padding: 6px 9px; color: var(--text);
+  font-family: var(--mono); font-size: 10px; outline: none;
+  transition: border-color 0.2s;
+}
+#apikey-input:focus { border-color: var(--purple); }
+#apikey-input::placeholder { color: var(--muted); }
+.save-btn {
+  width: 100%; margin-top: 5px; padding: 5px; border-radius: 6px; border: none; cursor: pointer;
+  background: rgba(123,94,167,0.25); color: var(--purple-bright); font-size: 11px; font-weight: 600;
+  transition: background 0.2s;
+}
+.save-btn:hover { background: rgba(123,94,167,0.45); }
+
+/* ── PROCESS EXPAND BUTTON ──────────────────────────────── */
+.proc-expand-btn {
+  float: right; background: none; border: 1px solid rgba(123,94,167,0.3);
+  border-radius: 4px; color: var(--purple-bright); font-size: 9px;
+  padding: 1px 6px; cursor: pointer; font-weight: 700; letter-spacing: 0.06em;
+  transition: background 0.2s;
+}
+.proc-expand-btn:hover { background: rgba(123,94,167,0.2); }
+
+/* ── STABILITY TIMELINE ─────────────────────────────────── */
+#stability-wrap {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; overflow: hidden; margin-bottom: 6px;
+}
+#stability-canvas { display: block; width: 100%; height: 50px; }
+#stability-legend {
+  display: flex; gap: 8px; justify-content: center;
+  padding: 3px 0 5px; font-size: 9px; font-weight: 600;
+}
+.sl-cpu   { color: var(--purple-bright); }
+.sl-ram   { color: var(--cyan); }
+.sl-spike { color: var(--yellow); }
+
+/* ── INSIGHTS PANEL ─────────────────────────────────────── */
+#insights-card {
+  background: var(--surface); border: 1px solid rgba(78,205,196,0.2);
+  border-radius: 9px; padding: 10px; margin-top: 6px;
+}
+#insights-card .sc-label { font-size: 9px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+.insight-item {
+  display: flex; align-items: flex-start; gap: 6px;
+  background: rgba(78,205,196,0.05); border: 1px solid rgba(78,205,196,0.12);
+  border-radius: 6px; padding: 6px 8px; margin-bottom: 4px;
+  font-size: 10px; color: var(--text); line-height: 1.45;
+}
+.insight-item:last-child { margin-bottom: 0; }
+.insight-icon { font-size: 12px; flex-shrink: 0; margin-top: 1px; }
+#insights-empty { font-size: 10px; color: var(--muted); text-align: center; padding: 8px 0; }
+
+/* ── PROCESS MODAL ──────────────────────────────────────── */
+#proc-modal {
+  display: none; position: fixed; inset: 0; z-index: 1000;
+  background: rgba(0,0,0,0.72); backdrop-filter: blur(6px);
+  align-items: center; justify-content: center;
+}
+#proc-modal.open { display: flex; }
+.modal-box {
+  width: 720px; max-width: calc(100vw - 40px); max-height: calc(100vh - 60px);
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 14px; display: flex; flex-direction: column;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.6);
+  overflow: hidden;
+}
+.modal-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 16px; border-bottom: 1px solid var(--border);
+  background: rgba(26,26,46,0.8); flex-shrink: 0;
+}
+.modal-title { font-size: 12px; font-weight: 700; color: var(--text); flex: 1; }
+#proc-search {
+  background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+  border-radius: 6px; padding: 4px 9px; color: var(--text);
+  font-size: 11px; outline: none; width: 140px; transition: border-color 0.2s;
+}
+#proc-search:focus { border-color: var(--purple); }
+#proc-search::placeholder { color: var(--muted); }
+.sort-btn {
+  padding: 4px 9px; border-radius: 6px; border: 1px solid var(--border);
+  background: rgba(255,255,255,0.03); color: var(--muted); font-size: 10px;
+  cursor: pointer; font-weight: 600; transition: all 0.2s; white-space: nowrap;
+}
+.sort-btn.active   { background: rgba(123,94,167,0.25); border-color: var(--purple); color: var(--purple-bright); }
+.sort-btn:hover:not(.active) { background: rgba(255,255,255,0.06); color: var(--text); }
+#proc-modal-close {
+  background: rgba(224,82,82,0.12); border: 1px solid rgba(224,82,82,0.25);
+  color: var(--red); border-radius: 7px; padding: 4px 10px; cursor: pointer;
+  font-size: 12px; font-weight: 700; transition: background 0.2s;
+}
+#proc-modal-close:hover { background: rgba(224,82,82,0.3); }
+.modal-body {
+  flex: 1; overflow-y: auto; overflow-x: hidden;
+  scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+}
+.modal-body::-webkit-scrollbar { width: 5px; }
+.modal-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+#proc-modal-table { width: 100%; border-collapse: collapse; }
+#proc-modal-table th {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.08em; color: var(--muted);
+  text-align: left; padding: 6px 12px; border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; background: var(--surface2); z-index: 1;
+}
+#proc-modal-table td { font-family: var(--mono); font-size: 11px; padding: 6px 12px; border-bottom: 1px solid rgba(123,94,167,0.07); vertical-align: middle; }
+#proc-modal-table tr:last-child td { border-bottom: none; }
+#proc-modal-table tr:hover td { background: rgba(123,94,167,0.05); }
+.sys-badge {
+  display: inline-block; font-size: 8px; padding: 1px 5px; border-radius: 3px;
+  background: rgba(90,93,122,0.2); color: var(--muted); font-family: var(--mono);
+  letter-spacing: 0.05em; font-weight: 600; vertical-align: middle; margin-left: 4px;
+}
+.user-badge {
+  display: inline-block; font-size: 8px; padding: 1px 5px; border-radius: 3px;
+  background: rgba(78,205,196,0.1); color: var(--cyan-dark); font-family: var(--mono);
+  letter-spacing: 0.05em; font-weight: 600; vertical-align: middle; margin-left: 4px;
+}
+
+#drawer-left .widget.widget-hidden { display: none; }
+
+/* ── PERSONALIZAÇÃO: temas + reorder de widgets ─────────── */
+#theme-swatches { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+.theme-swatch {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; padding: 7px 9px; cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+.theme-swatch:hover { border-color: var(--purple); }
+.theme-swatch.active { border-color: var(--purple-bright); background: rgba(123,94,167,0.14); }
+.theme-dots { display: flex; gap: 3px; }
+.theme-dot { width: 12px; height: 12px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.15); }
+.theme-swatch-name { font-size: 11px; font-weight: 600; }
+
+#widget-order-list { display: flex; flex-direction: column; gap: 5px; }
+.widget-order-row {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 7px; padding: 6px 8px;
+}
+.widget-order-row.hidden-widget { opacity: 0.45; }
+.widget-order-name { flex: 1; font-size: 11px; }
+.widget-order-btn {
+  width: 20px; height: 20px; border-radius: 5px; border: none; cursor: pointer;
+  background: rgba(255,255,255,0.05); color: var(--muted); font-size: 10px;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.2s, color 0.2s;
+}
+.widget-order-btn:hover:not(:disabled) { background: rgba(123,94,167,0.25); color: var(--purple-bright); }
+.widget-order-btn:disabled { opacity: 0.3; cursor: default; }
+.widget-order-toggle { width: 15px; height: 15px; cursor: pointer; accent-color: var(--purple); }
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div id="topbar">
+  <div class="logo">
+    <div class="logo-badge">NA</div>
+    <span class="logo-text">NEUROAXIS</span>
+  </div>
+  <button class="top-btn drawer-toggle" id="btnDrawerLeft" title="Sistema (tarefas, armazenamento, desempenho)">&#x2630;</button>
+  <div id="status-badge" class="idle">OCIOSO</div>
+  <div class="topbar-space"></div>
+  <button class="top-btn drawer-toggle" id="btnDrawerRight" title="Configurações, presets, mídia, personalização">&#x2699;</button>
+  <button class="top-btn min" id="btnMin" title="Minimizar">&#x2212;</button>
+  <button class="top-btn"     id="btnClose" title="Fechar">&#x2715;</button>
+</div>
+
+<!-- MAIN LAYOUT -->
+<div id="layout">
+
+  <div id="drawer-backdrop"></div>
+
+  <!-- LEFT DRAWER: sistema -->
+  <div id="drawer-left">
+    <div class="widget" id="widget-perf">
+      <div class="section-label">CPU</div>
+      <div class="chart-wrap">
+        <div class="chart-header">
+          <span class="chart-label">Processador</span>
+          <span class="chart-val purple" id="cpu-val">0%</span>
+        </div>
+        <canvas class="spark" id="cpu-canvas" width="220" height="44"></canvas>
+      </div>
+
+      <div class="section-label">RAM</div>
+      <div class="chart-wrap">
+        <div class="chart-header">
+          <span class="chart-label">Memória</span>
+          <span class="chart-val cyan" id="ram-val">0%</span>
+        </div>
+        <canvas class="spark" id="ram-canvas" width="220" height="44"></canvas>
+      </div>
+
+      <div class="section-label">TEMPERATURA</div>
+      <div id="temp-row">
+        <span class="temp-icon">🌡️</span>
+        <span class="temp-label">CPU Temp</span>
+        <span id="temp-val">—</span>
+      </div>
+
+      <div class="section-label">BATERIA</div>
+      <div id="bat-row">
+        <span class="bat-icon" id="bat-icon">🔋</span>
+        <div style="flex:1">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <span class="bat-label" id="bat-label">Bateria</span>
+            <span id="bat-val" style="font-family:var(--mono);font-size:12px;font-weight:700">—</span>
+          </div>
+          <div class="bat-bar-track" style="margin-top:4px">
+            <div class="bat-bar-fill" id="bat-fill" style="width:0%;background:var(--green)"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-label">ESTABILIDADE 24 H</div>
+      <div id="stability-wrap">
+        <canvas id="stability-canvas" width="236" height="50"></canvas>
+        <div id="stability-legend">
+          <span class="sl-cpu">■ CPU</span>
+          <span class="sl-ram">■ RAM</span>
+          <span class="sl-spike">■ Pico</span>
+        </div>
+      </div>
+    </div><!-- /widget-perf -->
+
+    <div class="widget" id="widget-storage">
+      <div class="section-label">ARMAZENAMENTO</div>
+      <div id="disks-wrap"></div>
+    </div><!-- /widget-storage -->
+
+    <div class="widget" id="widget-taskmgr">
+      <div class="section-label">PROCESSOS <button class="proc-expand-btn" id="proc-expand-btn">Ver tudo →</button></div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-bottom:6px">
+        <table id="proc-table">
+          <thead>
+            <tr>
+              <th style="width:84px">Processo</th>
+              <th style="text-align:right">CPU</th>
+              <th style="text-align:right">RAM</th>
+            </tr>
+          </thead>
+          <tbody id="proc-body"></tbody>
+        </table>
+      </div>
+    </div><!-- /widget-taskmgr -->
+  </div><!-- /drawer-left -->
+
+  <!-- CENTER -->
+  <div id="center">
+    <div id="timeline" role="log" aria-live="polite"></div>
+
+    <div id="input-bar">
+      <!-- Stop TTS kill switch (visible only during speaking) -->
+      <div id="stop-zone">
+        <button id="stop-btn" title="Esc para interromper">🛑 Interromper Voz</button>
+      </div>
+      <!-- Waveform zone (visible when listening/processing) -->
+      <div id="voice-zone">
+        <div id="wave-status">Ouvindo…</div>
+        <div id="bars-row">
+          <div class="vbar" id="b0"></div><div class="vbar" id="b1"></div>
+          <div class="vbar" id="b2"></div><div class="vbar" id="b3"></div>
+          <div class="vbar" id="b4"></div><div class="vbar" id="b5"></div>
+          <div class="vbar" id="b6"></div><div class="vbar" id="b7"></div>
+          <div class="vbar" id="b8"></div>
+        </div>
+      </div>
+      <!-- Text input -->
+      <div id="text-zone">
+        <input id="cmd-input" type="text" placeholder="Digite um comando ou pergunta…" autocomplete="off">
+        <button class="mic-btn" id="mic-btn" title="Ativar voz (Ctrl+Shift+J)">🎤</button>
+        <button class="send-btn" id="send-btn" title="Enviar">&#x2191;</button>
+      </div>
+    </div>
+  </div><!-- /center -->
+
+  <!-- RIGHT DRAWER: configurações / presets / mídia / personalização -->
+  <div id="drawer-right">
+    <div id="rtabs">
+      <button class="rtab-btn active" data-tab="config"        title="Configurações">&#x2699;</button>
+      <button class="rtab-btn"        data-tab="presets"       title="Presets">&#x1F3AE;</button>
+      <button class="rtab-btn"        data-tab="media"         title="Mídia">&#x1F3B5;</button>
+      <button class="rtab-btn"        data-tab="personalizacao" title="Personalização">&#x1F3A8;</button>
+    </div>
+    <div id="rtab-panels">
+
+      <!-- CONFIGURAÇÕES -->
+      <div class="rtab-panel active" id="tab-config">
+        <button id="open-config-btn">Abrir configurações completas</button>
+
+        <div class="section-label">ATALHO GLOBAL</div>
+        <div id="shortcut-card">
+          <div class="sc-label">Tecla de ativação</div>
+          <input id="shortcut-input" readonly placeholder="Ctrl+Shift+J" title="Clique e pressione o novo atalho">
+          <div id="shortcut-hint">Clique e pressione a combinação</div>
+        </div>
+
+        <div class="section-label">API KEY</div>
+        <div id="apikey-card">
+          <div class="sc-label">Groq API Key</div>
+          <input id="apikey-input" type="password" placeholder="gsk_…" autocomplete="off">
+          <button class="save-btn" id="apikey-save">Salvar</button>
+        </div>
+
+        <div class="section-label" style="margin-top:8px">INSIGHTS DO SISTEMA</div>
+        <div id="insights-card">
+          <div class="sc-label">Análise automática</div>
+          <div id="insights-body">
+            <div id="insights-empty">Sem anomalias detectadas nas últimas 24 h.</div>
+          </div>
+        </div>
+      </div><!-- /tab-config -->
+
+      <!-- PRESETS -->
+      <div class="rtab-panel" id="tab-presets">
+        <div class="section-label">PRESETS</div>
+        <div id="presets-grid"></div>
+
+        <div class="section-label">RECENTES</div>
+        <div id="quick-wrap"></div>
+      </div><!-- /tab-presets -->
+
+      <!-- MÍDIA -->
+      <div class="rtab-panel" id="tab-media">
+        <div class="section-label">MÍDIA</div>
+        <div id="media-card">
+          <div id="media-title">Controles de reprodução</div>
+          <div id="media-controls">
+            <button class="media-btn" data-op="previous" title="Anterior">&#x23EE;</button>
+            <button class="media-btn" data-op="play"     title="Play/Pause">&#x23EF;</button>
+            <button class="media-btn" data-op="skip"     title="Próxima">&#x23ED;</button>
+          </div>
+        </div>
+      </div><!-- /tab-media -->
+
+      <!-- PERSONALIZAÇÃO -->
+      <div class="rtab-panel" id="tab-personalizacao">
+        <div class="section-label">TEMA</div>
+        <div id="theme-swatches"></div>
+
+        <div class="section-label" style="margin-top:8px">GAVETA DO SISTEMA</div>
+        <div id="widget-order-list"></div>
+      </div><!-- /tab-personalizacao -->
+
+    </div><!-- /rtab-panels -->
+  </div><!-- /drawer-right -->
+
+</div><!-- /layout -->
+
+<!-- PROCESS MANAGER MODAL -->
+<div id="proc-modal" role="dialog" aria-modal="true" aria-label="Gerenciador de Processos">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span class="modal-title">Gerenciador de Processos</span>
+      <input id="proc-search" type="text" placeholder="Filtrar por nome…" autocomplete="off">
+      <button class="sort-btn active" data-sort="cpu">CPU ↓</button>
+      <button class="sort-btn" data-sort="ram">RAM ↓</button>
+      <button class="sort-btn" data-sort="name">Nome</button>
+      <button id="proc-modal-close" title="Fechar">✕ Fechar</button>
+    </div>
+    <div class="modal-body">
+      <table id="proc-modal-table">
+        <thead>
+          <tr>
+            <th style="width:200px">Processo</th>
+            <th>PID</th>
+            <th style="text-align:right">CPU %</th>
+            <th style="text-align:right">RAM MB</th>
+            <th style="text-align:center">Tipo</th>
+            <th style="width:80px"></th>
+          </tr>
+        </thead>
+        <tbody id="proc-modal-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─────────────────────────────────────────────────
+// CONSTANTS & STATE
+// ─────────────────────────────────────────────────
+const MIN_H = 3, MAX_H = 36;
+const LERP_SPEED  = 0.22;
+const DECAY_SPEED = 0.07;
+const OFFSETS = [0, 0.1, 0.2, 0.05, 0.15, 0.08, 0.18, 0.03, 0.12];
+const CHART_LEN = 60;
+
+let currentH    = new Array(9).fill(MIN_H);
+let lastLevelTs = 0;
+let voiceActive = false;
+let appState    = "idle";
+
+const cpuHistory = new Array(CHART_LEN).fill(0);
+const ramHistory = new Array(CHART_LEN).fill(0);
+
+// Full process list (up to 15) received from telemetry
+let allProcesses    = [];
+let procModalSortBy = "cpu";   // "cpu" | "ram" | "name"
+let procModalFilter = "";
+
+// ─────────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────────
+function lerp(a, b, t) { return a + (b - a) * t; }
+
+function escHtml(s) {
+  return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+function highlightCode(code, lang) {
+  let s = escHtml(code);
+  if (/^(js|ts|python|py|bash|sh|ps1|powershell)$/.test(lang || "")) {
+    s = s.replace(/(\/\/[^\n]*|#[^\n]*)/g, '<span class="cmt">$1</span>');
+    s = s.replace(/\b(function|const|let|var|return|if|else|for|while|import|export|from|class|new|async|await|def|print|echo|Write-Output)\b/g, '<span class="kw">$1</span>');
+    s = s.replace(/("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`[^`]*`)/g, '<span class="str">$1</span>');
+    s = s.replace(/\b(\d+(\.\d+)?)\b/g, '<span class="num">$1</span>');
+  }
+  return s;
+}
+
+function renderMarkdown(raw) {
+  const lines = raw.split("\n");
+  let html = "";
+  let inCode = false, codeLang = "", codeLines = [];
+  let inList = false;
+
+  function flushList() {
+    if (inList) { html += "</ul>"; inList = false; }
+  }
+
+  for (let i = 0; i < lines.length; i++) {
+    const ln = lines[i];
+    if (!inCode && ln.startsWith("```")) {
+      flushList();
+      codeLang = ln.slice(3).trim();
+      inCode = true; codeLines = [];
+      continue;
+    }
+    if (inCode) {
+      if (ln.startsWith("```")) {
+        html += `<pre><code>${highlightCode(codeLines.join("\n"), codeLang)}</code></pre>`;
+        inCode = false;
+      } else { codeLines.push(ln); }
+      continue;
+    }
+    const trimmed = ln.trim();
+    if (!trimmed) { flushList(); continue; }
+    if (/^[-*] /.test(trimmed)) {
+      if (!inList) { html += "<ul>"; inList = true; }
+      html += `<li>${inlineRender(trimmed.slice(2))}</li>`;
+    } else if (/^\d+\. /.test(trimmed)) {
+      if (!inList) { html += "<ol>"; inList = true; }
+      html += `<li>${inlineRender(trimmed.replace(/^\d+\. /, ""))}</li>`;
+    } else {
+      flushList();
+      html += `<p>${inlineRender(ln)}</p>`;
+    }
+  }
+  if (inCode) html += `<pre><code>${highlightCode(codeLines.join("\n"), codeLang)}</code></pre>`;
+  flushList();
+  return html || `<p>${escHtml(raw)}</p>`;
+}
+
+function inlineRender(s) {
+  return escHtml(s)
+    .replace(/`([^`]+)`/g, "<code>$1</code>")
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/\*([^*]+)\*/g,     "<em>$1</em>")
+    .replace(/_([^_]+)_/g,       "<em>$1</em>");
+}
+
+// ─────────────────────────────────────────────────
+// TIMELINE
+// ─────────────────────────────────────────────────
+const timeline = document.getElementById("timeline");
+
+function isAtBottom() {
+  return timeline.scrollHeight - timeline.scrollTop <= timeline.clientHeight + 60;
+}
+function scrollToBottom() {
+  timeline.scrollTo({ top: timeline.scrollHeight, behavior: "smooth" });
+}
+
+function addBubble(cls, content, isHtml = false) {
+  const wasBottom = isAtBottom();
+  const div = document.createElement("div");
+  div.className = "bubble " + cls;
+  if (isHtml) div.innerHTML = content;
+  else div.textContent = content;
+  timeline.appendChild(div);
+  if (wasBottom) scrollToBottom();
+}
+
+function addLog(icon, text, success = true) {
+  const wasBottom = isAtBottom();
+  const div = document.createElement("div");
+  div.className = "log-card";
+  div.innerHTML = `<span class="log-icon">${icon}</span><span>${escHtml(text)}</span><span class="${success ? "log-ok" : "log-err"}">${success ? "✓" : "✗"}</span>`;
+  timeline.appendChild(div);
+  if (wasBottom) scrollToBottom();
+}
+
+// ─────────────────────────────────────────────────
+// THEME SYSTEM
+// ─────────────────────────────────────────────────
+const THEMES = {
+  default: { name: "Roxo/Ciano", purple: "#7b5ea7", purpleBright: "#9d7fd4", cyan: "#4ecdc4", cyanDark: "#38a89d", bg: "#0d0d1a", surface: "#1a1a2e", surface2: "#12122a" },
+  ocean:   { name: "Oceano",     purple: "#3b6ea5", purpleBright: "#4f8fd4", cyan: "#2ec4b6", cyanDark: "#1f9c90", bg: "#0a1420", surface: "#101d2e", surface2: "#0c1622" },
+  ember:   { name: "Brasa",      purple: "#a5473b", purpleBright: "#d4634f", cyan: "#e0a83c", cyanDark: "#c18a2c", bg: "#1a0d0d", surface: "#2a1414", surface2: "#200f0f" },
+  forest:  { name: "Floresta",   purple: "#4a7a4e", purpleBright: "#6bab6f", cyan: "#8fbf3f", cyanDark: "#6f9a30", bg: "#0c150c", surface: "#152015", surface2: "#0f180f" },
+};
+
+let currentTheme = "default";
+
+function getThemeColor(varName) {
+  return getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+}
+
+function applyTheme(id) {
+  const t = THEMES[id] ? id : "default";
+  const p = THEMES[t];
+  currentTheme = t;
+  const root = document.documentElement.style;
+  root.setProperty("--purple", p.purple);
+  root.setProperty("--purple-bright", p.purpleBright);
+  root.setProperty("--cyan", p.cyan);
+  root.setProperty("--cyan-dark", p.cyanDark);
+  root.setProperty("--bg", p.bg);
+  root.setProperty("--surface", p.surface);
+  root.setProperty("--surface2", p.surface2);
+  renderThemeSwatches();
+  redrawCanvases();
+}
+
+function renderThemeSwatches() {
+  const wrap = document.getElementById("theme-swatches");
+  wrap.innerHTML = "";
+  Object.entries(THEMES).forEach(([id, t]) => {
+    const div = document.createElement("div");
+    div.className = "theme-swatch" + (id === currentTheme ? " active" : "");
+    div.innerHTML = `
+      <div class="theme-dots">
+        <span class="theme-dot" style="background:${t.purpleBright}"></span>
+        <span class="theme-dot" style="background:${t.cyan}"></span>
+      </div>
+      <span class="theme-swatch-name">${escHtml(t.name)}</span>`;
+    div.addEventListener("click", () => {
+      applyTheme(id);
+      window.nx.setConfig({ theme: id }).catch(() => {});
+    });
+    wrap.appendChild(div);
+  });
+}
+
+// ─────────────────────────────────────────────────
+// WIDGET REORDER / VISIBILITY (gaveta esquerda)
+// ─────────────────────────────────────────────────
+const WIDGET_LABELS = {
+  perf:    "Desempenho (CPU/RAM/Temp/Bateria)",
+  storage: "Armazenamento",
+  taskmgr: "Processos",
+};
+const DEFAULT_WIDGET_ORDER = ["perf", "storage", "taskmgr"];
+
+let currentLayout = { order: [...DEFAULT_WIDGET_ORDER], hidden: [] };
+
+function applyLayout(layout) {
+  currentLayout = {
+    order: (layout && layout.order && layout.order.length) ? layout.order : [...DEFAULT_WIDGET_ORDER],
+    hidden: (layout && layout.hidden) ? layout.hidden : [],
+  };
+  const container = document.getElementById("drawer-left");
+  currentLayout.order.forEach(id => {
+    const el = document.getElementById("widget-" + id);
+    if (!el) return;
+    container.appendChild(el);
+    el.classList.toggle("widget-hidden", currentLayout.hidden.includes(id));
+  });
+  renderWidgetOrderList();
+}
+
+function saveLayout() {
+  window.nx.setConfig({ layout: currentLayout }).catch(() => {});
+}
+
+function renderWidgetOrderList() {
+  const wrap = document.getElementById("widget-order-list");
+  wrap.innerHTML = "";
+  currentLayout.order.forEach((id, i) => {
+    const isHidden = currentLayout.hidden.includes(id);
+    const row = document.createElement("div");
+    row.className = "widget-order-row" + (isHidden ? " hidden-widget" : "");
+    row.innerHTML = `
+      <input type="checkbox" class="widget-order-toggle" ${isHidden ? "" : "checked"} title="Mostrar/ocultar">
+      <span class="widget-order-name">${escHtml(WIDGET_LABELS[id] ?? id)}</span>
+      <button class="widget-order-btn" data-dir="up"   ${i === 0 ? "disabled" : ""} title="Mover para cima">&#x25B2;</button>
+      <button class="widget-order-btn" data-dir="down" ${i === currentLayout.order.length - 1 ? "disabled" : ""} title="Mover para baixo">&#x25BC;</button>`;
+
+    row.querySelector(".widget-order-toggle").addEventListener("change", (e) => {
+      currentLayout.hidden = e.target.checked
+        ? currentLayout.hidden.filter(h => h !== id)
+        : [...currentLayout.hidden, id];
+      applyLayout(currentLayout);
+      saveLayout();
+    });
+
+    row.querySelectorAll(".widget-order-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const dir = btn.dataset.dir === "up" ? -1 : 1;
+        const j = i + dir;
+        if (j < 0 || j >= currentLayout.order.length) return;
+        const order = [...currentLayout.order];
+        [order[i], order[j]] = [order[j], order[i]];
+        currentLayout.order = order;
+        applyLayout(currentLayout);
+        saveLayout();
+      });
+    });
+
+    wrap.appendChild(row);
+  });
+}
+
+// ─────────────────────────────────────────────────
+// CANVAS SPARKLINES
+// ─────────────────────────────────────────────────
+function drawChart(canvas, history, color) {
+  const ctx  = canvas.getContext("2d");
+  const W    = canvas.width;
+  const H    = canvas.height;
+  const step = W / (CHART_LEN - 1);
+  ctx.clearRect(0, 0, W, H);
+
+  // Grid line at 75%
+  ctx.strokeStyle = "rgba(255,255,255,0.04)";
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(0, H * 0.25); ctx.lineTo(W, H * 0.25); ctx.stroke();
+
+  // Fill area
+  ctx.beginPath();
+  for (let i = 0; i < history.length; i++) {
+    const x = i * step;
+    const y = H - (history[i] / 100) * H;
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.closePath();
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, color + "55");
+  grad.addColorStop(1, color + "00");
+  ctx.fillStyle = grad; ctx.fill();
+
+  // Line
+  ctx.beginPath();
+  for (let i = 0; i < history.length; i++) {
+    const x = i * step;
+    const y = H - (history[i] / 100) * H;
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.stroke();
+}
+
+// ─────────────────────────────────────────────────
+// TELEMETRY
+// ─────────────────────────────────────────────────
+const cpuCanvas  = document.getElementById("cpu-canvas");
+const ramCanvas  = document.getElementById("ram-canvas");
+const cpuVal     = document.getElementById("cpu-val");
+const ramVal     = document.getElementById("ram-val");
+const tempVal    = document.getElementById("temp-val");
+const batVal     = document.getElementById("bat-val");
+const batFill    = document.getElementById("bat-fill");
+const batIcon    = document.getElementById("bat-icon");
+const disksWrap  = document.getElementById("disks-wrap");
+const procBody   = document.getElementById("proc-body");
+
+function updateTelemetry(t) {
+  // CPU
+  cpuHistory.push(t.cpu_pct ?? 0); cpuHistory.shift();
+  cpuVal.textContent = (t.cpu_pct ?? 0) + "%";
+  drawChart(cpuCanvas, cpuHistory, getThemeColor("--purple-bright"));
+
+  // RAM
+  ramHistory.push(t.ram_pct ?? 0); ramHistory.shift();
+  ramVal.textContent = (t.ram_pct ?? 0) + "%";
+  drawChart(ramCanvas, ramHistory, getThemeColor("--cyan"));
+
+  // Temp
+  if (t.cpu_temp != null) {
+    const c = t.cpu_temp;
+    tempVal.textContent = c + "°C";
+    tempVal.style.color = c > 85 ? "var(--red)" : c > 70 ? "var(--yellow)" : "var(--cyan)";
+  } else {
+    tempVal.textContent = "—";
+  }
+
+  // Battery
+  if (t.battery_pct != null) {
+    const pct = t.battery_pct;
+    batVal.textContent = pct + "%";
+    const clr = pct < 20 ? "var(--red)" : pct < 40 ? "var(--yellow)" : "var(--green)";
+    batVal.style.color = clr;
+    batFill.style.width  = pct + "%";
+    batFill.style.background = clr;
+    batIcon.textContent = t.battery_charging ? "⚡" : "🔋";
+  } else {
+    batVal.textContent = "AC";
+    batVal.style.color = "var(--cyan)";
+    batFill.style.width = "100%";
+    batFill.style.background = "var(--cyan)";
+    batIcon.textContent = "🔌";
+  }
+
+  // Disks
+  if (Array.isArray(t.disks)) {
+    disksWrap.innerHTML = "";
+    t.disks.forEach(d => {
+      const pct = d.usedPct ?? 0;
+      const clr = pct > 90 ? "var(--purple-bright)" : "var(--cyan)";
+      disksWrap.insertAdjacentHTML("beforeend", `
+        <div class="disk-card">
+          <span class="disk-letter">${escHtml(d.name)}:</span>
+          <div class="disk-info">
+            <div style="display:flex;justify-content:space-between">
+              <span class="disk-nums">${d.freeGB} GB livre</span>
+              <span class="disk-nums">${d.totalGB} GB</span>
+            </div>
+            <div class="disk-bar-track">
+              <div class="disk-bar-fill" style="width:${pct}%;background:${clr}"></div>
+            </div>
+          </div>
+        </div>`);
+    });
+  }
+
+  // Processes — store full list, render compact top-5 in sidebar
+  if (Array.isArray(t.processes)) {
+    allProcesses = t.processes;
+    procBody.innerHTML = "";
+    t.processes.slice(0, 5).forEach(p => {
+      const tr = document.createElement("tr");
+      tr.className = "proc-row";
+      tr.innerHTML = `
+        <td><span class="proc-name" title="${escHtml(p.name)}">${escHtml(p.name)}</span></td>
+        <td class="proc-cpu">${p.cpu}%</td>
+        <td class="proc-ram">${p.ramMB}M</td>`;
+      procBody.appendChild(tr);
+    });
+    // Refresh modal if open
+    if (document.getElementById("proc-modal").classList.contains("open")) renderProcModal();
+  }
+}
+
+// ─────────────────────────────────────────────────
+// PROCESS MODAL
+// ─────────────────────────────────────────────────
+const procModal      = document.getElementById("proc-modal");
+const procModalBody  = document.getElementById("proc-modal-body");
+const procSearch     = document.getElementById("proc-search");
+const sortBtns       = document.querySelectorAll(".sort-btn[data-sort]");
+
+function renderProcModal() {
+  let list = [...allProcesses];
+
+  // Filter
+  if (procModalFilter) {
+    const f = procModalFilter.toLowerCase();
+    list = list.filter(p => p.name.toLowerCase().includes(f));
+  }
+
+  // Sort
+  if (procModalSortBy === "cpu")        list.sort((a, b) => b.cpu   - a.cpu);
+  else if (procModalSortBy === "ram")   list.sort((a, b) => b.ramMB - a.ramMB);
+  else /* name */                       list.sort((a, b) => a.name.localeCompare(b.name));
+
+  procModalBody.innerHTML = "";
+  list.forEach(p => {
+    const isSys = p.isSystem;
+    const badge = isSys
+      ? `<span class="sys-badge">sistema</span>`
+      : `<span class="user-badge">usuário</span>`;
+
+    const killCell = isSys
+      ? `<td style="text-align:center"><span style="font-size:9px;color:var(--muted)">protegido</span></td>`
+      : `<td style="text-align:center"><button class="kill-btn" data-pid="${p.pid}" title="Encerrar ${escHtml(p.name)}">✕ Encerrar</button></td>`;
+
+    const tr = document.createElement("tr");
+    tr.className = "proc-row";
+    tr.dataset.pid = p.pid;
+    tr.innerHTML = `
+      <td><span class="proc-name" style="max-width:180px" title="${escHtml(p.name)}">${escHtml(p.name)}</span>${badge}</td>
+      <td style="color:var(--muted);font-size:10px">${p.pid}</td>
+      <td class="proc-cpu" style="text-align:right">${p.cpu}%</td>
+      <td class="proc-ram" style="text-align:right">${p.ramMB} MB</td>
+      <td style="text-align:center">${isSys ? "⚙️" : "👤"}</td>
+      ${killCell}`;
+    procModalBody.appendChild(tr);
+  });
+}
+
+function openProcModal() {
+  renderProcModal();
+  procModal.classList.add("open");
+  procSearch.focus();
+}
+
+function closeProcModal() { procModal.classList.remove("open"); }
+
+document.getElementById("proc-expand-btn").addEventListener("click", openProcModal);
+document.getElementById("proc-modal-close").addEventListener("click", closeProcModal);
+procModal.addEventListener("click", (e) => { if (e.target === procModal) closeProcModal(); });
+
+procSearch.addEventListener("input", (e) => {
+  procModalFilter = e.target.value.trim();
+  renderProcModal();
+});
+
+sortBtns.forEach(btn => {
+  btn.addEventListener("click", () => {
+    procModalSortBy = btn.dataset.sort;
+    sortBtns.forEach(b => b.classList.toggle("active", b === btn));
+    renderProcModal();
+  });
+});
+
+// Kill process — modal body
+procModalBody.addEventListener("click", (e) => {
+  const btn = e.target.closest(".kill-btn");
+  if (!btn) return;
+  const pid = parseInt(btn.dataset.pid, 10);
+  if (!pid) return;
+  const row = btn.closest("tr");
+  if (row) { row.classList.add("dying"); setTimeout(() => row.remove(), 500); }
+  window.nx.killProcess(pid);
+});
+
+// ─────────────────────────────────────────────────
+// STABILITY TIMELINE (24 h anomaly canvas)
+// ─────────────────────────────────────────────────
+const stabilityCanvas = document.getElementById("stability-canvas");
+
+function renderStabilityCanvas(history) {
+  const ctx = stabilityCanvas.getContext("2d");
+  const W = stabilityCanvas.width, H = stabilityCanvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  // Background
+  const bg = ctx.createLinearGradient(0, 0, 0, H);
+  bg.addColorStop(0, "rgba(26,26,46,0.8)");
+  bg.addColorStop(1, "rgba(13,13,26,0.4)");
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+
+  // Vertical grid (every 6 h)
+  ctx.strokeStyle = "rgba(255,255,255,0.04)"; ctx.lineWidth = 1;
+  for (let i = 1; i < 4; i++) {
+    const x = (W / 4) * i;
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+  }
+
+  // Centre axis
+  ctx.strokeStyle = "rgba(255,255,255,0.06)";
+  ctx.beginPath(); ctx.moveTo(0, H / 2); ctx.lineTo(W, H / 2); ctx.stroke();
+
+  // Time labels
+  ctx.fillStyle = "rgba(90,93,122,0.7)"; ctx.font = "8px Segoe UI"; ctx.textAlign = "left";
+  ctx.fillText("24h", 2, H - 3);
+  ctx.textAlign = "center";
+  ctx.fillText("12h", W / 2, H - 3);
+  ctx.textAlign = "right";
+  ctx.fillText("agora", W - 2, H - 3);
+
+  if (!history || !history.length) {
+    ctx.fillStyle = "rgba(90,93,122,0.5)"; ctx.font = "9px Segoe UI"; ctx.textAlign = "center";
+    ctx.fillText("Nenhuma anomalia", W / 2, H / 2 + 3);
+    return;
+  }
+
+  const now = Date.now();
+  const span = 24 * 60 * 60 * 1000;
+  const COLORS = {
+    cpu_sustained: getThemeColor("--purple-bright"),
+    ram_high:      getThemeColor("--cyan"),
+    spike:         getThemeColor("--yellow"),
+  };
+
+  history.forEach(entry => {
+    const age = now - entry.timestamp;
+    if (age > span) return;
+    const x = W * (1 - age / span);
+    const color = COLORS[entry.type] || "#5a5d7a";
+
+    // Translucent vertical line
+    ctx.strokeStyle = color + "44"; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x, 2); ctx.lineTo(x, H - 12); ctx.stroke();
+
+    // Dot
+    ctx.fillStyle = color;
+    ctx.beginPath(); ctx.arc(x, H / 2 - 5, 3, 0, Math.PI * 2); ctx.fill();
+  });
+}
+
+let lastStabilityHistory = [];
+
+async function loadTelemetryHistory() {
+  try {
+    const history = await window.nx.getTelemetryHistory();
+    lastStabilityHistory = history || [];
+    renderStabilityCanvas(lastStabilityHistory);
+  } catch { lastStabilityHistory = []; renderStabilityCanvas([]); }
+}
+
+function redrawCanvases() {
+  drawChart(cpuCanvas, cpuHistory, getThemeColor("--purple-bright"));
+  drawChart(ramCanvas, ramHistory, getThemeColor("--cyan"));
+  renderStabilityCanvas(lastStabilityHistory);
+}
+
+// ─────────────────────────────────────────────────
+// INSIGHTS PANEL
+// ─────────────────────────────────────────────────
+const insightsBody  = document.getElementById("insights-body");
+const insightsEmpty = document.getElementById("insights-empty");
+
+async function loadInsights() {
+  try {
+    const insights = await window.nx.getInsights();
+    if (!insights || !insights.length) {
+      insightsEmpty.style.display = "";
+      // Remove any previous insight items
+      insightsBody.querySelectorAll(".insight-item").forEach(el => el.remove());
+      return;
+    }
+    insightsEmpty.style.display = "none";
+    insightsBody.querySelectorAll(".insight-item").forEach(el => el.remove());
+    insights.forEach(text => {
+      const div = document.createElement("div");
+      div.className = "insight-item";
+      div.innerHTML = `<span class="insight-icon">💡</span><span>${escHtml(text)}</span>`;
+      insightsBody.appendChild(div);
+    });
+  } catch { /* best-effort */ }
+}
+
+// ─────────────────────────────────────────────────
+// WAVEFORM ANIMATION (rAF loop)
+// ─────────────────────────────────────────────────
+const bars = [0,1,2,3,4,5,6,7,8].map(i => document.getElementById("b" + i));
+
+(function animLoop() {
+  if (appState === "listening") {
+    const silent = (Date.now() - lastLevelTs) > 80;
+    if (silent) {
+      bars.forEach((bar, i) => {
+        currentH[i] = lerp(currentH[i], MIN_H, DECAY_SPEED);
+        bar.style.height = currentH[i].toFixed(1) + "px";
+      });
+    }
+  }
+  requestAnimationFrame(animLoop);
+})();
+
+// ─────────────────────────────────────────────────
+// STATE MACHINE
+// ─────────────────────────────────────────────────
+const statusBadge  = document.getElementById("status-badge");
+const voiceZone    = document.getElementById("voice-zone");
+const textZone     = document.getElementById("text-zone");
+const waveStatus   = document.getElementById("wave-status");
+const barsRow      = document.getElementById("bars-row");
+const stopZone     = document.getElementById("stop-zone");
+
+const STATE_LABELS = {
+  idle: "OCIOSO", listening: "OUVINDO", processing: "PROCESSANDO",
+  speaking: "RESPONDENDO", error: "ERRO"
+};
+const WAVE_LABELS = {
+  listening: "Ouvindo…", processing: "Processando…",
+  speaking: "Respondendo…"
+};
+
+function setState(s) {
+  appState = s;
+  statusBadge.className = s;
+  statusBadge.textContent = STATE_LABELS[s] ?? s.toUpperCase();
+
+  const inVoice = s === "listening" || s === "processing" || s === "speaking";
+  voiceZone.classList.toggle("active", inVoice && voiceActive);
+  textZone.classList.toggle("hidden", inVoice && voiceActive);
+  if (WAVE_LABELS[s]) waveStatus.textContent = WAVE_LABELS[s];
+  if (s === "processing") barsRow.classList.add("state-processing");
+  else barsRow.classList.remove("state-processing");
+
+  // Stop button — only during speaking
+  stopZone.style.display = (s === "speaking") ? "flex" : "none";
+
+  if (s !== "listening") {
+    currentH.fill(MIN_H);
+    bars.forEach(b => { b.style.height = MIN_H + "px"; });
+  }
+  if (s === "idle" || s === "error") {
+    voiceActive = false;
+    voiceZone.classList.remove("active");
+    textZone.classList.remove("hidden");
+  }
+}
+
+// ─────────────────────────────────────────────────
+// STOP TTS (kill switch)
+// ─────────────────────────────────────────────────
+function doStop() {
+  window.nx.stopTts();
+  setState("idle");   // optimistic — backend also sets idle
+}
+
+document.getElementById("stop-btn").addEventListener("click", doStop);
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && appState === "speaking") doStop();
+});
+
+// ─────────────────────────────────────────────────
+// NEUROAXIS API BRIDGE
+// ─────────────────────────────────────────────────
+window.nx.onState(setState);
+
+window.nx.onAudioLevel((level) => {
+  if (appState !== "listening") return;
+  lastLevelTs = Date.now();
+  bars.forEach((bar, i) => {
+    const variation = 0.7 + Math.random() * 0.6 + OFFSETS[i];
+    const target = MIN_H + Math.min(MAX_H - MIN_H, level * 260 * variation);
+    currentH[i] = lerp(currentH[i], target, LERP_SPEED);
+    bar.style.height = currentH[i].toFixed(1) + "px";
+  });
+});
+
+window.nx.onTranscript((text) => {
+  addBubble("user", text);
+});
+
+window.nx.onActionLabel((label) => {
+  waveStatus.textContent = label;
+  addLog("⚙️", label, true);
+});
+
+window.nx.onReply((text) => {
+  addBubble("assistant", renderMarkdown(text), true);
+});
+
+window.nx.onError((msg) => {
+  addBubble("error", msg);
+});
+
+window.nx.onChatReply((text) => {
+  addBubble("assistant", renderMarkdown(text), true);
+});
+
+window.nx.onChatError((msg) => {
+  addBubble("error", msg);
+});
+
+window.nx.onChatBusy(() => {
+  addBubble("system", "Aguarde o assistente terminar…");
+});
+
+window.nx.onTelemetry(updateTelemetry);
+
+window.nx.onActionLog((log) => {
+  addLog(log.icon ?? "⚡", log.text ?? "", log.ok !== false);
+});
+
+// ─────────────────────────────────────────────────
+// TEXT INPUT
+// ─────────────────────────────────────────────────
+const cmdInput = document.getElementById("cmd-input");
+const sendBtn  = document.getElementById("send-btn");
+const micBtn   = document.getElementById("mic-btn");
+
+function sendText() {
+  const text = cmdInput.value.trim();
+  if (!text) return;
+  addBubble("user", text);
+  window.nx.chatSend(text);
+  cmdInput.value = "";
+}
+
+sendBtn.addEventListener("click", sendText);
+cmdInput.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendText(); } });
+
+micBtn.addEventListener("click", () => {
+  voiceActive = true;
+  micBtn.classList.add("active");
+  voiceZone.classList.add("active");
+  textZone.classList.add("hidden");
+  window.nx.startListening();
+});
+
+// ─────────────────────────────────────────────────
+// MEDIA CONTROLS
+// ─────────────────────────────────────────────────
+document.getElementById("media-controls").addEventListener("click", (e) => {
+  const btn = e.target.closest(".media-btn");
+  if (!btn) return;
+  window.nx.mediaControl(btn.dataset.op);
+});
+
+// ─────────────────────────────────────────────────
+// PRESETS
+// ─────────────────────────────────────────────────
+const presetsGrid = document.getElementById("presets-grid");
+
+async function loadPresets() {
+  try {
+    const presets = await window.nx.getPresets();
+    presetsGrid.innerHTML = "";
+    for (const [key, p] of Object.entries(presets)) {
+      const card = document.createElement("div");
+      card.className = "preset-card";
+      card.innerHTML = `<span class="preset-icon">${p.icon ?? "⚡"}</span><span class="preset-name">${escHtml(p.description ?? key)}</span>`;
+      card.addEventListener("click", () => {
+        const cmd = `ativa o modo ${key}`;
+        addBubble("user", cmd);
+        window.nx.chatSend(cmd);
+      });
+      presetsGrid.appendChild(card);
+    }
+  } catch { /* ignore */ }
+}
+
+// ─────────────────────────────────────────────────
+// QUICK / HISTORY
+// ─────────────────────────────────────────────────
+const quickWrap = document.getElementById("quick-wrap");
+
+async function loadHistory() {
+  try {
+    const history = await window.nx.getHistory();
+    quickWrap.innerHTML = "";
+    (history || []).slice(0, 5).forEach(h => {
+      const pill = document.createElement("span");
+      pill.className = "quick-pill";
+      pill.textContent = (h.icon ?? "") + " " + (h.label ?? h.text ?? "");
+      pill.title = h.text ?? "";
+      pill.addEventListener("click", () => {
+        const text = h.text ?? pill.textContent.trim();
+        addBubble("user", text);
+        window.nx.chatSend(text);
+      });
+      quickWrap.appendChild(pill);
+    });
+  } catch { /* ignore */ }
+}
+
+// ─────────────────────────────────────────────────
+// SHORTCUT CAPTURE
+// ─────────────────────────────────────────────────
+const shortcutInput = document.getElementById("shortcut-input");
+const shortcutHint  = document.getElementById("shortcut-hint");
+
+shortcutInput.addEventListener("focus", () => {
+  shortcutInput.value = "";
+  shortcutHint.textContent = "Pressione a combinação de teclas…";
+});
+shortcutInput.addEventListener("blur", () => {
+  shortcutHint.textContent = "Clique e pressione a combinação";
+});
+shortcutInput.addEventListener("keydown", async (e) => {
+  e.preventDefault();
+  if (e.key === "Escape") { shortcutInput.blur(); return; }
+  const parts = [];
+  if (e.ctrlKey)  parts.push("Control");
+  if (e.shiftKey) parts.push("Shift");
+  if (e.altKey)   parts.push("Alt");
+  const k = e.key;
+  if (!["Control","Shift","Alt","Meta"].includes(k)) {
+    parts.push(k.length === 1 ? k.toUpperCase() : k);
+  }
+  if (parts.length < 2) return;
+  const combo = parts.join("+");
+  shortcutInput.value = combo;
+  shortcutInput.blur();
+  shortcutHint.textContent = "Salvo: " + combo;
+  try { await window.nx.setConfig({ shortcut: combo }); } catch { /* ignore */ }
+});
+
+// ─────────────────────────────────────────────────
+// API KEY
+// ─────────────────────────────────────────────────
+const apikeyInput = document.getElementById("apikey-input");
+const apikeySave  = document.getElementById("apikey-save");
+
+async function loadApiKey() {
+  try {
+    const k = await window.nx.getApiKey();
+    if (k) apikeyInput.value = k.slice(0, 8) + "…";
+  } catch { /* ignore */ }
+}
+
+apikeySave.addEventListener("click", async () => {
+  const k = apikeyInput.value.trim();
+  if (!k || k.endsWith("…")) return;
+  try {
+    await window.nx.setApiKey(k);
+    apikeyInput.value = k.slice(0, 8) + "…";
+    addBubble("system", "API key salva.");
+  } catch { addBubble("error", "Falha ao salvar API key."); }
+});
+
+// ─────────────────────────────────────────────────
+// CONFIG
+// ─────────────────────────────────────────────────
+async function loadConfig() {
+  try {
+    const cfg = await window.nx.getConfig();
+    if (cfg.shortcut) shortcutInput.value = cfg.shortcut;
+    applyTheme(cfg.theme);
+    applyLayout(cfg.layout);
+  } catch {
+    applyTheme("default");
+    applyLayout(null);
+  }
+}
+
+// ─────────────────────────────────────────────────
+// DRAWERS (esquerda: sistema / direita: config-presets-mídia-personalização)
+// ─────────────────────────────────────────────────
+const drawerLeft    = document.getElementById("drawer-left");
+const drawerRight    = document.getElementById("drawer-right");
+const drawerBackdrop = document.getElementById("drawer-backdrop");
+const btnDrawerLeft  = document.getElementById("btnDrawerLeft");
+const btnDrawerRight = document.getElementById("btnDrawerRight");
+
+function closeDrawers() {
+  drawerLeft.classList.remove("open");
+  drawerRight.classList.remove("open");
+  drawerBackdrop.classList.remove("show");
+  btnDrawerLeft.classList.remove("active");
+  btnDrawerRight.classList.remove("active");
+}
+
+function toggleDrawer(which) {
+  const isLeft = which === "left";
+  const target = isLeft ? drawerLeft : drawerRight;
+  const btn    = isLeft ? btnDrawerLeft : btnDrawerRight;
+  const willOpen = !target.classList.contains("open");
+  closeDrawers();
+  if (willOpen) {
+    target.classList.add("open");
+    btn.classList.add("active");
+    drawerBackdrop.classList.add("show");
+  }
+}
+
+btnDrawerLeft.addEventListener("click", () => toggleDrawer("left"));
+btnDrawerRight.addEventListener("click", () => toggleDrawer("right"));
+drawerBackdrop.addEventListener("click", closeDrawers);
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeDrawers(); });
+
+// ─────────────────────────────────────────────────
+// RIGHT DRAWER TABS
+// ─────────────────────────────────────────────────
+const rtabBtns   = document.querySelectorAll(".rtab-btn");
+const rtabPanels = document.querySelectorAll(".rtab-panel");
+
+rtabBtns.forEach(btn => {
+  btn.addEventListener("click", () => {
+    rtabBtns.forEach(b => b.classList.toggle("active", b === btn));
+    rtabPanels.forEach(p => p.classList.toggle("active", p.id === "tab-" + btn.dataset.tab));
+  });
+});
+
+// ─────────────────────────────────────────────────
+// OPEN FULL CONFIG WINDOW
+// ─────────────────────────────────────────────────
+document.getElementById("open-config-btn").addEventListener("click", () => window.nx.openConfigWindow());
+
+// ─────────────────────────────────────────────────
+// WINDOW CONTROLS
+// ─────────────────────────────────────────────────
+document.getElementById("btnClose").addEventListener("click", () => window.close());
+document.getElementById("btnMin").addEventListener("click", () => window.close());
+
+// ─────────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────────
+(async () => {
+  await Promise.all([loadPresets(), loadHistory(), loadConfig(), loadApiKey()]);
+  // Non-blocking telemetry history + insights
+  loadTelemetryHistory();
+  loadInsights();
+  // Refresh every 30 s
+  setInterval(() => { loadTelemetryHistory(); loadInsights(); }, 30_000);
+  addBubble("system", "NEUROAXIS pronto. Pressione Ctrl+Shift+J ou clique 🎤 para falar.");
+})();
+</script>
+</body>
+</html>

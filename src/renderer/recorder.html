@@ -11,7 +11,7 @@
   let chunks = [];
   let silenceTimer = null;
   let maxTimer = null;
-  let silenceMs = 1500;
+  let silenceMs = 2500;
 
   window.neuroaxis.onStartRecording(async (cfg) => {
     silenceMs = cfg.silenceMs;
@@ -52,12 +52,20 @@
     mediaRecorder.start(100);
 
     const freqData = new Uint8Array(analyser.frequencyBinCount);
+    let lastLevelSend = 0;
     function checkSilence() {
       if (!mediaRecorder || mediaRecorder.state === "inactive") return;
       analyser.getByteTimeDomainData(freqData);
       let sum = 0;
       for (const v of freqData) sum += Math.abs(v - 128);
       const rms = sum / freqData.length / 128;
+
+      // Throttle audio level IPC to ~30fps
+      const now = performance.now();
+      if (now - lastLevelSend > 33) {
+        window.neuroaxis.sendAudioLevel(rms);
+        lastLevelSend = now;
+      }
 
       if (rms < SILENCE_THRESHOLD) {
         if (!silenceTimer) silenceTimer = setTimeout(stopRecording, silenceMs);
@@ -82,24 +90,6 @@
       mediaRecorder = null;
     }
   }
-
-  window.neuroaxis.onPlayAudio(async (data) => {
-    const blob = new Blob([data], { type: "audio/mp3" });
-    const url = URL.createObjectURL(blob);
-    const audio = new Audio(url);
-    audio.onended = () => {
-      URL.revokeObjectURL(url);
-      window.neuroaxis.sendAudioDone();
-    };
-    audio.onerror = () => {
-      URL.revokeObjectURL(url);
-      window.neuroaxis.sendAudioDone();
-    };
-    audio.play().catch(() => {
-      URL.revokeObjectURL(url);
-      window.neuroaxis.sendAudioDone();
-    });
-  });
 </script>
 </body>
 </html>

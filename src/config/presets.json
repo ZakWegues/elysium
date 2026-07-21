@@ -1,0 +1,17 @@
+{
+  "gaming": {
+    "description": "Modo gaming",
+    "icon": "🎮",
+    "actions": [
+      { "action": "play_music", "query": "Go" }
+    ]
+  },
+  "trabalho": {
+    "description": "Modo trabalho",
+    "icon": "💼",
+    "actions": [
+      { "action": "open_app", "app_name": "vs code" },
+      { "action": "open_url", "url_or_query": "https://classroom.google.com" }
+    ]
+  }
+}

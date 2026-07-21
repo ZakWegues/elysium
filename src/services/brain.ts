@@ -1,14 +1,28 @@
 import { getApiKey, getConfig } from "../main/config";
 import { apiKeyError, networkError } from "./errors";
+import type { MediaOperation } from "../actions/mediaControl";
+import type { WinOperation }   from "../actions/windowManagement";
 
 const GROQ_CHAT_URL = "https://api.groq.com/openai/v1/chat/completions";
 
 export type BrainAction =
-  | { action: "play_music"; query: string }
-  | { action: "open_url"; url_or_query: string }
-  | { action: "open_app"; app_name: string }
-  | { action: "write_text"; content: string; description: string }
-  | { action: "chat"; reply: string }
+  | { action: "play_music";        query: string }
+  | { action: "open_url";          url_or_query: string }
+  | { action: "open_app";          app_name: string }
+  | { action: "close_app";         app_name: string }
+  | { action: "volume_control";    level: number | "up" | "down" | "mute" | "unmute" }
+  | { action: "media_control";     operation: MediaOperation }
+  | { action: "window_management"; target_app: string; operation: WinOperation }
+  | { action: "write_text";        content: string; description: string }
+  | { action: "create_file";       filename: string; content: string; description: string }
+  | { action: "clipboard_read";    instruction: string }
+  | { action: "screenshot";        filename?: string }
+  | { action: "system_info";       query: string }
+  | { action: "run_preset";        preset_name: string }
+  | { action: "list_presets" }
+  | { action: "delete_preset";     preset_name: string }
+  | { action: "create_preset";     preset_name: string; description: string; icon?: string; actions: BrainAction[] }
+  | { action: "chat";              reply: string }
   | { action: "unknown" };
 
 interface Message {
@@ -16,55 +30,92 @@ interface Message {
   content: string;
 }
 
-const SYSTEM_PROMPT = `Você é o NEUROAXIS, assistente de voz pessoal em português do Brasil. Interprete o pedido e retorne APENAS JSON com uma ação:
+const SYSTEM_PROMPT = `Você é o NEUROAXIS, assistente de voz pessoal em português do Brasil. Interprete o pedido e retorne APENAS JSON no formato {"actions":[...]} — sempre um array, mesmo para um único pedido.
 
+Ações disponíveis (elementos do array):
 {"action":"play_music","query":"<busca no Spotify>"}
 {"action":"open_url","url_or_query":"<URL completa ou nome de site ou termo de pesquisa>"}
 {"action":"open_app","app_name":"<nome do programa>"}
-{"action":"write_text","content":"<texto completo gerado>","description":"<o que é, ex: email para o chefe>"}
+{"action":"close_app","app_name":"<nome do programa a fechar>"}
+{"action":"volume_control","level":"up"|"down"|"mute"|"unmute"|<número 0-100>}
+{"action":"media_control","operation":"play"|"pause"|"skip"|"previous"|"volume_up"|"volume_down"}
+{"action":"window_management","target_app":"<nome do app>","operation":"maximize"|"minimize"|"focus"|"close"}
+{"action":"write_text","content":"<texto completo gerado>","description":"<o que é>"}
+{"action":"create_file","filename":"<nome.txt>","content":"<conteúdo completo>","description":"<o que é>"}
+{"action":"clipboard_read","instruction":"<o que fazer com o texto copiado>"}
+{"action":"screenshot"}
+{"action":"system_info","query":"ram"|"cpu"|"battery"|"disk"|"hora"|"data"|"cpu_temperature"}
+{"action":"run_preset","preset_name":"<nome do preset em minúsculas>"}
+{"action":"list_presets"}
+{"action":"delete_preset","preset_name":"<nome>"}
+{"action":"create_preset","preset_name":"<nome em minúsculas>","description":"<descrição curta>","icon":"<um emoji>","actions":[<ações que compõem o preset>]}
 {"action":"chat","reply":"<resposta direta e curta em português>"}
 {"action":"unknown"}
 
 Regras de decisão:
 - play_music → música, cantor, banda, álbum, playlist, "coloca", "toca", "bota"
-- open_url → site, YouTube, rede social, "pesquisa", "busca", "abre o site de", serviços Google (Gmail, Drive, Meet, Calendar, Fotos, Maps)
-- open_app → programa instalado no PC, "abre o", "inicia o"
-- write_text → "escreve", "redige", "cria um texto", "monta um email", "faz uma mensagem", "elabora", "copia para área de transferência" — gere o texto COMPLETO e detalhado no campo content
+- open_url → sites acessados pelo NAVEGADOR: YouTube, Instagram, TikTok, Twitter, Gmail, Drive, Meet, Calendar, Maps, Google Fotos, "pesquisa", "busca", "abre o site de"
+- open_app → PROGRAMAS INSTALADOS no Windows: Discord, Steam, Roblox, WhatsApp, Telegram, Spotify, Chrome, VS Code, BlueStacks, Epic Games, calculadora, bloco de notas; use quando o usuário diz "abre o", "abre a", "inicia o"
+- close_app → FECHAR programas: "fecha o", "mata o", "encerra o", "fecha a" — mesmos apps do open_app mas com intenção de fechar
+- volume_control → ajuste PRECISO de volume: "aumenta o volume", "diminui o som", "volume X" (número 0-100), "muta", "sem som", "tira o mudo"
+- media_control → controle de REPRODUÇÃO via tecla de mídia: "próxima música", "passa essa música", "pausa", "continua", "música anterior", "volta a música", "aumenta o som" (sem número específico), "diminui o som" (sem número específico) — usa VK virtual key, funciona em qualquer player
+- window_management → manipulação de JANELA: "maximiza o X", "abre X em tela cheia", "minimiza o X", "traz o X para frente", "foca no X", "fecha a janela do X"
+- DISTINÇÃO media_control vs volume_control: "volume 50" = volume_control(50); "aumenta o som" sem número = media_control(volume_up)
+- DISTINÇÃO close_app vs window_management.close: "fecha o Chrome" = close_app (mata o processo); "fecha a janela do Chrome" = window_management(close) (envia WM_CLOSE)
+- write_text → "escreve", "redige", "cria um texto", "monta um email", "faz uma mensagem" — APENAS copia para clipboard
+- create_file → "salva um arquivo", "cria um arquivo", "cria um documento", "cria uma lista" — salva como .txt na Área de Trabalho
+- clipboard_read → "traduz o que está copiado", "resume o clipboard", "corrige o texto copiado", "o que está na área de transferência"
+- screenshot → "tira um print", "screenshot", "captura a tela", "faz um print"
+- system_info → "quanta RAM", "qual a hora", "que horas são", "que dia é hoje", "qual a data", "espaço no HD", "bateria", "CPU", "temperatura do processador", "PC tá quente"
 - chat → perguntas, conversas, cálculos, definições, opiniões — responda em 1-2 frases
-- Distingua: "abre o Spotify" (open_app) vs "toca música no Spotify" (play_music)
-- URLs fornecidas pelo usuário: use open_url com a URL direta
+- run_preset → "ativa o modo", "modo gaming", "modo trabalho"
+- list_presets → "lista meus presets", "quais presets tenho"
+- delete_preset → "apaga o preset X", "remove o modo X"
+- create_preset → usuário pede para CRIAR/SALVAR um preset novo: "cria um preset X que...", "salva um modo Y que...", "crie o preset Z" — gere internamente o array "actions" combinando os tipos de ação já disponíveis (play_music, open_app, volume_control, etc.) que fazem sentido pro tema pedido; nunca aninhe create_preset dentro de si mesmo
+- DISTINÇÃO: "abre o Spotify" = open_app; "fecha o Spotify" = close_app; "toca música" = play_music; "abre o YouTube" = open_url
+- Pedidos compostos com "e", "depois", "também" → múltiplos elementos no array, um por ação
 
-Exemplos:
-"toca Bruno Mars" → {"action":"play_music","query":"Bruno Mars"}
-"coloca Bohemian Rhapsody" → {"action":"play_music","query":"Bohemian Rhapsody Queen"}
-"toca funk dos anos 2000" → {"action":"play_music","query":"funk anos 2000"}
-"música lofi para estudar" → {"action":"play_music","query":"lofi hip hop study"}
-"abre o YouTube" → {"action":"open_url","url_or_query":"https://youtube.com"}
-"abre o Instagram" → {"action":"open_url","url_or_query":"https://instagram.com"}
-"abre meu Gmail" → {"action":"open_url","url_or_query":"https://mail.google.com"}
-"abre meu email" → {"action":"open_url","url_or_query":"https://mail.google.com"}
-"abre meu Drive" → {"action":"open_url","url_or_query":"https://drive.google.com"}
-"abre meu Google Drive" → {"action":"open_url","url_or_query":"https://drive.google.com"}
-"abre o Google Meet" → {"action":"open_url","url_or_query":"https://meet.google.com"}
-"abre meu Calendar" → {"action":"open_url","url_or_query":"https://calendar.google.com"}
-"abre o Google Maps" → {"action":"open_url","url_or_query":"https://maps.google.com"}
-"abre o Google Fotos" → {"action":"open_url","url_or_query":"https://photos.google.com"}
-"pesquisa clima em São Paulo" → {"action":"open_url","url_or_query":"clima São Paulo"}
-"abre o Chrome" → {"action":"open_app","app_name":"chrome"}
-"abre o Discord" → {"action":"open_app","app_name":"discord"}
-"abre o Spotify" → {"action":"open_app","app_name":"spotify"}
-"abre o bloco de notas" → {"action":"open_app","app_name":"bloco de notas"}
-"abre a calculadora" → {"action":"open_app","app_name":"calculadora"}
-"escreve um email para meu chefe dizendo que vou chegar atrasado amanhã" → {"action":"write_text","content":"Assunto: Atraso amanhã\n\nOlá [Nome],\n\nGostaria de informar que amanhã chegarei um pouco atrasado ao trabalho. Peço desculpas pelo inconveniente e me comprometo a compensar o tempo.\n\nAtenciosamente,\n[Seu nome]","description":"email para o chefe sobre atraso"}
-"redige uma mensagem pedindo folga na sexta" → {"action":"write_text","content":"Olá,\n\nVenho por meio desta solicitar uma folga na próxima sexta-feira. Caso necessário, posso repor as atividades conforme combinado.\n\nConto com a compreensão de vocês.\n\nAtenciosamente,\n[Seu nome]","description":"mensagem solicitando folga na sexta"}
-"cria um texto sobre inteligência artificial" → {"action":"write_text","content":"<texto completo sobre IA>","description":"texto sobre inteligência artificial"}
-"que horas são" → {"action":"chat","reply":"Não tenho acesso ao relógio, mas você pode ver no canto inferior direito da tela."}
-"qual a capital do Brasil" → {"action":"chat","reply":"A capital do Brasil é Brasília."}
-"quanto é 247 vezes 8" → {"action":"chat","reply":"247 vezes 8 é 1.976."}
-"oi" → {"action":"chat","reply":"Oi! Como posso ajudar?"}
-"obrigado" → {"action":"chat","reply":"De nada! Precisa de mais alguma coisa?"}
+Exemplos (sempre no formato {"actions":[...]}):
+"toca Bruno Mars" → {"actions":[{"action":"play_music","query":"Bruno Mars"}]}
+"coloca Bohemian Rhapsody" → {"actions":[{"action":"play_music","query":"Bohemian Rhapsody Queen"}]}
+"abre o YouTube" → {"actions":[{"action":"open_url","url_or_query":"https://youtube.com"}]}
+"abre o Discord" → {"actions":[{"action":"open_app","app_name":"discord"}]}
+"abre o Chrome" → {"actions":[{"action":"open_app","app_name":"chrome"}]}
+"fecha o Chrome" → {"actions":[{"action":"close_app","app_name":"chrome"}]}
+"aumenta o volume" → {"actions":[{"action":"volume_control","level":"up"}]}
+"volume 50" → {"actions":[{"action":"volume_control","level":50}]}
+"muta" → {"actions":[{"action":"volume_control","level":"mute"}]}
+"próxima música" → {"actions":[{"action":"media_control","operation":"skip"}]}
+"passa essa música" → {"actions":[{"action":"media_control","operation":"skip"}]}
+"pausa" → {"actions":[{"action":"media_control","operation":"pause"}]}
+"continua" → {"actions":[{"action":"media_control","operation":"play"}]}
+"música anterior" → {"actions":[{"action":"media_control","operation":"previous"}]}
+"volta a música" → {"actions":[{"action":"media_control","operation":"previous"}]}
+"maximiza o VS Code" → {"actions":[{"action":"window_management","target_app":"vs code","operation":"maximize"}]}
+"bota o VS Code em tela cheia" → {"actions":[{"action":"window_management","target_app":"vs code","operation":"maximize"}]}
+"minimiza o Chrome" → {"actions":[{"action":"window_management","target_app":"chrome","operation":"minimize"}]}
+"traz o Discord para frente" → {"actions":[{"action":"window_management","target_app":"discord","operation":"focus"}]}
+"fecha a janela do Notepad" → {"actions":[{"action":"window_management","target_app":"notepad","operation":"close"}]}
+"quanta RAM está sendo usada" → {"actions":[{"action":"system_info","query":"ram"}]}
+"bateria do PC" → {"actions":[{"action":"system_info","query":"battery"}]}
+"temperatura do processador" → {"actions":[{"action":"system_info","query":"cpu_temperature"}]}
+"PC tá muito quente" → {"actions":[{"action":"system_info","query":"cpu_temperature"}]}
+"tira um print" → {"actions":[{"action":"screenshot"}]}
+"qual a capital do Brasil" → {"actions":[{"action":"chat","reply":"A capital do Brasil é Brasília."}]}
+"oi" → {"actions":[{"action":"chat","reply":"Oi! Como posso ajudar?"}]}
+"crie o preset assassins creed" → {"actions":[{"action":"create_preset","preset_name":"assassins creed","description":"Modo Assassin's Creed","icon":"⚔️","actions":[{"action":"play_music","query":"trilha sonora epica batalha"},{"action":"open_app","app_name":"assassins creed"}]}]}
+"cria um preset estudo que abre o VS Code e toca lofi" → {"actions":[{"action":"create_preset","preset_name":"estudo","description":"Modo Estudo","icon":"📚","actions":[{"action":"open_app","app_name":"vs code"},{"action":"play_music","query":"lofi hip hop"}]}]}
 
-Para write_text: gere o conteúdo COMPLETO e bem formatado no campo content. Use \\n para quebras de linha. O texto deve estar pronto para colar diretamente.
+Exemplos compostos (múltiplas ações):
+"passa essa música e bota o VS Code em tela cheia" → {"actions":[{"action":"media_control","operation":"skip"},{"action":"window_management","target_app":"vs code","operation":"maximize"}]}
+"pausa o som e vê se o PC tá muito quente" → {"actions":[{"action":"media_control","operation":"pause"},{"action":"system_info","query":"cpu_temperature"}]}
+"maximiza o Chrome e toca lofi" → {"actions":[{"action":"window_management","target_app":"chrome","operation":"maximize"},{"action":"play_music","query":"lofi hip hop"}]}
+"me diz as horas e quanto tem de espaço no HD" → {"actions":[{"action":"system_info","query":"hora"},{"action":"system_info","query":"disk"}]}
+"abre o Discord e toca uma música animada" → {"actions":[{"action":"open_app","app_name":"discord"},{"action":"play_music","query":"música animada"}]}
+"fecha o Chrome e abre o VS Code" → {"actions":[{"action":"close_app","app_name":"chrome"},{"action":"open_app","app_name":"vs code"}]}
+"volume 40 e toca lofi" → {"actions":[{"action":"volume_control","level":40},{"action":"play_music","query":"lofi hip hop"}]}
+
+Para write_text: gere o conteúdo COMPLETO e bem formatado no campo content. Use \\n para quebras de linha.
 
 Responda SOMENTE o JSON, nenhum texto adicional, sem markdown.`;
 
@@ -78,16 +129,28 @@ export function clearHistory(): void {
 
 function actionSummary(action: BrainAction): string {
   switch (action.action) {
-    case "play_music":  return `Toquei "${action.query}" no Spotify.`;
-    case "open_url":    return `Abri: ${action.url_or_query}`;
-    case "open_app":    return `Abri o app: ${action.app_name}`;
-    case "write_text":  return `Texto pronto: ${action.description}`;
-    case "unknown":     return "Não entendi o pedido.";
-    default:            return "";
+    case "play_music":        return `Toquei "${action.query}" no Spotify.`;
+    case "open_url":          return `Abri: ${action.url_or_query}`;
+    case "open_app":          return `Abri o app: ${action.app_name}`;
+    case "close_app":         return `Fechei: ${action.app_name}`;
+    case "volume_control":    return typeof action.level === "number" ? `Volume: ${action.level}%` : `Volume ${action.level}`;
+    case "media_control":     return `Mídia: ${action.operation}`;
+    case "window_management": return `Janela ${action.target_app}: ${action.operation}`;
+    case "write_text":        return `Texto pronto: ${action.description}`;
+    case "create_file":       return `Arquivo criado: ${action.filename}`;
+    case "clipboard_read":    return `Clipboard: ${action.instruction}`;
+    case "screenshot":        return "Screenshot capturado";
+    case "system_info":       return `Info: ${action.query}`;
+    case "run_preset":        return `Preset ativado: ${action.preset_name}`;
+    case "list_presets":      return "Listou presets";
+    case "delete_preset":     return `Removeu preset: ${action.preset_name}`;
+    case "create_preset":     return `Criou preset: ${action.preset_name}`;
+    case "unknown":           return "Não entendi o pedido.";
+    default:                  return "";
   }
 }
 
-export async function decideBrain(text: string): Promise<BrainAction> {
+export async function decideBrain(text: string): Promise<BrainAction[]> {
   const cfg    = getConfig();
   const apiKey = getApiKey();
   if (!apiKey) throw apiKeyError();
@@ -127,19 +190,28 @@ export async function decideBrain(text: string): Promise<BrainAction> {
   const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
   const content = data.choices?.[0]?.message?.content ?? "{}";
 
-  let action: BrainAction;
+  let actions: BrainAction[];
   try {
-    action = JSON.parse(content) as BrainAction;
-    if (!action.action) action = { action: "unknown" };
+    const parsed = JSON.parse(content) as Record<string, unknown>;
+    if (Array.isArray(parsed.actions) && parsed.actions.length > 0) {
+      actions = parsed.actions as BrainAction[];
+    } else if (parsed.action) {
+      actions = [parsed as unknown as BrainAction];
+    } else {
+      actions = [{ action: "unknown" }];
+    }
+    actions = actions.filter(a => typeof (a as BrainAction).action === "string");
+    if (actions.length === 0) actions = [{ action: "unknown" }];
   } catch {
-    action = { action: "unknown" };
+    actions = [{ action: "unknown" }];
   }
 
-  // Store natural language summary so context stays readable for follow-up questions
-  const assistantMsg = action.action === "chat" ? action.reply : actionSummary(action);
-  history.push({ role: "assistant", content: assistantMsg });
+  const summaries = actions.map(a =>
+    a.action === "chat" ? (a as { action: "chat"; reply: string }).reply : actionSummary(a)
+  );
+  history.push({ role: "assistant", content: summaries.join(" | ") });
 
-  return action;
+  return actions;
 }
 
 async function safeText(res: Response): Promise<string> {
