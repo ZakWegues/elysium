@@ -14,6 +14,7 @@ import { runPreset } from "./runPreset";
 import { mediaControl } from "./mediaControl";
 import { windowManagement } from "./windowManagement";
 import { createPreset } from "./createPreset";
+import { sendToMobile } from "./sendToMobile";
 
 export async function routeAction(action: BrainAction): Promise<string> {
   switch (action.action) {
@@ -33,6 +34,7 @@ export async function routeAction(action: BrainAction): Promise<string> {
     case "list_presets":      return listPresetsReply();
     case "delete_preset":     return deletePreset(action.preset_name);
     case "create_preset":     return createPreset(action.preset_name, action.description, action.icon, action.actions);
+    case "send_to_mobile":    return sendToMobile(action.content, action.kind);
     case "chat":              return action.reply;
     case "unknown":           return "Não entendi o que você pediu. Pode repetir?";
   }

@@ -41,4 +41,16 @@ contextBridge.exposeInMainWorld("nx", {
   // ── Telemetry history / insights ───────────────────────────────────────────
   getTelemetryHistory: ()                       => ipcRenderer.invoke("telemetry:get-history"),
   getInsights:         ()                       => ipcRenderer.invoke("telemetry:get-insights"),
+
+  // ── Pairing (NEUROAXIS Portal mobile) ───────────────────────────────────────
+  getPairingInfo:  ()                           => ipcRenderer.invoke("pairing:get-info"),
+  regenerateToken: ()                           => ipcRenderer.invoke("pairing:regenerate-token"),
+
+  // ── Mailbox self-chat (PC ↔ celular) ─────────────────────────────────────────
+  getMailboxThread:     ()                          => ipcRenderer.invoke("mailbox:get-thread"),
+  mailboxSend:          (text: string)              => ipcRenderer.send("mailbox:send", text),
+  onMailboxMessage:     (cb: (m: unknown) => void)  => { ipcRenderer.on("mailbox:new-message", (_e, m) => cb(m)); },
+  mailboxCopyImage:     (attachmentPath: string)                       => ipcRenderer.invoke("mailbox:copy-image", attachmentPath),
+  mailboxSaveAs:        (attachmentPath: string, suggestedName: string) => ipcRenderer.invoke("mailbox:save-as", attachmentPath, suggestedName),
+  mailboxOpenAttachment:(attachmentPath: string)                       => ipcRenderer.invoke("mailbox:open-attachment", attachmentPath),
 });

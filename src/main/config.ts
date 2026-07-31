@@ -106,3 +106,10 @@ export function getOrCreateServerToken(): string {
   store.set("serverToken", token);
   return token;
 }
+
+/** Gera um novo token e invalida o anterior — pareamentos antigos do Portal precisam parear de novo. */
+export function regenerateServerToken(): string {
+  const token = crypto.randomBytes(32).toString("hex");
+  store.set("serverToken", token);
+  return token;
+}

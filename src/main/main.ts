@@ -1,7 +1,10 @@
-import { app, BrowserWindow, globalShortcut, ipcMain } from "electron";
+import { app, BrowserWindow, globalShortcut, ipcMain, clipboard, nativeImage, dialog, shell } from "electron";
 import * as path from "node:path";
+import * as fs from "node:fs";
 import AutoLaunch from "auto-launch";
-import { getConfig, getApiKey, setApiKey, hasApiKey, setOverride, getOrCreateServerToken, AppConfig } from "./config";
+import * as QRCode from "qrcode";
+import { getConfig, getApiKey, setApiKey, hasApiKey, setOverride, getOrCreateServerToken, regenerateServerToken, AppConfig } from "./config";
+import { getLocalIPv4 } from "./network";
 import { state } from "./state";
 import { notify } from "./notify";
 import { createTray, refreshTray, updateLastCommand } from "./tray";
@@ -12,12 +15,13 @@ import { synthesize, cancelSpeak } from "../services/tts";
 import { routeAction } from "../actions/router";
 import { NeuroaxisError } from "../services/errors";
 import { processCommand } from "../services/command";
-import { startServer } from "../services/server";
+import { startServer, setActiveToken, broadcastMailboxEvent } from "../services/server";
 import { startMonitor, getDashboardTelemetry, killProcess } from "../actions/systemInfo";
 import type { BrainAction } from "../services/brain";
 import { mediaControl } from "../actions/mediaControl";
 import { logAnomaly, getAnomalyHistory, getInsights } from "../services/telemetryLog";
 import { getAllPresets } from "../services/presetsStore";
+import { checkAndMarkUnseenFromMobile, addMessage, listMessagesForDesktop, inferKind, mailboxEvents, isKnownAttachmentPath } from "../services/mailboxStore";
 
 // ── windows ───────────────────────────────────────────────────────────────────
 
@@ -416,8 +420,61 @@ ipcMain.handle("config:reset-defaults", () => {
 
 ipcMain.handle("presets:get", () => getAllPresets());
 
+// ── mailbox self-chat (PC ↔ celular) ────────────────────────────────────────
+
+ipcMain.handle("mailbox:get-thread", () => listMessagesForDesktop());
+
+ipcMain.on("mailbox:send", (_event, text: string) => {
+  const trimmed = (text ?? "").trim();
+  if (!trimmed) return;
+  const { id } = addMessage("pc", { kind: inferKind(trimmed), text: trimmed, attachment: null });
+  broadcastMailboxEvent("toMobile", id);
+});
+
+ipcMain.handle("mailbox:copy-image", async (_event, attachmentPath: string) => {
+  if (!isKnownAttachmentPath(attachmentPath)) throw new Error("Caminho de anexo inválido.");
+  const image = nativeImage.createFromPath(attachmentPath);
+  if (image.isEmpty()) throw new Error("Não foi possível ler a imagem.");
+  clipboard.writeImage(image);
+});
+
+ipcMain.handle("mailbox:save-as", async (_event, attachmentPath: string, suggestedName: string) => {
+  if (!isKnownAttachmentPath(attachmentPath)) throw new Error("Caminho de anexo inválido.");
+  const result = dashWin
+    ? await dialog.showSaveDialog(dashWin, { defaultPath: suggestedName })
+    : await dialog.showSaveDialog({ defaultPath: suggestedName });
+  if (result.canceled || !result.filePath) return { saved: false };
+  fs.copyFileSync(attachmentPath, result.filePath);
+  return { saved: true };
+});
+
+ipcMain.handle("mailbox:open-attachment", async (_event, attachmentPath: string) => {
+  if (!isKnownAttachmentPath(attachmentPath)) throw new Error("Caminho de anexo inválido.");
+  await shell.openPath(attachmentPath);
+});
+
 ipcMain.handle("telemetry:get-history",  () => getAnomalyHistory());
 ipcMain.handle("telemetry:get-insights", () => getInsights());
+
+// ── pairing (NEUROAXIS Portal mobile) ───────────────────────────────────────────
+
+async function getPairingPayload() {
+  const ip    = getLocalIPv4();
+  const cfg   = getConfig();
+  const port  = cfg.serverPort ?? 4200;
+  const token = getOrCreateServerToken();
+  const qrDataUrl = await QRCode.toDataURL(JSON.stringify({ ip, port, token }));
+  return { ip, port, token, qrDataUrl };
+}
+
+ipcMain.handle("pairing:get-info", () => getPairingPayload());
+
+ipcMain.handle("pairing:regenerate-token", async () => {
+  const token = regenerateServerToken();
+  setActiveToken(token);
+  notify("NEUROAXIS", "Token regenerado. Pareamentos antigos do Portal precisam escanear o QR de novo.");
+  return getPairingPayload();
+});
 
 // ── shortcut handler ──────────────────────────────────────────────────────────
 
@@ -475,6 +532,18 @@ app.on("ready", async () => {
   const serverToken = getOrCreateServerToken();
   const cfg = getConfig();
   startServer(serverToken, processCommand, cfg.serverPort ?? 4200);
+
+  const unseenFromMobile = checkAndMarkUnseenFromMobile();
+  if (unseenFromMobile.length > 0) {
+    const preview = unseenFromMobile.length === 1
+      ? (unseenFromMobile[0].text?.slice(0, 80) || unseenFromMobile[0].attachment?.name || "item")
+      : `${unseenFromMobile.length} itens`;
+    notify("NEUROAXIS — Mailbox", `Recebido do celular: ${preview}`);
+  }
+
+  mailboxEvents.on("new-message", (msg) => {
+    dashWin?.webContents.send("mailbox:new-message", msg);
+  });
 
   startMonitor(notify);
   startTelemetryLoop();
