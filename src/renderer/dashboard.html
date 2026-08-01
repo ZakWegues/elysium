@@ -2183,7 +2183,12 @@ function renderPairing(info) {
     qr.src = info.qrDataUrl;
     qr.classList.add("show");
     empty.classList.add("hide");
-    addr.textContent = `${info.ip}:${info.port}`;
+    // O QR carrega todos os endereços; aqui mostramos o principal e, quando existe
+    // um túnel (Tailscale/ZeroTier), avisamos que dá pra usar fora de casa.
+    const tunnel = (info.endpoints || []).find(e => e.tunnel);
+    addr.textContent = tunnel
+      ? `${info.ip}:${info.port}  ·  túnel ${tunnel.address}`
+      : `${info.ip}:${info.port}`;
   } else {
     qr.classList.remove("show");
     empty.classList.remove("hide");

@@ -1,10 +1,11 @@
 import { app, BrowserWindow, globalShortcut, ipcMain, clipboard, nativeImage, dialog, shell } from "electron";
 import * as path from "node:path";
 import * as fs from "node:fs";
+import * as os from "node:os";
 import AutoLaunch from "auto-launch";
 import * as QRCode from "qrcode";
 import { getConfig, getApiKey, setApiKey, hasApiKey, setOverride, getOrCreateServerToken, regenerateServerToken, AppConfig } from "./config";
-import { getLocalIPv4 } from "./network";
+import { getLocalIPv4, getAllLocalIPv4 } from "./network";
 import { state } from "./state";
 import { notify } from "./notify";
 import { createTray, refreshTray, updateLastCommand } from "./tray";
@@ -459,12 +460,25 @@ ipcMain.handle("telemetry:get-insights", () => getInsights());
 // ── pairing (NEUROAXIS Portal mobile) ───────────────────────────────────────────
 
 async function getPairingPayload() {
-  const ip    = getLocalIPv4();
-  const cfg   = getConfig();
-  const port  = cfg.serverPort ?? 4200;
-  const token = getOrCreateServerToken();
-  const qrDataUrl = await QRCode.toDataURL(JSON.stringify({ ip, port, token }));
-  return { ip, port, token, qrDataUrl };
+  const endpoints = getAllLocalIPv4();
+  const cfg       = getConfig();
+  const port      = cfg.serverPort ?? 4200;
+  const token     = getOrCreateServerToken();
+  const ip        = getLocalIPv4();
+
+  // v2 do payload: lista de endereços em vez de um só, para o celular correr todos
+  // e sobreviver a troca de IP por DHCP e a sair da rede de casa pelo túnel.
+  // `ip` continua presente para não quebrar um Portal antigo ainda não atualizado.
+  const qrDataUrl = await QRCode.toDataURL(JSON.stringify({
+    v: 2,
+    ip,
+    port,
+    token,
+    hostname:  os.hostname(),
+    endpoints: endpoints.map(e => e.address),
+  }));
+
+  return { ip, port, token, qrDataUrl, endpoints };
 }
 
 ipcMain.handle("pairing:get-info", () => getPairingPayload());

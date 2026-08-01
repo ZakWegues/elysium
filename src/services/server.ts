@@ -3,11 +3,17 @@
  *
  * Security: every request/connection must carry the 32-byte hex token in
  *   Authorization: Bearer <token>
+ * Não há CORS: o cliente é um app nativo, não um browser. Requisições são limitadas
+ * por taxa e o corpo tem teto de tamanho.
  *
  * Routes:
  *   GET  /api/health            → { status, version }
- *   POST /api/command           → { text } → { reply }
+ *   POST /api/command           → { text } → { reply }     (linguagem natural → cérebro)
+ *   GET  /api/rpc               → { methods }              (descoberta)
+ *   POST /api/rpc               → { method, params } → { result }  (chamada tipada)
  *   WS   /api/stream            → binary audio frames → STT → reply (text frame)
+ *
+ * Métodos RPC marcados `destructive` exigem o header X-Neuroaxis-Confirm: 1.
  *
  *   POST /api/mailbox/messages               → mobile posts a message, { id, createdAt } (from:"mobile")
  *   GET  /api/mailbox/messages               → full thread (both from:"pc" and from:"mobile"), metadata only
@@ -26,9 +32,17 @@ import {
   addMessage, listMessages, getMessageContent, ackMessage,
   AttachmentTooLargeError, MailboxKind,
 } from "./mailboxStore";
+import { handleRpc, listRpcMethods, RpcError } from "./rpc";
 
 const WS_MAGIC = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 const PKG_VERSION = "1.0.0";
+
+/** Teto de corpo por requisição. Anexo do mailbox em base64 (5 MB) infla ~33%. */
+const MAX_BODY_BYTES = 8 * 1024 * 1024;
+
+/** Rate limit: janela deslizante simples por IP de origem. */
+const RATE_LIMIT_WINDOW_MS = 10_000;
+const RATE_LIMIT_MAX_REQUESTS = 120;
 
 // ── WS frame codec ────────────────────────────────────────────────────────────
 
@@ -146,9 +160,56 @@ export function setActiveToken(token: string): void {
 function authorized(req: http.IncomingMessage): boolean {
   const hdr = req.headers["authorization"] ?? "";
   if (typeof hdr === "string" && hdr.startsWith("Bearer ")) {
-    return hdr.slice(7).trim() === activeToken;
+    const supplied = hdr.slice(7).trim();
+    // Comparação de tempo constante: evita distinguir um token quase certo de um
+    // completamente errado pelo tempo de resposta.
+    if (supplied.length !== activeToken.length || activeToken.length === 0) return false;
+    return crypto.timingSafeEqual(Buffer.from(supplied), Buffer.from(activeToken));
   }
   return false;
+}
+
+// ── rate limit ────────────────────────────────────────────────────────────────
+
+const rateBuckets = new Map<string, number[]>();
+
+/** true quando a requisição deve ser barrada (429). */
+function rateLimited(req: http.IncomingMessage): boolean {
+  const ip = req.socket.remoteAddress ?? "unknown";
+  const now = Date.now();
+  const hits = (rateBuckets.get(ip) ?? []).filter(t => now - t < RATE_LIMIT_WINDOW_MS);
+  hits.push(now);
+  rateBuckets.set(ip, hits);
+
+  // Poda preguiçosa: sem isso o Map cresce sem limite ao longo de dias ligado.
+  if (rateBuckets.size > 64) {
+    for (const [key, times] of rateBuckets) {
+      if (times.every(t => now - t >= RATE_LIMIT_WINDOW_MS)) rateBuckets.delete(key);
+    }
+  }
+
+  return hits.length > RATE_LIMIT_MAX_REQUESTS;
+}
+
+// ── leitura de corpo com teto ─────────────────────────────────────────────────
+
+class BodyTooLargeError extends Error {}
+
+async function readBody(req: http.IncomingMessage): Promise<string> {
+  let size = 0;
+  const chunks: Buffer[] = [];
+  for await (const chunk of req) {
+    const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk as string);
+    size += buf.length;
+    if (size > MAX_BODY_BYTES) throw new BodyTooLargeError();
+    chunks.push(buf);
+  }
+  return Buffer.concat(chunks).toString("utf8");
+}
+
+function sendJson(res: http.ServerResponse, status: number, payload: unknown): void {
+  res.writeHead(status, { "Content-Type": "application/json" });
+  res.end(JSON.stringify(payload));
 }
 
 // ── HTTP handler ──────────────────────────────────────────────────────────────
@@ -157,15 +218,19 @@ function makeHandler(
   processCommand: (text: string) => Promise<string>,
 ): http.RequestListener {
   return async (req, res) => {
-    res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Access-Control-Allow-Headers", "Authorization, Content-Type");
-    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-
+    // Sem CORS de propósito. O cliente é um app React Native, que não é browser e
+    // nunca precisou de preflight. Manter Access-Control-Allow-Origin:* deixava
+    // qualquer página aberta em qualquer máquina da rede chamar esta API de dentro
+    // do browser — e agora ela desliga o PC, lê o clipboard e mata processos.
     if (req.method === "OPTIONS") { res.writeHead(204); res.end(); return; }
 
+    if (rateLimited(req)) {
+      sendJson(res, 429, { error: "Too many requests" });
+      return;
+    }
+
     if (!authorized(req)) {
-      res.writeHead(401, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "Unauthorized" }));
+      sendJson(res, 401, { error: "Unauthorized" });
       return;
     }
 
@@ -180,30 +245,58 @@ function makeHandler(
 
     // POST /api/command
     if (req.method === "POST" && url === "/api/command") {
-      let body = "";
-      for await (const chunk of req) body += chunk;
+      let body: string;
+      try { body = await readBody(req); } catch { sendJson(res, 413, { error: "Body too large" }); return; }
       let text = "";
       try { text = (JSON.parse(body) as { text?: string }).text?.trim() ?? ""; } catch { /* */ }
       if (!text) {
-        res.writeHead(400, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: "Missing text field" }));
+        sendJson(res, 400, { error: "Missing text field" });
         return;
       }
       try {
         const reply = await processCommand(text);
-        res.writeHead(200, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ reply }));
+        sendJson(res, 200, { reply });
       } catch (e) {
-        res.writeHead(500, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: String(e) }));
+        sendJson(res, 500, { error: String(e) });
+      }
+      return;
+    }
+
+    // GET /api/rpc — descoberta: quais métodos existem e quais exigem confirmação
+    if (req.method === "GET" && url === "/api/rpc") {
+      sendJson(res, 200, { methods: listRpcMethods() });
+      return;
+    }
+
+    // POST /api/rpc — chamada tipada e determinística (ver src/services/rpc.ts)
+    if (req.method === "POST" && url === "/api/rpc") {
+      let body: string;
+      try { body = await readBody(req); } catch { sendJson(res, 413, { error: "Body too large" }); return; }
+
+      let parsed: { method?: unknown; params?: unknown };
+      try { parsed = JSON.parse(body) as { method?: unknown; params?: unknown }; }
+      catch { sendJson(res, 400, { error: "Body inválido: JSON esperado" }); return; }
+
+      const confirmed = req.headers["x-neuroaxis-confirm"] === "1";
+
+      try {
+        const result = await handleRpc(parsed.method, parsed.params, { confirmed });
+        sendJson(res, 200, { result });
+      } catch (e) {
+        if (e instanceof RpcError) {
+          sendJson(res, e.status, { error: e.message });
+          return;
+        }
+        console.error("[RPC] erro não tratado:", e);
+        sendJson(res, 500, { error: String(e) });
       }
       return;
     }
 
     // POST /api/mailbox/messages — celular → servidor, mensagem entra na thread como from:"mobile"
     if (req.method === "POST" && url === "/api/mailbox/messages") {
-      let body = "";
-      for await (const chunk of req) body += chunk;
+      let body: string;
+      try { body = await readBody(req); } catch { sendJson(res, 413, { error: "Body too large" }); return; }
       let parsed: {
         kind?: string; text?: string;
         attachment?: { name?: string; mimeType?: string; base64?: string };

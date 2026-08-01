@@ -36,7 +36,7 @@ App desktop Electron + TypeScript para Windows chamado **NEUROAXIS** (nome origi
   ?? src/services/mailboxStore.ts
   ```
 - `npm run build` passa limpo nesse estado.
-- **NÃO commite por iniciativa própria** — o usuário indica explicitamente quando quer ("commita tudo" é a frase dele).
+- **Commite e dê push a cada bloco concluído**, sem perguntar (política definida em 31/07/2026, vale pros dois repos). Fechou bloco com build passando e validação feita → commit + push.
 
 ---
 
@@ -123,13 +123,9 @@ Objetivo do usuário: desktop com a **mesma linguagem visual do NEUROAXIS Portal
 
 ---
 
-## 🔴 BUG ABERTO — ação é no `neuroaxis-portal`, não aqui
+## ✅ BUG DE ÁUDIO DO CELULAR — RESOLVIDO (era no `neuroaxis-portal`)
 
-**Sintoma:** celular manda áudio, desktop processa direitinho, nenhuma resposta volta.
-
-**Causa raiz confirmada via log real:** o cliente WS do Portal manda o frame binário de áudio e **fecha a conexão (close frame `0x8`) imediatamente, sem esperar resposta**. O pipeline do desktop (Groq Whisper → Llama → executar ação) leva 1+ segundo; quando a resposta fica pronta o socket já foi encerrado. A resposta é gerada e perdida.
-
-**Fix necessário (lá, não aqui):** o cliente WS precisa esperar `{"type":"reply",...}` ou `{"type":"error",...}` antes de chamar `close()`. Idealmente reusar uma conexão WS única enquanto a tela de voz estiver ativa.
+Ficou muito tempo aqui como bug aberto; **já foi corrigido do lado do Portal**. O cliente WS de voz (`src/lib/stream.ts` lá) hoje registra a promessa com timeout de 20s **antes** de enviar o áudio e só resolve em `{"type":"reply"}` / `{"type":"error"}` — não há mais `close()` logo após o envio, e a conexão é reaproveitada entre gravações.
 
 **Protocolo do `/api/stream` pra referência:** depois do frame binário de áudio, o servidor manda de volta, na mesma conexão, frames de texto JSON: `{"type":"transcript","text":"..."}` primeiro, depois `{"type":"reply","reply":"..."}` (ou `{"type":"error","error":"..."}`).
 
