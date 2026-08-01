@@ -3,6 +3,7 @@ import { apiKeyError, networkError } from "./errors";
 import type { MediaOperation } from "../actions/mediaControl";
 import type { WinOperation }   from "../actions/windowManagement";
 import type { PowerOperation } from "../actions/powerControl";
+import { buildMemoryBlock } from "./memoryStore";
 
 const GROQ_CHAT_URL = "https://api.groq.com/openai/v1/chat/completions";
 
@@ -25,6 +26,12 @@ export type BrainAction =
   | { action: "create_preset";     preset_name: string; description: string; icon?: string; actions: BrainAction[] }
   | { action: "send_to_mobile";    content: string; kind?: "link" | "note" }
   | { action: "power_control";     operation: PowerOperation; delay_seconds?: number }
+  | { action: "remember";          fact: string }
+  | { action: "forget";            query: string }
+  | { action: "list_memory" }
+  | { action: "create_reminder";   text: string; due_at: string; weekly?: boolean }
+  | { action: "list_reminders" }
+  | { action: "cancel_reminder";   query: string }
   | { action: "chat";              reply: string }
   | { action: "unknown" };
 
@@ -54,6 +61,12 @@ Ações disponíveis (elementos do array):
 {"action":"create_preset","preset_name":"<nome em minúsculas>","description":"<descrição curta>","icon":"<um emoji>","actions":[<ações que compõem o preset>]}
 {"action":"send_to_mobile","content":"<texto ou link a mandar>","kind":"link"|"note"}
 {"action":"power_control","operation":"shutdown"|"restart"|"sleep"|"lock"|"cancel","delay_seconds":<segundos, opcional>}
+{"action":"remember","fact":"<fato curto a guardar, na terceira pessoa>"}
+{"action":"forget","query":"<trecho do fato a esquecer>"}
+{"action":"list_memory"}
+{"action":"create_reminder","text":"<o que lembrar>","due_at":"<data e hora ISO 8601 local, ex 2026-08-02T15:00:00>","weekly":<true se for toda semana>}
+{"action":"list_reminders"}
+{"action":"cancel_reminder","query":"<trecho do lembrete a cancelar>"}
 {"action":"chat","reply":"<resposta direta e curta em português>"}
 {"action":"unknown"}
 
@@ -80,60 +93,68 @@ Regras de decisão:
 - send_to_mobile → "manda isso pro meu celular", "manda esse link pro celular", "envia pro celular", "manda uma nota pro celular"; content = texto/link extraído da fala; kind omitido se ambíguo (o executor infere pelo formato)
 - power_control → ENERGIA DO PC: "desliga o PC", "reinicia o computador", "suspende", "bota pra dormir", "bloqueia o PC", "trava a tela", "cancela o desligamento"; delay_seconds só quando o usuário disser um prazo ("desliga em 10 minutos" = 600); sem prazo dito, OMITA delay_seconds — o executor usa 30 segundos, que é a janela pra cancelar
 - DISTINÇÃO power_control vs close_app: "desliga o PC" = power_control(shutdown); "fecha o Spotify" = close_app
+- remember → "lembra que", "anota que", "guarda que", "não esquece que", "meu X é Y" dito como informação sobre o usuário; reescreva o fato em terceira pessoa e curto ("O projeto principal do usuário é o NEUROAXIS")
+- forget → "esquece que", "apaga o que você sabe sobre", "remove aquilo de"
+- list_memory → "o que você lembra sobre mim", "quais fatos você guardou"
+- create_reminder → "me lembra de X", "me avisa às", "daqui a N minutos", "amanhã às", "toda segunda"; due_at SEMPRE em ISO 8601 local completo, calculado a partir da data e hora atuais informadas acima; weekly true só quando o usuário disser que se repete toda semana
+- list_reminders → "quais lembretes eu tenho", "o que tá agendado"
+- cancel_reminder → "cancela o lembrete de X", "apaga aquele lembrete"
+- DISTINÇÃO remember vs create_reminder: remember guarda um FATO permanente sobre o usuário; create_reminder agenda um AVISO para um momento específico
 - DISTINÇÃO: "abre o Spotify" = open_app; "fecha o Spotify" = close_app; "toca música" = play_music; "abre o YouTube" = open_url
 - Pedidos compostos com "e", "depois", "também" → múltiplos elementos no array, um por ação
 
-Exemplos (sempre no formato {"actions":[...]}):
+Exemplos — cobrem os casos AMBÍGUOS. Para o resto, siga as regras acima.
 "toca Bruno Mars" → {"actions":[{"action":"play_music","query":"Bruno Mars"}]}
-"coloca Bohemian Rhapsody" → {"actions":[{"action":"play_music","query":"Bohemian Rhapsody Queen"}]}
 "abre o YouTube" → {"actions":[{"action":"open_url","url_or_query":"https://youtube.com"}]}
 "abre o Discord" → {"actions":[{"action":"open_app","app_name":"discord"}]}
-"abre o Chrome" → {"actions":[{"action":"open_app","app_name":"chrome"}]}
 "fecha o Chrome" → {"actions":[{"action":"close_app","app_name":"chrome"}]}
-"aumenta o volume" → {"actions":[{"action":"volume_control","level":"up"}]}
-"volume 50" → {"actions":[{"action":"volume_control","level":50}]}
-"muta" → {"actions":[{"action":"volume_control","level":"mute"}]}
-"próxima música" → {"actions":[{"action":"media_control","operation":"skip"}]}
-"passa essa música" → {"actions":[{"action":"media_control","operation":"skip"}]}
-"pausa" → {"actions":[{"action":"media_control","operation":"pause"}]}
-"continua" → {"actions":[{"action":"media_control","operation":"play"}]}
-"música anterior" → {"actions":[{"action":"media_control","operation":"previous"}]}
-"volta a música" → {"actions":[{"action":"media_control","operation":"previous"}]}
-"maximiza o VS Code" → {"actions":[{"action":"window_management","target_app":"vs code","operation":"maximize"}]}
-"bota o VS Code em tela cheia" → {"actions":[{"action":"window_management","target_app":"vs code","operation":"maximize"}]}
-"minimiza o Chrome" → {"actions":[{"action":"window_management","target_app":"chrome","operation":"minimize"}]}
-"traz o Discord para frente" → {"actions":[{"action":"window_management","target_app":"discord","operation":"focus"}]}
 "fecha a janela do Notepad" → {"actions":[{"action":"window_management","target_app":"notepad","operation":"close"}]}
-"quanta RAM está sendo usada" → {"actions":[{"action":"system_info","query":"ram"}]}
-"bateria do PC" → {"actions":[{"action":"system_info","query":"battery"}]}
-"temperatura do processador" → {"actions":[{"action":"system_info","query":"cpu_temperature"}]}
+"volume 50" → {"actions":[{"action":"volume_control","level":50}]}
+"aumenta o som" → {"actions":[{"action":"media_control","operation":"volume_up"}]}
+"passa essa música" → {"actions":[{"action":"media_control","operation":"skip"}]}
+"bota o VS Code em tela cheia" → {"actions":[{"action":"window_management","target_app":"vs code","operation":"maximize"}]}
 "PC tá muito quente" → {"actions":[{"action":"system_info","query":"cpu_temperature"}]}
-"tira um print" → {"actions":[{"action":"screenshot"}]}
-"manda isso pro meu celular: reunião amanhã às 10h" → {"actions":[{"action":"send_to_mobile","content":"reunião amanhã às 10h"}]}
 "manda esse link pro celular: https://exemplo.com" → {"actions":[{"action":"send_to_mobile","content":"https://exemplo.com","kind":"link"}]}
-"envia uma nota pro celular dizendo compra leite" → {"actions":[{"action":"send_to_mobile","content":"compra leite","kind":"note"}]}
-"desliga o PC" → {"actions":[{"action":"power_control","operation":"shutdown"}]}
 "desliga o computador em 10 minutos" → {"actions":[{"action":"power_control","operation":"shutdown","delay_seconds":600}]}
-"cancela o desligamento" → {"actions":[{"action":"power_control","operation":"cancel"}]}
-"bloqueia o PC" → {"actions":[{"action":"power_control","operation":"lock"}]}
-"reinicia o computador" → {"actions":[{"action":"power_control","operation":"restart"}]}
+"lembra que meu projeto principal é o NEUROAXIS" → {"actions":[{"action":"remember","fact":"O projeto principal do usuário é o NEUROAXIS"}]}
+"esquece que eu moro em Curitiba" → {"actions":[{"action":"forget","query":"mora em Curitiba"}]}
+"me lembra daqui a 25 minutos de alongar" → {"actions":[{"action":"create_reminder","text":"alongar","due_at":"<agora + 25 min em ISO>"}]}
+"toda segunda às 8 me lembra da reunião" → {"actions":[{"action":"create_reminder","text":"reunião","due_at":"<próxima segunda 08:00 em ISO>","weekly":true}]}
+"cancela o lembrete do boleto" → {"actions":[{"action":"cancel_reminder","query":"boleto"}]}
 "qual a capital do Brasil" → {"actions":[{"action":"chat","reply":"A capital do Brasil é Brasília."}]}
-"oi" → {"actions":[{"action":"chat","reply":"Oi! Como posso ajudar?"}]}
-"crie o preset assassins creed" → {"actions":[{"action":"create_preset","preset_name":"assassins creed","description":"Modo Assassin's Creed","icon":"⚔️","actions":[{"action":"play_music","query":"trilha sonora epica batalha"},{"action":"open_app","app_name":"assassins creed"}]}]}
 "cria um preset estudo que abre o VS Code e toca lofi" → {"actions":[{"action":"create_preset","preset_name":"estudo","description":"Modo Estudo","icon":"📚","actions":[{"action":"open_app","app_name":"vs code"},{"action":"play_music","query":"lofi hip hop"}]}]}
 
-Exemplos compostos (múltiplas ações):
-"passa essa música e bota o VS Code em tela cheia" → {"actions":[{"action":"media_control","operation":"skip"},{"action":"window_management","target_app":"vs code","operation":"maximize"}]}
-"pausa o som e vê se o PC tá muito quente" → {"actions":[{"action":"media_control","operation":"pause"},{"action":"system_info","query":"cpu_temperature"}]}
-"maximiza o Chrome e toca lofi" → {"actions":[{"action":"window_management","target_app":"chrome","operation":"maximize"},{"action":"play_music","query":"lofi hip hop"}]}
-"me diz as horas e quanto tem de espaço no HD" → {"actions":[{"action":"system_info","query":"hora"},{"action":"system_info","query":"disk"}]}
-"abre o Discord e toca uma música animada" → {"actions":[{"action":"open_app","app_name":"discord"},{"action":"play_music","query":"música animada"}]}
+Compostos — uma ação por pedido, na ordem falada:
 "fecha o Chrome e abre o VS Code" → {"actions":[{"action":"close_app","app_name":"chrome"},{"action":"open_app","app_name":"vs code"}]}
 "volume 40 e toca lofi" → {"actions":[{"action":"volume_control","level":40},{"action":"play_music","query":"lofi hip hop"}]}
 
 Para write_text: gere o conteúdo COMPLETO e bem formatado no campo content. Use \\n para quebras de linha.
 
 Responda SOMENTE o JSON, nenhum texto adicional, sem markdown.`;
+
+/**
+ * Prompt final: o texto fixo mais duas partes que só existem em tempo de execução.
+ *
+ * A data e a hora precisam estar aqui porque `create_reminder` exige ISO absoluto —
+ * sem elas o modelo não tem como transformar "amanhã às 9" em data, e chutaria.
+ */
+function buildSystemPrompt(): string {
+  const now = new Date();
+  const weekdays = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
+  const stamp =
+    `\n\nAgora é ${weekdays[now.getDay()]}, ${now.toLocaleDateString("pt-BR")}, ` +
+    `${now.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}. ` +
+    `Em ISO 8601 local: ${localIso(now)}. Use isto para calcular qualquer due_at.`;
+
+  return SYSTEM_PROMPT + stamp + buildMemoryBlock();
+}
+
+/** ISO local sem sufixo de fuso — o agendador interpreta na hora do próprio PC. */
+function localIso(d: Date): string {
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}` +
+         `T${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
 
 let history: Message[] = [];
 let lastActivity = Date.now();
@@ -163,6 +184,12 @@ function actionSummary(action: BrainAction): string {
     case "create_preset":     return `Criou preset: ${action.preset_name}`;
     case "send_to_mobile":    return `Mandou pro celular: ${action.content}`;
     case "power_control":     return `Energia: ${action.operation}`;
+    case "remember":          return `Guardou na memória: ${action.fact}`;
+    case "forget":            return `Esqueceu: ${action.query}`;
+    case "list_memory":       return "Listou a memória";
+    case "create_reminder":   return `Lembrete criado: ${action.text}`;
+    case "list_reminders":    return "Listou lembretes";
+    case "cancel_reminder":   return `Cancelou lembrete: ${action.query}`;
     case "unknown":           return "Não entendi o pedido.";
     default:                  return "";
   }
@@ -192,7 +219,7 @@ export async function decideBrain(text: string): Promise<BrainAction[]> {
       },
       body: JSON.stringify({
         model: cfg.brainModel,
-        messages: [{ role: "system", content: SYSTEM_PROMPT }, ...history],
+        messages: [{ role: "system", content: buildSystemPrompt() }, ...history],
         temperature: 0.1,
         max_tokens: 1500,
         response_format: { type: "json_object" },

@@ -16,6 +16,10 @@ import { windowManagement } from "./windowManagement";
 import { createPreset } from "./createPreset";
 import { sendToMobile } from "./sendToMobile";
 import { powerControl } from "./powerControl";
+import {
+  remember, forget, listMemory,
+  createReminderAction, listRemindersAction, cancelReminderAction,
+} from "./memoryActions";
 
 export async function routeAction(action: BrainAction): Promise<string> {
   switch (action.action) {
@@ -37,6 +41,12 @@ export async function routeAction(action: BrainAction): Promise<string> {
     case "create_preset":     return createPreset(action.preset_name, action.description, action.icon, action.actions);
     case "send_to_mobile":    return sendToMobile(action.content, action.kind);
     case "power_control":     return powerControl(action.operation, action.delay_seconds);
+    case "remember":          return remember(action.fact);
+    case "forget":            return forget(action.query);
+    case "list_memory":       return listMemory();
+    case "create_reminder":   return createReminderAction(action.text, action.due_at, action.weekly);
+    case "list_reminders":    return listRemindersAction();
+    case "cancel_reminder":   return cancelReminderAction(action.query);
     case "chat":              return action.reply;
     case "unknown":           return "Não entendi o que você pediu. Pode repetir?";
   }

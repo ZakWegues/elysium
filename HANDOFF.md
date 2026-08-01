@@ -61,8 +61,8 @@ Decisões fechadas pelo Zak: acesso de fora de casa **via túnel** (Tailscale/Ze
 | 1 | RPC tipado, robustez de rede, pareamento multi-endereço | ✅ feito |
 | 2 | Central de sistema, clipboard, energia | ✅ feito |
 | 3 | Espelhamento de tela + trackpad/teclado remoto | ✅ feito |
-| 4 | Memória de longo prazo, lembretes, push | ⬜ próximo |
-| 5 | Visão, busca web, Spotify Web API | ⬜ |
+| 4 | Memória de longo prazo, lembretes, push | ✅ feito |
+| 5 | Visão, busca web, Spotify Web API | ⬜ próximo |
 | 6 | Home, modo escuro, share intent, build do APK | ⬜ |
 
 O catálogo de 26 features pra depois está no arquivo do plano.
@@ -126,6 +126,8 @@ curl -s -X POST -H "Authorization: Bearer $T" -H "Content-Type: application/json
 
 ## Pendências conhecidas
 
+- **🔴 Limite de tokens da Groq é o gargalo mais próximo de incomodar no uso real.** O system prompt tem ~3000 tokens depois do enxugamento do bloco 4, e cada chamada gasta ~4400 com histórico e memória. O nível gratuito permite 12000 tokens/minuto: dá **cerca de 2 a 3 comandos por minuto** antes de tomar 429. Encostar nisso é fácil falando normal. Opções, da mais barata pra mais trabalhosa: (a) usar `llama-3.1-8b-instant` como modelo de roteamento — já está na lista do `config.html`, tem limite bem maior e a tarefa é classificação, não redação; (b) cortar mais exemplos e regras do prompt; (c) assinar o Dev Tier da Groq; (d) rotear localmente os comandos óbvios por palavra-chave e só chamar o cérebro no que sobrar. Discutir com o Zak antes de escolher.
+- **Push exige credenciais FCM no projeto EAS** para funcionar em APK standalone. Em Expo Go e em emulador não funciona de jeito nenhum — o app detecta e explica, mas não dá pra validar push de verdade antes do bloco 6.
 - **Instalador `.exe` (NSIS) não testado** depois de nenhuma das mudanças recentes.
 - **APK do Portal não é buildável ainda** — falta `eas.json`, `android.package`, permissões declaradas, ícone adaptativo. É o bloco 6.
 - **Voz "Microsoft Daniel" (pt-BR masculina) não é usada pelo fallback SAPI**: é voz OneCore (`HKLM:\SOFTWARE\Microsoft\Speech_OneCore\Voices\Tokens`), invisível pro `System.Speech.Synthesis` clássico que o `tts.ts` usa. Duas saídas identificadas, nenhuma aplicada: ponte de registro (precisa rodar como Admin) ou reescrever o fallback pra `Windows.Media.SpeechSynthesis` (WinRT, não precisa admin mas o interop async via PowerShell é frágil).

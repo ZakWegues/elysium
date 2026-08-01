@@ -7,6 +7,8 @@ import * as QRCode from "qrcode";
 import { getConfig, getApiKey, setApiKey, hasApiKey, setOverride, getOrCreateServerToken, regenerateServerToken, AppConfig } from "./config";
 import { getLocalIPv4, getAllLocalIPv4 } from "./network";
 import { inputHost } from "../services/inputHost";
+import { startScheduler, stopScheduler } from "../services/scheduler";
+import { sendPush } from "../services/push";
 import { state } from "./state";
 import { notify } from "./notify";
 import { createTray, refreshTray, updateLastCommand } from "./tray";
@@ -220,6 +222,13 @@ function startTelemetryLoop(): void {
           topProcess: t.processes[0]?.name,
           details: `RAM ${t.ram_pct}%`,
         });
+        // Só a RAM alta vira push: ela é sustentada e costuma exigir ação. Pico de CPU
+        // é passageiro demais e viraria spam no celular.
+        void sendPush(
+          "anomaly",
+          "PC sob pressão",
+          `RAM em ${t.ram_pct}%${t.processes[0]?.name ? ` — maior consumo: ${t.processes[0].name}` : ""}`,
+        );
       }
 
       if (!dashWin || dashWin.isDestroyed() || !dashWin.isVisible()) return;
@@ -529,6 +538,7 @@ app.on("ready", async () => {
     // O host de entrada é um PowerShell persistente; sem isso ele sobrevive ao app
     // e fica pendurado segurando o stdin.
     inputHost.stop();
+    stopScheduler();
     app.exit(0);
   };
 
@@ -565,6 +575,15 @@ app.on("ready", async () => {
 
   startMonitor(notify);
   startTelemetryLoop();
+
+  // O agendador entra depois do servidor e do TTS porque dispara na hora o que venceu
+  // com o PC desligado — precisa de tudo de pé para falar e notificar.
+  startScheduler((reminder) => {
+    notify("NEUROAXIS — Lembrete", reminder.text);
+    speak(`Lembrete: ${reminder.text}`).catch(() => { /* best-effort */ });
+    void sendPush("reminder", "Lembrete", reminder.text, { reminderId: reminder.id });
+    dashWin?.webContents.send("reminder:fired", reminder);
+  });
 
   const autoLauncher = new AutoLaunch({ name: "NEUROAXIS", isHidden: true });
   try {

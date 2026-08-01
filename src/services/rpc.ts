@@ -26,6 +26,9 @@ import { mediaControl, MediaOperation } from "../actions/mediaControl";
 import { volumeControl } from "../actions/volumeControl";
 import { captureScreen, listScreens } from "./screenCapture";
 import { inputHost, MouseButton } from "./inputHost";
+import { addFact, listFacts, removeFactById } from "./memoryStore";
+import { cancelReminder, createReminder, listAll, ReminderKind } from "./scheduler";
+import { getPushPrefs, registerToken, setPushPrefs, unregisterToken, PushCategory } from "./push";
 
 /** Erro com status HTTP embutido, para o servidor traduzir direto na resposta. */
 export class RpcError extends Error {
@@ -285,6 +288,83 @@ const METHODS: Record<string, MethodDef> = {
       if (sequence.length > 200) throw new RpcError(400, "sequência longa demais");
       await inputHost.key(sequence);
       return { ok: true };
+    },
+  },
+
+  // — memória de longo prazo —
+  "memory.list": {
+    handler: async () => ({ facts: listFacts() }),
+  },
+  "memory.add": {
+    handler: async (params) => {
+      const { fact, created } = addFact(requireString(params, "text"));
+      return { fact, created };
+    },
+  },
+  "memory.remove": {
+    handler: async (params) => ({ removed: removeFactById(requireString(params, "id")) }),
+  },
+
+  // — lembretes —
+  "reminders.list": {
+    handler: async () => ({ reminders: listAll() }),
+  },
+  "reminders.create": {
+    handler: async (params) => {
+      const text = requireString(params, "text");
+      const dueAt = requireNumber(params, "dueAt");
+      const kind = (optionalString(params, "kind") ?? "once") as ReminderKind;
+      if (kind !== "once" && kind !== "weekly") {
+        throw new RpcError(400, 'param "kind" deve ser once ou weekly');
+      }
+      if (kind === "once" && dueAt <= Date.now()) {
+        throw new RpcError(400, "dueAt já passou");
+      }
+      return {
+        reminder: createReminder({
+          text,
+          dueAt,
+          kind,
+          weekday: kind === "weekly" ? new Date(dueAt).getDay() : undefined,
+        }),
+      };
+    },
+  },
+  "reminders.cancel": {
+    handler: async (params) => ({ cancelled: cancelReminder(requireString(params, "id")) }),
+  },
+
+  // — notificações push —
+  "push.register": {
+    handler: async (params) => ({ added: registerToken(requireString(params, "token")) }),
+  },
+  "push.unregister": {
+    handler: async (params) => ({ removed: unregisterToken(requireString(params, "token")) }),
+  },
+  "push.getPrefs": {
+    handler: async () => {
+      // Os tokens não voltam: são identificadores de aparelho e o app não precisa
+      // deles de volta pra desenhar a tela de preferências.
+      const { tokens, ...rest } = getPushPrefs();
+      return { ...rest, deviceCount: tokens.length };
+    },
+  },
+  "push.setPrefs": {
+    handler: async (params) => {
+      const muted = params["muted"];
+      if (muted !== undefined) {
+        const allowed: PushCategory[] = ["reminder", "anomaly", "mailbox"];
+        if (!Array.isArray(muted) || muted.some(m => !allowed.includes(m as PushCategory))) {
+          throw new RpcError(400, `param "muted" deve ser uma lista de: ${allowed.join(", ")}`);
+        }
+      }
+      const next = setPushPrefs({
+        muted: muted as PushCategory[] | undefined,
+        quietFrom: optionalInt(params, "quietFrom"),
+        quietTo: optionalInt(params, "quietTo"),
+      });
+      const { tokens, ...rest } = next;
+      return { ...rest, deviceCount: tokens.length };
     },
   },
 

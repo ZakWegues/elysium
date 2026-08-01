@@ -66,6 +66,20 @@ Resposta de erro — sempre `{ "error": "<mensagem em PT-BR>" }` com status:
 | `input.scroll` | `{ notches: number }` (positivo = pra cima) | `{ ok: true }` | não |
 | `input.type` | `{ text: string }` (máx 5000) | `{ ok: true }` | não |
 | `input.key` | `{ sequence: string }` (sintaxe SendKeys, máx 200) | `{ ok: true }` | não |
+| `memory.list` | — | `{ facts: [{ id, text, createdAt }] }` | não |
+| `memory.add` | `{ text: string }` | `{ fact, created: boolean }` | não |
+| `memory.remove` | `{ id: string }` | `{ removed: boolean }` | não |
+| `reminders.list` | — | `{ reminders: [{ id, text, dueAt, kind, weekday?, createdAt, firedAt? }] }` | não |
+| `reminders.create` | `{ text, dueAt: epoch ms, kind?: "once"\|"weekly" }` | `{ reminder }` | não |
+| `reminders.cancel` | `{ id: string }` | `{ cancelled: boolean }` | não |
+| `push.register` | `{ token: ExpoPushToken }` | `{ added: boolean }` | não |
+| `push.unregister` | `{ token }` | `{ removed: boolean }` | não |
+| `push.getPrefs` | — | `{ muted, quietFrom, quietTo, deviceCount }` | não |
+| `push.setPrefs` | `{ muted?, quietFrom?, quietTo? }` | mesmo shape do get | não |
+
+`push.getPrefs` **não** devolve os tokens: são identificadores de aparelho e o app não
+precisa deles para desenhar a tela. `push.setPrefs` aplica só as chaves presentes —
+mandar `{quietFrom}` não apaga `muted`.
 
 `power.control` sem `delaySeconds` usa 30 segundos para shutdown/restart — a janela existe
 justamente pra dar tempo de cancelar. `cancel` também é destrutivo: um método, uma regra.
@@ -205,7 +219,50 @@ Nova voz no cérebro: `power_control`, com exemplos para "desliga o PC", "reinic
 - Os `input.*` **não** são marcados como destrutivos: pedir biometria a cada movimento
   de cursor tornaria o trackpad inutilizável. A trava fica na entrada da tela, no app.
 
-## 8. Ainda não implementado (próximos blocos do plano)
+## 8. Bloco 4 — memória, lembretes e push
 
-Métodos RPC que virão e que o app vai consumir: `media.nowPlaying` (Spotify Web API),
-`reminders.*`, `memory.*`, `push.register`, `vision.ask`.
+**Novas gavetas** na guia de controle: Lembretes e Memória. **Nova seção nos Ajustes:**
+Notificações, com registro do aparelho e chaves por categoria.
+
+### Push chega fora de casa
+O PC envia pelo serviço da Expo (`exp.host`), **não** pela rede local. É isso que faz um
+lembrete alcançar o celular no 4G, longe de casa, sem relay próprio e sem depender do
+túnel. O aparelho registra seu `ExpoPushToken` via `push.register` no pareamento.
+Quando a Expo responde `DeviceNotRegistered` (app desinstalado), o token é removido
+sozinho — senão o PC tentaria para sempre.
+
+Categorias: `reminder`, `anomaly`, `mailbox`. Lembrete atravessa a janela de silêncio de
+propósito: foi o usuário que pediu por ele naquela hora. Só a RAM alta vira push entre as
+anomalias — pico de CPU é passageiro demais e viraria spam.
+
+⚠️ Em build standalone o push exige credenciais FCM no projeto EAS. Em Expo Go e em
+emulador não funciona; o app detecta e explica em vez de falhar em silêncio.
+
+### Lembretes
+`src/services/scheduler.ts`. Persistidos em disco e re-armados no boot — um lembrete só
+em memória morreria junto com o app, que reinicia toda vez que o PC liga. Só o próximo
+disparo fica agendado por vez; a lista em disco é o estado de verdade.
+
+O que venceu com o PC desligado **dispara na volta**, de propósito: melhor avisar
+atrasado que engolir. Um `weekly` atrasado avança em semanas até passar do agora, em vez
+de disparar uma vez por semana perdida.
+
+A interpretação de "amanhã às 9" fica com o Llama, que devolve ISO — mais robusto que
+regex de data em português. Para isso o system prompt passou a carregar a data e a hora
+atuais. Lembrete calculado no passado é recusado com uma pergunta, não disparado na hora.
+
+### Memória
+`src/services/memoryStore.ts`. Fatos curtos injetados no system prompt a cada pedido —
+por isso o teto de 20 itens e 200 caracteres. O histórico de conversa do `brain.ts` é
+volátil e some por inatividade; nada dito ontem sobrevive sem isto.
+
+### ⚠️ Limite de tokens da Groq
+O system prompt cresceu a cada bloco e chegou a ~4000 tokens, levando as chamadas a
+~5400 tokens. O nível gratuito da Groq permite 12000 tokens/minuto — ou seja, cerca de
+**dois comandos por minuto** antes do 429. Os exemplos foram enxugados de 52 para 22
+(−26% no prompt), mantendo os que resolvem ambiguidade. Ainda é apertado: ver as opções
+no `HANDOFF.md`.
+
+## 9. Ainda não implementado (próximos blocos do plano)
+
+Métodos RPC que virão: `media.nowPlaying` (Spotify Web API), `vision.ask`, `web.search`.
