@@ -200,7 +200,19 @@ async function api(
   if (!res.ok) throw new Error(`Spotify HTTP ${res.status} ${await safeText(res)}`);
 
   const text = await res.text();
-  return text ? JSON.parse(text) : null;
+  if (!text) return null;
+
+  // Os comandos de reprodução costumam responder 204 sem corpo, mas nem sempre: o
+  // Spotify às vezes devolve 2xx com um corpo que não é JSON (identificador de
+  // requisição, corpo vazio com espaços). Estourar aqui reportaria falha para uma ação
+  // que JÁ aconteceu — foi exatamente o que acontecia: a música pausava e o app
+  // mostrava erro. Quem precisa de dados de verdade trata `null` como "não veio nada".
+  try {
+    return JSON.parse(text);
+  } catch {
+    console.warn(`[spotify] ${path} respondeu ${res.status} com corpo não-JSON:`, text.slice(0, 80));
+    return null;
+  }
 }
 
 export type RepeatState = "off" | "track" | "context";
@@ -279,9 +291,9 @@ export async function seek(positionMs: number): Promise<void> {
 export async function playSearch(query: string): Promise<{ track: string; artist: string }> {
   const found = await api("/search", { query: { q: query, type: "track", limit: "1" } }) as {
     tracks?: { items?: { uri?: string; name?: string; artists?: { name?: string }[] }[] };
-  };
+  } | null;
 
-  const item = found.tracks?.items?.[0];
+  const item = found?.tracks?.items?.[0];
   if (!item?.uri) throw new Error(`não achei "${query}" no Spotify`);
 
   await api("/me/player/play", { method: "PUT", body: { uris: [item.uri] } });
