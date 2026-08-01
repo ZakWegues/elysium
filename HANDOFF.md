@@ -133,6 +133,21 @@ curl -s -X POST -H "Authorization: Bearer $T" -H "Content-Type: application/json
 
 ---
 
+## Acesso fora de casa
+
+O servidor escuta em `0.0.0.0`, então funcionar de fora depende só de existir uma
+interface alcançável — na prática, uma VPN mesh. **Nunca encaminhar a porta 4200 no
+roteador:** o token é a única barreira e não há TLS.
+
+Estado atual da máquina do Zak: só `Ethernet 192.168.15.22`, **sem túnel**. Para
+resolver, três coisas, nesta ordem:
+
+1. **Tailscale nos dois aparelhos** (gratuito para uso pessoal), mesma conta. O PC ganha um IP `100.x` que o `network.ts` já reconhece como túnel.
+2. **`scripts/liberar-acesso-remoto.ps1`**, como Administrador. As regras que o Windows criou sozinho para o Electron valem só no perfil "Privado"; o adaptador do túnel nem sempre cai nesse perfil, e quando cai em "Público" o firewall descarta a conexão **em silêncio** — o sintoma é idêntico ao de PC desligado. A regra é estreita de propósito (faixa do Tailscale + redes privadas), então o PC segue fechado em Wi-Fi de cafeteria.
+3. **Abrir o app uma vez em casa.** Ele reconsulta `pairing.endpoints` e absorve o endereço novo sozinho — não precisa reparear.
+
+O painel "Acesso fora de casa" na aba 📱 do dashboard mostra o estado e o passo a passo.
+
 ## Pendências conhecidas
 
 - **⚠️ Limite de tokens da Groq — parcialmente resolvido, ainda vale saber.** Cada chamada ao cérebro gasta ~4400 tokens (prompt de roteamento + histórico + memória) e o nível gratuito dá 12000 por minuto: **2 a 3 comandos por minuto** antes do 429. O bloco 4 atacou isso com o `fastRoute` (comandos fechados não chamam API nenhuma) e com o corte de exemplos do prompt. O que ainda pode ser feito, se voltar a incomodar: cortar mais o prompt, ampliar as regras do `fastRoute`, ou assinar o Dev Tier.

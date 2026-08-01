@@ -16,6 +16,13 @@
 import { clipboard } from "electron";
 import * as path from "node:path";
 import * as fs from "node:fs";
+import * as os from "node:os";
+import { getAllLocalIPv4 } from "../main/network";
+import { getConfig } from "../main/config";
+
+function hostnameOf(): string {
+  try { return os.hostname(); } catch { return "PC"; }
+}
 import {
   getDashboardTelemetry, getTopProcesses, getDiskDetails, killProcess,
 } from "../actions/systemInfo";
@@ -380,6 +387,28 @@ const METHODS: Record<string, MethodDef> = {
   },
   "web.search": {
     handler: async (params) => ({ answer: await searchWeb(requireString(params, "query")) }),
+  },
+
+  /**
+   * Endereços atuais do PC.
+   *
+   * Existe porque o celular só aprendia os endereços no momento do pareamento. Instalar
+   * o túnel depois disso não adiantava nada: o app nunca ficava sabendo do endereço
+   * novo e continuava só funcionando em casa, obrigando a reparear. Agora ele reconsulta
+   * sempre que está conectado e absorve endereços novos sozinho.
+   */
+  "pairing.endpoints": {
+    handler: async () => {
+      const endpoints = getAllLocalIPv4();
+      return {
+        endpoints: endpoints.map(e => e.address),
+        // `tunnel` diz ao app se existe caminho de fora; sem nenhum, ele explica por
+        // que só funciona em casa em vez de só falhar.
+        hasTunnel: endpoints.some(e => e.tunnel),
+        hostname: hostnameOf(),
+        port: getConfig().serverPort ?? 4200,
+      };
+    },
   },
 
   // — conversas (sincronização com o celular) —

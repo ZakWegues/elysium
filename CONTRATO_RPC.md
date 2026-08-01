@@ -94,6 +94,14 @@ Resposta de erro — sempre `{ "error": "<mensagem em PT-BR>" }` com status:
 | `chat.save` | `{ session: ChatSession }` (máx 500 mensagens) | `{ session }` | não |
 | `chat.favorite` | `{ id }` | `{ favorite: boolean \| null }` | não |
 | `chat.delete` | `{ id }` | `{ deleted: boolean }` | não |
+| `pairing.endpoints` | — | `{ endpoints: string[], hasTunnel, hostname, port }` | não |
+
+`pairing.endpoints` existe porque o celular só aprendia os endereços **no momento do
+pareamento**. Instalar o túnel depois não adiantava nada: o endereço novo nunca chegava
+ao app, que continuava preso à rede de casa e exigia reparear. Agora o app reconsulta
+sempre que a conexão está de pé e absorve endereços novos sozinho — basta abrir uma vez
+em casa depois de instalar o túnel. `hasTunnel` deixa o app dizer *por que* está sem
+acesso, em vez de repetir "PC fora do ar" quando o PC está ligado e funcionando.
 
 `ChatSession = { id, title, createdAt, updatedAt, favorite, messages: [{ id, from: "me"|"reply"|"error", text, ts }] }`
 

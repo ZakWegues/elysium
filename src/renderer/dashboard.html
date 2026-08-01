@@ -441,6 +441,26 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
 }
 .media-btn:hover { background: rgba(78,205,196,0.28); box-shadow: 0 0 10px rgba(78,205,196,0.3); }
 
+/* ── Acesso remoto ─────────────────────────────────────────────────────────── */
+#remote-card {
+  background: var(--surface); border: 1px solid var(--border2);
+  border-radius: var(--radius-10); padding: 12px;
+}
+#remote-status { display: flex; align-items: center; gap: 7px; margin-bottom: 8px; }
+#remote-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dim); flex-shrink: 0; }
+#remote-dot.on  { background: var(--green); }
+#remote-dot.off { background: var(--yellow); }
+#remote-label { font-size: 11.5px; font-weight: 700; }
+#remote-body { font-size: 10.5px; color: var(--muted); line-height: 1.6; }
+#remote-body code {
+  background: rgba(255,255,255,0.07); padding: 1px 5px; border-radius: var(--radius-4);
+  font-size: 10px; user-select: text;
+}
+#remote-body ol { margin: 6px 0 0 16px; }
+#remote-body li { margin-bottom: 4px; }
+#remote-body a { color: var(--purple-bright); }
+.theme-lg #remote-body code { background: rgba(17,17,26,0.06); }
+
 /* ── Conversas salvas ──────────────────────────────────────────────────────── */
 .conv-item {
   background: var(--surface); border: 1px solid var(--border2);
@@ -1266,6 +1286,15 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
           <div id="pairing-token" class="pairing-mono">—</div>
           <button class="save-btn" id="pairing-regen-btn" style="margin-top:8px">Regenerar token</button>
           <div id="pairing-hint">Abra o NEUROAXIS Portal no celular (mesma rede Wi-Fi) e escaneie o QR.</div>
+        </div>
+
+        <div class="section-label" style="margin-top:14px">ACESSO FORA DE CASA</div>
+        <div id="remote-card">
+          <div id="remote-status">
+            <span id="remote-dot"></span>
+            <span id="remote-label">Verificando…</span>
+          </div>
+          <div id="remote-body"></div>
         </div>
       </div><!-- /tab-pareamento -->
 
@@ -2682,7 +2711,73 @@ async function loadPairing() {
   try {
     const info = await window.nx.getPairingInfo();
     renderPairing(info);
-  } catch { renderPairing(null); }
+    renderRemoteAccess(info);
+  } catch { renderPairing(null); renderRemoteAccess(null); }
+}
+
+/**
+ * Estado do acesso fora de casa.
+ *
+ * O servidor já escuta em todas as interfaces, então "funcionar fora" depende de
+ * existir uma interface alcançável de fora — o que na prática significa uma VPN mesh
+ * instalada. Sem ela o app fica preso à rede local, e o motivo não é óbvio pra quem
+ * só vê "PC fora do ar" no celular.
+ */
+function renderRemoteAccess(info) {
+  const dot   = document.getElementById("remote-dot");
+  const label = document.getElementById("remote-label");
+  const body  = document.getElementById("remote-body");
+
+  const tunnels = (info?.endpoints ?? []).filter(e => e.tunnel);
+
+  if (tunnels.length > 0) {
+    dot.className = "on";
+    label.textContent = "Ativo";
+    body.replaceChildren();
+
+    const p = document.createElement("div");
+    p.textContent = "O celular já consegue alcançar este PC de qualquer lugar, por:";
+    body.appendChild(p);
+
+    for (const t of tunnels) {
+      const line = document.createElement("div");
+      const code = document.createElement("code");
+      code.textContent = `${t.address}  (${t.iface})`;
+      line.appendChild(code);
+      body.appendChild(line);
+    }
+
+    const note = document.createElement("div");
+    note.style.marginTop = "6px";
+    note.textContent = "Se o app já estava pareado, basta abri-lo uma vez em casa: ele aprende este endereço sozinho.";
+    body.appendChild(note);
+    return;
+  }
+
+  dot.className = "off";
+  label.textContent = "Só na rede de casa";
+  body.replaceChildren();
+
+  const intro = document.createElement("div");
+  intro.textContent = "Nenhuma interface alcançável de fora. Para usar o app na rua, instale o Tailscale nos dois aparelhos — é gratuito para uso pessoal e cria um túnel direto, sem expor nada na internet:";
+  body.appendChild(intro);
+
+  const ol = document.createElement("ol");
+  [
+    "No PC: baixe em tailscale.com/download e entre com sua conta.",
+    "No celular: instale o app Tailscale e entre com a MESMA conta.",
+    "Volte aqui — o endereço aparece sozinho, e o Portal o absorve na próxima vez que abrir em casa.",
+  ].forEach(step => {
+    const li = document.createElement("li");
+    li.textContent = step;
+    ol.appendChild(li);
+  });
+  body.appendChild(ol);
+
+  const warn = document.createElement("div");
+  warn.style.marginTop = "6px";
+  warn.textContent = "Não abra a porta 4200 no roteador: o token é a única barreira e o tráfego não tem TLS. O túnel resolve isso sem expor o PC.";
+  body.appendChild(warn);
 }
 
 document.getElementById("pairing-regen-btn").addEventListener("click", async () => {
