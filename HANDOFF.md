@@ -1,159 +1,141 @@
-# NEUROAXIS — Handoff para nova sessão
+# NEUROAXIS — Handoff
 
 > Cole este arquivo inteiro numa conversa nova do Claude Code aberta em `c:\Users\ZAK\neuroaxis` pra retomar de onde parou.
+> **Atualize este arquivo ao fim de cada bloco de trabalho.** É o único documento que a próxima sessão lê primeiro.
+
+---
 
 ## O que é o projeto
 
-App desktop Electron + TypeScript para Windows chamado **NEUROAXIS** (nome original na spec: "Jarvis PC", `CLAUDE.md`). Assistente de voz pessoal em PT-BR: atalho `Ctrl+Shift+J` → grava mic → transcreve via Groq Whisper → decide ação via Groq Llama (JSON, sempre `{"actions":[...]}`) → executa ação real no Windows → fala resposta em voz. Roda como ícone de bandeja, uso pessoal real (não protótipo).
+Ecossistema pessoal de dois apps que conversam pela rede local:
 
-**Documento de arquitetura completo:** `CONTEXTO_NEUROAXIS.md` (na raiz do repo) — stack, fluxo, árvore de arquivos, `BrainAction` inteiro, decisões técnicas. Este handoff é o resumo operacional; pra entender o "porquê" de algo, olha lá primeiro.
+- **NEUROAXIS (desktop)** — `c:\Users\ZAK\neuroaxis`, repo `ZakWegues/neuroaxis`. Electron + TypeScript, Windows. Assistente de voz PT-BR: atalho `Ctrl+Shift+J` → grava mic → transcreve via Groq Whisper → decide ação via Groq Llama (JSON, sempre `{"actions":[...]}`) → executa ação real no Windows → fala a resposta. Vive na bandeja do sistema.
+- **NEUROAXIS Portal (mobile)** — `c:\Users\ZAK\neuroaxis-portal`, repo `ZakWegues/neuroaxis-portal`. Expo + React Native, TypeScript. App companion que parea por QR code e fala com o desktop por HTTP + WebSocket na porta 4200.
 
-**Repo irmão:** `neuroaxis-portal` (GitHub privado, `ZakWegues/neuroaxis-portal`) — app mobile companion, código separado, sessão de Claude separada. Se conecta no desktop via HTTP+WS local (porta 4200).
+**Os dois repos são editados na mesma sessão.** Decisão do Zak em 31/07/2026 — antes eram sessões separadas, o que fazia os lados divergirem no contrato.
 
-**Dev:** `npm run dev` | **Build:** `npm run build` | **Rodar direto:** `npm start` (console visível — necessário pra ver logs `[STT]`/`[WS]`/`[TTS]`)
+### Documentos de referência
 
----
+| Arquivo | O que tem |
+|---|---|
+| `CLAUDE.md` (raiz do desktop) | Spec original do projeto ("Jarvis PC"). Decisões técnicas fechadas. |
+| `CONTEXTO_NEUROAXIS.md` | Arquitetura completa do desktop. ⚠️ A seção sobre o mobile está obsoleta (foi escrita antes de o app existir). |
+| `CONTRATO_RPC.md` | **Contrato vivo entre os dois repos.** Endpoints, métodos RPC, mudanças incompatíveis. Atualizar sempre que `server.ts` mudar. |
+| `~/.claude/plans/beleza-voce-sabe-que-dynamic-cupcake.md` | Plano de expansão pré-APK: 15 features em 6 blocos + catálogo de 26 pra depois. |
 
-## Estado do git — LEIA ANTES DE MEXER
+### Comandos
 
-- Branch `main`, 2 commits (`c3f8c3d` initial, `e7946f1` redesign UI + presets por voz + fix TTS), ambos com push feito.
-- **Working tree tem MUITA coisa não commitada** (`git status --short`):
-  ```
-  M HANDOFF.md
-  M package-lock.json
-  M package.json          (+ qrcode, + @types/qrcode)
-  M src/actions/router.ts
-  M src/main/config.ts
-  M src/main/main.ts
-  M src/renderer/config.html
-  M src/renderer/dashboard.html
-  M src/renderer/preload-dashboard.ts
-  M src/services/brain.ts
-  M src/services/server.ts
-  M src/services/stt.ts
-  ?? src/actions/sendToMobile.ts
-  ?? src/main/network.ts
-  ?? src/services/mailboxStore.ts
-  ```
-- `npm run build` passa limpo nesse estado.
-- **Commite e dê push a cada bloco concluído**, sem perguntar (política definida em 31/07/2026, vale pros dois repos). Fechou bloco com build passando e validação feita → commit + push.
+**Desktop:** `npm run dev` · `npm run build` · `npm start` · `npm run dist` (instalador NSIS)
+**Portal:** `npm start` (Expo) · `npm run typecheck`
 
 ---
 
-## Trabalho feito (ordem cronológica, tudo ainda não commitado)
+## Regras de trabalho (definidas pelo Zak)
 
-### 1. Pareamento com o NEUROAXIS Portal (mobile)
+1. **Commit e push a cada bloco concluído, sem perguntar.** Vale pros dois repos. Fechou bloco com build passando e validação feita → sobe.
+2. **Manter este HANDOFF.md atualizado** ao fim de cada bloco, com tudo que a próxima sessão precisa.
+3. **Manter o `CONTRATO_RPC.md` atualizado** sempre que o servidor mudar.
+4. **Diagnosticar com log real antes de aplicar fix às cegas.** Instrumentar, ler o log, só então corrigir. Foi assim com o bug de TTS e o de áudio mobile.
+5. Caveman mode ativo nas respostas (curtas e diretas). Código, commits e avisos de segurança em português normal.
+6. Referência estética: o app mobile. O desktop deve parecer sofisticado no mesmo padrão, não utilitário antigo.
 
-Aba 📱 "Parear celular" na gaveta direita do dashboard:
-- QR code (lib `qrcode`) com `{"ip","port":4200,"token"}`.
-- IP local via `src/main/network.ts` (novo) → `getLocalIPv4()`.
-- Token via `getOrCreateServerToken()`; botão "Regenerar token" → `regenerateServerToken()` (`config.ts`).
-- `server.ts`: token virou variável mutável (`activeToken` + `export function setActiveToken()`), chamada pelo `main.ts` após regenerar — invalida pareamentos antigos **na hora**, sem reiniciar o app.
-- IPC: `pairing:get-info`, `pairing:regenerate-token`. Preload: `nx.getPairingInfo()`, `nx.regenerateToken()`.
+---
 
-### 2. Robustez de STT
+## Estado do git
 
-`src/services/stt.ts`: detecta formato real do áudio pelos **magic bytes** (`detectAudioType()`) em vez de sempre rotular `audio.webm` pra Groq. Instrumentação de log adicionada (tamanho, formato, erros de rede/HTTP/JSON). Na prática a Groq já decodificava certo mesmo com rótulo errado — é correção de robustez, não era a causa de bug.
+Ambos os repos em `main`, working tree limpo, tudo pusheado.
 
-### 3. Mailbox assíncrono → virou "chat comigo mesmo" (thread única)
+| Repo | Último commit | O que era |
+|---|---|---|
+| `neuroaxis` | `ebbc8fb` | Bloco 2 — energia, mídia, volume |
+| `neuroaxis-portal` | `ad07f3c` | Bloco 2 — tela de Sistema, biometria |
 
-**`src/services/mailboxStore.ts` (novo)** — electron-store `"mailbox"`, uma **thread única** `messages[]`, cada item:
-```ts
-{ id, from: "pc"|"mobile", kind: "link"|"note"|"file", text, attachment, createdAt, readAt }
+Histórico recente do desktop: `e7b94a2` (pareamento + mailbox + tema Vidro Líquido) → `6540db5` (bloco 1) → `ebbc8fb` (bloco 2).
+
+---
+
+## Plano de expansão pré-APK — onde estamos
+
+Decisões fechadas pelo Zak: acesso de fora de casa **via túnel** (Tailscale/ZeroTier, sem relay próprio); **APIs e contas externas liberadas** (Tavily, Google Calendar, Spotify OAuth); leva grande de ~15 features.
+
+| Bloco | Conteúdo | Status |
+|---|---|---|
+| 1 | RPC tipado, robustez de rede, pareamento multi-endereço | ✅ feito |
+| 2 | Central de sistema, clipboard, energia | ✅ feito |
+| 3 | Espelhamento de tela + trackpad/teclado remoto | ⬜ próximo |
+| 4 | Memória de longo prazo, lembretes, push | ⬜ |
+| 5 | Visão, busca web, Spotify Web API | ⬜ |
+| 6 | Home, modo escuro, share intent, build do APK | ⬜ |
+
+O catálogo de 26 features pra depois está no arquivo do plano.
+
+---
+
+## O que já existe (resumo funcional)
+
+### Desktop
+
+**Ações de voz** (20 no union `BrainAction` em `src/services/brain.ts`): `play_music`, `open_url`, `open_app`, `close_app`, `volume_control`, `media_control`, `window_management`, `write_text`, `create_file`, `clipboard_read`, `screenshot`, `system_info`, `run_preset`, `list_presets`, `delete_preset`, `create_preset`, `send_to_mobile`, `power_control`, `chat`, `unknown`. Executores em `src/actions/`, roteados por `router.ts`.
+
+**Servidor** (`src/services/server.ts`, HTTP+WS na 4200, RFC 6455 escrito à mão, zero deps):
+- `GET /api/health`, `POST /api/command` (linguagem natural → cérebro)
+- `GET|POST /api/rpc` (chamadas tipadas — ver `CONTRATO_RPC.md`)
+- `POST|GET /api/mailbox/messages`, `GET .../:id/content`, `POST .../:id/ack`
+- `WS /api/stream` — áudio binário → STT → resposta; broadcast de telemetria a cada 5s; evento `mailbox_new`
+- **Sem CORS de propósito** (cliente é app nativo), rate limit 120/10s por IP, corpo máx 8 MB, token comparado em tempo constante
+
+**Dashboard** (`src/renderer/dashboard.html`, ~99 KB, vanilla JS): gavetas esquerda (perf/storage/taskmgr) e direita (config/presets/mídia/personalização/pareamento), timeline central com chat duplo (IA / Eu mesmo), 5 temas incluindo o "Vidro Líquido" claro.
+
+**Serviços**: `stt.ts` (Whisper + detecção de formato por magic bytes), `tts.ts` (msedge-tts neural com fallback SAPI), `brain.ts`, `command.ts`, `history.ts`, `presetsStore.ts`, `telemetryLog.ts`, `mailboxStore.ts`, `rpc.ts`, `errors.ts`.
+
+### Portal
+
+**Telas**: Pareamento (QR pela câmera), Chat (texto + push-to-talk por WS, TTS local), Conversas (histórico), Caixa (mailbox com anexos), **Sistema** (4 seções: Monitor, Processos, Apps, Controle), Presets e Ajustes (modais).
+
+**Bibliotecas** (`src/lib/`): `http.ts` (fetch com timeout obrigatório), `pairing.ts` (multi-endpoint + migração + varredura de sub-rede), `rpc.ts`, `api.ts`, `mailbox.ts`, `stream.ts` (voz por WS), `telemetry.ts`, `commandQueue.ts` (fila offline), `useConnection.ts`, `confirm.ts` (biometria), `chatHistoryStore.ts`, `mailboxStore.ts`.
+
+**Design**: "liquid glass" iOS, claro, 4 temas. `src/theme/` com tokens, paletas e contexto.
+
+---
+
+## Armadilhas do ambiente (aprendidas na marra)
+
+- **`ELECTRON_RUN_AS_NODE=1` vaza do host do VSCode.** Rodar `electron.exe` direto de dentro de uma sessão de agente faz ele executar como Node puro e quebrar com `Cannot read properties of undefined (reading 'on')`. Limpar a env var antes de lançar (`unset ELECTRON_RUN_AS_NODE`).
+- **Single-instance lock.** Se o app já estiver rodando (ele inicia com o Windows), lançar de novo só abre o dashboard da instância existente — e você acaba testando build velha sem perceber. Para testar código novo: matar o processo principal (`electron.exe` cujo CommandLine não tem `--type=`) e relançar.
+- **Screenshot automatizado do Electron não capta `backdrop-filter`/blur** neste ambiente. Não julgue vidro/blur por PNG; confirme com o Zak rodando o app.
+- **`Promise.any` é risco no Hermes** — suporte varia por versão do runtime. Há um `firstSuccess()` escrito à mão em `pairing.ts` no Portal pelo mesmo motivo.
+- **Sem framework de teste em nenhum dos dois repos.** Validação é build + typecheck + curl contra o app rodando + teste manual do Zak.
+- **O `Button` do Portal usa prop `title`, não children.**
+
+### Como testar o servidor por curl
+
+O token fica em `%APPDATA%/neuroaxis/neuroaxis-config.json`, campo `serverToken`. ⚠️ Esse arquivo também tem a `apiKey` da Groq em texto puro — não jogue o arquivo inteiro no output.
+
+```bash
+T=<serverToken>
+curl -s -H "Authorization: Bearer $T" http://127.0.0.1:4200/api/rpc
+curl -s -X POST -H "Authorization: Bearer $T" -H "Content-Type: application/json" \
+     -d '{"method":"system.disks"}' http://127.0.0.1:4200/api/rpc
+# métodos destrutivos exigem: -H "X-Neuroaxis-Confirm: 1"
 ```
-- API: `addMessage(from, input)`, `listMessages()` (HTTP/mobile — **sem** `filePath`), `listMessagesForDesktop()` (IPC — **com** `filePath`), `getMessageContent()`, `ackMessage()`, `checkAndMarkUnseenFromMobile()` (boot-check), `inferKind()` (`^https?://` → link, senão note), `isKnownAttachmentPath()` (valida que o path está dentro de `mailbox-attachments/` antes de qualquer operação de arquivo via IPC).
-- Anexos: conteúdo em disco em `userData/mailbox-attachments/<id>-<nomeSanitizado>`, **nunca** dentro do JSON do electron-store. Cap 5 MB (`MAILBOX_MAX_ATTACHMENT_BYTES`), `AttachmentTooLargeError` → HTTP 413.
-- `mailboxEvents` (EventEmitter) dispara `"new-message"` a cada adição → `main.ts` encaminha pro renderer via IPC `mailbox:new-message`.
-
-**Endpoints HTTP (`server.ts`, mesmo Bearer token de sempre):**
-```
-POST /api/mailbox/messages              → cria mensagem from:"mobile", 201 { id, createdAt }
-GET  /api/mailbox/messages              → thread completa (metadados, sem base64)
-GET  /api/mailbox/messages/:id/content  → conteúdo completo (com base64 do anexo)
-POST /api/mailbox/messages/:id/ack      → seta readAt, { ok: true }
-```
-⚠️ **Isso substituiu um contrato anterior** (`/api/mailbox/outbox` + `/api/mailbox/inbox`). Um handoff descrevendo o contrato novo já foi entregue pra sessão do `neuroaxis-portal`. Schema do electron-store mudou (`{outbox,inbox}` → `{messages}`), dados de teste antigos não migram.
-
-**Broadcast WS opcional:** `{type:"mailbox_new", direction:"toMobile"|"toDesktop", id}` no mesmo canal do telemetry, a cada mensagem nova. Só otimização de UX — os endpoints REST funcionam sozinhos.
-
-**Boot-check (`main.ts`):** depois do `startServer()`, `checkAndMarkUnseenFromMobile()` marca `readAt` nas mensagens do celular não vistas e dispara `notify()` com preview.
-
-### 4. Ação de voz `send_to_mobile`
-
-- `brain.ts`: novo membro no union `BrainAction` → `{ action: "send_to_mobile"; content: string; kind?: "link"|"note" }`. Prompt atualizado com regra + 3 few-shots ("manda isso pro meu celular: …", "manda esse link pro celular: https://…", "envia uma nota pro celular dizendo …"). `actionSummary()` cobre o caso.
-- `src/actions/sendToMobile.ts` (novo): infere `kind` se omitido, chama `addMessage("pc", …)` + `broadcastMailboxEvent("toMobile", id)`, retorna "Mandei pro seu celular."
-- `router.ts`: `case "send_to_mobile"` roteado.
-
-### 5. Chat duplo no dashboard (IA / Eu mesmo)
-
-- Toggle 🤖 IA / 📱 Eu mesmo acima da timeline central (`#chat-mode-tabs`, `chatMode` state).
-- Modo "Eu mesmo" usa `#timeline-self`, carrega via IPC `mailbox:get-thread` na primeira troca de aba, atualiza ao vivo via `mailbox:new-message`. Mic escondido nesse modo (voz sempre vai pro brain).
-- Envio: IPC `mailbox:send` → `addMessage("pc", …)` **direto**, sem passar pelo brain (chat casual não deve virar comando).
-- Bolhas: `from:"pc"` à direita, `from:"mobile"` à esquerda.
-
-### 6. Preview de anexos no chat
-
-- Imagem (`mimeType` começa com `image/`): thumbnail 220×220 inline via `file://<filePath>`, com barra de ações no hover — **Copiar** (`nativeImage` + `clipboard`) e **Baixar** (`dialog.showSaveDialog` + `fs.copyFileSync`).
-- Não-imagem (pdf etc): chip clicável que abre via `shell.openPath`.
-- IPC novos: `mailbox:copy-image`, `mailbox:save-as`, `mailbox:open-attachment` — **todos validam `isKnownAttachmentPath()` primeiro**.
-- Renderização por DOM (`createElement`/`textContent`), **nunca `innerHTML`** com nome/mimetype de anexo — esses dados vêm do cliente HTTP mobile e são não-confiáveis (evita XSS via nome de arquivo).
-- Toast simples (`#toast-el`) pro feedback de copiar/salvar.
-
-### 7. Tema "Vidro Líquido" (LG) — 🚧 ÚLTIMO TRABALHO, PRECISA DE VALIDAÇÃO VISUAL
-
-Objetivo do usuário: desktop com a **mesma linguagem visual do NEUROAXIS Portal (mobile)** — fundo claro lavanda, círculos pastel grandes ao fundo, cards brancos translúcidos arredondados, roxo sólido nos elementos ativos. Explicitamente: *"não quero vibe de Linux ou Windows 7, quero algo sofisticado exatamente como está o NEUROAXIS Portal"*.
-
-**Como o sistema de tema funciona agora:**
-- `THEMES` em `dashboard.html` ganhou a entrada `lg` (nome "Vidro Líquido"): `purple #6d4aff`, `purpleBright #7c5cff`, `cyan #22b8cf`, `cyanDark #0e9bb3`, `bg #f2f1f7`, `surface rgba(255,255,255,0.78)`, `surface2 rgba(255,255,255,0.6)`.
-- `applyTheme()` agora também faz `document.body.classList.toggle("theme-lg", t === "lg")` — hook novo pra regras estruturais (os outros 4 temas seguem 100% intactos, só trocam cor).
-- Todos os ~55 `border-radius` hardcoded viraram `var(--radius-N)` (vars definidas no `:root` com os valores originais — pixel-idênticos nos temas antigos; `body.theme-lg` sobrescreve com valores bem maiores, `--radius-20 → 999px` pra cápsulas).
-- `body.theme-lg` sobrescreve `--text`, `--muted`, `--border`, `--border2`, `--red/green/yellow`, `--glass-blur`, `--shadow-card`, `--shadow-float` — e **`background: transparent`** (ver gotcha abaixo).
-- Bloco grande `.theme-lg …` no fim do `<style>` com toda a aparência clara: chrome (topbar/gavetas/modal translúcidos brancos), cards, bolhas (usuário = roxo sólido texto branco), controles (send = FAB roxo, mic = lavanda, pills brancas), inputs, badges, syntax highlight escurecido pra fundo claro.
-- Camada de blobs `#lg-blob-bg` (3 divs) inserida como primeiro filho do `<body>`: círculo roxo `#cbb9ff` topo-direita, menta `#b8ecf3` base-esquerda, lavanda `#ded7ff` no meio; `filter: blur(36px)`, animações `lg-drift-*` lentas. `display:none` por padrão → custo zero nos outros temas.
-- Animações de mola: `cubic-bezier(0.34,1.56,0.64,1)` em hover/`:active` de praticamente todo controle clicável, entrada em mola do modal e das bolhas, shine-sweep nos botões primários, halo de foco nos inputs, `@media (prefers-reduced-motion: reduce)` desligando tudo sob `.theme-lg`.
-- Canvas (sparklines CPU/RAM + timeline de estabilidade) ganharam `isLightTheme()` — grid/fundo/rótulos mudam pra tons escuros quando o tema é claro.
-- `config.html` recebeu o mesmo tratamento (é janela independente, tem `:root` próprio): vars de radius, paleta clara, header/footer/inputs/botões em vidro, os dois círculos pastel via `body.theme-lg::before/::after`, animações de mola. Lê o tema via `applyConfig(cfg)` → `document.body.classList.toggle("theme-lg", cfg.theme === "lg")`. **Não tem seletor de tema próprio** — só reflete o que foi escolhido no dashboard.
-
-**⚠️ GOTCHA IMPORTANTE (já corrigido, mas não regrida):** `html, body { background: var(--bg) }` fazia o `<body>` pintar fundo opaco por cima da camada de blobs (que fica em `z-index:-1`, atrás do body). Resultado: círculos invisíveis. Fix: `body.theme-lg { background: transparent }` — o `<html>` mantém a cor de fundo. Se os círculos sumirem, é isso.
-
-**Status:** o build passa e a última screenshot automatizada confirmou o visual claro do Portal funcionando (cards brancos arredondados com sombra, bolha roxa, FAB roxo, textos legíveis). **O que ficou faltando: validação visual do usuário com o app rodando de verdade**, especialmente:
-- os círculos pastel de fundo aparecem depois do fix de `background: transparent`? (a screenshot que confirmaria isso não chegou a rodar até o fim)
-- a janela de configurações (`config.html`) com o tema aplicado
-- sensação das animações de mola ao vivo
 
 ---
 
-## ✅ BUG DE ÁUDIO DO CELULAR — RESOLVIDO (era no `neuroaxis-portal`)
+## Pendências conhecidas
 
-Ficou muito tempo aqui como bug aberto; **já foi corrigido do lado do Portal**. O cliente WS de voz (`src/lib/stream.ts` lá) hoje registra a promessa com timeout de 20s **antes** de enviar o áudio e só resolve em `{"type":"reply"}` / `{"type":"error"}` — não há mais `close()` logo após o envio, e a conexão é reaproveitada entre gravações.
-
-**Protocolo do `/api/stream` pra referência:** depois do frame binário de áudio, o servidor manda de volta, na mesma conexão, frames de texto JSON: `{"type":"transcript","text":"..."}` primeiro, depois `{"type":"reply","reply":"..."}` (ou `{"type":"error","error":"..."}`).
-
----
-
-## Outras pendências conhecidas (menor prioridade)
-
-- **Voz "Microsoft Daniel" (pt-BR masculina) não é usada pelo fallback SAPI**: é voz OneCore (`HKLM:\SOFTWARE\Microsoft\Speech_OneCore\Voices\Tokens`), invisível pro `System.Speech.Synthesis` clássico que `tts.ts` usa. Duas soluções identificadas (não aplicadas): ponte de registro (script já escrito, precisa rodar como Admin) ou reescrever o fallback pra `Windows.Media.SpeechSynthesis` (WinRT, não precisa admin mas interop async via PowerShell é mais frágil).
-- **`msedge-tts` (voz neural) falha com "Connect Error"** nesta máquina/rede — cai sempre no fallback SAPI.
 - **Instalador `.exe` (NSIS) não testado** depois de nenhuma das mudanças recentes.
+- **APK do Portal não é buildável ainda** — falta `eas.json`, `android.package`, permissões declaradas, ícone adaptativo. É o bloco 6.
+- **Voz "Microsoft Daniel" (pt-BR masculina) não é usada pelo fallback SAPI**: é voz OneCore (`HKLM:\SOFTWARE\Microsoft\Speech_OneCore\Voices\Tokens`), invisível pro `System.Speech.Synthesis` clássico que o `tts.ts` usa. Duas saídas identificadas, nenhuma aplicada: ponte de registro (precisa rodar como Admin) ou reescrever o fallback pra `Windows.Media.SpeechSynthesis` (WinRT, não precisa admin mas o interop async via PowerShell é frágil).
+- **`msedge-tts` (voz neural) falha com "Connect Error"** nesta máquina/rede — cai sempre no fallback SAPI.
+- **`tts.ts` ignora `cfg.voice`** — a voz está fixa em `pt-BR-AntonioNeural` no código.
+- **Quirk do `sleep`**: se a hibernação do Windows estiver habilitada, `SetSuspendState` hiberna em vez de suspender. Resolve com `powercfg /hibernate off` uma vez.
+- **`expo start --web` não fala mais com o desktop** — consequência deliberada de remover o CORS. Android e iOS não são afetados.
 - **Checklist de validação manual do `CLAUDE.md`** ainda não confirmado ponta a ponta.
 
 ---
 
-## Dicas de ambiente (aprendidas na marra)
+## Sobre o Zak
 
-- **`ELECTRON_RUN_AS_NODE=1` vaza do VSCode host.** Rodar `electron.exe` direto de dentro de uma sessão de agente faz ele executar como Node puro e quebrar com `Cannot read properties of undefined (reading 'on')`. Solução: limpar essa env var antes de lançar (`env -u ELECTRON_RUN_AS_NODE …` ou deletar do objeto `env` passado pro Playwright).
-- **Screenshot automatizado do Electron não capta `backdrop-filter`/blur direito** neste ambiente — os valores computados no DevTools batem, mas o efeito não aparece no PNG. Não confie só na screenshot pra julgar vidro/blur; confirme com o usuário rodando o app.
-- **App usa single-instance lock**: a segunda instância dispara `openDashboard()` na primeira e sai. Pra automatizar, lançar duas instâncias é a forma de fazer a janela do dashboard aparecer (ela não abre sozinha no boot — o app vive na bandeja).
-- Sem framework de teste automatizado no projeto (nem desktop nem mobile). Validação é sempre manual.
+zakduwe@gmail.com · Windows 11 Pro · projeto pessoal de uso real, não protótipo.
 
----
-
-## Preferências do usuário (Zak, zakduwe@gmail.com, Windows 11 Pro)
-
-- Projeto pessoal, uso real, não protótipo.
-- Caveman mode ativo nas sessões (respostas curtas e diretas).
-- Prefere indicar explicitamente quando quer commitar — não commitar por iniciativa própria.
-- Gosta de diagnosticar com log real antes de aplicar fix às cegas (foi assim com o bug de TTS e com o bug de áudio mobile — instrumentar primeiro, ler o log, só depois corrigir).
-- Tem sessão de Claude separada no `neuroaxis-portal` — os dois projetos precisam ficar consistentes no protocolo HTTP/WS. O contrato do mailbox já mudou de forma duas vezes; sempre avisar o outro lado antes de mexer no `server.ts`.
-- Referência estética: o app mobile (Portal). Quer o desktop sofisticado no mesmo padrão, não com cara de utilitário antigo.
+Gosta de ver o diagnóstico antes do conserto, prefere respostas curtas, e quer o desktop com o mesmo capricho visual do app mobile.
