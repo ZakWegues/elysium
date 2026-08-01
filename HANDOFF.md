@@ -106,6 +106,9 @@ O catálogo de 26 features pra depois está no arquivo do plano.
 - **`SendKeys` corrompe acentuação** no layout ABNT (ver `CONTRATO_RPC.md` §7). Texto literal só via `SendInput`/`KEYEVENTF_UNICODE`.
 - **Sem framework de teste em nenhum dos dois repos.** Validação é build + typecheck + curl contra o app rodando + teste manual do Zak.
 - **O `Button` do Portal usa prop `title`, não children.**
+- **O Portal roda na Nova Arquitetura do React Native** (padrão do Expo SDK 57, não declarado no `app.json`). Consequências já encontradas: `UIManager.setLayoutAnimationEnabledExperimental` é no-op e avisa no console — usar `Animated` do core; `useNativeDriver: true` para opacidade e transform, `false` só para propriedades de layout como `width` (é o caso legítimo do `MetricBar`).
+- **Edge-to-edge é padrão no Android** desde o SDK 54: o sistema **não** redimensiona mais a janela quando o teclado abre, então `softwareKeyboardLayoutMode: "resize"` e `KeyboardAvoidingView` não resolvem. O app reserva o espaço na raiz (`App.tsx`) a partir de `useKeyboard()`.
+- **`expo-blur` 57 exige `blurTarget`** apontando pra uma `BlurTargetView`; sem isso ele avisa e cai pro método `none` — ou seja, o vidro para de desfocar sem quebrar nada, o que é fácil de não perceber. Ver `src/components/ui/BlurTarget.tsx`. Dentro de um `Modal` do RN o desfoque é impossível no Android (janela nativa separada).
 
 ### Como testar o servidor por curl
 
