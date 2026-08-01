@@ -63,7 +63,7 @@ Decisões fechadas pelo Zak: acesso de fora de casa **via túnel** (Tailscale/Ze
 | 3 | Espelhamento de tela + trackpad/teclado remoto | ✅ feito |
 | 4 | Memória de longo prazo, lembretes, push | ✅ feito |
 | 5 | Visão, busca web e Spotify | ✅ feito |
-| 6 | Home, modo escuro, share intent, build do APK | ⬜ próximo |
+| 6 | Home, modo escuro, share intent ✅ · build do APK depende do Zak | 🟡 |
 
 O catálogo de 26 features pra depois está no arquivo do plano.
 
@@ -90,7 +90,9 @@ O catálogo de 26 features pra depois está no arquivo do plano.
 
 ### Portal
 
-**Telas**: Pareamento (QR pela câmera), Chat (texto + push-to-talk por WS, TTS local), Conversas (histórico), Caixa (mailbox com anexos), **Sistema** (4 seções: Monitor, Processos, Apps, Controle), Presets e Ajustes (modais).
+**Telas**: Pareamento (QR pela câmera), **Início** (estado do PC, atalhos, lembretes, energia), Chat (texto + push-to-talk por WS, TTS local, câmera pra visão), Conversas (histórico sincronizado), Caixa (mailbox com anexos), **PC** (espelho + gavetas: trackpad, monitor, processos, programas, energia, transferência, mídia), player do Spotify em tela cheia, Presets e Ajustes (modais).
+
+**Aparência**: claro/escuro/sistema × 4 temas de cor. O modo escuro não é o claro invertido — fundo azulado em vez de preto puro (o vidro precisa ter o que desfocar), bordas em branco translúcido, `primarySoft` translúcido. A tinta da `BlurView` vem da paleta; fixa em `light` clarearia a tela inteira no escuro.
 
 **Bibliotecas** (`src/lib/`): `http.ts` (fetch com timeout obrigatório), `pairing.ts` (multi-endpoint + migração + varredura de sub-rede), `rpc.ts`, `api.ts`, `mailbox.ts`, `stream.ts` (voz por WS), `telemetry.ts`, `commandQueue.ts` (fila offline), `useConnection.ts`, `confirm.ts` (biometria), `chatHistoryStore.ts`, `mailboxStore.ts`.
 
@@ -137,7 +139,7 @@ curl -s -X POST -H "Authorization: Bearer $T" -H "Content-Type: application/json
   **🔴 NÃO troque o `routerModel` pelo `llama-3.1-8b-instant` achando que economiza.** Medido em 01/08/2026: no plano gratuito o 8B tem teto de **6000** tokens/minuto, **metade** dos 12000 do `llama-3.3-70b-versatile`. Trocar piora. O `config.html` já avisa disso no próprio seletor.
 - **Push exige credenciais FCM no projeto EAS** para funcionar em APK standalone. Em Expo Go e em emulador não funciona de jeito nenhum — o app detecta e explica, mas não dá pra validar push de verdade antes do bloco 6.
 - **Instalador `.exe` (NSIS) não testado** depois de nenhuma das mudanças recentes.
-- **APK do Portal não é buildável ainda** — falta `eas.json`, `android.package`, permissões declaradas, ícone adaptativo. É o bloco 6.
+- **APK: configuração pronta, build ainda não rodado.** `eas.json`, `android.package` (`com.zak.neuroaxis.portal`), `versionCode`, permissões, `scheme` e intent filters já estão no repo e resolvem sem erro (`npx expo config --type prebuild`). **O que falta é do Zak, não de código:** criar conta na Expo, rodar `npx eas login`, `npx eas init` (gera o `projectId`, sem o qual push não funciona), e `npm run build:apk`. O build roda na nuvem da Expo e devolve um link.
 - **Voz "Microsoft Daniel" (pt-BR masculina) não é usada pelo fallback SAPI**: é voz OneCore (`HKLM:\SOFTWARE\Microsoft\Speech_OneCore\Voices\Tokens`), invisível pro `System.Speech.Synthesis` clássico que o `tts.ts` usa. Duas saídas identificadas, nenhuma aplicada: ponte de registro (precisa rodar como Admin) ou reescrever o fallback pra `Windows.Media.SpeechSynthesis` (WinRT, não precisa admin mas o interop async via PowerShell é frágil).
 - **`msedge-tts` (voz neural) falha com "Connect Error"** nesta máquina/rede — cai sempre no fallback SAPI.
 - **`tts.ts` ignora `cfg.voice`** — a voz está fixa em `pt-BR-AntonioNeural` no código.
