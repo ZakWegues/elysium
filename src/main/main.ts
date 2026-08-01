@@ -423,6 +423,7 @@ ipcMain.handle("config:reset-defaults", () => {
     maxRecordMs: 120000,
     sttModel: "whisper-large-v3",
     brainModel: "llama-3.3-70b-versatile",
+    routerModel: "llama-3.3-70b-versatile",
     chatHistoryTurns: 6,
     chatIdleResetMs: 300000,
   });

@@ -47,7 +47,9 @@ export async function routeAction(action: BrainAction): Promise<string> {
     case "create_reminder":   return createReminderAction(action.text, action.due_at, action.weekly);
     case "list_reminders":    return listRemindersAction();
     case "cancel_reminder":   return cancelReminderAction(action.query);
-    case "chat":              return action.reply;
+    // Normalmente a conversa nem chega aqui: `command.ts` intercepta e chama o modelo
+    // bom. Este caminho cobre quem invoca `routeAction` direto, como o `runPreset`.
+    case "chat":              return action.reply ?? "";
     case "unknown":           return "Não entendi o que você pediu. Pode repetir?";
   }
 }

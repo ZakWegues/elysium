@@ -98,6 +98,10 @@ function resolveAppId(name: string): Promise<string | null> {
   const safe = name.replace(/'/g, "''");
 
   const psQuery =
+    // O Node lê este stdout como UTF-8 e o PowerShell escreve em ANSI. Aqui o retorno é
+    // um caminho de arquivo, então acento corrompido não só fica feio: quebra o
+    // `shell.openPath` de qualquer programa instalado sob "Arquivos de Programas".
+    `[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; ` +
     `$ErrorActionPreference='SilentlyContinue'; ` +
     // 1. Get-StartApps por nome (UWP, Store, Win32 registrados)
     `$a=Get-StartApps|Where-Object{$_.Name -like '*${safe}*'}|Select-Object -First 1; ` +

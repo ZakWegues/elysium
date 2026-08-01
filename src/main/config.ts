@@ -24,7 +24,18 @@ export interface AppConfig {
   maxRecordMs: number;
   voice: string;
   sttModel: string;
+  /** Modelo que escreve as respostas de conversa — vale pagar qualidade aqui. */
   brainModel: string;
+  /**
+   * Modelo que decide QUAL ação executar — separado do de conversa porque é ele que
+   * carrega o prompt grande, em todo comando.
+   *
+   * Contra a intuição, o padrão aqui é o modelo GRANDE. No nível gratuito da Groq o
+   * `llama-3.1-8b-instant` tem teto de 6000 tokens por minuto, metade dos 12000 do
+   * `llama-3.3-70b-versatile` — medido, não suposto. Trocar pelo pequeno para
+   * "economizar cota" faz o oposto.
+   */
+  routerModel: string;
   chatHistoryTurns: number;
   chatIdleResetMs: number;
   serverPort: number;
@@ -40,6 +51,7 @@ const DEFAULTS: AppConfig = {
   voice: "pt-BR-FranciscaNeural",
   sttModel: "whisper-large-v3",
   brainModel: "llama-3.3-70b-versatile",
+  routerModel: "llama-3.3-70b-versatile",
   chatHistoryTurns: 6,
   chatIdleResetMs: 300000,
   serverPort: 4200,

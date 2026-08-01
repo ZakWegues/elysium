@@ -1,0 +1,113 @@
+import type { BrainAction } from "./brain";
+
+/**
+ * Roteamento local, sem IA.
+ *
+ * "pausa", "volume 40", "próxima música" são comandos fechados: não há ambiguidade
+ * para um modelo resolver. Mandá-los para a Groq gastava ~4500 tokens de prompt cada,
+ * e o teto do nível gratuito é 12000 por minuto — três comandos triviais já estouravam
+ * a cota e derrubavam o comando seguinte, que talvez precisasse mesmo do cérebro.
+ *
+ * Aqui a resposta é instantânea e de graça. O cérebro continua atendendo tudo que não
+ * casar exatamente com um destes padrões.
+ *
+ * Regra para manter isto seguro: **só entra padrão sem ambiguidade possível.** Na
+ * dúvida, deixa passar para o modelo. Um falso positivo aqui executa a ação errada
+ * sem chance de correção; um falso negativo só gasta uma chamada.
+ */
+
+/** Tira acento, pontuação e espaço duplicado — a fala transcrita varia demais. */
+function normalize(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^\w\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+interface Rule {
+  /** Precisa casar a frase INTEIRA: evita disparar dentro de um pedido maior. */
+  pattern: RegExp;
+  build: (match: RegExpMatchArray) => BrainAction[];
+}
+
+const RULES: Rule[] = [
+  // — mídia —
+  { pattern: /^(pausa|pausar|pause|para a musica|parar a musica)$/,
+    build: () => [{ action: "media_control", operation: "pause" }] },
+  { pattern: /^(continua|continuar|retoma|retomar|play|toca de novo)$/,
+    build: () => [{ action: "media_control", operation: "play" }] },
+  { pattern: /^(proxima|proxima musica|pula|pular|passa|passa essa musica|skip)$/,
+    build: () => [{ action: "media_control", operation: "skip" }] },
+  // "volta" sozinho fica de fora: pode ser voltar a música ou voltar o som (desmutar).
+  { pattern: /^(anterior|musica anterior|volta a musica)$/,
+    build: () => [{ action: "media_control", operation: "previous" }] },
+
+  // — volume —
+  // Número explícito não tem como ser outra coisa.
+  { pattern: /^volume (\d{1,3})$/,
+    build: m => [{ action: "volume_control", level: clampVolume(m[1]) }] },
+  { pattern: /^(bota|bota|poe|coloca|deixa) o volume (?:em |no )?(\d{1,3})$/,
+    build: m => [{ action: "volume_control", level: clampVolume(m[2]) }] },
+  { pattern: /^(muta|mutar|mudo|sem som|silencia|silenciar)$/,
+    build: () => [{ action: "volume_control", level: "mute" }] },
+  { pattern: /^(desmuta|desmutar|tira o mudo|volta o som)$/,
+    build: () => [{ action: "volume_control", level: "unmute" }] },
+
+  // — informação do sistema —
+  { pattern: /^(que horas sao|qual a hora|me diz as horas|horas)$/,
+    build: () => [{ action: "system_info", query: "hora" }] },
+  { pattern: /^(que dia e hoje|qual a data|data de hoje)$/,
+    build: () => [{ action: "system_info", query: "data" }] },
+  // "memoria" sozinho fica de fora: tanto pode ser a RAM quanto o que o assistente
+  // guardou sobre o usuário.
+  { pattern: /^(quanta ram|uso de ram|quanto de ram)( esta sendo usada| ta sendo usada)?$/,
+    build: () => [{ action: "system_info", query: "ram" }] },
+  { pattern: /^(bateria|quanto de bateria|bateria do pc)$/,
+    build: () => [{ action: "system_info", query: "battery" }] },
+  { pattern: /^(espaco no hd|espaco em disco|quanto tem de espaco|disco)$/,
+    build: () => [{ action: "system_info", query: "disk" }] },
+  { pattern: /^(temperatura|temperatura do processador|temperatura da cpu)$/,
+    build: () => [{ action: "system_info", query: "cpu_temperature" }] },
+
+  // — captura —
+  { pattern: /^(tira um print|print|screenshot|captura a tela|faz um print)$/,
+    build: () => [{ action: "screenshot" }] },
+
+  // — energia —
+  // Só o que é inequívoco. "desliga" sozinho fica de fora de propósito: pode ser
+  // "desliga a música". Bloquear e cancelar são reversíveis ou inofensivos.
+  { pattern: /^(bloqueia|bloquear|trava|travar)( o pc| a tela| o computador)$/,
+    build: () => [{ action: "power_control", operation: "lock" }] },
+  { pattern: /^cancela(r)? o desligamento$/,
+    build: () => [{ action: "power_control", operation: "cancel" }] },
+
+  // — presets e memória —
+  { pattern: /^(lista(r)? (os )?presets|quais presets( eu)? tenho|meus presets)$/,
+    build: () => [{ action: "list_presets" }] },
+  { pattern: /^(quais lembretes( eu)? tenho|meus lembretes|o que (esta|ta) agendado)$/,
+    build: () => [{ action: "list_reminders" }] },
+  { pattern: /^(o que voce lembra sobre mim|o que voce sabe sobre mim|sua memoria)$/,
+    build: () => [{ action: "list_memory" }] },
+];
+
+function clampVolume(raw: string): number {
+  return Math.min(100, Math.max(0, parseInt(raw, 10)));
+}
+
+/**
+ * Devolve as ações quando o texto casa exatamente com um comando fechado, ou `null`
+ * para deixar o cérebro decidir.
+ */
+export function fastRoute(text: string): BrainAction[] | null {
+  const normalized = normalize(text);
+  if (!normalized) return null;
+
+  for (const rule of RULES) {
+    const match = normalized.match(rule.pattern);
+    if (match) return rule.build(match);
+  }
+  return null;
+}

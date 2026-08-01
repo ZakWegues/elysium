@@ -32,7 +32,10 @@ export type BrainAction =
   | { action: "create_reminder";   text: string; due_at: string; weekly?: boolean }
   | { action: "list_reminders" }
   | { action: "cancel_reminder";   query: string }
-  | { action: "chat";              reply: string }
+  // `reply` é opcional: o roteador só sinaliza que é conversa, e quem escreve a
+  // resposta é `composeChatReply`. O campo sobrevive como rede de segurança para
+  // quando o modelo pequeno responde mesmo assim.
+  | { action: "chat";              reply?: string }
   | { action: "unknown" };
 
 interface Message {
@@ -67,7 +70,7 @@ Ações disponíveis (elementos do array):
 {"action":"create_reminder","text":"<o que lembrar>","due_at":"<data e hora ISO 8601 local, ex 2026-08-02T15:00:00>","weekly":<true se for toda semana>}
 {"action":"list_reminders"}
 {"action":"cancel_reminder","query":"<trecho do lembrete a cancelar>"}
-{"action":"chat","reply":"<resposta direta e curta em português>"}
+{"action":"chat"}
 {"action":"unknown"}
 
 Regras de decisão:
@@ -85,7 +88,7 @@ Regras de decisão:
 - clipboard_read → "traduz o que está copiado", "resume o clipboard", "corrige o texto copiado", "o que está na área de transferência"
 - screenshot → "tira um print", "screenshot", "captura a tela", "faz um print"
 - system_info → "quanta RAM", "qual a hora", "que horas são", "que dia é hoje", "qual a data", "espaço no HD", "bateria", "CPU", "temperatura do processador", "PC tá quente"
-- chat → perguntas, conversas, cálculos, definições, opiniões — responda em 1-2 frases
+- chat → perguntas, conversas, cálculos, definições, opiniões. NÃO responda aqui: devolva {"action":"chat"} sem o campo reply, ou com reply vazio. Quem escreve a resposta é outra etapa.
 - run_preset → "ativa o modo", "modo gaming", "modo trabalho"
 - list_presets → "lista meus presets", "quais presets tenho"
 - delete_preset → "apaga o preset X", "remove o modo X"
@@ -121,7 +124,8 @@ Exemplos — cobrem os casos AMBÍGUOS. Para o resto, siga as regras acima.
 "me lembra daqui a 25 minutos de alongar" → {"actions":[{"action":"create_reminder","text":"alongar","due_at":"<agora + 25 min em ISO>"}]}
 "toda segunda às 8 me lembra da reunião" → {"actions":[{"action":"create_reminder","text":"reunião","due_at":"<próxima segunda 08:00 em ISO>","weekly":true}]}
 "cancela o lembrete do boleto" → {"actions":[{"action":"cancel_reminder","query":"boleto"}]}
-"qual a capital do Brasil" → {"actions":[{"action":"chat","reply":"A capital do Brasil é Brasília."}]}
+"qual a capital do Brasil" → {"actions":[{"action":"chat"}]}
+"oi, tudo bem?" → {"actions":[{"action":"chat"}]}
 "cria um preset estudo que abre o VS Code e toca lofi" → {"actions":[{"action":"create_preset","preset_name":"estudo","description":"Modo Estudo","icon":"📚","actions":[{"action":"open_app","app_name":"vs code"},{"action":"play_music","query":"lofi hip hop"}]}]}
 
 Compostos — uma ação por pedido, na ordem falada:
@@ -156,12 +160,46 @@ function localIso(d: Date): string {
          `T${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
 }
 
+/**
+ * Prompt de conversa — separado do de roteamento e propositalmente minúsculo.
+ *
+ * Decidir a ação e escrever a resposta são tarefas diferentes: a primeira é
+ * classificação e roda num modelo pequeno com um prompt grande; a segunda é redação e
+ * roda no modelo bom com um prompt curto. Juntas numa chamada só, pagávamos o modelo
+ * caro pelo prompt gigante de roteamento em todo pedido.
+ */
+const CHAT_SYSTEM_PROMPT = `Você é o NEUROAXIS, assistente pessoal do usuário, falando em português do Brasil.
+
+Sua resposta vai ser LIDA EM VOZ ALTA. Portanto:
+- Responda em 1 a 3 frases, direto ao ponto.
+- Nada de markdown, listas, títulos ou emoji — só texto corrido natural.
+- Nada de "como assistente de IA" ou avisos desnecessários.
+- Se não souber, diga que não sabe em uma frase.`;
+
 let history: Message[] = [];
 let lastActivity = Date.now();
 
 export function clearHistory(): void {
   history = [];
   lastActivity = Date.now();
+}
+
+/**
+ * Registra no histórico um comando resolvido localmente, sem passar pelo modelo.
+ *
+ * Sem isto o cérebro não veria esses turnos e perderia o fio: depois de "pausa"
+ * resolvido no atalho, um "continua" seguido de "e aumenta" ficaria sem contexto.
+ */
+export function noteFastRouted(text: string, actions: BrainAction[]): void {
+  const now = Date.now();
+  if (now - lastActivity > getConfig().chatIdleResetMs) history = [];
+  lastActivity = now;
+
+  history.push({ role: "user", content: text });
+  history.push({ role: "assistant", content: actions.map(actionSummary).join(" | ") });
+
+  const maxMsgs = getConfig().chatHistoryTurns * 2;
+  if (history.length > maxMsgs) history = history.slice(history.length - maxMsgs);
 }
 
 function actionSummary(action: BrainAction): string {
@@ -218,7 +256,7 @@ export async function decideBrain(text: string): Promise<BrainAction[]> {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: cfg.brainModel,
+        model: cfg.routerModel,
         messages: [{ role: "system", content: buildSystemPrompt() }, ...history],
         temperature: 0.1,
         max_tokens: 1500,
@@ -257,6 +295,53 @@ export async function decideBrain(text: string): Promise<BrainAction[]> {
   history.push({ role: "assistant", content: summaries.join(" | ") });
 
   return actions;
+}
+
+/**
+ * Escreve a resposta de conversa no modelo bom.
+ *
+ * Devolve `null` em qualquer falha — quem chama decide o que dizer no lugar. Uma
+ * conversa que quebra é bem menos grave que uma ação que não acontece, então isto
+ * nunca lança.
+ */
+export async function composeChatReply(userText: string): Promise<string | null> {
+  const cfg = getConfig();
+  const apiKey = getApiKey();
+  if (!apiKey) return null;
+
+  // O mesmo histórico do roteador, para o modelo entender "e ele?" depois de uma
+  // pergunta anterior. Sem o bloco de ações: aqui ele só conversa.
+  const recent = history.slice(-cfg.chatHistoryTurns * 2);
+
+  try {
+    const res = await fetch(GROQ_CHAT_URL, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: cfg.brainModel,
+        messages: [
+          { role: "system", content: CHAT_SYSTEM_PROMPT + buildMemoryBlock() },
+          ...recent,
+          { role: "user", content: userText },
+        ],
+        temperature: 0.6,
+        max_tokens: 300,
+      }),
+      signal: AbortSignal.timeout(20_000),
+    });
+
+    if (!res.ok) {
+      console.error(`[brain] resposta de conversa falhou: HTTP ${res.status}`);
+      return null;
+    }
+
+    const data = await res.json() as { choices?: { message?: { content?: string } }[] };
+    const reply = data.choices?.[0]?.message?.content?.trim();
+    return reply || null;
+  } catch (e) {
+    console.error("[brain] resposta de conversa falhou:", e);
+    return null;
+  }
 }
 
 async function safeText(res: Response): Promise<string> {

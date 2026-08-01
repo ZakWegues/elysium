@@ -47,8 +47,15 @@ if ($zones) {
 `,
 };
 
+/**
+ * O Node decodifica este stdout como UTF-8, mas o PowerShell escreve no code page ANSI
+ * do console. Sem forçar, todo acento volta corrompido — "São 11:34" virava "S?o 11:34"
+ * na fala e na tela.
+ */
+const FORCE_UTF8 = "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8\n";
+
 function runPs(script: string): Promise<string> {
-  const encoded = Buffer.from(script, "utf16le").toString("base64");
+  const encoded = Buffer.from(FORCE_UTF8 + script, "utf16le").toString("base64");
   return new Promise<string>((resolve) => {
     const ps = spawn("powershell.exe", [
       "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden",

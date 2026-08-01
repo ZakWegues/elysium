@@ -102,7 +102,12 @@ if ($proc) {
 }
 
 function runScript(script: string): Promise<string> {
-  const encoded = Buffer.from(script, "utf16le").toString("base64");
+  // O Node lê este stdout como UTF-8 e o PowerShell escreve em ANSI; sem forçar, todo
+  // acento na resposta volta corrompido.
+  const encoded = Buffer.from(
+    "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8\n" + script,
+    "utf16le",
+  ).toString("base64");
   return new Promise<string>((resolve) => {
     const ps = spawn("powershell.exe", [
       "-ExecutionPolicy", "Bypass",
