@@ -112,6 +112,29 @@ export function upsertMessages(
   }
 }
 
+/**
+ * Aplica uma conversa vinda do celular.
+ *
+ * Vence quem tem `updatedAt` maior. Com um usuário e dois aparelhos, isso resolve o
+ * conflito real (mexeu no celular depois de mexer no PC) sem a complexidade de
+ * relógios vetoriais, e nunca perde a versão mais nova.
+ *
+ * O PC é a autoridade sobre a retenção: quem sincroniza adota a lista que ele devolve.
+ * Se os dois lados podassem por conta própria, cada um mandaria de volta o que o outro
+ * acabou de apagar.
+ */
+export function mergeSession(incoming: ChatSession): ChatSession {
+  const existing = getSession(incoming.id);
+  if (existing && existing.updatedAt >= incoming.updatedAt) return existing;
+
+  return saveSession({
+    ...incoming,
+    // Preserva a origem da conversa: o celular pode não saber quando ela nasceu.
+    createdAt: existing?.createdAt ?? incoming.createdAt ?? Date.now(),
+    title: incoming.title || deriveTitle(incoming.messages),
+  });
+}
+
 export function deleteSession(id: string): boolean {
   const sessions = readAll();
   const next = sessions.filter(s => s.id !== id);

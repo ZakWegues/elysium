@@ -84,7 +84,7 @@ O catálogo de 26 features pra depois está no arquivo do plano.
 
 **Dashboard** (`src/renderer/dashboard.html`, vanilla JS): gavetas esquerda (perf/storage/taskmgr) e direita (config/**conversas**/presets/**mídia com mini-player do Spotify**/personalização/pareamento), timeline central com chat duplo (IA / Eu mesmo), 5 temas incluindo o "Vidro Líquido" claro.
 
-**Conversas salvas** (`chatSessionsStore.ts`): mesma semântica dos dois lados — 5 não-favoritadas + favoritas ilimitadas, título da primeira fala. Desktop e mobile guardam **localmente e não sincronizam**; cada um tem a sua conversa. Não confundir com o histórico do `brain.ts`, que é o contexto volátil mandado ao modelo e nunca vai pro disco.
+**Conversas salvas** (`chatSessionsStore.ts`): 5 não-favoritadas + favoritas ilimitadas, título da primeira fala. **Sincronizam com o celular** — o PC é a autoridade, conflito por `updatedAt`, exclusões por lápide. Detalhes em `CONTRATO_RPC.md` §11. Não confundir com o histórico do `brain.ts`, que é o contexto volátil mandado ao modelo e nunca vai pro disco.
 
 **Serviços**: `stt.ts` (Whisper + detecção de formato por magic bytes), `tts.ts` (msedge-tts neural com fallback SAPI), `brain.ts`, `command.ts`, `history.ts`, `presetsStore.ts`, `telemetryLog.ts`, `mailboxStore.ts`, `rpc.ts`, `errors.ts`.
 

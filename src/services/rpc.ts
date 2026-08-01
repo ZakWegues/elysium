@@ -32,6 +32,11 @@ import { getPushPrefs, registerToken, setPushPrefs, unregisterToken, PushCategor
 import { askAboutImage, askAboutScreen } from "./vision";
 import { searchWeb } from "./webSearch";
 import * as spotify from "./spotify";
+import {
+  listSessions as listChatSessions, getSession as getChatSession,
+  mergeSession as mergeChatSession, toggleFavorite as toggleChatFavorite,
+  deleteSession as deleteChatSession, ChatSession,
+} from "./chatSessionsStore";
 
 /** Erro com status HTTP embutido, para o servidor traduzir direto na resposta. */
 export class RpcError extends Error {
@@ -375,6 +380,46 @@ const METHODS: Record<string, MethodDef> = {
   },
   "web.search": {
     handler: async (params) => ({ answer: await searchWeb(requireString(params, "query")) }),
+  },
+
+  // — conversas (sincronização com o celular) —
+  // O PC é a autoridade: o app manda o que mudou e depois adota a lista devolvida
+  // por `chat.list`. Sem um lado mandando, cada um devolveria ao outro o que ele
+  // acabou de podar.
+  "chat.list": {
+    handler: async () => ({ sessions: listChatSessions() }),
+  },
+  "chat.get": {
+    handler: async (params) => ({ session: getChatSession(requireString(params, "id")) }),
+  },
+  "chat.save": {
+    handler: async (params) => {
+      const raw = params["session"];
+      if (!raw || typeof raw !== "object") {
+        throw new RpcError(400, 'param "session" é obrigatório e deve ser um objeto');
+      }
+      const s = raw as Partial<ChatSession>;
+      if (typeof s.id !== "string" || !s.id) throw new RpcError(400, "session.id é obrigatório");
+      if (!Array.isArray(s.messages)) throw new RpcError(400, "session.messages deve ser uma lista");
+      if (s.messages.length > 500) throw new RpcError(400, "conversa longa demais (máx 500 mensagens)");
+
+      return {
+        session: mergeChatSession({
+          id: s.id,
+          title: typeof s.title === "string" ? s.title : "",
+          createdAt: typeof s.createdAt === "number" ? s.createdAt : Date.now(),
+          updatedAt: typeof s.updatedAt === "number" ? s.updatedAt : Date.now(),
+          favorite: !!s.favorite,
+          messages: s.messages as ChatSession["messages"],
+        }),
+      };
+    },
+  },
+  "chat.favorite": {
+    handler: async (params) => ({ favorite: toggleChatFavorite(requireString(params, "id")) }),
+  },
+  "chat.delete": {
+    handler: async (params) => ({ deleted: deleteChatSession(requireString(params, "id")) }),
   },
 
   // — memória de longo prazo —

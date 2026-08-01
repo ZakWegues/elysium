@@ -89,6 +89,13 @@ Resposta de erro — sempre `{ "error": "<mensagem em PT-BR>" }` com status:
 | `spotify.playSearch` | `{ query: string }` | `{ playing: { track, artist } }` | não |
 | `spotify.shuffle` | `{ on: boolean }` | `{ ok: true }` | não |
 | `spotify.repeat` | `{ state: "off"\|"track"\|"context" }` | `{ ok: true }` | não |
+| `chat.list` | — | `{ sessions: ChatSession[] }` | não |
+| `chat.get` | `{ id }` | `{ session \| null }` | não |
+| `chat.save` | `{ session: ChatSession }` (máx 500 mensagens) | `{ session }` | não |
+| `chat.favorite` | `{ id }` | `{ favorite: boolean \| null }` | não |
+| `chat.delete` | `{ id }` | `{ deleted: boolean }` | não |
+
+`ChatSession = { id, title, createdAt, updatedAt, favorite, messages: [{ id, from: "me"|"reply"|"error", text, ts }] }`
 
 `spotify.nowPlaying` também devolve `volumePercent` (null quando o dispositivo não expõe
 controle), `shuffle` e `repeat`.
@@ -351,6 +358,31 @@ cada segundo só para mover uma barra seria desperdício de rede e de cota. E pl
 reflete na hora, antes da confirmação — esperar o próximo poll faz o botão parecer
 travado.
 
-## 11. Ainda não implementado
+## 11. Sincronização das conversas
+
+**O PC é a autoridade.** O celular empurra o que mudou, o PC aplica a regra de retenção
+(5 não favoritadas + favoritas ilimitadas) e devolve a lista; o celular adota o
+resultado. Se os dois lados podassem por conta própria, cada um devolveria ao outro
+exatamente o que o outro acabou de apagar.
+
+**Conflito:** vence quem tem `updatedAt` maior, decidido no PC (`mergeSession`). Para um
+usuário com dois aparelhos isso cobre o caso real — mexer no celular depois de mexer no
+PC — sem relógios vetoriais. O `createdAt` guardado é preservado: o celular pode não
+saber quando a conversa nasceu.
+
+**Exclusões usam lápides.** Apagar no celular registra o id em
+`neuroaxis_chat_deleted`; a sincronização manda os `chat.delete` **antes** dos
+`chat.save` e só então limpa o registro. Sem isso a conversa apagada voltaria do PC na
+sincronização seguinte, como se o botão não funcionasse.
+
+**Ids ganharam sufixo aleatório** nos dois lados: só o carimbo de tempo colidiria se PC
+e celular criassem uma conversa no mesmo milissegundo, e o merge trataria as duas como a
+mesma.
+
+**Offline:** a cópia local continua sendo a fonte da tela. Sem rede tudo funciona, e as
+alterações e exclusões esperam a próxima sincronização. Dispara ao abrir a lista de
+Conversas, ao favoritar ou apagar, e quando o PC volta a ficar acessível.
+
+## 12. Ainda não implementado
 
 Bloco 6: Home de atalhos, modo escuro, compartilhar do Android, e o build do APK.
