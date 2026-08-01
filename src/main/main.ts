@@ -10,6 +10,11 @@ import { inputHost } from "../services/inputHost";
 import { startScheduler, stopScheduler } from "../services/scheduler";
 import { sendPush } from "../services/push";
 import {
+  listSessions as listChatSessions, getSession as getChatSession,
+  upsertMessages as upsertChatMessages, toggleFavorite as toggleChatFavorite,
+  deleteSession as deleteChatSession, StoredMessage,
+} from "../services/chatSessionsStore";
+import {
   isConnected as isSpotifyConnected, beginLogin as beginSpotifyLogin,
   disconnect as spotifyDisconnect, getNowPlaying as getSpotifyNowPlaying,
   play as spotifyPlay, pause as spotifyPause, next as spotifyNext,
@@ -471,6 +476,14 @@ ipcMain.handle("spotify:command", async (_e, op: string, value?: number | boolea
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
 });
+
+// ── Conversas salvas ──────────────────────────────────────────────────────────
+ipcMain.handle("chat-sessions:list",     () => listChatSessions());
+ipcMain.handle("chat-sessions:get",      (_e, id: string) => getChatSession(id));
+ipcMain.handle("chat-sessions:save",     (_e, sessionId: string | null, messages: StoredMessage[]) =>
+  upsertChatMessages(sessionId, messages));
+ipcMain.handle("chat-sessions:favorite", (_e, id: string) => toggleChatFavorite(id));
+ipcMain.handle("chat-sessions:delete",   (_e, id: string) => deleteChatSession(id));
 
 ipcMain.handle("presets:get", () => getAllPresets());
 

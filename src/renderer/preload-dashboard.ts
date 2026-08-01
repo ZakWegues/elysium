@@ -35,6 +35,14 @@ contextBridge.exposeInMainWorld("nx", {
   mediaControl:    (op: string)                 => ipcRenderer.send("media:direct", op),
   stopTts:         ()                           => ipcRenderer.send("tts:stop"),
 
+  // ── Conversas salvas ───────────────────────────────────────────────────────
+  chatSessionsList:     ()                       => ipcRenderer.invoke("chat-sessions:list"),
+  chatSessionsGet:      (id: string)             => ipcRenderer.invoke("chat-sessions:get", id),
+  chatSessionsSave:     (sessionId: string | null, messages: unknown[]) =>
+                                                    ipcRenderer.invoke("chat-sessions:save", sessionId, messages),
+  chatSessionsFavorite: (id: string)             => ipcRenderer.invoke("chat-sessions:favorite", id),
+  chatSessionsDelete:   (id: string)             => ipcRenderer.invoke("chat-sessions:delete", id),
+
   // ── Presets ────────────────────────────────────────────────────────────────
   getPresets:      ()                           => ipcRenderer.invoke("presets:get"),
 

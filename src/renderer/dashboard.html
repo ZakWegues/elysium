@@ -441,6 +441,30 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
 }
 .media-btn:hover { background: rgba(78,205,196,0.28); box-shadow: 0 0 10px rgba(78,205,196,0.3); }
 
+/* ── Conversas salvas ──────────────────────────────────────────────────────── */
+.conv-item {
+  background: var(--surface); border: 1px solid var(--border2);
+  border-radius: var(--radius-10); padding: 10px 12px; margin-bottom: 6px;
+  cursor: pointer; display: flex; align-items: center; gap: 8px;
+  transition: border-color 0.2s, transform 0.2s cubic-bezier(0.34,1.56,0.64,1);
+}
+.conv-item:hover  { border-color: var(--purple); }
+.conv-item:active { transform: scale(0.985); }
+.conv-item.conv-active { border-color: var(--purple); background: rgba(123,94,167,0.10); }
+.conv-body  { flex: 1; min-width: 0; }
+.conv-title { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.conv-meta  { font-size: 10px; color: var(--dim); margin-top: 2px; }
+.conv-act {
+  background: none; border: none; cursor: pointer; padding: 3px; font-size: 13px;
+  color: var(--dim); transition: color 0.2s, transform 0.2s cubic-bezier(0.34,1.56,0.64,1);
+  line-height: 1;
+}
+.conv-act:hover  { transform: scale(1.2); }
+.conv-act.on     { color: #f5a623; }
+.conv-act.del:hover { color: var(--red); }
+#conv-hint  { font-size: 10px; color: var(--dim); line-height: 1.5; margin-top: 10px; }
+#conv-empty { font-size: 11px; color: var(--muted); text-align: center; padding: 18px 6px; }
+
 /* ── Mini-player do Spotify ────────────────────────────────────────────────── */
 .sp-card {
   background: var(--surface); border: 1px solid var(--border2);
@@ -1104,6 +1128,7 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
   <div id="drawer-right">
     <div id="rtabs">
       <button class="rtab-btn active" data-tab="config"        title="Configurações">&#x2699;</button>
+      <button class="rtab-btn"        data-tab="conversas"     title="Conversas salvas">&#x1F4AC;</button>
       <button class="rtab-btn"        data-tab="presets"       title="Presets">&#x1F3AE;</button>
       <button class="rtab-btn"        data-tab="media"         title="Mídia">&#x1F3B5;</button>
       <button class="rtab-btn"        data-tab="personalizacao" title="Personalização">&#x1F3A8;</button>
@@ -1148,6 +1173,19 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
       </div><!-- /tab-presets -->
 
       <!-- MÍDIA -->
+      <!-- CONVERSAS -->
+      <div class="rtab-panel" id="tab-conversas">
+        <div class="section-label">CONVERSAS</div>
+        <button id="conv-new-btn" class="sp-primary-btn" style="background:var(--purple);margin-bottom:10px">
+          + Nova conversa
+        </button>
+        <div id="conv-list"></div>
+        <div id="conv-hint">
+          As 5 conversas mais recentes ficam guardadas. Favoritar uma tira ela dessa contagem —
+          favoritas nunca são apagadas sozinhas.
+        </div>
+      </div><!-- /tab-conversas -->
+
       <div class="rtab-panel" id="tab-media">
         <div class="section-label">SPOTIFY</div>
 
@@ -2059,6 +2097,7 @@ window.nx.onAudioLevel((level) => {
 
 window.nx.onTranscript((text) => {
   addBubble("user", text);
+  recordMessage("me", text);
 });
 
 window.nx.onActionLabel((label) => {
@@ -2068,18 +2107,22 @@ window.nx.onActionLabel((label) => {
 
 window.nx.onReply((text) => {
   addBubble("assistant", renderMarkdown(text), true);
+  recordMessage("reply", text);
 });
 
 window.nx.onError((msg) => {
   addBubble("error", msg);
+  recordMessage("error", msg);
 });
 
 window.nx.onChatReply((text) => {
   addBubble("assistant", renderMarkdown(text), true);
+  recordMessage("reply", text);
 });
 
 window.nx.onChatError((msg) => {
   addBubble("error", msg);
+  recordMessage("error", msg);
 });
 
 window.nx.onChatBusy(() => {
@@ -2106,6 +2149,7 @@ function sendText() {
     window.nx.mailboxSend(text);
   } else {
     addBubble("user", text);
+    recordMessage("me", text);
     window.nx.chatSend(text);
   }
   cmdInput.value = "";
@@ -2129,6 +2173,145 @@ document.getElementById("media-controls").addEventListener("click", (e) => {
   const btn = e.target.closest(".media-btn");
   if (!btn) return;
   window.nx.mediaControl(btn.dataset.op);
+});
+
+// ─────────────────────────────────────────────────
+// CONVERSAS SALVAS
+// ─────────────────────────────────────────────────
+// A timeline sempre foi só DOM — não havia lista de mensagens em lugar nenhum, então
+// nada sobrevivia a fechar a janela. Esta lista é a fonte da verdade do que é gravado.
+let chatMessages  = [];
+let chatSessionId = null;
+
+const convList = document.getElementById("conv-list");
+
+function recordMessage(from, text) {
+  // Só a conversa com a IA vira sessão. O modo "Eu mesmo" é a caixa de recados, que
+  // já tem persistência própria no mailbox.
+  if (chatMode !== "ai") return;
+
+  chatMessages.push({
+    id: `${from}-${Date.now()}-${chatMessages.length}`,
+    from, text, ts: Date.now(),
+  });
+  persistSession();
+}
+
+async function persistSession() {
+  if (chatMessages.length === 0) return;
+  try {
+    const saved = await window.nx.chatSessionsSave(chatSessionId, chatMessages);
+    if (saved) chatSessionId = saved.id;
+    // A lista fica visível ao lado; sem isto o título só apareceria na próxima abertura.
+    if (document.getElementById("tab-conversas").classList.contains("active")) loadConversations();
+  } catch (e) {
+    console.error("[conversas] falha ao gravar:", e);
+  }
+}
+
+function relativeTime(ts) {
+  const minutes = Math.round((Date.now() - ts) / 60000);
+  if (minutes < 1) return "agora";
+  if (minutes < 60) return `${minutes}min atrás`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours}h atrás`;
+  return `${Math.round(hours / 24)}d atrás`;
+}
+
+async function loadConversations() {
+  let sessions = [];
+  try { sessions = await window.nx.chatSessionsList(); }
+  catch (e) { console.error("[conversas] falha ao listar:", e); }
+
+  convList.replaceChildren();
+
+  if (sessions.length === 0) {
+    const empty = document.createElement("div");
+    empty.id = "conv-empty";
+    empty.textContent = "Nenhuma conversa salva ainda.";
+    convList.appendChild(empty);
+    return;
+  }
+
+  for (const s of sessions) {
+    const item = document.createElement("div");
+    item.className = "conv-item" + (s.id === chatSessionId ? " conv-active" : "");
+
+    const body = document.createElement("div");
+    body.className = "conv-body";
+
+    const title = document.createElement("div");
+    title.className = "conv-title";
+    // textContent, nunca innerHTML: o título vem do que o usuário digitou.
+    title.textContent = s.title;
+
+    const meta = document.createElement("div");
+    meta.className = "conv-meta";
+    meta.textContent = `${s.messages.length} mensagens · ${relativeTime(s.updatedAt)}`;
+
+    body.append(title, meta);
+    body.addEventListener("click", () => openConversation(s.id));
+
+    const star = document.createElement("button");
+    star.className = "conv-act" + (s.favorite ? " on" : "");
+    star.textContent = s.favorite ? "★" : "☆";
+    star.title = s.favorite ? "Desfavoritar" : "Favoritar (nunca é apagada sozinha)";
+    star.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      await window.nx.chatSessionsFavorite(s.id);
+      loadConversations();
+    });
+
+    const del = document.createElement("button");
+    del.className = "conv-act del";
+    del.textContent = "✕";
+    del.title = "Apagar";
+    del.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      await window.nx.chatSessionsDelete(s.id);
+      if (s.id === chatSessionId) startNewConversation();
+      loadConversations();
+    });
+
+    item.append(body, star, del);
+    convList.appendChild(item);
+  }
+}
+
+async function openConversation(id) {
+  const session = await window.nx.chatSessionsGet(id);
+  if (!session) return;
+
+  chatSessionId = session.id;
+  chatMessages  = session.messages.slice();
+
+  if (chatMode !== "ai") switchChatMode("ai");
+  timeline.replaceChildren();
+  for (const m of chatMessages) {
+    if (m.from === "me")        addBubble("user", m.text);
+    else if (m.from === "error") addBubble("error", m.text);
+    else                         addBubble("assistant", renderMarkdown(m.text), true);
+  }
+  scrollToBottom();
+
+  // O cérebro tem o próprio contexto volátil, que não corresponde ao que acabou de ser
+  // carregado. Limpar evita ele responder com base numa conversa que não está à vista.
+  window.nx.chatClear();
+  loadConversations();
+  showToast("Conversa carregada");
+}
+
+function startNewConversation() {
+  chatSessionId = null;
+  chatMessages  = [];
+  timeline.replaceChildren();
+  window.nx.chatClear();
+  loadConversations();
+}
+
+document.getElementById("conv-new-btn").addEventListener("click", () => {
+  startNewConversation();
+  showToast("Nova conversa");
 });
 
 // ─────────────────────────────────────────────────
@@ -2459,6 +2642,7 @@ rtabBtns.forEach(btn => {
     rtabBtns.forEach(b => b.classList.toggle("active", b === btn));
     rtabPanels.forEach(p => p.classList.toggle("active", p.id === "tab-" + btn.dataset.tab));
     if (btn.dataset.tab === "pareamento") loadPairing();
+    if (btn.dataset.tab === "conversas")  loadConversations();
 
     // O player só consulta a API enquanto está à vista. Deixar o laço rodando com a
     // aba fechada gastaria cota do Spotify por nada.
