@@ -11,7 +11,7 @@ import { clipboardRead } from "./clipboardAction";
 import { screenshot } from "./screenshot";
 import { systemInfo } from "./systemInfo";
 import { runPreset } from "./runPreset";
-import { mediaControl } from "./mediaControl";
+import { smartMediaControl } from "./spotifyControl";
 import { windowManagement } from "./windowManagement";
 import { createPreset } from "./createPreset";
 import { sendToMobile } from "./sendToMobile";
@@ -30,7 +30,7 @@ export async function routeAction(action: BrainAction): Promise<string> {
     case "open_app":          return openApp(action.app_name);
     case "close_app":         return closeApp(action.app_name);
     case "volume_control":    return volumeControl(action.level);
-    case "media_control":     return mediaControl(action.operation);
+    case "media_control":     return smartMediaControl(action.operation);
     case "window_management": return windowManagement(action.target_app, action.operation);
     case "write_text":        return writeText(action.content, action.description);
     case "create_file":       return createFile(action.filename, action.content, action.description);

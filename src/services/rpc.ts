@@ -31,6 +31,7 @@ import { cancelReminder, createReminder, listAll, ReminderKind } from "./schedul
 import { getPushPrefs, registerToken, setPushPrefs, unregisterToken, PushCategory } from "./push";
 import { askAboutImage, askAboutScreen } from "./vision";
 import { searchWeb } from "./webSearch";
+import * as spotify from "./spotify";
 
 /** Erro com status HTTP embutido, para o servidor traduzir direto na resposta. */
 export class RpcError extends Error {
@@ -291,6 +292,55 @@ const METHODS: Record<string, MethodDef> = {
       await inputHost.key(sequence);
       return { ok: true };
     },
+  },
+
+  // — Spotify —
+  "spotify.status": {
+    handler: async () => ({ connected: spotify.isConnected() }),
+  },
+  "spotify.login": {
+    // Abre o navegador NO PC. Pelo celular isso parece não fazer nada, então o app
+    // precisa explicar que a autorização acontece na tela do computador.
+    handler: async () => {
+      spotify.beginLogin();
+      return { ok: true, message: "Abri o login do Spotify no navegador do PC." };
+    },
+  },
+  "spotify.logout": {
+    handler: async () => {
+      spotify.disconnect();
+      return { ok: true };
+    },
+  },
+  "spotify.nowPlaying": {
+    handler: async () => ({ nowPlaying: await spotify.getNowPlaying() }),
+  },
+  "spotify.command": {
+    handler: async (params) => {
+      const op = requireEnum(params, "operation", ["play", "pause", "next", "previous"] as const);
+      if (op === "play") await spotify.play();
+      else if (op === "pause") await spotify.pause();
+      else if (op === "next") await spotify.next();
+      else await spotify.previous();
+      return { ok: true };
+    },
+  },
+  "spotify.volume": {
+    handler: async (params) => {
+      const percent = requireNumber(params, "percent");
+      if (percent < 0 || percent > 100) throw new RpcError(400, "percent deve estar entre 0 e 100");
+      await spotify.setVolume(percent);
+      return { ok: true };
+    },
+  },
+  "spotify.seek": {
+    handler: async (params) => {
+      await spotify.seek(requireNumber(params, "positionMs"));
+      return { ok: true };
+    },
+  },
+  "spotify.playSearch": {
+    handler: async (params) => ({ playing: await spotify.playSearch(requireString(params, "query")) }),
   },
 
   // — visão e busca —

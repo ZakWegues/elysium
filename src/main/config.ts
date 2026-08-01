@@ -48,6 +48,15 @@ export interface AppConfig {
    * serviço de busca em lugar nenhum do projeto.
    */
   searchModel: string;
+  /**
+   * Client ID do app no painel do Spotify.
+   *
+   * Não é segredo: no fluxo PKCE ele aparece na própria URL de login, e a prova de
+   * posse é um valor aleatório gerado a cada tentativa. Fica aqui, versionado, para o
+   * app funcionar sem passo extra de configuração. O que NUNCA é versionado é o
+   * refresh token, guardado no perfil do usuário por `spotify.ts`.
+   */
+  spotifyClientId: string;
   chatHistoryTurns: number;
   chatIdleResetMs: number;
   serverPort: number;
@@ -66,6 +75,7 @@ const DEFAULTS: AppConfig = {
   routerModel: "llama-3.3-70b-versatile",
   visionModel: "qwen/qwen3.6-27b",
   searchModel: "groq/compound-mini",
+  spotifyClientId: "042904fef8cc41f0bf05b7abeda2d66f",
   chatHistoryTurns: 6,
   chatIdleResetMs: 300000,
   serverPort: 4200,

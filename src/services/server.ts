@@ -32,6 +32,7 @@ import {
   addMessage, listMessages, getMessageContent, ackMessage,
   AttachmentTooLargeError, MailboxKind,
 } from "./mailboxStore";
+import { completeLogin as completeSpotifyLogin } from "./spotify";
 import { handleRpc, listRpcMethods, RpcError } from "./rpc";
 
 const WS_MAGIC = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
@@ -176,6 +177,55 @@ function authorized(req: http.IncomingMessage): boolean {
   return false;
 }
 
+// ── callback do OAuth do Spotify ──────────────────────────────────────────────
+
+/** Página simples devolvida ao navegador — o usuário volta para o app depois. */
+function spotifyResultPage(title: string, message: string, ok: boolean): string {
+  const color = ok ? "#1db954" : "#e5484d";
+  return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
+<title>NEUROAXIS</title></head>
+<body style="font-family:system-ui,sans-serif;background:#0f0f28;color:#f1f5f9;display:flex;
+align-items:center;justify-content:center;height:100vh;margin:0">
+<div style="text-align:center;max-width:420px;padding:32px">
+<div style="font-size:44px;margin-bottom:12px">${ok ? "&#10003;" : "&#10007;"}</div>
+<h1 style="font-size:20px;margin:0 0 8px;color:${color}">${title}</h1>
+<p style="color:#94a3b8;line-height:1.5;margin:0">${message}</p>
+</div></body></html>`;
+}
+
+async function handleSpotifyCallback(
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+): Promise<void> {
+  const params = new URL(req.url ?? "", "http://127.0.0.1").searchParams;
+  const sendPage = (status: number, title: string, message: string, ok: boolean) => {
+    res.writeHead(status, { "Content-Type": "text/html; charset=utf-8" });
+    res.end(spotifyResultPage(title, message, ok));
+  };
+
+  // O usuário pode ter clicado em "cancelar" na tela do Spotify.
+  const denied = params.get("error");
+  if (denied) {
+    sendPage(200, "Login cancelado", "Você pode tentar de novo pelo NEUROAXIS quando quiser.", false);
+    return;
+  }
+
+  const code = params.get("code");
+  const state = params.get("state");
+  if (!code || !state) {
+    sendPage(400, "Resposta incompleta", "O Spotify não devolveu o código de autorização.", false);
+    return;
+  }
+
+  try {
+    await completeSpotifyLogin(code, state);
+    sendPage(200, "Spotify conectado", "Pode fechar esta aba e voltar para o NEUROAXIS.", true);
+  } catch (e) {
+    console.error("[spotify] callback falhou:", e);
+    sendPage(400, "Não deu certo", String(e instanceof Error ? e.message : e), false);
+  }
+}
+
 // ── rate limit ────────────────────────────────────────────────────────────────
 
 const rateBuckets = new Map<string, number[]>();
@@ -233,6 +283,16 @@ function makeHandler(
 
     if (rateLimited(req)) {
       sendJson(res, 429, { error: "Too many requests" });
+      return;
+    }
+
+    // Callback do OAuth do Spotify — a ÚNICA rota sem bearer token, e não há como ser
+    // diferente: quem chega aqui é o navegador redirecionado pelo Spotify, que não tem
+    // como carregar o nosso token. A proteção equivalente é o `state` aleatório, que
+    // `completeLogin` confere contra o login em andamento; sem ele, a troca de código
+    // é recusada. Vem depois do rate limit de propósito.
+    if (req.method === "GET" && (req.url ?? "").startsWith("/api/spotify/callback")) {
+      await handleSpotifyCallback(req, res);
       return;
     }
 

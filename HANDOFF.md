@@ -62,7 +62,7 @@ Decisões fechadas pelo Zak: acesso de fora de casa **via túnel** (Tailscale/Ze
 | 2 | Central de sistema, clipboard, energia | ✅ feito |
 | 3 | Espelhamento de tela + trackpad/teclado remoto | ✅ feito |
 | 4 | Memória de longo prazo, lembretes, push | ✅ feito |
-| 5 | Visão e busca web ✅ · Spotify Web API ⬜ | 🟡 parcial |
+| 5 | Visão, busca web e Spotify | ✅ feito |
 | 6 | Home, modo escuro, share intent, build do APK | ⬜ próximo |
 
 O catálogo de 26 features pra depois está no arquivo do plano.

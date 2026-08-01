@@ -79,6 +79,14 @@ Resposta de erro — sempre `{ "error": "<mensagem em PT-BR>" }` com status:
 | `vision.ask` | `{ imageBase64: string, question?: string }` | `{ answer: string }` | não |
 | `vision.screen` | `{ question?: string }` | `{ answer: string }` | não |
 | `web.search` | `{ query: string }` | `{ answer: string }` | não |
+| `spotify.status` | — | `{ connected: boolean }` | não |
+| `spotify.login` | — | `{ ok: true, message }` (abre o navegador **no PC**) | não |
+| `spotify.logout` | — | `{ ok: true }` | não |
+| `spotify.nowPlaying` | — | `{ nowPlaying: { isPlaying, track, artist, album, albumArt, progressMs, durationMs, device } \| null }` | não |
+| `spotify.command` | `{ operation: "play"\|"pause"\|"next"\|"previous" }` | `{ ok: true }` | não |
+| `spotify.volume` | `{ percent: 0-100 }` | `{ ok: true }` | não |
+| `spotify.seek` | `{ positionMs: number }` | `{ ok: true }` | não |
+| `spotify.playSearch` | `{ query: string }` | `{ playing: { track, artist } }` | não |
 
 `push.getPrefs` **não** devolve os tokens: são identificadores de aparelho e o app não
 precisa deles para desenhar a tela. `push.setPrefs` aplica só as chaves presentes —
@@ -294,7 +302,34 @@ código e resolveu as duas coisas com a chave que já existia.
 `web_search` e `look_at_screen`. O prompt ganhou duas distinções: fato estável é `chat`
 e fato que muda é `web_search`; `look_at_screen` lê e responde, `screenshot` só salva.
 
-## 10. Ainda não implementado
+## 10. Spotify
 
-`media.nowPlaying` e controle real do Spotify (Web API, exige registrar um app no
-developer.spotify.com — é a única feature do plano que ainda depende de conta externa).
+### A rota sem autenticação
+`GET /api/spotify/callback` é **a única rota do servidor sem bearer token**, e não há
+como ser diferente: quem chega nela é o navegador redirecionado pelo Spotify, que não
+tem como carregar o nosso token. A proteção equivalente é o `state` aleatório conferido
+contra o login em andamento — sem ele a troca de código é recusada. Verificado: `state`
+inventado devolve erro, e a isenção não vaza (o `/api/rpc` sem token segue dando 401).
+
+### PKCE, sem client secret
+O app roda na máquina do usuário, então um "segredo" embutido não é segredo. O
+`spotifyClientId` fica versionado no `config.ts` de propósito: no PKCE ele é público por
+natureza, aparece na própria URL de login. **O refresh token nunca é versionado** — vive
+no perfil do usuário via electron-store.
+
+Redirect URI cadastrado: `http://127.0.0.1:4200/api/spotify/callback`. Tem que ser
+loopback explícito; o Spotify passou a rejeitar `localhost`.
+
+### Spotify na frente, teclas de mídia atrás
+`media_control` tenta o Spotify quando há sessão e **cai nas teclas virtuais em qualquer
+falha** — sem Premium, sem dispositivo ativo, ou tocando em outro player. O usuário não
+precisa saber qual caminho foi usado, só que a música pausou. `volume_up`/`volume_down`
+vão sempre pelas teclas: a API só aceita volume absoluto, e ler o atual para somar
+custaria uma chamada a mais e sairia dessincronizado.
+
+`play_music` agora toca de verdade no dispositivo ativo; antes o melhor possível era
+abrir o app já na busca certa.
+
+## 11. Ainda não implementado
+
+Bloco 6: Home de atalhos, modo escuro, compartilhar do Android, e o build do APK.
