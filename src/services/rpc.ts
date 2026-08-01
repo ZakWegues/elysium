@@ -29,6 +29,8 @@ import { inputHost, MouseButton } from "./inputHost";
 import { addFact, listFacts, removeFactById } from "./memoryStore";
 import { cancelReminder, createReminder, listAll, ReminderKind } from "./scheduler";
 import { getPushPrefs, registerToken, setPushPrefs, unregisterToken, PushCategory } from "./push";
+import { askAboutImage, askAboutScreen } from "./vision";
+import { searchWeb } from "./webSearch";
 
 /** Erro com status HTTP embutido, para o servidor traduzir direto na resposta. */
 export class RpcError extends Error {
@@ -289,6 +291,26 @@ const METHODS: Record<string, MethodDef> = {
       await inputHost.key(sequence);
       return { ok: true };
     },
+  },
+
+  // — visão e busca —
+  "vision.ask": {
+    handler: async (params) => {
+      const imageBase64 = requireString(params, "imageBase64");
+      // ~8 MB de base64. Acima disso a chamada estoura o limite do modelo de qualquer
+      // jeito, e o erro daqui é mais claro que o da API.
+      if (imageBase64.length > 8_000_000) throw new RpcError(400, "imagem grande demais");
+      const question = optionalString(params, "question") ?? "";
+      return { answer: await askAboutImage(imageBase64, question) };
+    },
+  },
+  "vision.screen": {
+    handler: async (params) => ({
+      answer: await askAboutScreen(optionalString(params, "question") ?? ""),
+    }),
+  },
+  "web.search": {
+    handler: async (params) => ({ answer: await searchWeb(requireString(params, "query")) }),
   },
 
   // — memória de longo prazo —

@@ -32,6 +32,8 @@ export type BrainAction =
   | { action: "create_reminder";   text: string; due_at: string; weekly?: boolean }
   | { action: "list_reminders" }
   | { action: "cancel_reminder";   query: string }
+  | { action: "web_search";        query: string }
+  | { action: "look_at_screen";    question: string }
   // `reply` é opcional: o roteador só sinaliza que é conversa, e quem escreve a
   // resposta é `composeChatReply`. O campo sobrevive como rede de segurança para
   // quando o modelo pequeno responde mesmo assim.
@@ -70,6 +72,8 @@ Ações disponíveis (elementos do array):
 {"action":"create_reminder","text":"<o que lembrar>","due_at":"<data e hora ISO 8601 local, ex 2026-08-02T15:00:00>","weekly":<true se for toda semana>}
 {"action":"list_reminders"}
 {"action":"cancel_reminder","query":"<trecho do lembrete a cancelar>"}
+{"action":"web_search","query":"<o que pesquisar, reescrito como busca clara>"}
+{"action":"look_at_screen","question":"<o que o usuário quer saber sobre a tela>"}
 {"action":"chat"}
 {"action":"unknown"}
 
@@ -103,6 +107,10 @@ Regras de decisão:
 - list_reminders → "quais lembretes eu tenho", "o que tá agendado"
 - cancel_reminder → "cancela o lembrete de X", "apaga aquele lembrete"
 - DISTINÇÃO remember vs create_reminder: remember guarda um FATO permanente sobre o usuário; create_reminder agenda um AVISO para um momento específico
+- web_search → qualquer pergunta cuja resposta MUDA COM O TEMPO ou que você não teria como saber: notícias, cotação, placar, clima, preço, "quem ganhou", "o que aconteceu", "quando sai", lançamentos, quem é uma pessoa pouco conhecida
+- look_at_screen → o usuário pergunta sobre o que ESTÁ NA TELA DELE: "o que tem na minha tela", "lê esse erro pra mim", "o que diz aqui", "resume o que tá aberto", "que erro é esse"
+- DISTINÇÃO chat vs web_search: fato estável ("capital do Brasil", "quanto é 15% de 200") = chat; fato que muda ("cotação do dólar", "quem ganhou ontem") = web_search
+- DISTINÇÃO look_at_screen vs screenshot: look_at_screen LÊ e responde sobre a tela; screenshot só SALVA a imagem
 - DISTINÇÃO: "abre o Spotify" = open_app; "fecha o Spotify" = close_app; "toca música" = play_music; "abre o YouTube" = open_url
 - Pedidos compostos com "e", "depois", "também" → múltiplos elementos no array, um por ação
 
@@ -124,6 +132,10 @@ Exemplos — cobrem os casos AMBÍGUOS. Para o resto, siga as regras acima.
 "me lembra daqui a 25 minutos de alongar" → {"actions":[{"action":"create_reminder","text":"alongar","due_at":"<agora + 25 min em ISO>"}]}
 "toda segunda às 8 me lembra da reunião" → {"actions":[{"action":"create_reminder","text":"reunião","due_at":"<próxima segunda 08:00 em ISO>","weekly":true}]}
 "cancela o lembrete do boleto" → {"actions":[{"action":"cancel_reminder","query":"boleto"}]}
+"como tá a cotação do dólar" → {"actions":[{"action":"web_search","query":"cotação atual do dólar em reais"}]}
+"quem ganhou o jogo do Flamengo ontem" → {"actions":[{"action":"web_search","query":"resultado do jogo do Flamengo ontem"}]}
+"o que tem na minha tela" → {"actions":[{"action":"look_at_screen","question":"O que aparece na tela?"}]}
+"lê esse erro pra mim" → {"actions":[{"action":"look_at_screen","question":"Qual é a mensagem de erro na tela?"}]}
 "qual a capital do Brasil" → {"actions":[{"action":"chat"}]}
 "oi, tudo bem?" → {"actions":[{"action":"chat"}]}
 "cria um preset estudo que abre o VS Code e toca lofi" → {"actions":[{"action":"create_preset","preset_name":"estudo","description":"Modo Estudo","icon":"📚","actions":[{"action":"open_app","app_name":"vs code"},{"action":"play_music","query":"lofi hip hop"}]}]}
@@ -228,6 +240,8 @@ function actionSummary(action: BrainAction): string {
     case "create_reminder":   return `Lembrete criado: ${action.text}`;
     case "list_reminders":    return "Listou lembretes";
     case "cancel_reminder":   return `Cancelou lembrete: ${action.query}`;
+    case "web_search":        return `Pesquisou: ${action.query}`;
+    case "look_at_screen":    return `Olhou a tela: ${action.question}`;
     case "unknown":           return "Não entendi o pedido.";
     default:                  return "";
   }

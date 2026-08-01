@@ -76,6 +76,9 @@ Resposta de erro — sempre `{ "error": "<mensagem em PT-BR>" }` com status:
 | `push.unregister` | `{ token }` | `{ removed: boolean }` | não |
 | `push.getPrefs` | — | `{ muted, quietFrom, quietTo, deviceCount }` | não |
 | `push.setPrefs` | `{ muted?, quietFrom?, quietTo? }` | mesmo shape do get | não |
+| `vision.ask` | `{ imageBase64: string, question?: string }` | `{ answer: string }` | não |
+| `vision.screen` | `{ question?: string }` | `{ answer: string }` | não |
+| `web.search` | `{ query: string }` | `{ answer: string }` | não |
 
 `push.getPrefs` **não** devolve os tokens: são identificadores de aparelho e o app não
 precisa deles para desenhar a tela. `push.setPrefs` aplica só as chaves presentes —
@@ -263,6 +266,35 @@ O system prompt cresceu a cada bloco e chegou a ~4000 tokens, levando as chamada
 (−26% no prompt), mantendo os que resolvem ambiguidade. Ainda é apertado: ver as opções
 no `HANDOFF.md`.
 
-## 9. Ainda não implementado (próximos blocos do plano)
+## 9. Bloco 5 — visão e busca na web
 
-Métodos RPC que virão: `media.nowPlaying` (Spotify Web API), `vision.ask`, `web.search`.
+**Nenhuma conta nova, nenhuma chave nova.** O plano previa Tavily para busca e um
+modelo de visão a confirmar; a API da Groq foi consultada antes de escrever qualquer
+código e resolveu as duas coisas com a chave que já existia.
+
+### O que a conta realmente oferece (levantado em 01/08/2026)
+- **Visão: `qwen/qwen3.6-27b`.** É o único modelo da conta que aceita `image_url` —
+  nenhum `llama-4`/`scout`/`maverick` aparece na lista. É modelo de raciocínio e emite
+  blocos `<think>` antes da resposta; `vision.ts` os remove, inclusive o caso do bloco
+  não fechado por corte de tokens, senão o assistente falaria o próprio pensamento em
+  voz alta.
+- **Busca: `groq/compound-mini`.** Sistema agêntico que pesquisa sozinho e devolve a
+  resposta redigida (`executed_tools: search` na resposta). Por isso não existe chave de
+  serviço de busca em lugar nenhum do projeto. Aceita **só texto** — mandar conteúdo
+  multimodal devolve `messages[0].content must be a string`.
+
+### No app
+- Botão de câmera no chat → foto → pergunta → resposta falada (`CameraAsk.tsx`). Foto
+  vai em qualidade 0,5 de propósito: quem lê é um modelo, não o olho.
+- Botão "Perguntar sobre a tela" no espelho. Ele **não** reaproveita o quadro já
+  baixado: o do espelho é comprimido para caber na rede, e texto pequeno — justo o que
+  se costuma querer ler — não sobrevive a isso. O PC captura de novo em qualidade maior.
+
+### Ações de voz novas
+`web_search` e `look_at_screen`. O prompt ganhou duas distinções: fato estável é `chat`
+e fato que muda é `web_search`; `look_at_screen` lê e responde, `screenshot` só salva.
+
+## 10. Ainda não implementado
+
+`media.nowPlaying` e controle real do Spotify (Web API, exige registrar um app no
+developer.spotify.com — é a única feature do plano que ainda depende de conta externa).

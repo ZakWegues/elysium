@@ -36,6 +36,18 @@ export interface AppConfig {
    * "economizar cota" faz o oposto.
    */
   routerModel: string;
+  /**
+   * Modelo que enxerga imagens (print da tela, foto do celular). Levantado da própria
+   * API em 01/08/2026: é o único da conta que aceita `image_url`. Emite blocos
+   * `<think>` que o `vision.ts` remove antes de falar.
+   */
+  visionModel: string;
+  /**
+   * Modelo com busca na web embutida. Os `groq/compound*` são sistemas agênticos que
+   * pesquisam sozinhos e devolvem a resposta pronta — por isso não há chave de
+   * serviço de busca em lugar nenhum do projeto.
+   */
+  searchModel: string;
   chatHistoryTurns: number;
   chatIdleResetMs: number;
   serverPort: number;
@@ -52,6 +64,8 @@ const DEFAULTS: AppConfig = {
   sttModel: "whisper-large-v3",
   brainModel: "llama-3.3-70b-versatile",
   routerModel: "llama-3.3-70b-versatile",
+  visionModel: "qwen/qwen3.6-27b",
+  searchModel: "groq/compound-mini",
   chatHistoryTurns: 6,
   chatIdleResetMs: 300000,
   serverPort: 4200,

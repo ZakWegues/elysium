@@ -20,6 +20,8 @@ import {
   remember, forget, listMemory,
   createReminderAction, listRemindersAction, cancelReminderAction,
 } from "./memoryActions";
+import { searchWeb } from "../services/webSearch";
+import { askAboutScreen } from "../services/vision";
 
 export async function routeAction(action: BrainAction): Promise<string> {
   switch (action.action) {
@@ -47,6 +49,8 @@ export async function routeAction(action: BrainAction): Promise<string> {
     case "create_reminder":   return createReminderAction(action.text, action.due_at, action.weekly);
     case "list_reminders":    return listRemindersAction();
     case "cancel_reminder":   return cancelReminderAction(action.query);
+    case "web_search":        return searchWeb(action.query);
+    case "look_at_screen":    return askAboutScreen(action.question);
     // Normalmente a conversa nem chega aqui: `command.ts` intercepta e chama o modelo
     // bom. Este caminho cobre quem invoca `routeAction` direto, como o `runPreset`.
     case "chat":              return action.reply ?? "";
