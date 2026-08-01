@@ -6,6 +6,7 @@ import AutoLaunch from "auto-launch";
 import * as QRCode from "qrcode";
 import { getConfig, getApiKey, setApiKey, hasApiKey, setOverride, getOrCreateServerToken, regenerateServerToken, AppConfig } from "./config";
 import { getLocalIPv4, getAllLocalIPv4 } from "./network";
+import { inputHost } from "../services/inputHost";
 import { state } from "./state";
 import { notify } from "./notify";
 import { createTray, refreshTray, updateLastCommand } from "./tray";
@@ -525,6 +526,9 @@ app.on("ready", async () => {
   const quit = () => {
     appQuitting = true;
     globalShortcut.unregisterAll();
+    // O host de entrada é um PowerShell persistente; sem isso ele sobrevive ao app
+    // e fica pendurado segurando o stdin.
+    inputHost.stop();
     app.exit(0);
   };
 

@@ -45,12 +45,10 @@ Ecossistema pessoal de dois apps que conversam pela rede local:
 
 Ambos os repos em `main`, working tree limpo, tudo pusheado.
 
-| Repo | Último commit | O que era |
+| Repo | Último bloco | Commits |
 |---|---|---|
-| `neuroaxis` | `ebbc8fb` | Bloco 2 — energia, mídia, volume |
-| `neuroaxis-portal` | `ad07f3c` | Bloco 2 — tela de Sistema, biometria |
-
-Histórico recente do desktop: `e7b94a2` (pareamento + mailbox + tema Vidro Líquido) → `6540db5` (bloco 1) → `ebbc8fb` (bloco 2).
+| `neuroaxis` | Bloco 3 | `6540db5` (b1) → `ebbc8fb` (b2) → `170b636` (docs) → bloco 3 |
+| `neuroaxis-portal` | Bloco 3 | `ba51ee4` (b1) → `ad07f3c` (b2) → bloco 3 |
 
 ---
 
@@ -62,8 +60,8 @@ Decisões fechadas pelo Zak: acesso de fora de casa **via túnel** (Tailscale/Ze
 |---|---|---|
 | 1 | RPC tipado, robustez de rede, pareamento multi-endereço | ✅ feito |
 | 2 | Central de sistema, clipboard, energia | ✅ feito |
-| 3 | Espelhamento de tela + trackpad/teclado remoto | ⬜ próximo |
-| 4 | Memória de longo prazo, lembretes, push | ⬜ |
+| 3 | Espelhamento de tela + trackpad/teclado remoto | ✅ feito |
+| 4 | Memória de longo prazo, lembretes, push | ⬜ próximo |
 | 5 | Visão, busca web, Spotify Web API | ⬜ |
 | 6 | Home, modo escuro, share intent, build do APK | ⬜ |
 
@@ -104,6 +102,8 @@ O catálogo de 26 features pra depois está no arquivo do plano.
 - **Single-instance lock.** Se o app já estiver rodando (ele inicia com o Windows), lançar de novo só abre o dashboard da instância existente — e você acaba testando build velha sem perceber. Para testar código novo: matar o processo principal (`electron.exe` cujo CommandLine não tem `--type=`) e relançar.
 - **Screenshot automatizado do Electron não capta `backdrop-filter`/blur** neste ambiente. Não julgue vidro/blur por PNG; confirme com o Zak rodando o app.
 - **`Promise.any` é risco no Hermes** — suporte varia por versão do runtime. Há um `firstSuccess()` escrito à mão em `pairing.ts` no Portal pelo mesmo motivo.
+- **⚠️ NUNCA testar `input.type` / `input.key` por curl sem controlar o foco.** `SendInput` vai para a janela em primeiro plano, seja ela qual for. Já aconteceu de um teste digitar num documento não salvo do Zak e de oito `Ctrl+Z` caírem no VSCode. Se precisar validar digitação, peça pro Zak testar pelo app com o foco onde ele quiser. Verificação segura sem efeito colateral: `node` chamando `inputHost.ping()` e `move(0,0)` direto no `dist/`.
+- **`SendKeys` corrompe acentuação** no layout ABNT (ver `CONTRATO_RPC.md` §7). Texto literal só via `SendInput`/`KEYEVENTF_UNICODE`.
 - **Sem framework de teste em nenhum dos dois repos.** Validação é build + typecheck + curl contra o app rodando + teste manual do Zak.
 - **O `Button` do Portal usa prop `title`, não children.**
 
@@ -131,6 +131,8 @@ curl -s -X POST -H "Authorization: Bearer $T" -H "Content-Type: application/json
 - **Quirk do `sleep`**: se a hibernação do Windows estiver habilitada, `SetSuspendState` hiberna em vez de suspender. Resolve com `powercfg /hibernate off` uma vez.
 - **`expo start --web` não fala mais com o desktop** — consequência deliberada de remover o CORS. Android e iOS não são afetados.
 - **Checklist de validação manual do `CLAUDE.md`** ainda não confirmado ponta a ponta.
+- **`input.type` com acentuação não foi validado em execução** — o código foi corrigido para `SendInput`/unicode e compila, mas testar de verdade exige controlar o foco da janela, o que não dá pra fazer com segurança por automação. Pedir pro Zak abrir a aba Remoto → Trackpad e digitar algo com "ação, çedilha, ãõ" num campo de texto.
+- **Espelhamento tem teto de ~1,5 quadro/s** por limitação do `desktopCapturer`. Se algum dia precisar de vídeo de verdade, o caminho é outro (WebRTC / captura por stream), não otimizar este.
 
 ---
 

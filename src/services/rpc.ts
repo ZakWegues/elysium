@@ -24,6 +24,8 @@ import { closeApp } from "../actions/closeApp";
 import { powerControl, PowerOperation } from "../actions/powerControl";
 import { mediaControl, MediaOperation } from "../actions/mediaControl";
 import { volumeControl } from "../actions/volumeControl";
+import { captureScreen, listScreens } from "./screenCapture";
+import { inputHost, MouseButton } from "./inputHost";
 
 /** Erro com status HTTP embutido, para o servidor traduzir direto na resposta. */
 export class RpcError extends Error {
@@ -76,6 +78,25 @@ function optionalInt(params: Record<string, unknown>, key: string): number | und
   if (v === undefined || v === null) return undefined;
   if (typeof v !== "number" || !Number.isInteger(v)) {
     throw new RpcError(400, `param "${key}" deve ser um inteiro`);
+  }
+  return v;
+}
+
+function requireNumber(params: Record<string, unknown>, key: string): number {
+  const v = params[key];
+  if (typeof v !== "number" || !Number.isFinite(v)) {
+    throw new RpcError(400, `param "${key}" é obrigatório e deve ser um número`);
+  }
+  return v;
+}
+
+function requireButton(params: Record<string, unknown>): MouseButton {
+  // `button` é opcional em toda a família input.*: esquerdo é o caso esmagadoramente
+  // comum e exigi-lo só engordaria cada payload de toque.
+  const v = params["button"];
+  if (v === undefined || v === null) return "left";
+  if (v !== "left" && v !== "right" && v !== "middle") {
+    throw new RpcError(400, 'param "button" deve ser left, right ou middle');
   }
   return v;
 }
@@ -191,6 +212,82 @@ const METHODS: Record<string, MethodDef> = {
       return { ok: true, message: await mediaControl(operation) };
     },
   },
+  // — espelhamento de tela —
+  "screen.list": {
+    handler: async () => ({ screens: await listScreens() }),
+  },
+  "screen.capture": {
+    handler: async (params) => captureScreen({
+      sourceId: optionalString(params, "sourceId"),
+      maxWidth: optionalInt(params, "maxWidth"),
+      quality:  optionalInt(params, "quality"),
+    }),
+  },
+
+  // — entrada remota (mouse e teclado) —
+  // Não marcados como destrutivos: exigir biometria a cada movimento de cursor
+  // tornaria o trackpad inutilizável. A trava fica na entrada da tela, no app.
+  // Chamado quando a tela de trackpad abre: sobe o host e paga o custo de compilar
+  // o C# (~480 ms, uma vez) antes do primeiro toque, em vez de durante.
+  "input.ping": {
+    handler: async () => {
+      await inputHost.ping();
+      return { ok: true };
+    },
+  },
+  "input.move": {
+    handler: async (params) => {
+      await inputHost.move(requireNumber(params, "dx"), requireNumber(params, "dy"));
+      return { ok: true };
+    },
+  },
+  "input.click": {
+    handler: async (params) => {
+      await inputHost.click(requireButton(params));
+      return { ok: true };
+    },
+  },
+  "input.doubleClick": {
+    handler: async (params) => {
+      await inputHost.doubleClick(requireButton(params));
+      return { ok: true };
+    },
+  },
+  "input.buttonDown": {
+    handler: async (params) => {
+      await inputHost.buttonDown(requireButton(params));
+      return { ok: true };
+    },
+  },
+  "input.buttonUp": {
+    handler: async (params) => {
+      await inputHost.buttonUp(requireButton(params));
+      return { ok: true };
+    },
+  },
+  "input.scroll": {
+    handler: async (params) => {
+      await inputHost.scroll(requireNumber(params, "notches"));
+      return { ok: true };
+    },
+  },
+  "input.type": {
+    handler: async (params) => {
+      const text = requireString(params, "text");
+      if (text.length > 5000) throw new RpcError(400, "texto longo demais (máx 5000 caracteres)");
+      await inputHost.type(text);
+      return { ok: true };
+    },
+  },
+  "input.key": {
+    handler: async (params) => {
+      const sequence = requireString(params, "sequence");
+      if (sequence.length > 200) throw new RpcError(400, "sequência longa demais");
+      await inputHost.key(sequence);
+      return { ok: true };
+    },
+  },
+
   "volume.set": {
     handler: async (params) => {
       const raw = params["level"];

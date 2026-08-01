@@ -40,9 +40,16 @@ const PKG_VERSION = "1.0.0";
 /** Teto de corpo por requisição. Anexo do mailbox em base64 (5 MB) infla ~33%. */
 const MAX_BODY_BYTES = 8 * 1024 * 1024;
 
-/** Rate limit: janela deslizante simples por IP de origem. */
+/**
+ * Rate limit: janela deslizante simples por IP de origem.
+ *
+ * 60 req/s é folgado de propósito. O trackpad remoto manda um `input.move` por
+ * evento de arrasto; com o limite anterior (12/s) o primeiro deslizar do dedo já
+ * batia no 429. O objetivo aqui é conter laço descontrolado, não policiar uso
+ * legítimo — a autenticação é o token.
+ */
 const RATE_LIMIT_WINDOW_MS = 10_000;
-const RATE_LIMIT_MAX_REQUESTS = 120;
+const RATE_LIMIT_MAX_REQUESTS = 600;
 
 // ── WS frame codec ────────────────────────────────────────────────────────────
 

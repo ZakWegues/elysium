@@ -56,6 +56,16 @@ Resposta de erro — sempre `{ "error": "<mensagem em PT-BR>" }` com status:
 | `power.control` | `{ operation: "shutdown"\|"restart"\|"sleep"\|"lock"\|"cancel", delaySeconds?: number }` | `{ ok: true, message }` | **sim** |
 | `media.control` | `{ operation: "play"\|"pause"\|"skip"\|"previous"\|"volume_up"\|"volume_down" }` | `{ ok: true, message }` | não |
 | `volume.set` | `{ level: number 0-100 \| "up"\|"down"\|"mute"\|"unmute" }` | `{ ok: true, message }` | não |
+| `screen.list` | — | `{ screens: [{ id, name, width, height, isPrimary }] }` | não |
+| `screen.capture` | `{ sourceId?, maxWidth?, quality? }` | `{ base64, width, height, capturedAt, sourceId, sourceName }` | não |
+| `input.ping` | — | `{ ok: true }` | não |
+| `input.move` | `{ dx: number, dy: number }` | `{ ok: true }` | não |
+| `input.click` | `{ button?: "left"\|"right"\|"middle" }` | `{ ok: true }` | não |
+| `input.doubleClick` | `{ button? }` | `{ ok: true }` | não |
+| `input.buttonDown` / `input.buttonUp` | `{ button? }` | `{ ok: true }` | não |
+| `input.scroll` | `{ notches: number }` (positivo = pra cima) | `{ ok: true }` | não |
+| `input.type` | `{ text: string }` (máx 5000) | `{ ok: true }` | não |
+| `input.key` | `{ sequence: string }` (sintaxe SendKeys, máx 200) | `{ ok: true }` | não |
 
 `power.control` sem `delaySeconds` usa 30 segundos para shutdown/restart — a janela existe
 justamente pra dar tempo de cancelar. `cancel` também é destrutivo: um método, uma regra.
@@ -87,7 +97,11 @@ afetados. Se o alvo web voltar a importar, a decisão precisa ser revisitada.
 
 ## 3. Rate limit e teto de corpo
 
-- **120 requisições por 10 s por IP de origem** → acima disso, 429. Verificado: 120 passam, o resto barra.
+- **600 requisições por 10 s por IP de origem** (60/s) → acima disso, 429.
+  ⚠️ Era 120/10s no bloco 1 e **foi elevado no bloco 3**: o trackpad remoto manda um
+  `input.move` por evento de arrasto e o primeiro deslizar do dedo já batia no 429. O
+  objetivo do limite é conter laço descontrolado, não policiar uso legítimo — quem
+  autentica é o token. O app também acumula deslocamento e envia no máximo 25/s.
 - **Corpo máximo de 8 MB** em qualquer POST → 413. Anexo de mailbox de 5 MB vira ~6,7 MB em
   base64, então cabe com folga.
 - Comparação de token agora é de tempo constante (`crypto.timingSafeEqual`).
@@ -159,8 +173,39 @@ Nova voz no cérebro: `power_control`, com exemplos para "desliga o PC", "reinic
 "bloqueia a tela" e "cancela o desligamento". Distinção explícita no prompt entre
 `power_control` (desliga a máquina) e `close_app` (fecha um programa) — verificado.
 
-## 7. Ainda não implementado (próximos blocos do plano)
+## 7. Bloco 3 — espelhamento e entrada remota
 
-Métodos RPC que virão e que o app vai consumir: `screen.capture`, `input.*` (trackpad e
-teclado), `media.nowPlaying` (Spotify Web API), `reminders.*`, `memory.*`, `push.register`,
-`vision.ask`.
+**Nova aba "Remoto"** no app (`RemoteScreen.tsx`), com duas seções: Espelho e Trackpad.
+`Screen` ganhou `'remote'`.
+
+### Números medidos, não estimados
+- **Captura de tela: ~640 ms por quadro, e esse custo é fixo.** Testado com `maxWidth`
+  de 480, 640, 900 e 1280: a latência não muda, só o tamanho do JPEG (19 KB a 85 KB). O
+  gargalo é o `desktopCapturer.getSources()` do Electron, não o redimensionamento.
+  Consequência de projeto: teto de ~1,5 quadro/s, e pedir quadro grande é praticamente
+  de graça. O app usa 1100 px a cada 1200 ms.
+- **Host de entrada: 0,08 ms por comando** depois de quente, contra ~480 ms na primeira
+  chamada (compilar o interop C#). É por isso que existe `input.ping`: a tela de
+  trackpad chama ao abrir para pagar esse custo antes do primeiro toque, não durante.
+
+### Decisões que valem conhecer
+- A captura usa `desktopCapturer` do Electron, **não** o PowerShell de
+  `src/actions/screenshot.ts` — aquele abre processo, carrega System.Drawing e escreve
+  no disco.
+- A entrada usa um **PowerShell persistente** (`src/services/inputHost.ts`) que lê
+  comandos linha a linha do stdin. Um processo por evento custaria ~200 ms, inviável
+  para arrasto. Sem módulo nativo: robotjs/nut-js exigiriam rebuild casado com a versão
+  do Electron a cada atualização.
+- **Digitação usa `SendInput` com `KEYEVENTF_UNICODE`, não `SendKeys`.** Descoberto em
+  teste real: `SendKeys` traduz o caractere para tecla virtual pelo layout ativo
+  (`VkKeyScan`), e no ABNT brasileiro acentos exigem dead keys que essa API não
+  expressa — texto com acento saía corrompido. `SendKeys` continua sendo usado só no
+  `input.key`, onde a sintaxe de combos (`{ENTER}`, `^c`, `%{TAB}`) é exatamente o
+  que ele faz bem.
+- Os `input.*` **não** são marcados como destrutivos: pedir biometria a cada movimento
+  de cursor tornaria o trackpad inutilizável. A trava fica na entrada da tela, no app.
+
+## 8. Ainda não implementado (próximos blocos do plano)
+
+Métodos RPC que virão e que o app vai consumir: `media.nowPlaying` (Spotify Web API),
+`reminders.*`, `memory.*`, `push.register`, `vision.ask`.
