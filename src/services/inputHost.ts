@@ -35,6 +35,12 @@ import { spawn, ChildProcessWithoutNullStreams } from "node:child_process";
 
 const HOST_SCRIPT = `
 $ErrorActionPreference = 'Stop'
+
+# O Node lê este stdout como UTF-8. Sem forçar aqui, o PowerShell escreve no code page
+# ANSI do console e mensagens de exceção do Windows em português chegam corrompidas
+# ("N?o ? poss?vel converter...").
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+
 Add-Type -AssemblyName System.Windows.Forms
 
 Add-Type @"
@@ -43,7 +49,10 @@ using System.Runtime.InteropServices;
 public class NxInput {
   [DllImport("user32.dll")] public static extern bool SetCursorPos(int X, int Y);
   [DllImport("user32.dll")] public static extern bool GetCursorPos(out POINT p);
-  [DllImport("user32.dll")] public static extern void mouse_event(uint f, uint dx, uint dy, uint data, UIntPtr extra);
+  // dwData é DWORD no Win32, mas a roda usa valores negativos para rolar pra baixo.
+  // Declarar como int deixa o marshalling cuidar do complemento de dois; com uint,
+  // passar -120 estoura com "Valor era muito grande ou muito pequeno para UInt32".
+  [DllImport("user32.dll")] public static extern void mouse_event(uint f, uint dx, uint dy, int data, UIntPtr extra);
   [DllImport("user32.dll", SetLastError=true)] static extern uint SendInput(uint n, INPUT[] inputs, int size);
 
   [StructLayout(LayoutKind.Sequential)] public struct POINT { public int X; public int Y; }
