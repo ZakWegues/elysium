@@ -342,6 +342,20 @@ const METHODS: Record<string, MethodDef> = {
   "spotify.playSearch": {
     handler: async (params) => ({ playing: await spotify.playSearch(requireString(params, "query")) }),
   },
+  "spotify.shuffle": {
+    handler: async (params) => {
+      const on = params["on"];
+      if (typeof on !== "boolean") throw new RpcError(400, 'param "on" deve ser booleano');
+      await spotify.setShuffle(on);
+      return { ok: true };
+    },
+  },
+  "spotify.repeat": {
+    handler: async (params) => {
+      await spotify.setRepeat(requireEnum(params, "state", ["off", "track", "context"] as const));
+      return { ok: true };
+    },
+  },
 
   // — visão e busca —
   "vision.ask": {

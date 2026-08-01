@@ -38,6 +38,14 @@ contextBridge.exposeInMainWorld("nx", {
   // ── Presets ────────────────────────────────────────────────────────────────
   getPresets:      ()                           => ipcRenderer.invoke("presets:get"),
 
+  // ── Spotify (mini-player) ──────────────────────────────────────────────────
+  spotifyStatus:     ()                                  => ipcRenderer.invoke("spotify:status"),
+  spotifyLogin:      ()                                  => ipcRenderer.invoke("spotify:login"),
+  spotifyLogout:     ()                                  => ipcRenderer.invoke("spotify:logout"),
+  spotifyNowPlaying: ()                                  => ipcRenderer.invoke("spotify:now-playing"),
+  spotifyCommand:    (op: string, value?: number | boolean | string) =>
+                                                            ipcRenderer.invoke("spotify:command", op, value),
+
   // ── Telemetry history / insights ───────────────────────────────────────────
   getTelemetryHistory: ()                       => ipcRenderer.invoke("telemetry:get-history"),
   getInsights:         ()                       => ipcRenderer.invoke("telemetry:get-insights"),

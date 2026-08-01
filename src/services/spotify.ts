@@ -203,6 +203,8 @@ async function api(
   return text ? JSON.parse(text) : null;
 }
 
+export type RepeatState = "off" | "track" | "context";
+
 export interface NowPlaying {
   isPlaying: boolean;
   track: string;
@@ -212,13 +214,19 @@ export interface NowPlaying {
   progressMs: number;
   durationMs: number;
   device: string | null;
+  /** Volume do dispositivo, 0-100. Null quando o dispositivo não expõe controle. */
+  volumePercent: number | null;
+  shuffle: boolean;
+  repeat: RepeatState;
 }
 
 export async function getNowPlaying(): Promise<NowPlaying | null> {
   const data = await api("/me/player") as {
     is_playing?: boolean;
     progress_ms?: number;
-    device?: { name?: string };
+    shuffle_state?: boolean;
+    repeat_state?: RepeatState;
+    device?: { name?: string; volume_percent?: number };
     item?: {
       name?: string;
       duration_ms?: number;
@@ -239,7 +247,18 @@ export async function getNowPlaying(): Promise<NowPlaying | null> {
     progressMs: data.progress_ms ?? 0,
     durationMs: data.item.duration_ms ?? 0,
     device:     data.device?.name ?? null,
+    volumePercent: data.device?.volume_percent ?? null,
+    shuffle:    !!data.shuffle_state,
+    repeat:     data.repeat_state ?? "off",
   };
+}
+
+export async function setShuffle(on: boolean): Promise<void> {
+  await api("/me/player/shuffle", { method: "PUT", query: { state: String(on) } });
+}
+
+export async function setRepeat(state: RepeatState): Promise<void> {
+  await api("/me/player/repeat", { method: "PUT", query: { state } });
 }
 
 export async function play(): Promise<void>     { await api("/me/player/play", { method: "PUT" }); }

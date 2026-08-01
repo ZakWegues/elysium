@@ -87,6 +87,11 @@ Resposta de erro — sempre `{ "error": "<mensagem em PT-BR>" }` com status:
 | `spotify.volume` | `{ percent: 0-100 }` | `{ ok: true }` | não |
 | `spotify.seek` | `{ positionMs: number }` | `{ ok: true }` | não |
 | `spotify.playSearch` | `{ query: string }` | `{ playing: { track, artist } }` | não |
+| `spotify.shuffle` | `{ on: boolean }` | `{ ok: true }` | não |
+| `spotify.repeat` | `{ state: "off"\|"track"\|"context" }` | `{ ok: true }` | não |
+
+`spotify.nowPlaying` também devolve `volumePercent` (null quando o dispositivo não expõe
+controle), `shuffle` e `repeat`.
 
 `push.getPrefs` **não** devolve os tokens: são identificadores de aparelho e o app não
 precisa deles para desenhar a tela. `push.setPrefs` aplica só as chaves presentes —
@@ -329,6 +334,22 @@ custaria uma chamada a mais e sairia dessincronizado.
 
 `play_music` agora toca de verdade no dispositivo ativo; antes o melhor possível era
 abrir o app já na busca certa.
+
+### Mini-player nos dois lados
+Um player de verdade, não botões soltos: capa, faixa, artista, progresso arrastável,
+volume, aleatório e repetir.
+
+- **Desktop:** aba 🎵 da gaveta direita do dashboard. Consulta o PC a cada 5 s e **só
+  enquanto a aba está aberta** — deixar o laço rodando com a aba fechada gastaria cota
+  do Spotify por nada.
+- **Portal:** barra compacta no topo da guia de controle (só aparece quando há algo
+  tocando) que abre o player em tela cheia. O estado mora no hook `useSpotify`,
+  compartilhado entre os dois.
+
+Nos dois, o progresso **avança localmente** entre as consultas: perguntar ao Spotify a
+cada segundo só para mover uma barra seria desperdício de rede e de cota. E play/pause
+reflete na hora, antes da confirmação — esperar o próximo poll faz o botão parecer
+travado.
 
 ## 11. Ainda não implementado
 

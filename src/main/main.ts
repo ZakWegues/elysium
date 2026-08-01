@@ -9,6 +9,13 @@ import { getLocalIPv4, getAllLocalIPv4 } from "./network";
 import { inputHost } from "../services/inputHost";
 import { startScheduler, stopScheduler } from "../services/scheduler";
 import { sendPush } from "../services/push";
+import {
+  isConnected as isSpotifyConnected, beginLogin as beginSpotifyLogin,
+  disconnect as spotifyDisconnect, getNowPlaying as getSpotifyNowPlaying,
+  play as spotifyPlay, pause as spotifyPause, next as spotifyNext,
+  previous as spotifyPrevious, setVolume as spotifySetVolume, seek as spotifySeek,
+  setShuffle as spotifySetShuffle, setRepeat as spotifySetRepeat,
+} from "../services/spotify";
 import { state } from "./state";
 import { notify } from "./notify";
 import { createTray, refreshTray, updateLastCommand } from "./tray";
@@ -428,6 +435,41 @@ ipcMain.handle("config:reset-defaults", () => {
     chatIdleResetMs: 300000,
   });
   notify("NEUROAXIS", "Configurações restauradas para os padrões.");
+});
+
+// ── Spotify (mini-player do dashboard) ────────────────────────────────────────
+// Os handlers devolvem { ok, ... } em vez de lançar: o player fica consultando em
+// laço, e uma exceção não tratada por tick encheria o console de ruído por algo tão
+// banal quanto o Spotify estar fechado.
+ipcMain.handle("spotify:status", () => ({ connected: isSpotifyConnected() }));
+ipcMain.handle("spotify:login", () => { beginSpotifyLogin(); return { ok: true }; });
+ipcMain.handle("spotify:logout", () => { spotifyDisconnect(); return { ok: true }; });
+
+ipcMain.handle("spotify:now-playing", async () => {
+  try {
+    return { ok: true, nowPlaying: await getSpotifyNowPlaying() };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+});
+
+ipcMain.handle("spotify:command", async (_e, op: string, value?: number | boolean | string) => {
+  try {
+    switch (op) {
+      case "play":     await spotifyPlay(); break;
+      case "pause":    await spotifyPause(); break;
+      case "next":     await spotifyNext(); break;
+      case "previous": await spotifyPrevious(); break;
+      case "volume":   await spotifySetVolume(Number(value)); break;
+      case "seek":     await spotifySeek(Number(value)); break;
+      case "shuffle":  await spotifySetShuffle(Boolean(value)); break;
+      case "repeat":   await spotifySetRepeat(value as "off" | "track" | "context"); break;
+      default: return { ok: false, error: `operação desconhecida: ${op}` };
+    }
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
 });
 
 ipcMain.handle("presets:get", () => getAllPresets());
