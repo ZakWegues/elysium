@@ -53,6 +53,13 @@ Resposta de erro — sempre `{ "error": "<mensagem em PT-BR>" }` com status:
 | `apps.close` | `{ name: string }` | `{ ok: true, message }` | **sim** |
 | `clipboard.get` | — | `{ text: string }` | não |
 | `clipboard.set` | `{ text: string }` | `{ ok: true, length }` | não |
+| `power.control` | `{ operation: "shutdown"\|"restart"\|"sleep"\|"lock"\|"cancel", delaySeconds?: number }` | `{ ok: true, message }` | **sim** |
+| `media.control` | `{ operation: "play"\|"pause"\|"skip"\|"previous"\|"volume_up"\|"volume_down" }` | `{ ok: true, message }` | não |
+| `volume.set` | `{ level: number 0-100 \| "up"\|"down"\|"mute"\|"unmute" }` | `{ ok: true, message }` | não |
+
+`power.control` sem `delaySeconds` usa 30 segundos para shutdown/restart — a janela existe
+justamente pra dar tempo de cancelar. `cancel` também é destrutivo: um método, uma regra.
+`shutdown.exe /a` devolve 1116 quando não há nada agendado; isso é tratado como sucesso.
 
 ### Confirmação de métodos destrutivos
 Métodos marcados `destructive` exigem o header:
@@ -136,8 +143,24 @@ fora de casa.
 
 ---
 
-## 6. Ainda não implementado (próximos blocos do plano)
+## 6. Bloco 2 — o que mudou no app
+
+- Aba **Telemetria virou Sistema** (`SystemScreen.tsx`), com quatro seções: Monitor (a
+  telemetria por WS de antes, agora embutida), Processos (lista + discos + encerrar),
+  Apps (abrir/fechar do `apps.json`) e Controle (energia, área de transferência, mídia,
+  volume). `Screen` mudou de `'telemetry'` para `'system'`.
+- `TelemetryScreen` ganhou a prop `embedded` para não repetir cabeçalho dentro de Sistema.
+- **Guarda biométrica** (`src/lib/confirm.ts`): toda chamada destrutiva passa por
+  `confirmDestructive()` antes de mandar `X-Neuroaxis-Confirm`. Sem hardware biométrico
+  cadastrado, cai num Alert de confirmação explícita.
+- `DESTRUCTIVE_METHODS` em `src/lib/rpc.ts` espelha a marcação do desktop.
+
+Nova voz no cérebro: `power_control`, com exemplos para "desliga o PC", "reinicia",
+"bloqueia a tela" e "cancela o desligamento". Distinção explícita no prompt entre
+`power_control` (desliga a máquina) e `close_app` (fecha um programa) — verificado.
+
+## 7. Ainda não implementado (próximos blocos do plano)
 
 Métodos RPC que virão e que o app vai consumir: `screen.capture`, `input.*` (trackpad e
-teclado), `power.*`, `media.*` (Spotify Web API), `reminders.*`, `memory.*`, `push.register`,
+teclado), `media.nowPlaying` (Spotify Web API), `reminders.*`, `memory.*`, `push.register`,
 `vision.ask`.

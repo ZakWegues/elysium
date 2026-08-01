@@ -21,6 +21,9 @@ import {
 } from "../actions/systemInfo";
 import { openApp } from "../actions/openApp";
 import { closeApp } from "../actions/closeApp";
+import { powerControl, PowerOperation } from "../actions/powerControl";
+import { mediaControl, MediaOperation } from "../actions/mediaControl";
+import { volumeControl } from "../actions/volumeControl";
 
 /** Erro com status HTTP embutido, para o servidor traduzir direto na resposta. */
 export class RpcError extends Error {
@@ -66,6 +69,27 @@ function optionalString(params: Record<string, unknown>, key: string): string | 
   if (v === undefined || v === null) return undefined;
   if (typeof v !== "string") throw new RpcError(400, `param "${key}" deve ser uma string`);
   return v;
+}
+
+function optionalInt(params: Record<string, unknown>, key: string): number | undefined {
+  const v = params[key];
+  if (v === undefined || v === null) return undefined;
+  if (typeof v !== "number" || !Number.isInteger(v)) {
+    throw new RpcError(400, `param "${key}" deve ser um inteiro`);
+  }
+  return v;
+}
+
+function requireEnum<T extends string>(
+  params: Record<string, unknown>,
+  key: string,
+  allowed: readonly T[],
+): T {
+  const v = requireString(params, key);
+  if (!(allowed as readonly string[]).includes(v)) {
+    throw new RpcError(400, `param "${key}" deve ser um de: ${allowed.join(", ")}`);
+  }
+  return v as T;
 }
 
 // ── apps.json ─────────────────────────────────────────────────────────────────
@@ -138,6 +162,46 @@ const METHODS: Record<string, MethodDef> = {
       const text = optionalString(params, "text") ?? "";
       clipboard.writeText(text);
       return { ok: true, length: text.length };
+    },
+  },
+
+  // — energia —
+  // Todos destrutivos, inclusive `cancel`: a confirmação é o que impede um toque
+  // acidental no celular de derrubar o PC com trabalho aberto.
+  "power.control": {
+    destructive: true,
+    handler: async (params) => {
+      const operation = requireEnum<PowerOperation>(
+        params, "operation", ["shutdown", "restart", "sleep", "lock", "cancel"],
+      );
+      const delaySeconds = optionalInt(params, "delaySeconds");
+      if (delaySeconds !== undefined && (delaySeconds < 0 || delaySeconds > 86400)) {
+        throw new RpcError(400, "delaySeconds deve estar entre 0 e 86400");
+      }
+      return { ok: true, message: await powerControl(operation, delaySeconds) };
+    },
+  },
+
+  // — mídia e volume —
+  "media.control": {
+    handler: async (params) => {
+      const operation = requireEnum<MediaOperation>(
+        params, "operation", ["play", "pause", "skip", "previous", "volume_up", "volume_down"],
+      );
+      return { ok: true, message: await mediaControl(operation) };
+    },
+  },
+  "volume.set": {
+    handler: async (params) => {
+      const raw = params["level"];
+      if (typeof raw === "number") {
+        if (!Number.isInteger(raw) || raw < 0 || raw > 100) {
+          throw new RpcError(400, "level numérico deve ser um inteiro entre 0 e 100");
+        }
+        return { ok: true, message: await volumeControl(raw) };
+      }
+      const named = requireEnum(params, "level", ["up", "down", "mute", "unmute"] as const);
+      return { ok: true, message: await volumeControl(named) };
     },
   },
 };

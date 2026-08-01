@@ -2,6 +2,7 @@ import { getApiKey, getConfig } from "../main/config";
 import { apiKeyError, networkError } from "./errors";
 import type { MediaOperation } from "../actions/mediaControl";
 import type { WinOperation }   from "../actions/windowManagement";
+import type { PowerOperation } from "../actions/powerControl";
 
 const GROQ_CHAT_URL = "https://api.groq.com/openai/v1/chat/completions";
 
@@ -23,6 +24,7 @@ export type BrainAction =
   | { action: "delete_preset";     preset_name: string }
   | { action: "create_preset";     preset_name: string; description: string; icon?: string; actions: BrainAction[] }
   | { action: "send_to_mobile";    content: string; kind?: "link" | "note" }
+  | { action: "power_control";     operation: PowerOperation; delay_seconds?: number }
   | { action: "chat";              reply: string }
   | { action: "unknown" };
 
@@ -51,6 +53,7 @@ Ações disponíveis (elementos do array):
 {"action":"delete_preset","preset_name":"<nome>"}
 {"action":"create_preset","preset_name":"<nome em minúsculas>","description":"<descrição curta>","icon":"<um emoji>","actions":[<ações que compõem o preset>]}
 {"action":"send_to_mobile","content":"<texto ou link a mandar>","kind":"link"|"note"}
+{"action":"power_control","operation":"shutdown"|"restart"|"sleep"|"lock"|"cancel","delay_seconds":<segundos, opcional>}
 {"action":"chat","reply":"<resposta direta e curta em português>"}
 {"action":"unknown"}
 
@@ -75,6 +78,8 @@ Regras de decisão:
 - delete_preset → "apaga o preset X", "remove o modo X"
 - create_preset → usuário pede para CRIAR/SALVAR um preset novo: "cria um preset X que...", "salva um modo Y que...", "crie o preset Z" — gere internamente o array "actions" combinando os tipos de ação já disponíveis (play_music, open_app, volume_control, etc.) que fazem sentido pro tema pedido; nunca aninhe create_preset dentro de si mesmo
 - send_to_mobile → "manda isso pro meu celular", "manda esse link pro celular", "envia pro celular", "manda uma nota pro celular"; content = texto/link extraído da fala; kind omitido se ambíguo (o executor infere pelo formato)
+- power_control → ENERGIA DO PC: "desliga o PC", "reinicia o computador", "suspende", "bota pra dormir", "bloqueia o PC", "trava a tela", "cancela o desligamento"; delay_seconds só quando o usuário disser um prazo ("desliga em 10 minutos" = 600); sem prazo dito, OMITA delay_seconds — o executor usa 30 segundos, que é a janela pra cancelar
+- DISTINÇÃO power_control vs close_app: "desliga o PC" = power_control(shutdown); "fecha o Spotify" = close_app
 - DISTINÇÃO: "abre o Spotify" = open_app; "fecha o Spotify" = close_app; "toca música" = play_music; "abre o YouTube" = open_url
 - Pedidos compostos com "e", "depois", "também" → múltiplos elementos no array, um por ação
 
@@ -107,6 +112,11 @@ Exemplos (sempre no formato {"actions":[...]}):
 "manda isso pro meu celular: reunião amanhã às 10h" → {"actions":[{"action":"send_to_mobile","content":"reunião amanhã às 10h"}]}
 "manda esse link pro celular: https://exemplo.com" → {"actions":[{"action":"send_to_mobile","content":"https://exemplo.com","kind":"link"}]}
 "envia uma nota pro celular dizendo compra leite" → {"actions":[{"action":"send_to_mobile","content":"compra leite","kind":"note"}]}
+"desliga o PC" → {"actions":[{"action":"power_control","operation":"shutdown"}]}
+"desliga o computador em 10 minutos" → {"actions":[{"action":"power_control","operation":"shutdown","delay_seconds":600}]}
+"cancela o desligamento" → {"actions":[{"action":"power_control","operation":"cancel"}]}
+"bloqueia o PC" → {"actions":[{"action":"power_control","operation":"lock"}]}
+"reinicia o computador" → {"actions":[{"action":"power_control","operation":"restart"}]}
 "qual a capital do Brasil" → {"actions":[{"action":"chat","reply":"A capital do Brasil é Brasília."}]}
 "oi" → {"actions":[{"action":"chat","reply":"Oi! Como posso ajudar?"}]}
 "crie o preset assassins creed" → {"actions":[{"action":"create_preset","preset_name":"assassins creed","description":"Modo Assassin's Creed","icon":"⚔️","actions":[{"action":"play_music","query":"trilha sonora epica batalha"},{"action":"open_app","app_name":"assassins creed"}]}]}
@@ -152,6 +162,7 @@ function actionSummary(action: BrainAction): string {
     case "delete_preset":     return `Removeu preset: ${action.preset_name}`;
     case "create_preset":     return `Criou preset: ${action.preset_name}`;
     case "send_to_mobile":    return `Mandou pro celular: ${action.content}`;
+    case "power_control":     return `Energia: ${action.operation}`;
     case "unknown":           return "Não entendi o pedido.";
     default:                  return "";
   }
