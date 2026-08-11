@@ -28,9 +28,8 @@ import { transcribe } from "../services/stt";
 import { decideBrain, clearHistory } from "../services/brain";
 import { trackUsage, getTopHistory } from "../services/history";
 import { synthesize, cancelSpeak } from "../services/tts";
-import { routeAction } from "../actions/router";
 import { NeuroaxisError } from "../services/errors";
-import { processCommand } from "../services/command";
+import { processCommand, resolveAction } from "../services/command";
 import { startServer, setActiveToken, broadcastMailboxEvent } from "../services/server";
 import { startMonitor, getDashboardTelemetry, killProcess } from "../actions/systemInfo";
 import type { BrainAction } from "../services/brain";
@@ -290,7 +289,9 @@ ipcMain.on("audio-data", async (_event, buffer: Buffer) => {
 
     const replies: string[] = [];
     for (const action of actions) {
-      const reply = await routeAction(action);
+      // resolveAction, não routeAction: conversa precisa da segunda etapa que escreve
+      // a resposta. Ver o comentário em services/command.ts.
+      const reply = await resolveAction(action, text);
       trackUsage(text, action);
       replies.push(reply);
     }
@@ -351,7 +352,9 @@ ipcMain.on("chat:send", async (_event, text: string) => {
 
     const replies: string[] = [];
     for (const action of actions) {
-      const reply = await routeAction(action);
+      // resolveAction, não routeAction: conversa precisa da segunda etapa que escreve
+      // a resposta. Ver o comentário em services/command.ts.
+      const reply = await resolveAction(action, text);
       trackUsage(text, action);
       replies.push(reply);
     }

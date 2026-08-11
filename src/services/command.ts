@@ -14,18 +14,23 @@ export async function processCommand(text: string): Promise<string> {
   const replies: string[] = [];
 
   for (const action of actions) {
-    replies.push(await resolve(action, text));
+    replies.push(await resolveAction(action, text));
   }
 
   return replies.filter(Boolean).join(" ");
 }
 
 /**
- * Conversa é resolvida em duas etapas: o roteador (modelo pequeno) só identifica que
- * o pedido é papo, e a resposta em si é escrita pelo modelo bom, com um prompt curto.
- * Isso mantém o prompt gigante de roteamento longe do modelo caro.
+ * Executa uma ação e devolve o que falar.
+ *
+ * **Use isto, nunca `routeAction` direto**, em qualquer caminho que responda ao
+ * usuário — voz, chat do dashboard, ou celular. Conversa é resolvida em duas etapas: o
+ * roteador só identifica que o pedido é papo, e a resposta é escrita depois pelo modelo
+ * bom, com um prompt curto. Quem chama `routeAction` sozinho recebe string vazia para
+ * conversa, e o assistente fica mudo — foi exatamente o que aconteceu com o dashboard
+ * quando as duas etapas foram criadas e só este arquivo foi atualizado.
  */
-async function resolve(action: BrainAction, userText: string): Promise<string> {
+export async function resolveAction(action: BrainAction, userText: string): Promise<string> {
   if (action.action !== "chat") return routeAction(action);
 
   const composed = await composeChatReply(userText);
