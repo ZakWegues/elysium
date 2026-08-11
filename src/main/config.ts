@@ -105,9 +105,41 @@ const store = new Store<{ apiKey: string; overrides: Partial<AppConfig>; serverT
 
 const fileDefaults = loadDefaults();
 
+/**
+ * Modelos que a Groq desativou.
+ *
+ * Um modelo escolhido nas configurações fica guardado para sempre, então quando a Groq
+ * aposenta um deles o app quebra de um dia para o outro, com HTTP 400 em todo comando —
+ * e o usuário não tem como adivinhar que a causa é uma escolha feita meses atrás. Cair
+ * no padrão sozinho é melhor que continuar batendo num modelo que não existe mais.
+ */
+const DECOMMISSIONED_MODELS = new Set([
+  "llama-3.3-70b-specdec",
+  "llama-3.2-90b-vision-preview",
+  "llama-3.2-11b-vision-preview",
+  "mixtral-8x7b-32768",
+  "gemma-7b-it",
+]);
+
+function healModel(value: string, fallback: string, key: string): string {
+  if (!DECOMMISSIONED_MODELS.has(value)) return value;
+  console.warn(`[config] ${key}="${value}" foi desativado pela Groq; usando "${fallback}".`);
+  return fallback;
+}
+
 export function getConfig(): AppConfig {
   const overrides = store.get("overrides", {} as Partial<AppConfig>);
-  return { ...fileDefaults, ...overrides };
+  const merged = { ...fileDefaults, ...overrides };
+
+  // Modelo aposentado pela Groq volta ao padrão em vez de derrubar todo comando com
+  // HTTP 400 — ver DECOMMISSIONED_MODELS.
+  return {
+    ...merged,
+    routerModel: healModel(merged.routerModel, DEFAULTS.routerModel, "routerModel"),
+    brainModel:  healModel(merged.brainModel,  DEFAULTS.brainModel,  "brainModel"),
+    visionModel: healModel(merged.visionModel, DEFAULTS.visionModel, "visionModel"),
+    searchModel: healModel(merged.searchModel, DEFAULTS.searchModel, "searchModel"),
+  };
 }
 
 export function setOverride(patch: Partial<AppConfig>): void {
