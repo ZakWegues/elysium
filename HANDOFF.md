@@ -26,7 +26,7 @@ Ecossistema pessoal de dois apps que conversam pela rede local:
 ### Comandos
 
 **Desktop:** `npm run dev` · `npm run build` · `npm start` · `npm run dist` (instalador NSIS)
-**Portal:** `npm start` (Expo) · `npm run typecheck`
+**Portal:** `npm start` (Expo) · `npm run typecheck` · `npm run build:local` (APK aqui, ~3 min) · `npm run update "msg"` (correção de JS pelo ar, ~30s)
 
 ---
 
@@ -63,7 +63,7 @@ Decisões fechadas pelo Zak: acesso de fora de casa **via túnel** (Tailscale/Ze
 | 3 | Espelhamento de tela + trackpad/teclado remoto | ✅ feito |
 | 4 | Memória de longo prazo, lembretes, push | ✅ feito |
 | 5 | Visão, busca web e Spotify | ✅ feito |
-| 6 | Home, modo escuro, share intent ✅ · build do APK depende do Zak | 🟡 |
+| 6 | Home, modo escuro, share intent, build do APK (agora local, sem fila) | ✅ feito |
 
 O catálogo de 26 features pra depois está no arquivo do plano.
 
@@ -157,7 +157,9 @@ O painel "Acesso fora de casa" na aba 📱 do dashboard mostra o estado e o pass
   **🔴 NÃO troque o `routerModel` pelo `llama-3.1-8b-instant` achando que economiza.** Medido em 01/08/2026: no plano gratuito o 8B tem teto de **6000** tokens/minuto, **metade** dos 12000 do `llama-3.3-70b-versatile`. Trocar piora. O `config.html` já avisa disso no próprio seletor.
 - **Push exige credenciais FCM no projeto EAS** para funcionar em APK standalone. Em Expo Go e em emulador não funciona de jeito nenhum — o app detecta e explica, mas não dá pra validar push de verdade antes do bloco 6.
 - **Instalador `.exe` (NSIS) não testado** depois de nenhuma das mudanças recentes.
-- **APK: configuração pronta, build ainda não rodado.** `eas.json`, `android.package` (`com.zak.neuroaxis.portal`), `versionCode`, permissões, `scheme` e intent filters já estão no repo e resolvem sem erro (`npx expo config --type prebuild`). **O que falta é do Zak, não de código:** criar conta na Expo, rodar `npx eas login`, `npx eas init` (gera o `projectId`, sem o qual push não funciona), e `npm run build:apk`. O build roda na nuvem da Expo e devolve um link.
+- **APK: gerar localmente, não na nuvem.** A fila do plano gratuito da Expo passou de **1h30** (medido em 11/08/2026; a build em si leva 8 min). O Portal tem `npm run build:local`, que compila na própria máquina em ~3 min sem fila. Pré-requisitos já instalados nesta máquina: JDK 17 em `%LOCALAPPDATA%\Programs\Microsoft\jdk-17.0.10.7-hotspot`, Android SDK em `%USERPROFILE%\Android\Sdk` (platform 35/36, build-tools 36, NDK 27.1, cmake 3.22.1). O passo a passo para outra máquina está no `README.md` do Portal. O `npm run build:apk` (nuvem) continua funcionando como reserva.
+- **🔑 A chave de assinatura vive fora dos dois repositórios**, em `%USERPROFILE%\Android\neuroaxis-release.keystore` + `neuroaxis-signing.properties`. **Perder essa pasta significa que nenhuma build futura instala por cima da atual** — o Android recusa APK com assinatura diferente, e a saída seria desinstalar (perdendo pareamento e histórico local). Fazer backup. O `plugins/withReleaseSigning.js` injeta a assinatura durante o `prebuild`; sem o arquivo de credenciais ele não faz nada, e dentro do EAS ele nunca roda.
+- **A primeira instalação local exige desinstalar o APK que veio do EAS**, uma única vez: assinaturas diferentes. Depois disso toda build local instala por cima. O pareamento se refaz pelo QR e as conversas voltam pela sincronização com o desktop.
 - **Voz "Microsoft Daniel" (pt-BR masculina) não é usada pelo fallback SAPI**: é voz OneCore (`HKLM:\SOFTWARE\Microsoft\Speech_OneCore\Voices\Tokens`), invisível pro `System.Speech.Synthesis` clássico que o `tts.ts` usa. Duas saídas identificadas, nenhuma aplicada: ponte de registro (precisa rodar como Admin) ou reescrever o fallback pra `Windows.Media.SpeechSynthesis` (WinRT, não precisa admin mas o interop async via PowerShell é frágil).
 - **`msedge-tts` (voz neural) falha com "Connect Error"** nesta máquina/rede — cai sempre no fallback SAPI.
 - **`tts.ts` ignora `cfg.voice`** — a voz está fixa em `pt-BR-AntonioNeural` no código.
