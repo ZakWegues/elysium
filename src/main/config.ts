@@ -56,6 +56,31 @@ export interface AppConfig {
    * app funcionar sem passo extra de configuração. O que NUNCA é versionado é o
    * refresh token, guardado no perfil do usuário por `spotify.ts`.
    */
+  /**
+   * Quem decide QUAL ação executar, e quem escreve a resposta de conversa.
+   *
+   * O padrão passou a ser o Ollama local em 14/08/2026, medido pela bancada
+   * (`scripts/bench-router.mjs`) e não suposto: o `llama3.2` de 3B acertou 93% dos 46
+   * casos, com zero JSON inválido, contra um 70B da Groq que sequer completou a rodada
+   * por esgotar a cota diária do plano gratuito.
+   *
+   * ⚠️ O ponto fraco medido do 3B é **pedido composto**: 12 de 18. "Fecha o Chrome e abre
+   * o VS Code" sai pela metade com alguma frequência. O `fallbackToGroq` não cobre esse
+   * caso — ação faltando é um JSON perfeitamente válido. Cobre falha de formato, ação
+   * fora da união e queda do Ollama.
+   */
+  routerProvider: "groq" | "ollama";
+  chatProvider: "groq" | "ollama";
+  /** Sem o sufixo `/v1`: o `llm.ts` fala com o endpoint nativo, o único que honra keep_alive. */
+  ollamaBaseUrl: string;
+  ollamaRouterModel: string;
+  ollamaChatModel: string;
+  /** Tempo que o modelo fica na VRAM sem uso antes de o Ollama descarregá-lo sozinho. */
+  ollamaKeepAlive: string;
+  /** Repetir na Groq quando o local devolve algo inaproveitável. Exige a API key. */
+  fallbackToGroq: boolean;
+  /** Com jogo aberto, rotear pela nuvem em vez de disputar VRAM. Ver `gpuGuard.ts`. */
+  evitarGpuOcupada: boolean;
   spotifyClientId: string;
   chatHistoryTurns: number;
   chatIdleResetMs: number;
@@ -75,6 +100,14 @@ const DEFAULTS: AppConfig = {
   routerModel: "llama-3.3-70b-versatile",
   visionModel: "qwen/qwen3.6-27b",
   searchModel: "groq/compound-mini",
+  routerProvider: "ollama",
+  chatProvider: "ollama",
+  ollamaBaseUrl: "http://127.0.0.1:11434",
+  ollamaRouterModel: "llama3.2",
+  ollamaChatModel: "llama3.2",
+  ollamaKeepAlive: "60s",
+  fallbackToGroq: true,
+  evitarGpuOcupada: true,
   spotifyClientId: "042904fef8cc41f0bf05b7abeda2d66f",
   chatHistoryTurns: 6,
   chatIdleResetMs: 300000,

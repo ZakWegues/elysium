@@ -265,7 +265,7 @@ async function readBody(req: http.IncomingMessage): Promise<string> {
 }
 
 function sendJson(res: http.ServerResponse, status: number, payload: unknown): void {
-  res.writeHead(status, { "Content-Type": "application/json" });
+  res.writeHead(status, { "Content-Type": "application/json; charset=utf-8" });
   res.end(JSON.stringify(payload));
 }
 
@@ -305,7 +305,7 @@ function makeHandler(
 
     // GET /api/health
     if (req.method === "GET" && url === "/api/health") {
-      res.writeHead(200, { "Content-Type": "application/json" });
+      res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
       res.end(JSON.stringify({ status: "ok", version: PKG_VERSION, wsClients: wsClients.size }));
       return;
     }
@@ -379,14 +379,14 @@ function makeHandler(
 
       const kind = parsed?.kind;
       if (!parsed || (kind !== "link" && kind !== "note" && kind !== "file")) {
-        res.writeHead(400, { "Content-Type": "application/json" });
+        res.writeHead(400, { "Content-Type": "application/json; charset=utf-8" });
         res.end(JSON.stringify({ error: "invalid body: kind must be link|note|file" }));
         return;
       }
 
       const text = typeof parsed.text === "string" ? parsed.text.trim() : "";
       if (kind !== "file" && !text) {
-        res.writeHead(400, { "Content-Type": "application/json" });
+        res.writeHead(400, { "Content-Type": "application/json; charset=utf-8" });
         res.end(JSON.stringify({ error: "text is required when kind != file" }));
         return;
       }
@@ -395,14 +395,14 @@ function makeHandler(
       if (parsed.attachment) {
         const a = parsed.attachment;
         if (typeof a.name !== "string" || typeof a.mimeType !== "string" || typeof a.base64 !== "string") {
-          res.writeHead(400, { "Content-Type": "application/json" });
+          res.writeHead(400, { "Content-Type": "application/json; charset=utf-8" });
           res.end(JSON.stringify({ error: "invalid attachment: name, mimeType, base64 must be strings" }));
           return;
         }
         attachment = { name: a.name, mimeType: a.mimeType, base64: a.base64 };
       }
       if (kind === "file" && !attachment) {
-        res.writeHead(400, { "Content-Type": "application/json" });
+        res.writeHead(400, { "Content-Type": "application/json; charset=utf-8" });
         res.end(JSON.stringify({ error: "attachment is required when kind == file" }));
         return;
       }
@@ -410,15 +410,15 @@ function makeHandler(
       try {
         const { id, createdAt } = addMessage("mobile", { kind: kind as MailboxKind, text: text || null, attachment });
         broadcastMailboxEvent("toDesktop", id);
-        res.writeHead(201, { "Content-Type": "application/json" });
+        res.writeHead(201, { "Content-Type": "application/json; charset=utf-8" });
         res.end(JSON.stringify({ id, createdAt }));
       } catch (e) {
         if (e instanceof AttachmentTooLargeError) {
-          res.writeHead(413, { "Content-Type": "application/json" });
+          res.writeHead(413, { "Content-Type": "application/json; charset=utf-8" });
           res.end(JSON.stringify({ error: "attachment too large, max 5MB" }));
           return;
         }
-        res.writeHead(500, { "Content-Type": "application/json" });
+        res.writeHead(500, { "Content-Type": "application/json; charset=utf-8" });
         res.end(JSON.stringify({ error: String(e) }));
       }
       return;
@@ -426,7 +426,7 @@ function makeHandler(
 
     // GET /api/mailbox/messages — thread completa (from:"pc" e from:"mobile"), só metadados
     if (req.method === "GET" && url === "/api/mailbox/messages") {
-      res.writeHead(200, { "Content-Type": "application/json" });
+      res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
       res.end(JSON.stringify({ items: listMessages() }));
       return;
     }
@@ -436,11 +436,11 @@ function makeHandler(
     if (req.method === "GET" && msgContentMatch) {
       const content = getMessageContent(msgContentMatch[1]);
       if (!content) {
-        res.writeHead(404, { "Content-Type": "application/json" });
+        res.writeHead(404, { "Content-Type": "application/json; charset=utf-8" });
         res.end(JSON.stringify({ error: "Not found" }));
         return;
       }
-      res.writeHead(200, { "Content-Type": "application/json" });
+      res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
       res.end(JSON.stringify(content));
       return;
     }
@@ -451,16 +451,16 @@ function makeHandler(
       for await (const _chunk of req) { /* drain body, ignored */ }
       const ok = ackMessage(msgAckMatch[1]);
       if (!ok) {
-        res.writeHead(404, { "Content-Type": "application/json" });
+        res.writeHead(404, { "Content-Type": "application/json; charset=utf-8" });
         res.end(JSON.stringify({ error: "Not found" }));
         return;
       }
-      res.writeHead(200, { "Content-Type": "application/json" });
+      res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
       res.end(JSON.stringify({ ok: true }));
       return;
     }
 
-    res.writeHead(404, { "Content-Type": "application/json" });
+    res.writeHead(404, { "Content-Type": "application/json; charset=utf-8" });
     res.end(JSON.stringify({ error: "Not found" }));
   };
 }

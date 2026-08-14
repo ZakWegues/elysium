@@ -5,3 +5,6 @@ release/
 .env
 .DS_Store
 Thumbs.db
+
+# Resultados de bancada gerados a cada execução. O de referência é versionado à mão.
+scripts/bench-resultado-*.txt

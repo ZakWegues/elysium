@@ -1,0 +1,81 @@
+{
+  "_leia": [
+    "Banco de casos da bancada de roteamento (scripts/bench-router.mjs).",
+    "",
+    "`esperado` é a sequência de ações, na ordem. Só o campo `action` é conferido —",
+    "os argumentos (nome do app, query, data) variam legitimamente entre modelos e",
+    "medir isso viraria ruído. O que está em jogo aqui é a CLASSIFICAÇÃO.",
+    "",
+    "Os grupos existem para o relatório separar onde cada modelo erra. Os sete pares",
+    "difíceis vêm da §6 do ULTRA_HANDOFF: cada um está no prompt porque o modelo já",
+    "errava sem ele — inclusive o 70B. São eles que decidem se um modelo local serve.",
+    "",
+    "Ao acrescentar caso: use frase que você falaria de verdade, com a informalidade",
+    "que o Whisper entrega. Frase de laboratório mede a coisa errada."
+  ],
+
+  "casos": [
+    { "grupo": "media x volume",     "texto": "volume 40",                                          "esperado": ["volume_control"] },
+    { "grupo": "media x volume",     "texto": "bota o volume em 70 por cento",                      "esperado": ["volume_control"] },
+    { "grupo": "media x volume",     "texto": "aumenta o som",                                      "esperado": ["media_control"] },
+    { "grupo": "media x volume",     "texto": "abaixa um pouco aí",                                 "esperado": ["media_control"] },
+    { "grupo": "media x volume",     "texto": "muta",                                               "esperado": ["volume_control"] },
+    { "grupo": "media x volume",     "texto": "pausa a música",                                     "esperado": ["media_control"] },
+
+    { "grupo": "fechar app x janela", "texto": "fecha o Chrome",                                    "esperado": ["close_app"] },
+    { "grupo": "fechar app x janela", "texto": "fecha a janela do Chrome",                          "esperado": ["window_management"] },
+    { "grupo": "fechar app x janela", "texto": "minimiza o Spotify",                                "esperado": ["window_management"] },
+    { "grupo": "fechar app x janela", "texto": "encerra o Discord",                                 "esperado": ["close_app"] },
+
+    { "grupo": "energia x fechar",   "texto": "desliga o PC",                                       "esperado": ["power_control"] },
+    { "grupo": "energia x fechar",   "texto": "fecha o Spotify",                                    "esperado": ["close_app"] },
+    { "grupo": "energia x fechar",   "texto": "bloqueia o computador",                              "esperado": ["power_control"] },
+    { "grupo": "energia x fechar",   "texto": "cancela o desligamento",                             "esperado": ["power_control"] },
+
+    { "grupo": "lembrar x lembrete", "texto": "lembra que meu projeto principal é o ELYSIUM",       "esperado": ["remember"] },
+    { "grupo": "lembrar x lembrete", "texto": "me lembra de tomar remédio amanhã às nove",          "esperado": ["create_reminder"] },
+    { "grupo": "lembrar x lembrete", "texto": "anota que eu prefiro respostas curtas",              "esperado": ["remember"] },
+    { "grupo": "lembrar x lembrete", "texto": "toda segunda às oito me avisa da reunião",           "esperado": ["create_reminder"] },
+    { "grupo": "lembrar x lembrete", "texto": "esquece o que eu falei do trabalho",                 "esperado": ["forget"] },
+
+    { "grupo": "conversa x busca",   "texto": "qual a capital do Brasil",                           "esperado": ["chat"] },
+    { "grupo": "conversa x busca",   "texto": "como tá a cotação do dólar hoje",                    "esperado": ["web_search"] },
+    { "grupo": "conversa x busca",   "texto": "oi, tudo bem?",                                      "esperado": ["chat"] },
+    { "grupo": "conversa x busca",   "texto": "quem ganhou o jogo do Flamengo ontem",               "esperado": ["web_search"] },
+    { "grupo": "conversa x busca",   "texto": "me explica o que é recursão",                        "esperado": ["chat"] },
+
+    { "grupo": "conversa x texto",   "texto": "quem foi Alan Turing",                               "esperado": ["chat"] },
+    { "grupo": "conversa x texto",   "texto": "me explica em uma frase o que é um compilador",      "esperado": ["chat"] },
+    { "grupo": "conversa x texto",   "texto": "me fala sobre a Revolução Francesa",                 "esperado": ["chat"] },
+    { "grupo": "conversa x texto",   "texto": "por que o céu é azul",                               "esperado": ["chat"] },
+    { "grupo": "conversa x texto",   "texto": "escreve um email pedindo aumento",                   "esperado": ["write_text"] },
+    { "grupo": "conversa x texto",   "texto": "redige um resumo sobre fotossíntese",                "esperado": ["write_text"] },
+    { "grupo": "conversa x texto",   "texto": "cria um arquivo com a lista de compras",             "esperado": ["create_file"] },
+
+    { "grupo": "olhar x print",      "texto": "tira um print",                                      "esperado": ["screenshot"] },
+    { "grupo": "olhar x print",      "texto": "o que tá escrito na minha tela",                     "esperado": ["look_at_screen"] },
+    { "grupo": "olhar x print",      "texto": "olha aí e me diz que erro é esse",                   "esperado": ["look_at_screen"] },
+    { "grupo": "olhar x print",      "texto": "captura a tela e salva",                             "esperado": ["screenshot"] },
+
+    { "grupo": "app x site",         "texto": "abre o VS Code",                                     "esperado": ["open_app"] },
+    { "grupo": "app x site",         "texto": "abre o YouTube",                                     "esperado": ["open_url"] },
+    { "grupo": "app x site",         "texto": "abre a calculadora",                                 "esperado": ["open_app"] },
+    { "grupo": "app x site",         "texto": "pesquisa receita de bolo de cenoura",                "esperado": ["open_url"] },
+
+    { "grupo": "composto",           "texto": "fecha o Chrome e abre o VS Code",                    "esperado": ["close_app", "open_app"] },
+    { "grupo": "composto",           "texto": "volume 40 e toca lofi",                              "esperado": ["volume_control", "play_music"] },
+    { "grupo": "composto",           "texto": "minimiza tudo e abre o Spotify",                     "esperado": ["window_management", "open_app"] },
+    { "grupo": "composto",           "texto": "tira um print e manda pro meu celular",              "esperado": ["screenshot", "send_to_mobile"] },
+    { "grupo": "composto",           "texto": "pausa e me diz quanta RAM tá usando",                "esperado": ["media_control", "system_info"] },
+    { "grupo": "composto",           "texto": "abre o Steam, o Discord e bota o volume em 30",      "esperado": ["open_app", "open_app", "volume_control"] },
+
+    { "grupo": "simples",            "texto": "toca Pink Floyd",                                    "esperado": ["play_music"] },
+    { "grupo": "simples",            "texto": "quanta memória tá sobrando",                         "esperado": ["system_info"] },
+    { "grupo": "simples",            "texto": "que horas são",                                      "esperado": ["system_info"] },
+    { "grupo": "simples",            "texto": "o que tem na área de transferência",                 "esperado": ["clipboard_read"] },
+    { "grupo": "simples",            "texto": "lista meus lembretes",                               "esperado": ["list_reminders"] },
+    { "grupo": "simples",            "texto": "roda o preset de estudo",                            "esperado": ["run_preset"] },
+    { "grupo": "simples",            "texto": "escreve um email pedindo desculpa pelo atraso",      "esperado": ["write_text"] },
+    { "grupo": "simples",            "texto": "manda esse link pro celular",                        "esperado": ["send_to_mobile"] }
+  ]
+}

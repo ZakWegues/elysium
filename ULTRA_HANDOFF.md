@@ -206,8 +206,8 @@ e Spotify · Home, modo escuro, share intent e build do APK.
 | 10 (A4) — repositórios e pastas | ✅ concluído |
 | 11 (B) — motor de temas por família + 3 variações do Vidro Líquido | ✅ concluído |
 | 12 (B) — os 3 temas ELYSIUM | ✅ concluído |
-| 13 (C1) — bancada de medição do roteador | ⬜ |
-| 14 (C2) — provider configurável + fallback + VRAM | ⬜ |
+| 13 (C1) — bancada de medição do roteador | ✅ concluído |
+| 14 (C2) — cérebro local + fallback + VRAM | ✅ concluído |
 
 ### O que aconteceu na sessão de 11/08/2026
 
@@ -443,6 +443,7 @@ Cada uma existe porque o modelo errava sem ela:
 | `chat` × `web_search` | fato estável ("capital do Brasil") × fato que muda ("cotação do dólar") |
 | `look_at_screen` × `screenshot` | lê e responde × só salva a imagem |
 | `open_app` × `open_url` | programa instalado × site no navegador |
+| `chat` × `write_text`/`create_file` | **par novo, criado pelo modelo local** (§18). Perguntar é `chat`, mesmo com "me explica", "quem foi", "o que é"; só é `write_text` quando o texto em si é o produto pedido. O 70B nunca errou isso; o `llama3.2` de 3B **criava arquivo na Área de Trabalho para perguntas** |
 
 ### O prompt em tempo de execução
 
@@ -472,10 +473,15 @@ cérebro perderia o fio: depois de um "pausa" resolvido no atalho, um "continua"
 
 ### Os quatro em uso
 
+> ⚠️ **Desde 14/08/2026 o cérebro é local.** `routerProvider` e `chatProvider` vêm como
+> `ollama` (`llama3.2`), e os dois modelos abaixo passaram a ser **só o fallback** — ver
+> §18. Visão, busca web e STT continuam na Groq de verdade, então a API key segue
+> obrigatória.
+
 | campo | padrão | papel |
 |---|---|---|
-| `routerModel` | `llama-3.3-70b-versatile` | Decide **qual** ação. Carrega o prompt grande |
-| `brainModel` | `llama-3.3-70b-versatile` | Escreve a resposta de conversa. Prompt curto |
+| `routerModel` | `llama-3.3-70b-versatile` | Decide **qual** ação. Hoje só entra como fallback |
+| `brainModel` | `llama-3.3-70b-versatile` | Escreve a resposta de conversa. Hoje só entra como fallback |
 | `visionModel` | `qwen/qwen3.6-27b` | Único da conta que aceita `image_url` |
 | `searchModel` | `groq/compound-mini` | Agêntico: pesquisa sozinho e devolve a resposta |
 | `sttModel` | `whisper-large-v3` | Transcrição |
@@ -1775,7 +1781,7 @@ janela em branco, sem erro visível.
 > **As variáveis continuam se chamando `--purple` e `--cyan` mesmo valendo ouro e éter.**
 > Renomear atingiria centenas de usos em 2818 linhas sem ganho funcional. Não "consertar".
 
-### Bloco 13 (C1) — Bancada de medição do roteador ⬜
+### Bloco 13 (C1) — Bancada de medição do roteador ✅
 
 **Nenhuma linha do app muda.** É a regra 3 da §3 aplicada. `scripts/bench-router.mjs` +
 `bench-cases.json`: ~40 frases reais com gabarito, cobrindo de propósito os 7 pares difíceis
@@ -1783,12 +1789,71 @@ da §6 e ≥5 pedidos compostos, rodadas com o **mesmo `buildSystemPrompt()`** c
 (linha de base), `llama3.1:8b` e `llama3.2` (3B). Saída: acerto global, por ação, pares
 difíceis isolados, taxa de JSON inválido, latência p50/p95.
 
-**Confirmar em execução, não presumir:** se o `/v1/chat/completions` do Ollama honra
-`response_format: {type:"json_object"}` (o nativo `/api/chat` tem `format:"json"` garantido) e
-se aceita `keep_alive` no corpo — se não, o controle de VRAM vira `OLLAMA_KEEP_ALIVE` no
-daemon ou o endpoint nativo.
+**O que foi confirmado em execução (14/08/2026), e não presumido:**
 
-### Bloco 14 (C2) — Provider configurável, Groq como rede de segurança ⬜
+| pergunta | resposta medida |
+|---|---|
+| `/v1/chat/completions` honra `response_format: json_object`? | **Sim** |
+| `/v1` honra `keep_alive` no corpo? | **Não** — o `ollama ps` seguiu marcando o padrão de 5 min |
+| `/api/chat` (nativo) honra `format:"json"` e `keep_alive`? | **Sim** — o prazo caiu para 59 s como pedido |
+
+Por isso o `llm.ts` fala com o **endpoint nativo**: é o único que permite tirar o modelo da
+VRAM sozinho.
+
+**Resultado, 53 casos × 3 execuções:**
+
+| alvo | acerto | JSON inválido | p50 | p95 |
+|---|---|---|---|---|
+| Groq `llama-3.3-70b` | **não completou** | — | ~30 ms | — |
+| Ollama `llama3.1:8b` | 92% | 0 | 552 ms | 1963 ms |
+| Ollama `llama3.2` (3B) | **94%** | 0 | 416 ms | 1732 ms |
+
+🔴 **A referência da Groq não pôde ser medida, e isso é dado.** Na primeira rodada, 44 das
+46 chamadas bateram 429. Com espaçamento de 16 s a Groq passou a responder, mas na chamada
+27 devolveu `retry-after: 2853` — 47 minutos, ou seja, a **cota diária** do plano gratuito,
+não o teto por minuto. Uma bancada de roteamento consome a cota de um dia inteiro. Isso
+reforça o próprio motivo de migrar: ~11 mil caracteres de prompt por comando é caro demais
+para o plano gratuito sustentar.
+
+**⚠️ Limitação conhecida da bancada:** ela manda `system` + a frase, **sem histórico de
+conversa e sem o bloco de memória**, que é o que a torna reprodutível. O app manda os dois.
+Na prática isso significa que a bancada **não prevê perfeitamente** o comportamento real —
+uma frase deu 3/3 na bancada e mesmo assim errou no app. Use-a para comparar modelos entre
+si, não como garantia de comportamento.
+
+### Bloco 14 (C2) — Cérebro local, Groq como rede de segurança ✅
+
+**Decisão do Zak em 14/08/2026: o roteador e a conversa passam para o `llama3.2` local.**
+Feito com a ressalva medida abaixo dita antes de codar.
+
+**Como ficou:** `llm.ts` novo concentra a chamada dos dois provedores (antes eram dois
+`fetch` quase idênticos no `brain.ts`, que com dois provedores virariam quatro).
+`gpuGuard.ts` decide se vale carregar o modelo agora. `config.ts` ganhou
+`routerProvider`/`chatProvider`/`ollama*`/`fallbackToGroq`/`evitarGpuOcupada`, e o
+`config.html` uma seção "Cérebro" com verificação ao vivo do Ollama.
+
+**🔴 O que o modelo local erra, medido e não estimado:**
+
+1. **Pedido composto: 14 de 18.** "Fecha o Chrome e abre o VS Code" sai pela metade com
+   alguma frequência. **O fallback não cobre isso** — ação faltando é um JSON perfeitamente
+   válido, e nada tem como saber que faltou coisa. É o preço da troca.
+2. **`chat` virando `write_text`.** No primeiro teste com o app real, 2 de 6 perguntas do
+   tipo "quem foi X" e "me explica Y" **criaram arquivo na Área de Trabalho** em vez de
+   responder. Corrigido com uma distinção nova no prompt e três few-shot; a bancada foi de
+   2 erros em 6 para **21/21**, e 6 repetições pelo caminho real do app deram 0 erro. Mas
+   **não está eliminado**: o erro é intermitente e depende dos turnos anteriores.
+
+**Por que a detecção olha processo em execução, não janela em foco:** jogo minimizado
+continua segurando a VRAM inteira. Foco é sobre atenção do usuário; a pergunta aqui é sobre
+memória de vídeo. A lista fica em `src/config/gpu-heavy.json`, uma linha por programa.
+
+**Continua na Groq:** STT (Whisper), visão e busca web. **A API key segue obrigatória** — o
+`stt.ts` é o caminho da voz, e sem chave o atalho global não transcreve nada.
+
+**Correção que apareceu no caminho:** o servidor mandava `Content-Type: application/json`
+**sem `charset=utf-8`** nas 15 respostas. JSON é UTF-8 por padrão e o `fetch` do celular
+decodifica certo, mas cliente mais estrito cai para Latin-1 — e acento corrompido é tema
+recorrente aqui (§14). Corrigido.
 
 `routerProvider`/`chatProvider` (`groq`|`ollama`), `ollamaBaseUrl`, modelos e `keep_alive` no
 `config.ts` + seção nova no `config.html`. Os dois `fetch` quase idênticos do `brain.ts`

@@ -36,6 +36,7 @@ import { synthesize, cancelSpeak } from "../services/tts";
 import { ElysiumError } from "../services/errors";
 import { processCommand, resolveAction } from "../services/command";
 import { startServer, setActiveToken, broadcastMailboxEvent } from "../services/server";
+import { ollamaDisponivel } from "../services/llm";
 import { startMonitor, getDashboardTelemetry, killProcess } from "../actions/systemInfo";
 import type { BrainAction } from "../services/brain";
 import { mediaControl } from "../actions/mediaControl";
@@ -414,6 +415,11 @@ ipcMain.on("config:close", () => configWin?.close());
 ipcMain.on("config:open-window", () => openConfigWindow());
 
 ipcMain.handle("config:get-all", () => getConfig());
+
+ipcMain.handle("brain:ollama-status", async (_e, modelo?: string) => {
+  const cfg = getConfig();
+  return ollamaDisponivel(modelo || cfg.ollamaRouterModel);
+});
 ipcMain.handle("config:set-all", async (_e, patch: Partial<AppConfig>) => {
   const prev = getConfig();
   setOverride(patch);

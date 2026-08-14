@@ -1,0 +1,57 @@
+
+==============================================================================
+  BANCADA DO ROTEADOR — 14/08/2026, 14:22:48
+  53 casos x 3 repetição(ões)
+==============================================================================
+
+GERAL
+
+  alvo                                 acerto   json inv.   erro   p50      p95
+  --------------------------------------------------------------------------
+  Ollama llama3.1:8b                      92%          0      0    552ms   1963ms
+  Ollama llama3.2 (3B)                    94%          0      0    416ms   1732ms
+
+POR GRUPO  (os sete pares difíceis da §6 são o que decide a troca)
+
+  grupo                  ollama-8b   ollama-3b   
+  --------------------------------------------------------------------------
+  media x volume         15/18       15/18       
+  fechar app x janela    12/12       12/12       
+  energia x fechar       12/12       12/12       
+  lembrar x lembrete     15/15       15/15       
+  conversa x busca       15/15       15/15       
+  conversa x texto       21/21       21/21       
+  olhar x print          12/12       12/12       
+  app x site             9/12        9/12        
+  composto               12/18       14/18       
+  simples                24/24       24/24       
+
+ERROS, CASO A CASO
+
+  Ollama llama3.1:8b — 12 de 159
+    "abaixa um pouco aí"
+        esperado: media_control
+        obtido:   volume_control
+    "pesquisa receita de bolo de cenoura"
+        esperado: open_url
+        obtido:   web_search
+    "minimiza tudo e abre o Spotify"
+        esperado: window_management + open_app
+        obtido:   close_app + open_app
+    "pausa e me diz quanta RAM tá usando"
+        esperado: media_control + system_info
+        obtido:   system_info
+
+  Ollama llama3.2 (3B) — 10 de 159
+    "abaixa um pouco aí"
+        esperado: media_control
+        obtido:   volume_control
+    "pesquisa receita de bolo de cenoura"
+        esperado: open_url
+        obtido:   web_search
+    "tira um print e manda pro meu celular"
+        esperado: screenshot + send_to_mobile
+        obtido:   screenshot
+    "pausa e me diz quanta RAM tá usando"
+        esperado: media_control + system_info
+        obtido:   system_info

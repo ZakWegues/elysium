@@ -1,0 +1,35 @@
+{
+  "_leia": [
+    "Processos que disputam VRAM com o modelo local. Quando um deles está rodando, o",
+    "roteador vai direto para a nuvem em vez de carregar ~2,6 GB na GPU.",
+    "",
+    "É por PROCESSO EM EXECUÇÃO, não por janela em foco: um jogo minimizado continua",
+    "segurando a VRAM dele inteira. Foco não diz nada sobre memória de vídeo.",
+    "",
+    "Para adicionar um programa, basta uma linha nova aqui — não precisa mexer em código.",
+    "O nome é comparado sem diferenciar maiúsculas, com ou sem o .exe."
+  ],
+
+  "processos": [
+    "RobloxPlayerBeta.exe",
+    "FortniteClient-Win64-Shipping.exe",
+    "VALORANT-Win64-Shipping.exe",
+    "League of Legends.exe",
+    "csgo.exe",
+    "cs2.exe",
+    "dota2.exe",
+    "GTA5.exe",
+    "RDR2.exe",
+    "Cyberpunk2077.exe",
+    "eldenring.exe",
+    "MinecraftLauncher.exe",
+    "EscapeFromTarkov.exe",
+    "r5apex.exe",
+    "PalworldClient-Win64-Shipping.exe",
+    "HD-Player.exe",
+    "Blender.exe",
+    "DaVinci Resolve.exe",
+    "Adobe Premiere Pro.exe",
+    "obs64.exe"
+  ]
+}
