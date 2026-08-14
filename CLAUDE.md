@@ -106,4 +106,20 @@ Depois que o código estiver pronto, isto aqui é o que só você consegue testa
 
 ## Como usar este arquivo
 
-Coloque este `CLAUDE.md` na raiz do projeto e abra o Claude Code nessa pasta — ele lê este arquivo automaticamente no início de cada sessão. Basta pedir para implementar o projeto descrito aqui; não é necessário colar nada manualmente.
+> ⚠️ **Este é um documento histórico.** É a especificação original do projeto, escrita antes
+> de qualquer linha de código. As decisões técnicas fechadas aqui continuam valendo, e por
+> isso o arquivo fica. Mas o projeto avançou muito além dele.
+>
+> **Para o estado real, leia o [`ULTRA_HANDOFF.md`](ULTRA_HANDOFF.md)** — na raiz deste
+> repositório e na raiz da pasta-mãe `ELYSIUM`.
+
+O que mudou em relação ao que está escrito acima:
+
+- **A seção "Fora do escopo desta versão" está vencida em dois itens.** A integração com a
+  Spotify Web API (play/pause/skip, tocando agora) **foi implementada**, e existe interface
+  visual além da bandeja: um dashboard completo no desktop e um app mobile companion inteiro,
+  o NEUROAXIS Portal. Continuam fora do escopo apenas a wake-word por voz e outros idiomas.
+- O assistente ganhou 28 tipos de ação, não os 5 previstos aqui — inclui energia, memória de
+  longo prazo, lembretes, visão, busca na web e controle remoto pelo celular.
+- O checklist de validação acima continua válido e ainda **não** foi confirmado ponta a ponta.
+  A versão atualizada dele está na §17 do `ULTRA_HANDOFF.md`.
