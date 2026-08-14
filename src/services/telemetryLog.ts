@@ -15,7 +15,7 @@ interface TelemetryLogSchema {
 }
 
 const store = new Store<TelemetryLogSchema>({
-  name: "neuroaxis-telemetry-log",
+  name: "elysium-telemetry-log",
   defaults: { anomalies: [] },
 });
 

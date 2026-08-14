@@ -1,7 +1,7 @@
 {
-  "name": "neuroaxis",
+  "name": "elysium",
   "version": "1.0.0",
-  "description": "NEUROAXIS — assistente de voz desktop para Windows (Electron + Groq)",
+  "description": "ELYSIUM — assistente de voz desktop para Windows (Electron + Groq)",
   "author": "Zak",
   "license": "MIT",
   "main": "dist/main/main.js",
@@ -13,8 +13,8 @@
     "dist": "npm run build && electron-builder --win nsis"
   },
   "build": {
-    "appId": "com.zak.neuroaxis",
-    "productName": "NEUROAXIS",
+    "appId": "com.zak.elysium",
+    "productName": "ELYSIUM",
     "directories": {
       "output": "release",
       "buildResources": "build"
@@ -32,7 +32,7 @@
           ]
         }
       ],
-      "artifactName": "NEUROAXIS-Setup-${version}.${ext}"
+      "artifactName": "ELYSIUM-Setup-${version}.${ext}"
     },
     "nsis": {
       "oneClick": false,
@@ -40,7 +40,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "NEUROAXIS"
+      "shortcutName": "ELYSIUM"
     }
   },
   "dependencies": {

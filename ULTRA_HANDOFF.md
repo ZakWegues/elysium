@@ -202,7 +202,7 @@ e Spotify · Home, modo escuro, share intent e build do APK.
 | bloco | estado |
 |---|---|
 | 7 (A1) — branding visível nos dois lados | ✅ concluído |
-| 8 (A2) — identidade do desktop + migração do userData | ⬜ |
+| 8 (A2) — identidade do desktop + migração do userData | ✅ concluído e verificado em execução |
 | 9 (A3) — identidade do mobile (APK novo) | ⬜ |
 | 10 (A4) — repositórios e pastas | ⬜ |
 | 11 (B) — motor de temas por família + 3 variações do Vidro Líquido | ⬜ |
@@ -265,7 +265,7 @@ servidor HTTP e o WebSocket.
 npm run dev     # build + electron . --dev
 npm run build   # clean + tsc + copy-assets
 npm start       # build + electron .
-npm run dist    # build + electron-builder --win nsis  → release/NEUROAXIS-Setup-1.0.0.exe
+npm run dist    # build + electron-builder --win nsis  → release/ELYSIUM-Setup-1.0.0.exe
 ```
 
 ### Ciclo de vida
@@ -273,7 +273,8 @@ npm run dist    # build + electron-builder --win nsis  → release/NEUROAXIS-Set
 - Vive na **bandeja do sistema**, sem janela na barra de tarefas. Fechar janela não encerra;
   só "Sair" no menu da bandeja encerra de verdade.
 - **Single-instance lock**: abrir de novo só traz o dashboard da instância existente.
-- Inicia com o Windows via `auto-launch` (nome registrado: `NEUROAXIS`, `isHidden: true`).
+- Inicia com o Windows via `auto-launch`, `isHidden: true`. ⚠️ O nome registrado **não** é o
+  que o código passa: a biblioteca usa o basename do executável. Ver a armadilha na §14.
 - Atalho global registrado no `whenReady`; trocável em tempo de execução pelo
   `config:set-all`.
 - Três janelas: **dashboard** (principal), **config** (primeira execução / ajustes) e
@@ -283,7 +284,7 @@ npm run dist    # build + electron-builder --win nsis  → release/NEUROAXIS-Set
 
 | o quê | onde |
 |---|---|
-| API key da Groq, token do servidor, overrides | `%APPDATA%\neuroaxis\neuroaxis-config.json` |
+| API key da Groq, token do servidor, overrides | `%APPDATA%\elysium\elysium-config.json` |
 | memória, lembretes, presets, conversas, mailbox, tokens de push | mesmo diretório, via `electron-store` |
 
 > ⚠️ **Esse JSON tem a `apiKey` da Groq em texto puro, ao lado do `serverToken`.** Nunca
@@ -1016,7 +1017,7 @@ Get-NetIPAddress -AddressFamily IPv4       # quais IPs existem
 ```powershell
 Get-NetFirewallRule -Direction Inbound -Action Block -Enabled True | ForEach-Object {
   $app = ($_ | Get-NetFirewallApplicationFilter).Program
-  if ($app -match 'electron|neuroaxis|node') { $_.DisplayName }
+  if ($app -match 'electron|elysium|neuroaxis|node') { $_.DisplayName }
 }
 ```
 
@@ -1067,10 +1068,10 @@ celular `poco-x7-pro` = `100.102.221.39`.
 ### Desktop — instalador NSIS
 
 ```
-npm run dist   →  release/NEUROAXIS-Setup-1.0.0.exe
+npm run dist   →  release/ELYSIUM-Setup-1.0.0.exe
 ```
 
-`appId` `com.zak.neuroaxis`, produto `NEUROAXIS`, não-oneClick, per-user, permite escolher
+`appId` `com.zak.elysium`, produto `ELYSIUM`, não-oneClick, per-user, permite escolher
 pasta, cria atalhos. **Não testado depois das mudanças recentes.**
 
 ### Portal — APK local (caminho normal)
@@ -1203,6 +1204,23 @@ direto no `dist/`.
 
 - **`resolveAction()` sempre, `routeAction()` nunca** — ver §6. Sintoma do erro: assistente
   mudo em conversas, sem erro nenhum.
+- 🔴 **O `auto-launch` ignora o `name` no Windows.** O `fixOpts()` da biblioteca sobrescreve
+  o `appName` com o basename do executável antes de tocar no registro:
+  `this.opts.appName = caminho.split('\\').pop()` → `ELYSIUM.exe` → `ELYSIUM`. Duas
+  consequências que já custaram tempo aqui:
+  1. `new AutoLaunch({name:"NEUROAXIS"}).disable()` **não** apaga a entrada `NEUROAXIS` —
+     apaga a do executável atual, que é justamente a que se quer manter. Para remover uma
+     entrada de nome antigo, mexa no registro direto (`reg.exe`, builtin). Ver
+     `src/main/migrateUserData.ts`.
+  2. O nome real da entrada é `electron` em desenvolvimento e `ELYSIUM` só depois do
+     instalador. Nesta máquina **não há instalação NSIS** — o app sempre subiu em modo dev,
+     então a entrada em `HKCU\...\Run` é `electron` apontando para
+     `ELYSIUM\neuroaxis\node_modules\electron\dist\electron.exe`.
+- 🔴 **`autoLauncher.isEnabled()` só confere que o valor existe, não que o caminho é
+  válido.** Como o `main.ts` faz `if (cfg.autoLaunch && !enabled) enable()`, um caminho que
+  ficou obsoleto (pasta renomeada, app movido) **nunca é reescrito**: a entrada continua lá,
+  apontando para o nada, e o app simplesmente deixa de subir com o Windows sem erro nenhum.
+  É o que vai acontecer no bloco 10, quando a pasta for renomeada — ver §18.
 - **`SendKeys` corrompe acentuação** no layout ABNT. Ele traduz o caractere para tecla virtual
   pelo layout ativo (`VkKeyScan`), e acentos exigem dead keys que essa API não expressa —
   "ação" saía como "a▯o". Texto literal só via `SendInput` + `KEYEVENTF_UNICODE`. `SendKeys`
@@ -1398,7 +1416,7 @@ npm run typecheck      # tsc --noEmit
 
 ### Servidor, por curl
 
-O token fica em `%APPDATA%\neuroaxis\neuroaxis-config.json`, campo `serverToken`.
+O token fica em `%APPDATA%\elysium\elysium-config.json`, campo `serverToken`.
 ⚠️ **Esse arquivo também tem a `apiKey` da Groq em texto puro — não jogue o arquivo inteiro no
 output.**
 
@@ -1497,7 +1515,7 @@ Só o que aparece na tela; nenhuma identidade de app, nenhum caminho de dado.
 - **Header de confirmação:** `X-Elysium-Confirm`, com o servidor **aceitando os dois nomes**
   (ver §9).
 
-### Bloco 8 (A2) — Identidade do desktop, com migração dos dados ⬜
+### Bloco 8 (A2) — Identidade do desktop, com migração dos dados ✅
 
 `package.json` (`name` `neuroaxis`→`elysium`, `appId` `com.zak.elysium`, `productName`/
 `shortcutName`/`artifactName` ELYSIUM) · `app.setAppUserModelId` · `AutoLaunch({name:"ELYSIUM"})` ·
@@ -1523,6 +1541,27 @@ apontando pro caminho antigo** — dois lançamentos no boot, um quebrado. A mig
 
 **Instalador:** `appId` novo = produto diferente pro NSIS. O `ELYSIUM-Setup` **não** substitui
 a instalação NEUROAXIS; desinstalar a antiga é manual, depois de confirmar a migração.
+Descoberto ao validar: **não existe instalação NSIS nesta máquina** — nada em
+`%LOCALAPPDATA%\Programs`. O app sempre subiu em modo desenvolvimento, então não há nada a
+desinstalar e o item "instalador não testado" da §15 nunca foi exercitado de verdade.
+
+**Verificado em execução (13/08/2026), não deduzido:**
+
+| verificação | resultado |
+|---|---|
+| perfil criado em `%APPDATA%\elysium` | 10 stores + 28 anexos copiados |
+| `serverToken` idêntico ao do perfil antigo | ✅ — nenhum pareamento morreu |
+| `apiKey` da Groq idêntica | ✅ |
+| lembretes e memória preservados | 1 e 1, iguais |
+| caminhos de anexo no `mailbox.json` | 28 reescritos, 0 apontando pro perfil velho |
+| servidor lendo o token migrado (`/api/health` + `/api/rpc`) | 200, 52 métodos, sem token → 401 |
+| destrutivo sem header / com header novo / com header antigo | 403 / OK / OK |
+| segunda abertura (idempotência) | sem re-cópia, dados intactos |
+| perfil antigo | intacto, mais backup em `C:\Users\ZAK\ELYSIUM-backup\` |
+
+**A armadilha que apareceu no caminho:** o `auto-launch` ignora o `name` no Windows. A
+primeira versão do `clearLegacyAutoLaunch()` usava a biblioteca e por isso não removia
+nada — removeria a entrada certa. Corrigido para `reg.exe` direto. Detalhe completo na §14.
 
 ### Bloco 9 (A3) — Identidade do mobile: ELYSIUM-M ⬜
 
@@ -1560,6 +1599,17 @@ dois (redirect do GitHub não é contrato) · pastas locais `ELYSIUM\elysium` e
 `ELYSIUM\elysium-m` (exige nada segurando: app da bandeja, Metro, janelas do VSCode) ·
 `Iniciar ELYSIUM.vbs` (ele deriva a própria pasta, mas um **atalho** pro nome antigo quebra) ·
 os caminhos citados na §1 e §2 deste documento.
+
+> 🔴 **Achado no bloco 8 que este bloco precisa tratar.** A entrada de início automático
+> desta máquina é `electron`, apontando para
+> `C:\Users\ZAK\ELYSIUM\neuroaxis\node_modules\electron\dist\electron.exe`. Renomear a pasta
+> deixa esse caminho obsoleto — e o `isEnabled()` do `auto-launch` só confere que o valor
+> **existe**, não que ele aponta pra algum lugar válido (§14). Resultado: a entrada continua
+> lá apontando pro nada e o app **para de subir com o Windows, em silêncio**.
+>
+> A correção pertence a este bloco: em vez de `if (!enabled) enable()`, ler o valor gravado
+> e re-registrar quando ele não contiver o `process.execPath` atual. Assim o conserto vale
+> também para o dia em que a pasta mudar de novo, ou para a troca de dev → instalador.
 
 ### Bloco 11 (B) — Motor de temas: famílias, e as 3 variações do Vidro Líquido ⬜
 

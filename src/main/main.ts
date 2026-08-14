@@ -1,3 +1,8 @@
+// PRECISA ser o primeiro import do arquivo. Os `electron-store` são construídos em escopo
+// de módulo, ou seja, no momento do require — se a migração do perfil NEUROAXIS → ELYSIUM
+// rodasse depois, o primeiro store já teria criado o arquivo novo vazio e a cópia seria
+// descartada pela própria guarda dela. Ver src/main/migrateUserData.ts.
+import { clearLegacyAutoLaunch } from "./migrateUserData";
 import { app, BrowserWindow, globalShortcut, ipcMain, clipboard, nativeImage, dialog, shell } from "electron";
 import * as path from "node:path";
 import * as fs from "node:fs";
@@ -421,7 +426,7 @@ ipcMain.handle("config:set-all", async (_e, patch: Partial<AppConfig>) => {
 
   if (patch.autoLaunch !== undefined && patch.autoLaunch !== prev.autoLaunch) {
     try {
-      const autoLauncher = new AutoLaunch({ name: "NEUROAXIS", isHidden: true });
+      const autoLauncher = new AutoLaunch({ name: "ELYSIUM", isHidden: true });
       if (patch.autoLaunch) await autoLauncher.enable();
       else await autoLauncher.disable();
     } catch { /* best-effort */ }
@@ -589,7 +594,7 @@ if (!app.requestSingleInstanceLock()) {
 }
 
 app.on("ready", async () => {
-  if (process.platform === "win32") app.setAppUserModelId("com.zak.neuroaxis");
+  if (process.platform === "win32") app.setAppUserModelId("com.zak.elysium");
 
   const quit = () => {
     appQuitting = true;
@@ -644,7 +649,15 @@ app.on("ready", async () => {
     dashWin?.webContents.send("reminder:fired", reminder);
   });
 
-  const autoLauncher = new AutoLaunch({ name: "NEUROAXIS", isHidden: true });
+  // Antes de registrar o nome novo: senão sobram duas entradas em HKCU\...\Run, e a
+  // antiga aponta para o caminho da instalação NEUROAXIS.
+  await clearLegacyAutoLaunch();
+
+  // ⚠️ No Windows este `name` é decorativo: o auto-launch sobrescreve o nome pelo
+  // basename do executável antes de gravar no registro. A entrada real chama-se
+  // "ELYSIUM" só porque o electron-builder gera ELYSIUM.exe — e chama-se "electron"
+  // quando rodamos em desenvolvimento. Ver migrateUserData.ts.
+  const autoLauncher = new AutoLaunch({ name: "ELYSIUM", isHidden: true });
   try {
     const enabled = await autoLauncher.isEnabled();
     if (cfg.autoLaunch && !enabled) await autoLauncher.enable();

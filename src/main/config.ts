@@ -99,7 +99,7 @@ function loadDefaults(): AppConfig {
 
 // Store seguro no userData. A API key vive aqui.
 const store = new Store<{ apiKey: string; overrides: Partial<AppConfig>; serverToken: string }>({
-  name: "neuroaxis-config",
+  name: "elysium-config",
   defaults: { apiKey: "", overrides: {}, serverToken: "" },
 });
 
