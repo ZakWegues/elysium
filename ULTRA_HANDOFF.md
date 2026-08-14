@@ -203,7 +203,7 @@ e Spotify · Home, modo escuro, share intent e build do APK.
 |---|---|
 | 7 (A1) — branding visível nos dois lados | ✅ concluído |
 | 8 (A2) — identidade do desktop + migração do userData | ✅ concluído e verificado em execução |
-| 9 (A3) — identidade do mobile (APK novo) | ⬜ |
+| 9 (A3) — identidade do mobile (APK novo) | ✅ código · ⬜ APK e reinstalação |
 | 10 (A4) — repositórios e pastas | ⬜ |
 | 11 (B) — motor de temas por família + 3 variações do Vidro Líquido | ⬜ |
 | 12 (B) — os 3 temas ELYSIUM | ⬜ |
@@ -772,7 +772,7 @@ com o PC ligado e funcionando.
 Expo SDK 57 · React Native 0.86 · React 19.2 · TypeScript 6 · **Nova Arquitetura** (padrão do
 SDK 57, não declarada no `app.json`) · Hermes · edge-to-edge Android.
 
-`package`: `com.zak.neuroaxis.portal` · `scheme`: `neuroaxis` · projectId EAS
+`package`: `com.zak.elysium.m` · `scheme`: `elysium` · projectId EAS (antigo, ver §18)
 `a9c62871-2d6d-4e05-b458-1e58655449b5` · owner `zakdwr`.
 
 ### Comandos
@@ -1077,7 +1077,7 @@ pasta, cria atalhos. **Não testado depois das mudanças recentes.**
 ### Portal — APK local (caminho normal)
 
 ```
-npm run build:local   →  dist-apk/neuroaxis-portal.apk
+npm run build:local   →  dist-apk/elysium-m.apk
 ```
 
 **Por que local e não na nuvem** — medido em 11/08/2026:
@@ -1563,7 +1563,7 @@ desinstalar e o item "instalador não testado" da §15 nunca foi exercitado de v
 primeira versão do `clearLegacyAutoLaunch()` usava a biblioteca e por isso não removia
 nada — removeria a entrada certa. Corrigido para `reg.exe` direto. Detalhe completo na §14.
 
-### Bloco 9 (A3) — Identidade do mobile: ELYSIUM-M ⬜
+### Bloco 9 (A3) — Identidade do mobile: ELYSIUM-M ✅ (código) / ⬜ (APK e reinstalação)
 
 **Exige APK novo. Não vai por OTA.** `app.json` (`name`, `slug`, `scheme` `elysium`,
 `android.package`, `ios.bundleIdentifier`, textos de permissão) · `shareIntent.ts`
@@ -1582,8 +1582,32 @@ config gradle `neuroaxisRelease`) · `build-local.ps1` (saída `elysium-m.apk`).
 caminho de atualização por cima, §13). Renomeando o `.keystore`, a linha `STORE_FILE` de
 dentro do `.properties` acompanha.
 
-**EAS:** `slug` novo = projeto novo (`eas build:configure`, `projectId` e `updates.url` novos).
-O vínculo com `a9c62871-2d6d-4e05-b458-1e58655449b5` morre.
+**Escolhas fechadas:** `android.package` = `com.zak.elysium.m` · `scheme` = `elysium` ·
+`slug` = `elysium-m` · `expo.name` = `ELYSIUM-M`.
+
+**A chave de assinatura NÃO foi tocada.** Ela mora fora do repositório e não tem backup
+(pendência 2 da §15), então em vez de renomear arquivo de credencial sem rede de segurança, o
+`withReleaseSigning.js` passou a **aceitar os dois nomes de arquivo e os dois prefixos de
+chave** (`ELYSIUM_*` e `NEUROAXIS_*`). Renomear no disco virou opcional; o que continua
+proibido é gerar chave nova. Só o nome da config do gradle mudou
+(`neuroaxisRelease` → `elysiumRelease`), que é interno.
+
+> ⚠️ **EAS ainda apontando pro projeto antigo.** O `slug` mudou para `elysium-m`, mas
+> `extra.eas.projectId` e `updates.url` continuam em
+> `a9c62871-2d6d-4e05-b458-1e58655449b5` — de propósito, porque zerá-los sem rodar o
+> `eas init` arriscaria quebrar o build local, que é o caminho normal. **Antes do próximo
+> `npm run update`, rodar `npx eas-cli init`** para recriar o vínculo; o `eas update` pode
+> recusar por divergência de slug até lá. O build local **não** depende do EAS.
+
+**Ícones conferidos:** `assets/icon.png` e os `android-icon-*` são o **placeholder padrão do
+Expo** (a seta azul do template, sobre `#E6F4FE`), sem texto embutido — nada quebrou com o
+rename e nada precisou ser refeito. Fica o registro de que **o app nunca teve ícone próprio**.
+Se um dia for feito, o lugar natural é junto do bloco 12: uma marca dourada sobre azul-noite
+fecharia a identidade dos dois lados de uma vez.
+
+**Ainda falta neste bloco:** `npm run build:local`, desinstalar o Portal antigo, instalar o
+`dist-apk/elysium-m.apk`, reparear pelo QR e reativar o push. Adiado a pedido do Zak — o
+código está commitado e o typecheck passa.
 
 **Custo:** desinstalar o Portal → instalar o `elysium-m.apk` → reparear pelo QR → re-registrar
 o push. **As conversas voltam sozinhas** pela sincronização (o PC é a autoridade, §11).
