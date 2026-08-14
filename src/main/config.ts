@@ -79,7 +79,7 @@ const DEFAULTS: AppConfig = {
   chatHistoryTurns: 6,
   chatIdleResetMs: 300000,
   serverPort: 4200,
-  theme: "default",
+  theme: "ely",
   layout: { order: ["perf", "storage", "taskmgr"], hidden: [] },
 };
 

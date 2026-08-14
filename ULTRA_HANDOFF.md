@@ -205,7 +205,7 @@ e Spotify · Home, modo escuro, share intent e build do APK.
 | 9 (A3) — identidade do mobile (APK novo) | ✅ concluído — APK instalado e pareado |
 | 10 (A4) — repositórios e pastas | ✅ concluído |
 | 11 (B) — motor de temas por família + 3 variações do Vidro Líquido | ✅ concluído |
-| 12 (B) — os 3 temas ELYSIUM | ⬜ |
+| 12 (B) — os 3 temas ELYSIUM | ✅ concluído |
 | 13 (C1) — bancada de medição do roteador | ⬜ |
 | 14 (C2) — provider configurável + fallback + VRAM | ⬜ |
 
@@ -339,7 +339,7 @@ npm run dist    # build + electron-builder --win nsis  → release/ELYSIUM-Setup
 
 | arquivo | o que faz |
 |---|---|
-| `dashboard.html` (2818) | Janela principal, JS vanilla. Gaveta esquerda (perf/storage/taskmgr), gaveta direita (config/conversas/presets/mídia/personalização/pareamento), timeline central com chat duplo, 5 temas |
+| `dashboard.html` (3017) | Janela principal, JS vanilla. Gaveta esquerda (perf/storage/taskmgr), gaveta direita (config/conversas/presets/mídia/personalização/pareamento), timeline central com chat duplo, 6 temas em 2 famílias (ver §18) |
 | `config.html` (547) | Primeira execução e ajustes, seletor de modelos com os avisos |
 | `recorder.html` (95) | Invisível, só `MediaRecorder` |
 | `preload-*.ts` | Pontes IPC das três janelas |
@@ -1323,6 +1323,15 @@ Ordenadas por impacto.
     este.
 13. **Build obsoleta na fila do EAS** — vale cancelar.
 14. **Checklist de validação manual do `CLAUDE.md`** ainda não confirmado ponta a ponta.
+15. **⚠️ Config corrompido derruba a inicialização em vez de cair no padrão.** Descoberto sem
+    querer em 14/08/2026: um `elysium-config.json` gravado com **BOM** (é o que o
+    `Set-Content -Encoding utf8` do PowerShell 5.1 faz) fez `JSON.parse` estourar e **o app
+    não abriu** — sem janela, sem notificação, sem nada que dissesse o motivo. Contraria o
+    requisito do `CLAUDE.md` de que o app nunca trava por erro de arquivo. Saída barata:
+    ligar o `clearInvalidConfig` do `electron-store` ou envolver a construção do store num
+    try/catch que recomeça do padrão, avisando no log.
+    ⚠️ Ao editar esse arquivo por script, use `[System.IO.File]::WriteAllText` com
+    `UTF8Encoding($false)` — nunca `Set-Content -Encoding utf8`.
 
 ### Números medidos, não estimados
 
@@ -1713,7 +1722,7 @@ linha no objeto `THEMES`.
   entram no lugar; assim cada bloco fecha num estado testável em vez de deixar o seletor
   quebrado no meio.
 
-### Bloco 12 (B) — Os 3 temas ELYSIUM ⬜
+### Bloco 12 (B) — Os 3 temas ELYSIUM ✅
 
 Bloco `body.theme-ely` novo. **Nada do `lg` é reescrito.** Os seletores de *movimento*
 (molas nos botões, `lg-modal-in`, `lg-bubble-in`, o brilho que atravessa os botões, o
@@ -1721,11 +1730,47 @@ Bloco `body.theme-ely` novo. **Nada do `lg` é reescrito.** Os seletores de *mov
 existem: aditivo, e o `lg` fica intacto. As regras *de cor* do `lg` são claras por natureza e
 não servem.
 
-Paleta base (`ely`, "Campos Elísios"): `bg #0a0c14` · `surface #131726` · ouro `#d9b168` ·
-ouro vivo `#f2d49b` · éter `#9fd8cf` · texto marfim `#eee7d8`. Atmosfera: blobs dourados/éter
-gated por família, **feixes de luz** diagonais a ~6% (o elemento que o `lg` não tem), vidro
-sobre escuro com borda em ouro. Variações: `ely` (padrão), `ely-dusk` (âmbar/índigo),
-`ely-ether` (prata-ciano frio).
+**Os 6 temas finais, em 2 famílias:**
+
+| id | nome | família |
+|---|---|---|
+| `ely` | Campos Elísios — ouro sobre azul-noite | `ely` · **padrão** |
+| `ely-dusk` | Crepúsculo — âmbar e rosa sobre índigo | `ely` |
+| `ely-ether` | Éter — prata-ciano frio | `ely` |
+| `lg` | Vidro Líquido | `lg` |
+| `lg-tide` | Vidro — Maré | `lg` |
+| `lg-amber` | Vidro — Âmbar | `lg` |
+
+**Como ficou:**
+
+- **`.theme-rich`** é a classe comum às duas famílias e carrega **só o movimento** — molas
+  de `cubic-bezier`, entrada de modal e de bolha, o brilho que atravessa os botões, a camada
+  de blobs. É `transform`/`transition`/`@keyframes`, sem uma cor: por isso as duas famílias
+  compartilham em vez de duplicar 30 listas de seletores. As regras **de cor** seguem
+  separadas em `.theme-lg` e `.theme-ely`, porque aí cada uma quer coisa diferente.
+- **O bloco `.theme-ely` é curto (~40 regras) contra ~100 do `.theme-lg`**, e isso não é
+  descuido: o dashboard já nasceu escuro, então o `lg` gasta quase tudo convertendo escuro
+  em claro. O ELYSIUM herda a base e só mexe no que é identidade.
+- **Feixes de luz** (`#ely-shafts`): dois gradientes diagonais a 6% de opacidade, deriva de
+  44 s e 58 s — bem mais lenta que a dos blobs, para o fundo nunca competir com a leitura. É
+  o elemento que o `lg` não tem. Respeita `prefers-reduced-motion`.
+
+**🔴 Dois achados que não estavam previstos:**
+
+1. **A base do dashboard tinha 28 usos de `rgba(123,94,167,…)`** — o roxo do tema `default`
+   **fixo no CSS** — e 9 do ciano dele. Ou seja, `ocean`, `ember` e `forest` **nunca**
+   pintaram bolha de chat, botão de enviar ou microfone com a cor deles: ficavam roxos.
+   Ninguém tinha percebido em meses. Os 37 foram variabilizados; sem isso o ELYSIUM herdaria
+   o mesmo defeito.
+2. **`isLightTheme()` comparava com o id `"lg"` direto.** Com variações na família, "Maré" e
+   "Âmbar" desenhariam a grade e o texto dos gráficos como se o fundo fosse escuro. Passou a
+   perguntar pela **família**, que é quem de fato define o fundo.
+
+**Compatibilidade validada em execução:** gravado `theme: "ocean"` (aposentado) no disco e
+aberto o app. Foi traduzido para `ely-ether`, **regravado** para o disco parar de carregar um
+id morto, e o app seguiu vivo. Sem o mapa `TEMAS_APOSENTADOS`, `THEMES["ocean"]` devolveria
+`undefined`, `p.purple` estouraria e **o JS do dashboard inteiro morreria na abertura** —
+janela em branco, sem erro visível.
 
 > **As variáveis continuam se chamando `--purple` e `--cyan` mesmo valendo ouro e éter.**
 > Renomear atingiria centenas de usos em 2818 linhas sem ganho funcional. Não "consertar".

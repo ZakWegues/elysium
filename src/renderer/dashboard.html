@@ -24,7 +24,7 @@
   --green:     #3ecf8e;
   --yellow:    #f0c040;
   --border:    rgba(125,94,167,0.22);
-  --border2:   rgba(78,205,196,0.15);
+  --border2:   rgba(var(--cyan-rgb),0.15);
   --text:      #e8eaf0;
   --muted:     #5a5d7a;
   --mono:      "Consolas", "Cascadia Code", monospace;
@@ -56,6 +56,100 @@ body.theme-lg {
 .theme-lg .bubble.user      { border-bottom-right-radius: var(--radius-12); }
 .theme-lg .bubble.assistant { border-bottom-left-radius:  var(--radius-12); }
 
+/* ── ELYSIUM — campos elísios: luz dourada sobre azul-noite ────────────────
+   Este bloco é curto de propósito, e o do Vidro Líquido é longo pelo mesmo motivo: o
+   dashboard já nasceu escuro, então o `lg` gasta ~100 regras convertendo escuro em claro.
+   O ELYSIUM herda a base e só precisa mexer no que é identidade — vidro sobre a noite,
+   borda dourada, raios generosos e profundidade. Tudo que é movimento vem de `.theme-rich`.
+
+   As variáveis continuam se chamando `--purple` e `--cyan` mesmo valendo ouro e éter.
+   Renomear atingiria centenas de usos em quase 3000 linhas sem ganho funcional nenhum;
+   não é descuido, é escolha. */
+body.theme-ely {
+  --radius-3: 7px;  --radius-4: 9px;  --radius-5: 11px; --radius-6: 13px;
+  --radius-7: 15px; --radius-8: 16px; --radius-9: 18px; --radius-10: 20px;
+  --radius-12: 20px; --radius-14: 24px; --radius-20: 999px;
+  --border:  rgba(var(--purple-rgb),0.16);
+  --border2: rgba(var(--cyan-rgb),0.12);
+  --glass-blur: blur(20px) saturate(140%);
+  --shadow-card:  0 2px 10px rgba(0,0,0,0.35), 0 12px 32px rgba(0,0,0,0.28);
+  --shadow-float: 0 6px 20px rgba(0,0,0,0.45), 0 22px 56px rgba(0,0,0,0.38);
+  /* Mesmo motivo do `lg`: o <html> segura a cor de fundo e o <body> fica transparente,
+     senão tapa a camada de blobs e dos feixes, que vivem em z-index negativo. */
+  background: transparent;
+}
+
+/* Superfícies: no lugar do preenchimento opaco da base, vidro sobre a noite. */
+.theme-ely #topbar,
+.theme-ely #rtabs {
+  background: rgba(255,255,255,0.045);
+  backdrop-filter: var(--glass-blur);
+  border-bottom-color: var(--border);
+}
+.theme-ely #drawer-left,
+.theme-ely #drawer-right,
+.theme-ely #input-bar,
+.theme-ely .modal-box {
+  background: rgba(255,255,255,0.05);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--shadow-float);
+}
+.theme-ely .log-card,
+.theme-ely .preset-card,
+.theme-ely .disk-card,
+.theme-ely .theme-swatch,
+.theme-ely #media-card,
+.theme-ely #insights-card,
+.theme-ely #apikey-card,
+.theme-ely #shortcut-card,
+.theme-ely #pairing-card,
+.theme-ely .chart-wrap {
+  background: rgba(255,255,255,0.04);
+  border-color: var(--border);
+  box-shadow: var(--shadow-card);
+}
+.theme-ely .bubble.assistant {
+  background: rgba(255,255,255,0.05);
+  border-color: var(--border2);
+  backdrop-filter: var(--glass-blur);
+  border-bottom-left-radius: var(--radius-12);
+}
+.theme-ely .bubble.user {
+  border-bottom-right-radius: var(--radius-12);
+}
+.theme-ely #cmd-input,
+.theme-ely #proc-search,
+.theme-ely #apikey-input,
+.theme-ely #shortcut-input {
+  background: rgba(255,255,255,0.05);
+  border-color: var(--border);
+}
+.theme-ely #drawer-backdrop { background: rgba(6,8,14,0.55); }
+.theme-ely .logo-text {
+  /* O nome é o único ponto onde o dourado aparece cheio, sem alfa. */
+  color: var(--purple-bright);
+  letter-spacing: 0.14em;
+}
+
+/* Feixes de luz — o elemento que o Vidro Líquido não tem, e que dá o "campos elísios".
+   Ficam sobre os blobs e abaixo de todo o resto, com deriva bem mais lenta que a deles
+   para o fundo nunca competir com a leitura. */
+#ely-shafts { position: fixed; inset: -20%; z-index: -1; display: none; pointer-events: none; overflow: hidden; }
+.theme-ely #ely-shafts { display: block; }
+.ely-shaft {
+  position: absolute; top: -30%; height: 160%; width: 42%;
+  background: linear-gradient(180deg, transparent, var(--shaft, #d9b168), transparent);
+  opacity: 0.06; filter: blur(50px); transform: skewX(-14deg); will-change: transform;
+}
+.ely-shaft-1 { left: 6%;  animation: ely-shaft-1 44s ease-in-out infinite alternate; }
+.ely-shaft-2 { right: 2%; animation: ely-shaft-2 58s ease-in-out infinite alternate; }
+@keyframes ely-shaft-1 { from { transform: skewX(-14deg) translateX(0); }    to { transform: skewX(-14deg) translateX(70px); } }
+@keyframes ely-shaft-2 { from { transform: skewX(-14deg) translateX(0); }    to { transform: skewX(-14deg) translateX(-90px); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .ely-shaft { animation: none !important; }
+}
+
 html, body { height: 100vh; overflow: hidden; background: var(--bg); color: var(--text); font-family: "Segoe UI", system-ui, sans-serif; font-size: 13px; }
 
 /* ── TOPBAR ─────────────────────────────────────────────── */
@@ -74,17 +168,17 @@ html, body { height: 100vh; overflow: hidden; background: var(--bg); color: var(
   background: linear-gradient(135deg, var(--purple), var(--cyan-dark));
   display: flex; align-items: center; justify-content: center;
   font-size: 11px; font-weight: 800; color: #fff;
-  box-shadow: 0 0 8px rgba(123,94,167,0.6);
+  box-shadow: 0 0 8px rgba(var(--purple-rgb),0.6);
 }
 .logo-text { font-size: 12px; font-weight: 700; letter-spacing: 0.12em; color: var(--purple-bright); }
 #status-badge {
   margin-left: 8px; padding: 2px 9px; border-radius: var(--radius-20);
   font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
-  background: rgba(123,94,167,0.15); border: 1px solid rgba(123,94,167,0.3); color: var(--muted);
+  background: rgba(var(--purple-rgb),0.15); border: 1px solid rgba(var(--purple-rgb),0.3); color: var(--muted);
   transition: all 0.3s;
 }
-#status-badge.listening  { background: rgba(123,94,167,0.3); border-color: var(--purple); color: var(--purple-bright); }
-#status-badge.processing { background: rgba(78,205,196,0.2); border-color: var(--cyan); color: var(--cyan); }
+#status-badge.listening  { background: rgba(var(--purple-rgb),0.3); border-color: var(--purple); color: var(--purple-bright); }
+#status-badge.processing { background: rgba(var(--cyan-rgb),0.2); border-color: var(--cyan); color: var(--cyan); }
 #status-badge.speaking   { background: rgba(62,207,142,0.2); border-color: var(--green); color: var(--green); }
 #status-badge.error      { background: rgba(224,82,82,0.2);  border-color: var(--red);   color: var(--red); }
 .topbar-space { flex: 1; }
@@ -106,7 +200,7 @@ html, body { height: 100vh; overflow: hidden; background: var(--bg); color: var(
 }
 
 /* ── TOPBAR DRAWER TOGGLES ──────────────────────────────── */
-.top-btn.drawer-toggle.active { background: rgba(123,94,167,0.28); color: var(--purple-bright); }
+.top-btn.drawer-toggle.active { background: rgba(var(--purple-rgb),0.28); color: var(--purple-bright); }
 
 /* ── DRAWER BACKDROP ─────────────────────────────────────── */
 #drawer-backdrop {
@@ -223,7 +317,7 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
 }
 .chat-tab-btn:hover { border-color: var(--border2); color: var(--text); }
 .chat-tab-btn.active {
-  background: rgba(123,94,167,0.18); border-color: rgba(123,94,167,0.45); color: #c4b5fd;
+  background: rgba(var(--purple-rgb),0.18); border-color: rgba(var(--purple-rgb),0.45); color: #c4b5fd;
 }
 
 /* Timeline */
@@ -243,7 +337,7 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
 @keyframes pop-in { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
 .bubble.user {
   align-self: flex-end;
-  background: rgba(123,94,167,0.18); border: 1px solid rgba(123,94,167,0.35);
+  background: rgba(var(--purple-rgb),0.18); border: 1px solid rgba(var(--purple-rgb),0.35);
   color: #c4b5fd; border-bottom-right-radius: var(--radius-3);
 }
 .bubble.assistant {
@@ -253,7 +347,7 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
 }
 .bubble.system {
   align-self: center; font-size: 11px;
-  background: rgba(78,205,196,0.08); border: 1px solid rgba(78,205,196,0.2);
+  background: rgba(var(--cyan-rgb),0.08); border: 1px solid rgba(var(--cyan-rgb),0.2);
   color: var(--cyan-dark); border-radius: var(--radius-6); padding: 5px 12px;
 }
 .bubble.error {
@@ -301,7 +395,7 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
 #toast-el.error { border-color: rgba(224,82,82,0.4); color: #f08080; }
 .log-card {
   align-self: flex-start; display: flex; align-items: center; gap: 8px;
-  background: rgba(26,26,46,0.7); border: 1px solid rgba(123,94,167,0.15);
+  background: rgba(26,26,46,0.7); border: 1px solid rgba(var(--purple-rgb),0.15);
   border-left: 2px solid var(--purple); border-radius: var(--radius-6); padding: 5px 10px;
   font-size: 11px; color: var(--muted); font-family: var(--mono);
 }
@@ -373,18 +467,18 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
 #cmd-input::placeholder { color: var(--muted); }
 .send-btn {
   width: 34px; height: 34px; border-radius: var(--radius-8); border: none; cursor: pointer;
-  background: rgba(123,94,167,0.25); color: var(--purple-bright);
+  background: rgba(var(--purple-rgb),0.25); color: var(--purple-bright);
   display: flex; align-items: center; justify-content: center; font-size: 15px;
   transition: background 0.2s;
 }
-.send-btn:hover { background: rgba(123,94,167,0.45); }
+.send-btn:hover { background: rgba(var(--purple-rgb),0.45); }
 .mic-btn {
   width: 34px; height: 34px; border-radius: var(--radius-8); border: none; cursor: pointer;
-  background: rgba(123,94,167,0.15); color: var(--muted);
+  background: rgba(var(--purple-rgb),0.15); color: var(--muted);
   display: flex; align-items: center; justify-content: center; font-size: 15px;
   transition: background 0.2s, color 0.2s;
 }
-.mic-btn:hover, .mic-btn.active { background: rgba(123,94,167,0.35); color: var(--purple-bright); }
+.mic-btn:hover, .mic-btn.active { background: rgba(var(--purple-rgb),0.35); color: var(--purple-bright); }
 .mic-btn.hidden { display: none; }
 
 /* ── RIGHT DRAWER (config/presets/mídia/personalização) ─── */
@@ -412,7 +506,7 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
   transition: color 0.2s, border-color 0.2s, background 0.2s;
 }
 .rtab-btn:hover { background: rgba(255,255,255,0.03); color: var(--text); }
-.rtab-btn.active { color: var(--purple-bright); border-bottom-color: var(--purple); background: rgba(123,94,167,0.08); }
+.rtab-btn.active { color: var(--purple-bright); border-bottom-color: var(--purple); background: rgba(var(--purple-rgb),0.08); }
 
 #rtab-panels {
   flex: 1; overflow-y: auto; overflow-x: hidden;
@@ -426,11 +520,11 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
 
 #open-config-btn {
   width: 100%; padding: 9px; border-radius: var(--radius-8); border: none; cursor: pointer;
-  background: rgba(123,94,167,0.22); color: var(--purple-bright);
+  background: rgba(var(--purple-rgb),0.22); color: var(--purple-bright);
   font-size: 12px; font-weight: 700; margin-bottom: 10px;
   transition: background 0.2s;
 }
-#open-config-btn:hover { background: rgba(123,94,167,0.4); }
+#open-config-btn:hover { background: rgba(var(--purple-rgb),0.4); }
 
 /* Media */
 #media-card {
@@ -442,11 +536,11 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
 #media-controls { display: flex; justify-content: center; gap: 10px; }
 .media-btn {
   width: 36px; height: 36px; border-radius: var(--radius-9); border: none; cursor: pointer;
-  background: rgba(78,205,196,0.12); color: var(--cyan);
+  background: rgba(var(--cyan-rgb),0.12); color: var(--cyan);
   display: flex; align-items: center; justify-content: center; font-size: 16px;
   transition: background 0.2s, box-shadow 0.2s;
 }
-.media-btn:hover { background: rgba(78,205,196,0.28); box-shadow: 0 0 10px rgba(78,205,196,0.3); }
+.media-btn:hover { background: rgba(var(--cyan-rgb),0.28); box-shadow: 0 0 10px rgba(var(--cyan-rgb),0.3); }
 
 /* ── Acesso remoto ─────────────────────────────────────────────────────────── */
 #remote-card {
@@ -477,7 +571,7 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
 }
 .conv-item:hover  { border-color: var(--purple); }
 .conv-item:active { transform: scale(0.985); }
-.conv-item.conv-active { border-color: var(--purple); background: rgba(123,94,167,0.10); }
+.conv-item.conv-active { border-color: var(--purple); background: rgba(var(--purple-rgb),0.10); }
 .conv-body  { flex: 1; min-width: 0; }
 .conv-title { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .conv-meta  { font-size: 10px; color: var(--dim); margin-top: 2px; }
@@ -580,7 +674,7 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
   border-radius: var(--radius-8); padding: 8px 10px; cursor: pointer;
   transition: border-color 0.2s, background 0.2s;
 }
-.preset-card:hover { border-color: var(--purple); background: rgba(123,94,167,0.1); }
+.preset-card:hover { border-color: var(--purple); background: rgba(var(--purple-rgb),0.1); }
 .preset-icon { font-size: 14px; }
 .preset-name { font-size: 11px; font-weight: 600; }
 
@@ -588,10 +682,10 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
 #quick-wrap { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
 .quick-pill {
   padding: 4px 8px; border-radius: var(--radius-20); font-size: 10px; cursor: pointer;
-  background: rgba(123,94,167,0.1); border: 1px solid rgba(123,94,167,0.25); color: var(--purple-bright);
+  background: rgba(var(--purple-rgb),0.1); border: 1px solid rgba(var(--purple-rgb),0.25); color: var(--purple-bright);
   transition: background 0.2s; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis;
 }
-.quick-pill:hover { background: rgba(123,94,167,0.25); }
+.quick-pill:hover { background: rgba(var(--purple-rgb),0.25); }
 
 /* Config shortcut */
 #shortcut-card {
@@ -624,19 +718,19 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
 #apikey-input::placeholder { color: var(--muted); }
 .save-btn {
   width: 100%; margin-top: 5px; padding: 5px; border-radius: var(--radius-6); border: none; cursor: pointer;
-  background: rgba(123,94,167,0.25); color: var(--purple-bright); font-size: 11px; font-weight: 600;
+  background: rgba(var(--purple-rgb),0.25); color: var(--purple-bright); font-size: 11px; font-weight: 600;
   transition: background 0.2s;
 }
-.save-btn:hover { background: rgba(123,94,167,0.45); }
+.save-btn:hover { background: rgba(var(--purple-rgb),0.45); }
 
 /* ── PROCESS EXPAND BUTTON ──────────────────────────────── */
 .proc-expand-btn {
-  float: right; background: none; border: 1px solid rgba(123,94,167,0.3);
+  float: right; background: none; border: 1px solid rgba(var(--purple-rgb),0.3);
   border-radius: var(--radius-4); color: var(--purple-bright); font-size: 9px;
   padding: 1px 6px; cursor: pointer; font-weight: 700; letter-spacing: 0.06em;
   transition: background 0.2s;
 }
-.proc-expand-btn:hover { background: rgba(123,94,167,0.2); }
+.proc-expand-btn:hover { background: rgba(var(--purple-rgb),0.2); }
 
 /* ── STABILITY TIMELINE ─────────────────────────────────── */
 #stability-wrap {
@@ -654,13 +748,13 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
 
 /* ── INSIGHTS PANEL ─────────────────────────────────────── */
 #insights-card {
-  background: var(--surface); border: 1px solid rgba(78,205,196,0.2);
+  background: var(--surface); border: 1px solid rgba(var(--cyan-rgb),0.2);
   border-radius: var(--radius-9); padding: 10px; margin-top: 6px;
 }
 #insights-card .sc-label { font-size: 9px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
 .insight-item {
   display: flex; align-items: flex-start; gap: 6px;
-  background: rgba(78,205,196,0.05); border: 1px solid rgba(78,205,196,0.12);
+  background: rgba(var(--cyan-rgb),0.05); border: 1px solid rgba(var(--cyan-rgb),0.12);
   border-radius: var(--radius-6); padding: 6px 8px; margin-bottom: 4px;
   font-size: 10px; color: var(--text); line-height: 1.45;
 }
@@ -700,7 +794,7 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
   background: rgba(255,255,255,0.03); color: var(--muted); font-size: 10px;
   cursor: pointer; font-weight: 600; transition: all 0.2s; white-space: nowrap;
 }
-.sort-btn.active   { background: rgba(123,94,167,0.25); border-color: var(--purple); color: var(--purple-bright); }
+.sort-btn.active   { background: rgba(var(--purple-rgb),0.25); border-color: var(--purple); color: var(--purple-bright); }
 .sort-btn:hover:not(.active) { background: rgba(255,255,255,0.06); color: var(--text); }
 #proc-modal-close {
   background: rgba(224,82,82,0.12); border: 1px solid rgba(224,82,82,0.25);
@@ -720,9 +814,9 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
   text-align: left; padding: 6px 12px; border-bottom: 1px solid var(--border);
   position: sticky; top: 0; background: var(--surface2); z-index: 1;
 }
-#proc-modal-table td { font-family: var(--mono); font-size: 11px; padding: 6px 12px; border-bottom: 1px solid rgba(123,94,167,0.07); vertical-align: middle; }
+#proc-modal-table td { font-family: var(--mono); font-size: 11px; padding: 6px 12px; border-bottom: 1px solid rgba(var(--purple-rgb),0.07); vertical-align: middle; }
 #proc-modal-table tr:last-child td { border-bottom: none; }
-#proc-modal-table tr:hover td { background: rgba(123,94,167,0.05); }
+#proc-modal-table tr:hover td { background: rgba(var(--purple-rgb),0.05); }
 .sys-badge {
   display: inline-block; font-size: 8px; padding: 1px 5px; border-radius: var(--radius-3);
   background: rgba(90,93,122,0.2); color: var(--muted); font-family: var(--mono);
@@ -730,7 +824,7 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
 }
 .user-badge {
   display: inline-block; font-size: 8px; padding: 1px 5px; border-radius: var(--radius-3);
-  background: rgba(78,205,196,0.1); color: var(--cyan-dark); font-family: var(--mono);
+  background: rgba(var(--cyan-rgb),0.1); color: var(--cyan-dark); font-family: var(--mono);
   letter-spacing: 0.05em; font-weight: 600; vertical-align: middle; margin-left: 4px;
 }
 
@@ -745,7 +839,7 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
   transition: border-color 0.2s, background 0.2s;
 }
 .theme-swatch:hover { border-color: var(--purple); }
-.theme-swatch.active { border-color: var(--purple-bright); background: rgba(123,94,167,0.14); }
+.theme-swatch.active { border-color: var(--purple-bright); background: rgba(var(--purple-rgb),0.14); }
 .theme-dots { display: flex; gap: 3px; }
 .theme-dot { width: 12px; height: 12px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.15); }
 .theme-swatch-name { font-size: 11px; font-weight: 600; }
@@ -764,7 +858,7 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
   display: flex; align-items: center; justify-content: center;
   transition: background 0.2s, color 0.2s;
 }
-.widget-order-btn:hover:not(:disabled) { background: rgba(123,94,167,0.25); color: var(--purple-bright); }
+.widget-order-btn:hover:not(:disabled) { background: rgba(var(--purple-rgb),0.25); color: var(--purple-bright); }
 .widget-order-btn:disabled { opacity: 0.3; cursor: default; }
 .widget-order-toggle { width: 15px; height: 15px; cursor: pointer; accent-color: var(--purple); }
 
@@ -789,7 +883,7 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
 
 /* ── LIQUID GLASS: blob background layer ────────────────── */
 #lg-blob-bg { position: fixed; inset: 0; z-index: -1; overflow: hidden; display: none; pointer-events: none; }
-.theme-lg #lg-blob-bg { display: block; }
+.theme-rich #lg-blob-bg { display: block; }
 .lg-blob { position: absolute; border-radius: 50%; filter: blur(36px); will-change: transform; }
 /* As cores vêm de variáveis para os blobs seguirem a variação de cor escolhida — em
    literal, "Vidro — Maré" e "Vidro — Âmbar" ficariam com o fundo roxo do `lg`. Os
@@ -813,66 +907,70 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
 @keyframes lg-drift-2 { from { transform: translate(0,0) scale(1); } to { transform: translate(-50px,-70px) scale(1.05); } }
 @keyframes lg-drift-3 { from { transform: translate(0,0) scale(1); } to { transform: translate(-40px,50px) scale(0.94); } }
 
-/* ── LIQUID GLASS: button/interaction spring animations ──── */
-.theme-lg .top-btn, .theme-lg .send-btn, .theme-lg .mic-btn, .theme-lg .chat-tab-btn,
-.theme-lg .rtab-btn, .theme-lg .media-btn, .theme-lg .widget-order-btn,
-.theme-lg #stop-btn, .theme-lg #proc-modal-close, .theme-lg .sort-btn,
-.theme-lg #open-config-btn, .theme-lg .save-btn, .theme-lg .attachment-btn,
-.theme-lg .kill-btn, .theme-lg .proc-expand-btn {
+/* ── MOVIMENTO — vale para toda família "caprichada" (.theme-rich) ────────
+   Estas regras são só transform, transition e @keyframes: não têm cor nenhuma. Por isso
+   servem ao Vidro Líquido e ao ELYSIUM sem uma linha de diferença, e ficam sob uma classe
+   comum em vez de duplicadas por família. As regras DE COR continuam separadas, com
+   `.theme-lg` e `.theme-ely`, porque aí sim cada família quer coisa diferente. */
+.theme-rich .top-btn, .theme-rich .send-btn, .theme-rich .mic-btn, .theme-rich .chat-tab-btn,
+.theme-rich .rtab-btn, .theme-rich .media-btn, .theme-rich .widget-order-btn,
+.theme-rich #stop-btn, .theme-rich #proc-modal-close, .theme-rich .sort-btn,
+.theme-rich #open-config-btn, .theme-rich .save-btn, .theme-rich .attachment-btn,
+.theme-rich .kill-btn, .theme-rich .proc-expand-btn {
   transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1), background 0.2s ease,
               box-shadow 0.25s ease, border-color 0.2s ease;
 }
-.theme-lg .top-btn:hover, .theme-lg .send-btn:hover, .theme-lg .mic-btn:hover,
-.theme-lg .chat-tab-btn:hover, .theme-lg .rtab-btn:hover, .theme-lg .media-btn:hover,
-.theme-lg .widget-order-btn:hover:not(:disabled), .theme-lg #stop-btn:hover,
-.theme-lg #proc-modal-close:hover, .theme-lg .sort-btn:hover, .theme-lg #open-config-btn:hover,
-.theme-lg .save-btn:hover, .theme-lg .attachment-btn:hover, .theme-lg .kill-btn:hover,
-.theme-lg .proc-expand-btn:hover {
+.theme-rich .top-btn:hover, .theme-rich .send-btn:hover, .theme-rich .mic-btn:hover,
+.theme-rich .chat-tab-btn:hover, .theme-rich .rtab-btn:hover, .theme-rich .media-btn:hover,
+.theme-rich .widget-order-btn:hover:not(:disabled), .theme-rich #stop-btn:hover,
+.theme-rich #proc-modal-close:hover, .theme-rich .sort-btn:hover, .theme-rich #open-config-btn:hover,
+.theme-rich .save-btn:hover, .theme-rich .attachment-btn:hover, .theme-rich .kill-btn:hover,
+.theme-rich .proc-expand-btn:hover {
   transform: translateY(-1px) scale(1.05);
 }
-.theme-lg .top-btn:active, .theme-lg .send-btn:active, .theme-lg .mic-btn:active,
-.theme-lg .chat-tab-btn:active, .theme-lg .rtab-btn:active, .theme-lg .media-btn:active,
-.theme-lg .widget-order-btn:active, .theme-lg #stop-btn:active, .theme-lg #proc-modal-close:active,
-.theme-lg .sort-btn:active, .theme-lg #open-config-btn:active, .theme-lg .save-btn:active,
-.theme-lg .attachment-btn:active, .theme-lg .kill-btn:active, .theme-lg .proc-expand-btn:active {
+.theme-rich .top-btn:active, .theme-rich .send-btn:active, .theme-rich .mic-btn:active,
+.theme-rich .chat-tab-btn:active, .theme-rich .rtab-btn:active, .theme-rich .media-btn:active,
+.theme-rich .widget-order-btn:active, .theme-rich #stop-btn:active, .theme-rich #proc-modal-close:active,
+.theme-rich .sort-btn:active, .theme-rich #open-config-btn:active, .theme-rich .save-btn:active,
+.theme-rich .attachment-btn:active, .theme-rich .kill-btn:active, .theme-rich .proc-expand-btn:active {
   transform: scale(0.92);
   transition-duration: 0.1s;
 }
-.theme-lg .preset-card, .theme-lg .theme-swatch {
+.theme-rich .preset-card, .theme-rich .theme-swatch {
   transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1), background 0.2s, border-color 0.2s;
 }
-.theme-lg .preset-card:hover, .theme-lg .theme-swatch:hover { transform: translateY(-2px); }
-.theme-lg .preset-card:active, .theme-lg .theme-swatch:active { transform: scale(0.98); transition-duration: 0.1s; }
-.theme-lg .quick-pill {
+.theme-rich .preset-card:hover, .theme-rich .theme-swatch:hover { transform: translateY(-2px); }
+.theme-rich .preset-card:active, .theme-rich .theme-swatch:active { transform: scale(0.98); transition-duration: 0.1s; }
+.theme-rich .quick-pill {
   transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1), background 0.2s;
 }
-.theme-lg .quick-pill:hover  { transform: translateY(-1px); }
-.theme-lg .quick-pill:active { transform: scale(0.94); transition-duration: 0.1s; }
+.theme-rich .quick-pill:hover  { transform: translateY(-1px); }
+.theme-rich .quick-pill:active { transform: scale(0.94); transition-duration: 0.1s; }
 
-.theme-lg #drawer-left, .theme-lg #drawer-right { transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1); }
+.theme-rich #drawer-left, .theme-rich #drawer-right { transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1); }
 
-.theme-lg .modal-box { animation: lg-modal-in 0.4s cubic-bezier(0.34,1.56,0.64,1); }
+.theme-rich .modal-box { animation: lg-modal-in 0.4s cubic-bezier(0.34,1.56,0.64,1); }
 @keyframes lg-modal-in { from { opacity: 0; transform: scale(0.92) translateY(12px); } to { opacity: 1; transform: none; } }
 
-.theme-lg .bubble { animation: lg-bubble-in 0.3s cubic-bezier(0.34,1.56,0.64,1); }
+.theme-rich .bubble { animation: lg-bubble-in 0.3s cubic-bezier(0.34,1.56,0.64,1); }
 @keyframes lg-bubble-in { from { opacity: 0; transform: scale(0.9) translateY(8px); } to { opacity: 1; transform: none; } }
 
-.theme-lg .send-btn, .theme-lg .save-btn, .theme-lg #open-config-btn { position: relative; overflow: hidden; }
-.theme-lg .send-btn::after, .theme-lg .save-btn::after, .theme-lg #open-config-btn::after {
+.theme-rich .send-btn, .theme-rich .save-btn, .theme-rich #open-config-btn { position: relative; overflow: hidden; }
+.theme-rich .send-btn::after, .theme-rich .save-btn::after, .theme-rich #open-config-btn::after {
   content: ""; position: absolute; top: 0; left: -60%; width: 40%; height: 100%;
   background: linear-gradient(120deg, transparent, rgba(255,255,255,0.35), transparent);
   transform: skewX(-20deg); transition: left 0.55s ease; pointer-events: none;
 }
-.theme-lg .send-btn:hover::after, .theme-lg .save-btn:hover::after, .theme-lg #open-config-btn:hover::after { left: 130%; }
+.theme-rich .send-btn:hover::after, .theme-rich .save-btn:hover::after, .theme-rich #open-config-btn:hover::after { left: 130%; }
 
-.theme-lg #cmd-input:focus, .theme-lg #proc-search:focus, .theme-lg #apikey-input:focus, .theme-lg #shortcut-input:focus {
+.theme-rich #cmd-input:focus, .theme-rich #proc-search:focus, .theme-rich #apikey-input:focus, .theme-rich #shortcut-input:focus {
   border-color: rgba(var(--purple-rgb),0.5);
   box-shadow: 0 0 0 4px rgba(var(--purple-rgb),0.14);
   transition: box-shadow 0.25s ease, border-color 0.2s ease;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .theme-lg * { animation: none !important; transition: none !important; }
+  .theme-rich * { animation: none !important; transition: none !important; }
 }
 
 /* ── LIQUID GLASS: chrome (barras/gavetas/modal) ─────────── */
@@ -1024,6 +1122,11 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
   <div class="lg-blob lg-blob-1"></div>
   <div class="lg-blob lg-blob-2"></div>
   <div class="lg-blob lg-blob-3"></div>
+</div>
+
+<div id="ely-shafts">
+  <div class="ely-shaft ely-shaft-1"></div>
+  <div class="ely-shaft ely-shaft-2"></div>
 </div>
 
 <!-- TOPBAR -->
@@ -1600,27 +1703,48 @@ window.nx.onMailboxMessage((msg) => {
 /**
  * Cada tema declara a que FAMÍLIA pertence, e a família é que decide qual bloco de CSS
  * entra em cena. O `lg` nunca foi só uma paleta: são mais de 120 seletores `.theme-lg`
- * (raios, sombras, blur, blobs, molas de animação). Sem a família, dar a esse conjunto
- * uma segunda variação de cor exigiria duplicar tudo.
+ * (raios, sombras, blur, blobs). Sem a família, dar a esse conjunto uma segunda variação
+ * de cor exigiria duplicar tudo.
  *
- *   "classic" → nenhuma classe, o visual original do dashboard
- *   "lg"      → vidro claro
+ *   "lg"  → vidro claro
+ *   "ely" → ELYSIUM, vidro sobre azul-noite com luz dourada
+ *
+ * As duas ganham também a classe `theme-rich`, que carrega só o movimento — idêntico entre
+ * elas porque é transform e transition, sem cor.
+ *
+ * `shaft` é a cor dos feixes de luz e só a família "ely" usa. `blobs` é a camada de fundo
+ * das duas.
  */
 const THEMES = {
-  default: { name: "Roxo/Ciano", family: "classic", purple: "#7b5ea7", purpleBright: "#9d7fd4", cyan: "#4ecdc4", cyanDark: "#38a89d", bg: "#0d0d1a", surface: "#1a1a2e", surface2: "#12122a" },
-  ocean:   { name: "Oceano",     family: "classic", purple: "#3b6ea5", purpleBright: "#4f8fd4", cyan: "#2ec4b6", cyanDark: "#1f9c90", bg: "#0a1420", surface: "#101d2e", surface2: "#0c1622" },
-  ember:   { name: "Brasa",      family: "classic", purple: "#a5473b", purpleBright: "#d4634f", cyan: "#e0a83c", cyanDark: "#c18a2c", bg: "#1a0d0d", surface: "#2a1414", surface2: "#200f0f" },
-  forest:  { name: "Floresta",   family: "classic", purple: "#4a7a4e", purpleBright: "#6bab6f", cyan: "#8fbf3f", cyanDark: "#6f9a30", bg: "#0c150c", surface: "#152015", surface2: "#0f180f" },
+  ely:         { name: "Campos Elísios", family: "ely", purple: "#d9b168", purpleBright: "#f2d49b", cyan: "#9fd8cf", cyanDark: "#6fb3a9", bg: "#0a0c14", surface: "#131726", surface2: "#0e1220", blobs: ["#8a6a2e", "#2f5d57", "#4a3f6b"], shaft: "#d9b168" },
+  "ely-dusk":  { name: "Crepúsculo",     family: "ely", purple: "#f0a850", purpleBright: "#ffc47a", cyan: "#e07a9b", cyanDark: "#b85e7c", bg: "#0b0818", surface: "#171232", surface2: "#110d26", blobs: ["#7a4520", "#6b2f47", "#3b2a6b"], shaft: "#f0a850" },
+  "ely-ether": { name: "Éter",           family: "ely", purple: "#a8c4d8", purpleBright: "#d3e4f0", cyan: "#7fd4c8", cyanDark: "#4fa89c", bg: "#080b12", surface: "#111624", surface2: "#0c101c", blobs: ["#33506b", "#2b5f59", "#3a4560"], shaft: "#a8c4d8" },
 
-  lg:         { name: "Vidro Líquido", family: "lg", purple: "#6d4aff", purpleBright: "#7c5cff", cyan: "#22b8cf", cyanDark: "#0e9bb3", bg: "#f2f1f7", surface: "rgba(255,255,255,0.78)", surface2: "rgba(255,255,255,0.6)", blobs: ["#cbb9ff", "#b8ecf3", "#ded7ff"] },
-  "lg-tide":  { name: "Vidro — Maré",  family: "lg", purple: "#1e7fd4", purpleBright: "#3d97e6", cyan: "#17b8a6", cyanDark: "#0e9384", bg: "#eef4f9", surface: "rgba(255,255,255,0.78)", surface2: "rgba(255,255,255,0.6)", blobs: ["#b6d8f7", "#b3ecdf", "#cfe6f5"] },
-  "lg-amber": { name: "Vidro — Âmbar", family: "lg", purple: "#c2602c", purpleBright: "#dd7a41", cyan: "#c9971f", cyanDark: "#a67c12", bg: "#f8f3ec", surface: "rgba(255,255,255,0.78)", surface2: "rgba(255,255,255,0.6)", blobs: ["#f7d4b3", "#f2e2b0", "#f6e3d2"] },
+  lg:          { name: "Vidro Líquido", family: "lg", purple: "#6d4aff", purpleBright: "#7c5cff", cyan: "#22b8cf", cyanDark: "#0e9bb3", bg: "#f2f1f7", surface: "rgba(255,255,255,0.78)", surface2: "rgba(255,255,255,0.6)", blobs: ["#cbb9ff", "#b8ecf3", "#ded7ff"] },
+  "lg-tide":   { name: "Vidro — Maré",  family: "lg", purple: "#1e7fd4", purpleBright: "#3d97e6", cyan: "#17b8a6", cyanDark: "#0e9384", bg: "#eef4f9", surface: "rgba(255,255,255,0.78)", surface2: "rgba(255,255,255,0.6)", blobs: ["#b6d8f7", "#b3ecdf", "#cfe6f5"] },
+  "lg-amber":  { name: "Vidro — Âmbar", family: "lg", purple: "#c2602c", purpleBright: "#dd7a41", cyan: "#c9971f", cyanDark: "#a67c12", bg: "#f8f3ec", surface: "rgba(255,255,255,0.78)", surface2: "rgba(255,255,255,0.6)", blobs: ["#f7d4b3", "#f2e2b0", "#f6e3d2"] },
 };
 
 /** Todas as famílias existentes, para limpar a classe anterior sem adivinhação. */
-const THEME_FAMILIES = ["classic", "lg"];
+const THEME_FAMILIES = ["lg", "ely"];
 
-const FALLBACK_THEME = "default";
+const FALLBACK_THEME = "ely";
+
+/**
+ * 🔴 Os quatro temas antigos saíram, mas a escolha do usuário ficou gravada em disco.
+ *
+ * Sem esta tabela, um `theme: "default"` guardado faria `THEMES[id]` devolver undefined,
+ * `p.purple` estourar, e **o JS do dashboard inteiro morrer na abertura** — janela em
+ * branco, sem erro visível para o usuário. É o mesmo tipo de falha silenciosa do modelo
+ * aposentado da Groq (ver §7 do handoff): escolha antiga que continua válida no disco
+ * depois de deixar de existir no código.
+ */
+const TEMAS_APOSENTADOS = {
+  default: "ely",
+  ocean:   "ely-ether",
+  ember:   "ely-dusk",
+  forest:  "ely",
+};
 
 let currentTheme = FALLBACK_THEME;
 
@@ -1644,6 +1768,14 @@ function getThemeColor(varName) {
 }
 
 function applyTheme(id) {
+  // Tema aposentado é traduzido e REGRAVADO, para o disco parar de carregar um id morto.
+  if (TEMAS_APOSENTADOS[id]) {
+    const novo = TEMAS_APOSENTADOS[id];
+    console.log(`[tema] "${id}" foi aposentado; usando "${novo}".`);
+    window.nx?.setConfig({ theme: novo }).catch(() => {});
+    id = novo;
+  }
+
   const t = THEMES[id] ? id : FALLBACK_THEME;
   const p = THEMES[t];
   currentTheme = t;
@@ -1662,16 +1794,21 @@ function applyTheme(id) {
   if (cyanRgb)   root.setProperty("--cyan-rgb", cyanRgb);
 
   // Tema sem blobs próprios limpa os do anterior, senão a camada de fundo ficaria com a
-  // cor de um tema que já não está mais aplicado.
+  // cor de um tema que já não está mais aplicado. Mesma regra para os feixes.
   for (let i = 0; i < 3; i++) {
     const cor = p.blobs?.[i];
     if (cor) root.setProperty(`--blob-${i + 1}`, cor);
     else root.removeProperty(`--blob-${i + 1}`);
   }
+  if (p.shaft) root.setProperty("--shaft", p.shaft);
+  else root.removeProperty("--shaft");
 
   for (const fam of THEME_FAMILIES) {
-    document.body.classList.toggle(`theme-${fam}`, fam === p.family && fam !== "classic");
+    document.body.classList.toggle(`theme-${fam}`, fam === p.family);
   }
+  // Classe comum às duas famílias. Carrega só o que é movimento — molas, entradas de modal
+  // e bolha, brilho nos botões, a camada de blobs — que é idêntico entre elas.
+  document.body.classList.add("theme-rich");
 
   renderThemeSwatches();
   redrawCanvases();
@@ -1770,7 +1907,10 @@ function renderWidgetOrderList() {
 // CANVAS SPARKLINES
 // ─────────────────────────────────────────────────
 // Temas claros (Vidro Líquido) precisam de grid/rótulos escuros nos canvas.
-function isLightTheme() { return currentTheme === "lg"; }
+// Claro = família do Vidro Líquido. Antes comparava com o id "lg" direto, o que deixaria
+// as variações de cor (Maré, Âmbar) desenhando grade e texto de gráfico como se o fundo
+// fosse escuro. A família é o critério certo: é ela que define o fundo.
+function isLightTheme() { return THEMES[currentTheme]?.family === "lg"; }
 
 function drawChart(canvas, history, color) {
   const ctx  = canvas.getContext("2d");
@@ -2679,7 +2819,7 @@ async function loadConfig() {
     applyTheme(cfg.theme);
     applyLayout(cfg.layout);
   } catch {
-    applyTheme("default");
+    applyTheme(FALLBACK_THEME);
     applyLayout(null);
   }
 }
