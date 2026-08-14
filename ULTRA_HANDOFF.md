@@ -55,7 +55,7 @@ verdade para *por quê*.
 | caminho | papel |
 |---|---|
 | `ELYSIUM/ULTRA_HANDOFF.md` | O que uma sessão aberta na pasta-mãe lê primeiro. |
-| `neuroaxis/ULTRA_HANDOFF.md` | Cópia idêntica, **versionada no git**. É a que sobrevive a perder a máquina. |
+| `elysium/ULTRA_HANDOFF.md` | Cópia idêntica, **versionada no git**. É a que sobrevive a perder a máquina. |
 
 A raiz do `ELYSIUM` não é um repositório git. Um documento que só existisse lá não iria pro
 GitHub e sumiria junto com o PC — o que seria contraditório, já que ele existe justamente
@@ -68,16 +68,16 @@ para você não perder tempo lendo — nem confiar em — um deles.
 
 | arquivo | vale ler? |
 |---|---|
-| `neuroaxis/ULTRA_HANDOFF.md` | ✅ **Este.** A fonte de verdade |
-| `neuroaxis/HANDOFF.md` | ↪️ Ponteiro para cá |
-| `neuroaxis/CONTRATO_RPC.md` | ↪️ Ponteiro para cá (conteúdo absorvido na §9 e §11) |
-| `neuroaxis/README.md` | ✅ Sim, mas só para instalar e para o troubleshooting do usuário final |
-| `neuroaxis/CLAUDE.md` | ✅ Sim, como **documento histórico**: é a especificação original ("Jarvis PC"), com as decisões fechadas no início. Algumas seções "fora do escopo" já foram implementadas desde então |
-| `neuroaxis-portal/AGENTS.md` | ✅ Sim, 3 linhas: leia a doc versionada do Expo v57 antes de escrever código |
-| `neuroaxis-portal/CLAUDE.md` | ↪️ Ponteiro para cá. Era o plano escrito **antes de o app existir** |
-| `neuroaxis-portal/README.md` | ✅ Sim, para o passo a passo de build em outra máquina |
+| `elysium/ULTRA_HANDOFF.md` | ✅ **Este.** A fonte de verdade |
+| `elysium/HANDOFF.md` | ↪️ Ponteiro para cá |
+| `elysium/CONTRATO_RPC.md` | ↪️ Ponteiro para cá (conteúdo absorvido na §9 e §11) |
+| `elysium/README.md` | ✅ Sim, mas só para instalar e para o troubleshooting do usuário final |
+| `elysium/CLAUDE.md` | ✅ Sim, como **documento histórico**: é a especificação original ("Jarvis PC"), com as decisões fechadas no início. Algumas seções "fora do escopo" já foram implementadas desde então |
+| `elysium-m/AGENTS.md` | ✅ Sim, 3 linhas: leia a doc versionada do Expo v57 antes de escrever código |
+| `elysium-m/CLAUDE.md` | ↪️ Ponteiro para cá. Era o plano escrito **antes de o app existir** |
+| `elysium-m/README.md` | ✅ Sim, para o passo a passo de build em outra máquina |
 | ~~`CONTEXTO_NEUROAXIS.md`~~ | 🗑️ Apagado dos dois repos. Obsoleto |
-| ~~`neuroaxis/NEUROAXIS.txt`~~ | 🗑️ Apagado. 582 linhas anteriores ao mobile, com números já errados |
+| ~~`elysium/NEUROAXIS.txt`~~ | 🗑️ Apagado. 582 linhas anteriores ao mobile, com números já errados |
 
 > 🔴 **Regra ao criar documentação nova: não crie.** Adicione a este arquivo. Foi a
 > multiplicação de documentos que produziu a situação acima, e o custo é uma sessão inteira
@@ -89,21 +89,23 @@ para você não perder tempo lendo — nem confiar em — um deles.
 
 Dois aplicativos pessoais, de uso real (não protótipo), que conversam pela rede.
 
-> ⚠️ **Rename em andamento (§18).** O bloco 7 trocou a marca visível para ELYSIUM /
-> ELYSIUM-M, mas pastas, repositórios, `appId`, `android.package` e caminhos de dado ainda
-> são `neuroaxis` — eles mudam nos blocos 8, 9 e 10. Onde este documento cita um caminho
-> com `neuroaxis`, o caminho está certo; onde cita a marca, é ELYSIUM.
+> ⚠️ **Rename concluído (§18), com uma pendência física.** Marca, identidade dos dois apps,
+> perfil de dados e repositórios já são ELYSIUM / ELYSIUM-M. **As pastas locais ainda se
+> chamam `neuroaxis` e `neuroaxis-portal`** — o rename delas foi bloqueado pelo VSCode, que
+> mantém handles abertos dentro das duas (os TS servers indexando os projetos). Os caminhos
+> citados abaixo já são os finais; rodar `ELYSIUM\renomear-pastas.ps1` com o VSCode fechado
+> fecha essa ponta.
 
 ### ELYSIUM (desktop)
 
-- Pasta: `c:\Users\ZAK\ELYSIUM\neuroaxis` · repo: `ZakWegues/neuroaxis` · branch `main`
+- Pasta: `c:\Users\ZAK\ELYSIUM\elysium` · repo: `ZakWegues/elysium` · branch `main`
 - Electron 31 + TypeScript, Windows 11
 - Assistente de voz em português do Brasil que vive na bandeja do sistema
 - Atalho global `Ctrl+Shift+J` funciona com qualquer app em foco
 
 ### ELYSIUM-M (mobile)
 
-- Pasta: `c:\Users\ZAK\ELYSIUM\neuroaxis-portal` · repo: `ZakWegues/neuroaxis-portal` · branch `main`
+- Pasta: `c:\Users\ZAK\ELYSIUM\elysium-m` · repo: `ZakWegues/elysium-m` · branch `main`
 - Expo SDK 57 + React Native 0.86 + TypeScript, Android
 - App companion: parea por QR code e vira controle remoto completo do PC
 
@@ -153,7 +155,7 @@ o mesmo capricho visual do app mobile — a referência estética é o Portal, n
    Fechou bloco com build passando → sobe. *(Esta regra substituiu uma anterior, de nunca
    commitar por conta própria.)*
 2. **Manter este `ULTRA_HANDOFF.md` atualizado** ao fim de cada bloco — **nas duas cópias**
-   (`ELYSIUM/` e `neuroaxis/`).
+   (`ELYSIUM/` e `elysium/`).
 3. **Diagnosticar com log real antes de aplicar correção às cegas.** Instrumentar, ler o
    log, só então corrigir. Foi assim com o bug de TTS, o de áudio no mobile e o do cleartext.
 4. **Caveman mode ativo nas respostas** (curtas e diretas, sem preâmbulo). Código, mensagens
@@ -180,11 +182,11 @@ pedir de novo.**
 
 | Repo | HEAD (13/08/2026) | Estado |
 |---|---|---|
-| `neuroaxis` | `040b78c` — *docs: um documento único no lugar de cinco que já se contradiziam* | limpo, pusheado |
-| `neuroaxis-portal` | `f3750c7` — *fix: o APK de release não conseguia falar com o PC em rede nenhuma* | limpo, pusheado |
+| `elysium` | `040b78c` — *docs: um documento único no lugar de cinco que já se contradiziam* | limpo, pusheado |
+| `elysium-m` | `f3750c7` — *fix: o APK de release não conseguia falar com o PC em rede nenhuma* | limpo, pusheado |
 
 Esses dois commits trazem: a correção do cleartext no Portal (`expo-build-properties`), o
-`expo-system-ui`, a limpeza dos cinco documentos concorrentes, e o `Iniciar NEUROAXIS.vbs`
+`expo-system-ui`, a limpeza dos cinco documentos concorrentes, e o `Iniciar ELYSIUM.vbs`
 deixando de ter caminho absoluto.
 
 Verificado antes de subir: `npm run build` no desktop e `npm run typecheck` no Portal, ambos
@@ -204,7 +206,7 @@ e Spotify · Home, modo escuro, share intent e build do APK.
 | 7 (A1) — branding visível nos dois lados | ✅ concluído |
 | 8 (A2) — identidade do desktop + migração do userData | ✅ concluído e verificado em execução |
 | 9 (A3) — identidade do mobile (APK novo) | ✅ código · ⬜ APK e reinstalação |
-| 10 (A4) — repositórios e pastas | ⬜ |
+| 10 (A4) — repositórios e pastas | ✅ · ⬜ rename físico das pastas (bloqueado pelo VSCode) |
 | 11 (B) — motor de temas por família + 3 variações do Vidro Líquido | ⬜ |
 | 12 (B) — os 3 temas ELYSIUM | ⬜ |
 | 13 (C1) — bancada de medição do roteador | ⬜ |
@@ -232,7 +234,7 @@ e Spotify · Home, modo escuro, share intent e build do APK.
 | manifesto do APK antigo | **sem `usesCleartextTraffic`** ← causa raiz provável |
 | Tailscale do celular | `offline, last seen 18m ago` — caiu sozinho, ícone de VPN continuou aparecendo |
 
-**Estado do APK corrigido:** `neuroaxis-portal/dist-apk/neuroaxis-portal.apk`, 97,8 MB,
+**Estado do APK corrigido:** `elysium-m/dist-apk/elysium-m.apk`, 97,8 MB,
 assinado com a chave própria (`CN=NeuroAxis Portal`), `usesCleartextTraffic=true` confirmado
 no manifesto compilado. **Ainda não foi instalado nem testado.**
 
@@ -347,7 +349,7 @@ npm run dist    # build + electron-builder --win nsis  → release/ELYSIUM-Setup
 
 **`config/`** — `apps.json` (mapa de ~75 nomes de programa → comando) · `presets.json`
 
-**Raiz** — `config.json` (defaults empacotados) · `Iniciar NEUROAXIS.vbs` (lançador silencioso,
+**Raiz** — `config.json` (defaults empacotados) · `Iniciar ELYSIUM.vbs` (lançador silencioso,
 deriva a própria pasta) · `.env.example` (só `GROQ_API_KEY`, fallback de desenvolvimento) ·
 `scripts/` (`clean.mjs`, `copy-assets.mjs`, `liberar-acesso-remoto.ps1`) ·
 `build/icon.png` · documentos (ver o inventário na §1)
@@ -850,7 +852,7 @@ acima da TabBar, com "Tentar" e "Procurar") e `ErrorBoundary.tsx` (envolve o app
 
 ### 🔴 O Expo mudou; não escreva de memória
 
-`neuroaxis-portal/AGENTS.md` tem três linhas e elas valem:
+`elysium-m/AGENTS.md` tem três linhas e elas valem:
 
 > **Leia a doc versionada em `https://docs.expo.dev/versions/v57.0.0/` antes de escrever
 > qualquer código.**
@@ -1616,7 +1618,7 @@ Pareamento e tema local, não.
 > Este bloco só faz sentido depois do 8 validado em uso: parear o app novo contra um desktop
 > cujo `serverToken` ainda não se confirmou que sobreviveu mistura duas investigações.
 
-### Bloco 10 (A4) — Repositórios e pastas ⬜
+### Bloco 10 (A4) — Repositórios e pastas ✅ (menos o rename físico das pastas)
 
 GitHub `neuroaxis`→`elysium` e `neuroaxis-portal`→`elysium-m`, com `git remote set-url` nos
 dois (redirect do GitHub não é contrato) · pastas locais `ELYSIUM\elysium` e
@@ -1634,6 +1636,30 @@ os caminhos citados na §1 e §2 deste documento.
 > A correção pertence a este bloco: em vez de `if (!enabled) enable()`, ler o valor gravado
 > e re-registrar quando ele não contiver o `process.execPath` atual. Assim o conserto vale
 > também para o dia em que a pasta mudar de novo, ou para a troca de dev → instalador.
+
+**Feito:**
+
+- Repositórios renomeados no GitHub via `gh repo rename` (os dois são privados, sem colisão
+  de nome) e `git remote set-url` nos dois, confirmado com `fetch`.
+- `Iniciar NEUROAXIS.vbs` → `Iniciar ELYSIUM.vbs`.
+- Caminhos e nomes de repo atualizados neste documento e nos `README`/`CLAUDE.md`.
+- **`src/main/autoLaunch.ts`, novo.** Concentra o início automático e conserta a armadilha 2
+  da §14: em vez de perguntar "a entrada existe?", pergunta "**o executável gravado ainda
+  existe no disco?**" — e reescreve quando não existe. Critério melhor que comparar com o
+  `process.execPath`, porque cobre de uma vez pasta renomeada, app movido e a troca
+  desenvolvimento → instalador. A remoção da entrada NEUROAXIS legada mudou-se pra cá
+  também: é assunto de registro do Windows, não de perfil de dados, e o `migrateUserData.ts`
+  voltou a ser só sobre o perfil.
+
+**Bloqueado — precisa do Zak:** o rename físico das pastas. O Windows recusa renomear um
+diretório enquanto qualquer processo tem handle aberto lá dentro, e o VSCode mantém os dois
+projetos indexados. Verificado que a pasta-mãe é gravável (criar e renomear uma pasta vazia
+ali funciona), então é handle de conteúdo, não permissão.
+
+Script pronto em `ELYSIUM\renomear-pastas.ps1`: confere que nada está segurando, renomeia as
+duas, e confirma os remotes. Rodar com o VSCode fechado. Depois disso, **abrir o app uma vez**
+— a entrada de início automático aponta pra dentro da pasta antiga e o `autoLaunch.ts`
+reescreve sozinho na primeira abertura.
 
 ### Bloco 11 (B) — Motor de temas: famílias, e as 3 variações do Vidro Líquido ⬜
 

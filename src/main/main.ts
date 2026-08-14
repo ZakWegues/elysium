@@ -2,12 +2,12 @@
 // de módulo, ou seja, no momento do require — se a migração do perfil NEUROAXIS → ELYSIUM
 // rodasse depois, o primeiro store já teria criado o arquivo novo vazio e a cópia seria
 // descartada pela própria guarda dela. Ver src/main/migrateUserData.ts.
-import { clearLegacyAutoLaunch } from "./migrateUserData";
+import "./migrateUserData";
 import { app, BrowserWindow, globalShortcut, ipcMain, clipboard, nativeImage, dialog, shell } from "electron";
 import * as path from "node:path";
 import * as fs from "node:fs";
 import * as os from "node:os";
-import AutoLaunch from "auto-launch";
+import { sincronizarInicioAutomatico, removerEntradaLegada } from "./autoLaunch";
 import * as QRCode from "qrcode";
 import { getConfig, getApiKey, setApiKey, hasApiKey, setOverride, getOrCreateServerToken, regenerateServerToken, AppConfig } from "./config";
 import { getLocalIPv4, getAllLocalIPv4 } from "./network";
@@ -425,11 +425,7 @@ ipcMain.handle("config:set-all", async (_e, patch: Partial<AppConfig>) => {
   }
 
   if (patch.autoLaunch !== undefined && patch.autoLaunch !== prev.autoLaunch) {
-    try {
-      const autoLauncher = new AutoLaunch({ name: "ELYSIUM", isHidden: true });
-      if (patch.autoLaunch) await autoLauncher.enable();
-      else await autoLauncher.disable();
-    } catch { /* best-effort */ }
+    await sincronizarInicioAutomatico(patch.autoLaunch);
   }
 
   notify("ELYSIUM", "Configurações salvas.");
@@ -651,18 +647,8 @@ app.on("ready", async () => {
 
   // Antes de registrar o nome novo: senão sobram duas entradas em HKCU\...\Run, e a
   // antiga aponta para o caminho da instalação NEUROAXIS.
-  await clearLegacyAutoLaunch();
-
-  // ⚠️ No Windows este `name` é decorativo: o auto-launch sobrescreve o nome pelo
-  // basename do executável antes de gravar no registro. A entrada real chama-se
-  // "ELYSIUM" só porque o electron-builder gera ELYSIUM.exe — e chama-se "electron"
-  // quando rodamos em desenvolvimento. Ver migrateUserData.ts.
-  const autoLauncher = new AutoLaunch({ name: "ELYSIUM", isHidden: true });
-  try {
-    const enabled = await autoLauncher.isEnabled();
-    if (cfg.autoLaunch && !enabled) await autoLauncher.enable();
-    else if (!cfg.autoLaunch && enabled) await autoLauncher.disable();
-  } catch { /* best-effort */ }
+  await removerEntradaLegada();
+  await sincronizarInicioAutomatico(cfg.autoLaunch);
 
   if (!hasApiKey()) openConfigWindow();
 

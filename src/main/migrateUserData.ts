@@ -1,5 +1,4 @@
 import { app } from "electron";
-import { execFile } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
@@ -48,7 +47,6 @@ const NOMES_NEUTROS = [
 ];
 
 const PASTA_ANEXOS = "mailbox-attachments";
-const MARCA_AUTOLAUNCH = ".legacy-autolaunch-cleared";
 
 function perfilAntigo(): string {
   return path.join(app.getPath("appData"), "neuroaxis");
@@ -132,48 +130,6 @@ try {
   console.error("[migrate] falhou; o app segue com o perfil novo, vazio:", e);
 }
 
-/**
- * Remove a entrada de início automático deixada pela instalação NEUROAXIS.
- *
- * 🔴 POR QUE ISTO NÃO USA O `auto-launch`
- *
- * No Windows a biblioteca IGNORA o `name` que a gente passa. O `fixOpts()` dela
- * sobrescreve o `appName` com o basename do executável antes de tocar no registro:
- *
- *   this.opts.appName = caminho.split('\\').pop()  →  "ELYSIUM.exe" → "ELYSIUM"
- *
- * Ou seja, `new AutoLaunch({name:"NEUROAXIS"}).disable()` não apaga a entrada
- * "NEUROAXIS" — apaga a do executável atual, que é justamente a que queremos manter. O
- * nome registrado sempre foi o do .exe: era "NEUROAXIS" porque o produto se chamava
- * NEUROAXIS.exe, e passa a ser "ELYSIUM" sozinho quando o electron-builder gera o
- * ELYSIUM.exe. Em desenvolvimento é "electron", pelo mesmo motivo.
- *
- * Por isso a limpeza mexe no registro direto, pelo `reg.exe` — que é builtin do Windows
- * e não acrescenta dependência nenhuma.
- *
- * A entrada antiga aponta para o caminho da instalação anterior; deixá-la significa duas
- * tentativas de subir no boot, uma delas quebrada.
- */
-export async function clearLegacyAutoLaunch(): Promise<void> {
-  if (process.platform !== "win32") return;
-
-  const marca = path.join(app.getPath("userData"), MARCA_AUTOLAUNCH);
-  if (fs.existsSync(marca)) return;
-
-  await new Promise<void>((resolve) => {
-    execFile(
-      "reg.exe",
-      ["delete", "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run", "/v", "NEUROAXIS", "/f"],
-      (err) => {
-        // Código 1 é "valor não existe", que é o caso normal em máquina que nunca teve a
-        // instalação antiga. Não é erro, e não vale distinguir: o efeito desejado é o
-        // mesmo dos dois jeitos — não existir entrada NEUROAXIS.
-        if (err) console.log("[migrate] nenhuma entrada de início automático NEUROAXIS para remover.");
-        else console.log("[migrate] entrada de início automático NEUROAXIS removida.");
-        resolve();
-      },
-    );
-  });
-
-  try { fs.writeFileSync(marca, new Date().toISOString(), "utf-8"); } catch { /* best-effort */ }
-}
+// A limpeza da entrada de início automático antiga mora em `autoLaunch.ts`: é assunto de
+// registro do Windows, não de perfil de dados, e as armadilhas da biblioteca ficam melhor
+// documentadas ao lado do resto do início automático.
