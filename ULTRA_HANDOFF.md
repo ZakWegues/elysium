@@ -89,12 +89,9 @@ para você não perder tempo lendo — nem confiar em — um deles.
 
 Dois aplicativos pessoais, de uso real (não protótipo), que conversam pela rede.
 
-> ⚠️ **Rename concluído (§18), com uma pendência física.** Marca, identidade dos dois apps,
-> perfil de dados e repositórios já são ELYSIUM / ELYSIUM-M. **As pastas locais ainda se
-> chamam `neuroaxis` e `neuroaxis-portal`** — o rename delas foi bloqueado pelo VSCode, que
-> mantém handles abertos dentro das duas (os TS servers indexando os projetos). Os caminhos
-> citados abaixo já são os finais; rodar `ELYSIUM\renomear-pastas.ps1` com o VSCode fechado
-> fecha essa ponta.
+> ✅ **Rename concluído em 14/08/2026** (§18). Marca, identidade dos dois apps, perfil de
+> dados, pastas locais e repositórios são ELYSIUM / ELYSIUM-M. Onde este documento ainda
+> escrever `neuroaxis`, é referência histórica ou compatibilidade proposital — não caminho.
 
 ### ELYSIUM (desktop)
 
@@ -205,8 +202,8 @@ e Spotify · Home, modo escuro, share intent e build do APK.
 |---|---|
 | 7 (A1) — branding visível nos dois lados | ✅ concluído |
 | 8 (A2) — identidade do desktop + migração do userData | ✅ concluído e verificado em execução |
-| 9 (A3) — identidade do mobile (APK novo) | ✅ código · ⬜ APK e reinstalação |
-| 10 (A4) — repositórios e pastas | ✅ · ⬜ rename físico das pastas (bloqueado pelo VSCode) |
+| 9 (A3) — identidade do mobile (APK novo) | ✅ concluído — APK instalado e pareado |
+| 10 (A4) — repositórios e pastas | ✅ concluído |
 | 11 (B) — motor de temas por família + 3 variações do Vidro Líquido | ⬜ |
 | 12 (B) — os 3 temas ELYSIUM | ⬜ |
 | 13 (C1) — bancada de medição do roteador | ⬜ |
@@ -1565,7 +1562,7 @@ desinstalar e o item "instalador não testado" da §15 nunca foi exercitado de v
 primeira versão do `clearLegacyAutoLaunch()` usava a biblioteca e por isso não removia
 nada — removeria a entrada certa. Corrigido para `reg.exe` direto. Detalhe completo na §14.
 
-### Bloco 9 (A3) — Identidade do mobile: ELYSIUM-M ✅ (código) / ⬜ (APK e reinstalação)
+### Bloco 9 (A3) — Identidade do mobile: ELYSIUM-M ✅
 
 **Exige APK novo. Não vai por OTA.** `app.json` (`name`, `slug`, `scheme` `elysium`,
 `android.package`, `ios.bundleIdentifier`, textos de permissão) · `shareIntent.ts`
@@ -1607,9 +1604,13 @@ rename e nada precisou ser refeito. Fica o registro de que **o app nunca teve í
 Se um dia for feito, o lugar natural é junto do bloco 12: uma marca dourada sobre azul-noite
 fecharia a identidade dos dois lados de uma vez.
 
-**Ainda falta neste bloco:** `npm run build:local`, desinstalar o Portal antigo, instalar o
-`dist-apk/elysium-m.apk`, reparear pelo QR e reativar o push. Adiado a pedido do Zak — o
-código está commitado e o typecheck passa.
+**Concluído em 14/08/2026:** `npm run build:local` gerou o `dist-apk/elysium-m.apk` (97,8 MB),
+o Portal antigo foi desinstalado, o ELYSIUM-M instalado e pareado pelo QR.
+
+> ⚠️ **Continua pendente:** `npx eas-cli init`. O `extra.eas.projectId` e o `updates.url`
+> ainda apontam para `a9c62871-2d6d-4e05-b458-1e58655449b5`, o projeto do slug antigo. Não
+> atrapalha nada hoje — o build é local e não passa pelo EAS — mas **o próximo
+> `npm run update` pode ser recusado por divergência de slug**. É um comando, quando der.
 
 **Custo:** desinstalar o Portal → instalar o `elysium-m.apk` → reparear pelo QR → re-registrar
 o push. **As conversas voltam sozinhas** pela sincronização (o PC é a autoridade, §11).
@@ -1618,7 +1619,7 @@ Pareamento e tema local, não.
 > Este bloco só faz sentido depois do 8 validado em uso: parear o app novo contra um desktop
 > cujo `serverToken` ainda não se confirmou que sobreviveu mistura duas investigações.
 
-### Bloco 10 (A4) — Repositórios e pastas ✅ (menos o rename físico das pastas)
+### Bloco 10 (A4) — Repositórios e pastas ✅
 
 GitHub `neuroaxis`→`elysium` e `neuroaxis-portal`→`elysium-m`, com `git remote set-url` nos
 dois (redirect do GitHub não é contrato) · pastas locais `ELYSIUM\elysium` e
@@ -1651,15 +1652,16 @@ os caminhos citados na §1 e §2 deste documento.
   também: é assunto de registro do Windows, não de perfil de dados, e o `migrateUserData.ts`
   voltou a ser só sobre o perfil.
 
-**Bloqueado — precisa do Zak:** o rename físico das pastas. O Windows recusa renomear um
-diretório enquanto qualquer processo tem handle aberto lá dentro, e o VSCode mantém os dois
-projetos indexados. Verificado que a pasta-mãe é gravável (criar e renomear uma pasta vazia
-ali funciona), então é handle de conteúdo, não permissão.
+**O rename físico das pastas precisou do Zak.** O Windows recusa renomear um diretório
+enquanto qualquer processo tem handle aberto lá dentro, e o VSCode mantinha os dois projetos
+indexados (um TS server por projeto). Verificado que não era permissão: criar e renomear uma
+pasta vazia dentro de `ELYSIUM` funcionava. Feito com o editor fechado, por um script
+descartável que já foi apagado.
 
-Script pronto em `ELYSIUM\renomear-pastas.ps1`: confere que nada está segurando, renomeia as
-duas, e confirma os remotes. Rodar com o VSCode fechado. Depois disso, **abrir o app uma vez**
-— a entrada de início automático aponta pra dentro da pasta antiga e o `autoLaunch.ts`
-reescreve sozinho na primeira abertura.
+**O conserto do início automático se provou no cenário real, não só no simulado:** depois do
+rename, a entrada em `HKCU\...\Run` apontava para `ELYSIUM\neuroaxis\...`; a primeira
+abertura do app detectou que o executável não existia mais e reescreveu para
+`ELYSIUM\elysium\...`. Sem isso, o app teria parado de subir com o Windows em silêncio.
 
 ### Bloco 11 (B) — Motor de temas: famílias, e as 3 variações do Vidro Líquido ⬜
 
