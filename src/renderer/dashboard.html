@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
-<title>NEUROAXIS</title>
+<title>ELYSIUM</title>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
@@ -27,7 +27,7 @@
   --glass-blur: none;
 }
 
-/* ── LIQUID GLASS THEME (claro, linguagem do NEUROAXIS Portal) ── */
+/* ── LIQUID GLASS THEME (claro, linguagem do ELYSIUM-M) ── */
 body.theme-lg {
   --radius-3: 8px;  --radius-4: 10px; --radius-5: 12px; --radius-6: 14px;
   --radius-7: 16px; --radius-8: 18px; --radius-9: 20px; --radius-10: 22px;
@@ -761,7 +761,7 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
 .widget-order-btn:disabled { opacity: 0.3; cursor: default; }
 .widget-order-toggle { width: 15px; height: 15px; cursor: pointer; accent-color: var(--purple); }
 
-/* ── PAREAMENTO (NEUROAXIS Portal mobile) ───────────────── */
+/* ── PAREAMENTO (ELYSIUM-M mobile) ───────────────── */
 #pairing-card {
   background: var(--surface); border: 1px solid var(--border2);
   border-radius: var(--radius-10); padding: 12px; text-align: center;
@@ -1019,8 +1019,8 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
 <!-- TOPBAR -->
 <div id="topbar">
   <div class="logo">
-    <div class="logo-badge">NA</div>
-    <span class="logo-text">NEUROAXIS</span>
+    <div class="logo-badge">EL</div>
+    <span class="logo-text">ELYSIUM</span>
   </div>
   <button class="top-btn drawer-toggle" id="btnDrawerLeft" title="Sistema (tarefas, armazenamento, desempenho)">&#x2630;</button>
   <div id="status-badge" class="idle">OCIOSO</div>
@@ -1274,7 +1274,7 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
         <div id="widget-order-list"></div>
       </div><!-- /tab-personalizacao -->
 
-      <!-- PAREAMENTO (NEUROAXIS Portal mobile) -->
+      <!-- PAREAMENTO (ELYSIUM-M mobile) -->
       <div class="rtab-panel" id="tab-pareamento">
         <div class="section-label">PAREAR CELULAR</div>
         <div id="pairing-card">
@@ -1285,7 +1285,7 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
           <div class="sc-label" style="margin-top:6px">Token</div>
           <div id="pairing-token" class="pairing-mono">—</div>
           <button class="save-btn" id="pairing-regen-btn" style="margin-top:8px">Regenerar token</button>
-          <div id="pairing-hint">Abra o NEUROAXIS Portal no celular (mesma rede Wi-Fi) e escaneie o QR.</div>
+          <div id="pairing-hint">Abra o ELYSIUM-M no celular (mesma rede Wi-Fi) e escaneie o QR.</div>
         </div>
 
         <div class="section-label" style="margin-top:14px">ACESSO FORA DE CASA</div>
@@ -2109,7 +2109,7 @@ document.addEventListener("keydown", (e) => {
 });
 
 // ─────────────────────────────────────────────────
-// NEUROAXIS API BRIDGE
+// ELYSIUM API BRIDGE
 // ─────────────────────────────────────────────────
 window.nx.onState(setState);
 
@@ -2681,7 +2681,7 @@ rtabBtns.forEach(btn => {
 });
 
 // ─────────────────────────────────────────────────
-// PAREAMENTO (NEUROAXIS Portal mobile)
+// PAREAMENTO (ELYSIUM-M mobile)
 // ─────────────────────────────────────────────────
 function renderPairing(info) {
   const qr    = document.getElementById("pairing-qr");
@@ -2811,7 +2811,7 @@ document.getElementById("btnMin").addEventListener("click", () => window.close()
   loadInsights();
   // Refresh every 30 s
   setInterval(() => { loadTelemetryHistory(); loadInsights(); }, 30_000);
-  addBubble("system", "NEUROAXIS pronto. Pressione Ctrl+Shift+J ou clique 🎤 para falar.");
+  addBubble("system", "ELYSIUM pronto. Pressione Ctrl+Shift+J ou clique 🎤 para falar.");
 })();
 </script>
 </body>

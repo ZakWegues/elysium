@@ -28,7 +28,7 @@ import { transcribe } from "../services/stt";
 import { decideBrain, clearHistory } from "../services/brain";
 import { trackUsage, getTopHistory } from "../services/history";
 import { synthesize, cancelSpeak } from "../services/tts";
-import { NeuroaxisError } from "../services/errors";
+import { ElysiumError } from "../services/errors";
 import { processCommand, resolveAction } from "../services/command";
 import { startServer, setActiveToken, broadcastMailboxEvent } from "../services/server";
 import { startMonitor, getDashboardTelemetry, killProcess } from "../actions/systemInfo";
@@ -75,7 +75,7 @@ function openDashboard(): void {
     minWidth:  800,
     minHeight: 560,
     resizable: true,
-    title:     "NEUROAXIS",
+    title:     "ELYSIUM",
     frame:     false,
     titleBarStyle: "hidden",
     webPreferences: {
@@ -110,7 +110,7 @@ function openConfigWindow(): void {
   }
   configWin = new BrowserWindow({
     width: 480, height: 580, resizable: false,
-    title: "Configurar NEUROAXIS", skipTaskbar: false,
+    title: "Configurar ELYSIUM", skipTaskbar: false,
     webPreferences: {
       preload: path.join(__dirname, "../renderer/preload-config.js"),
       contextIsolation: true,
@@ -273,7 +273,7 @@ ipcMain.on("audio-data", async (_event, buffer: Buffer) => {
     if (currentToken !== token) return;
 
     if (!text) {
-      notify("NEUROAXIS", "Não entendi o áudio. Tente novamente.");
+      notify("ELYSIUM", "Não entendi o áudio. Tente novamente.");
       state.set("idle");
       return;
     }
@@ -297,15 +297,15 @@ ipcMain.on("audio-data", async (_event, buffer: Buffer) => {
     }
     updateLastCommand(text);
     const combined = replies.filter(Boolean).join(" ");
-    notify("NEUROAXIS", combined);
+    notify("ELYSIUM", combined);
 
     dashWin?.webContents.send("voice:reply", combined);
     state.set("speaking");
     await speak(combined);
   } catch (err) {
     if (currentToken !== token) return;
-    const msg = err instanceof NeuroaxisError ? err.spoken : "Tive um problema, mas já voltei ao normal.";
-    if (err instanceof NeuroaxisError) notify("NEUROAXIS — Erro", err.message);
+    const msg = err instanceof ElysiumError ? err.spoken : "Tive um problema, mas já voltei ao normal.";
+    if (err instanceof ElysiumError) notify("ELYSIUM — Erro", err.message);
     dashWin?.webContents.send("voice:error", msg);
     state.set("speaking");
     try { await speak(msg); } catch { /* ignore */ }
@@ -315,7 +315,7 @@ ipcMain.on("audio-data", async (_event, buffer: Buffer) => {
 });
 
 ipcMain.on("recorder-error", (_event, msg: string) => {
-  notify("NEUROAXIS — Microfone", msg);
+  notify("ELYSIUM — Microfone", msg);
   dashWin?.webContents.send("voice:error", "Microfone indisponível. Verifique se está conectado.");
   state.set("speaking");
   speak("Não consegui acessar o microfone.")
@@ -360,13 +360,13 @@ ipcMain.on("chat:send", async (_event, text: string) => {
     }
     updateLastCommand(text);
     const combined = replies.filter(Boolean).join(" ");
-    notify("NEUROAXIS", combined);
+    notify("ELYSIUM", combined);
     dashWin?.webContents.send("chat:reply", combined);
     state.set("speaking");
     await speak(combined);
   } catch (err) {
-    const msg = err instanceof NeuroaxisError ? err.spoken : "Tive um problema, mas já voltei ao normal.";
-    if (err instanceof NeuroaxisError) notify("NEUROAXIS — Erro", err.message);
+    const msg = err instanceof ElysiumError ? err.spoken : "Tive um problema, mas já voltei ao normal.";
+    if (err instanceof ElysiumError) notify("ELYSIUM — Erro", err.message);
     dashWin?.webContents.send("chat:error", msg);
   } finally {
     state.set("idle");
@@ -375,7 +375,7 @@ ipcMain.on("chat:send", async (_event, text: string) => {
 
 ipcMain.on("chat:clear", () => {
   clearHistory();
-  notify("NEUROAXIS", "Histórico apagado.");
+  notify("ELYSIUM", "Histórico apagado.");
 });
 
 ipcMain.handle("history:get", () => getTopHistory(8));
@@ -403,7 +403,7 @@ ipcMain.on("media:direct", async (_event, op: string) => {
 ipcMain.handle("config:get-api-key", () => getApiKey());
 ipcMain.handle("config:set-api-key", (_e, key: string) => {
   setApiKey(key);
-  notify("NEUROAXIS", "API key configurada! Pronto para usar.");
+  notify("ELYSIUM", "API key configurada! Pronto para usar.");
 });
 ipcMain.on("config:close", () => configWin?.close());
 ipcMain.on("config:open-window", () => openConfigWindow());
@@ -416,7 +416,7 @@ ipcMain.handle("config:set-all", async (_e, patch: Partial<AppConfig>) => {
   if (patch.shortcut && patch.shortcut !== prev.shortcut) {
     globalShortcut.unregisterAll();
     const ok = globalShortcut.register(patch.shortcut, handleShortcut);
-    if (!ok) notify("NEUROAXIS — Aviso", `Atalho "${patch.shortcut}" não pôde ser registrado.`);
+    if (!ok) notify("ELYSIUM — Aviso", `Atalho "${patch.shortcut}" não pôde ser registrado.`);
   }
 
   if (patch.autoLaunch !== undefined && patch.autoLaunch !== prev.autoLaunch) {
@@ -427,7 +427,7 @@ ipcMain.handle("config:set-all", async (_e, patch: Partial<AppConfig>) => {
     } catch { /* best-effort */ }
   }
 
-  notify("NEUROAXIS", "Configurações salvas.");
+  notify("ELYSIUM", "Configurações salvas.");
 });
 
 ipcMain.handle("config:reset-defaults", () => {
@@ -442,7 +442,7 @@ ipcMain.handle("config:reset-defaults", () => {
     chatHistoryTurns: 6,
     chatIdleResetMs: 300000,
   });
-  notify("NEUROAXIS", "Configurações restauradas para os padrões.");
+  notify("ELYSIUM", "Configurações restauradas para os padrões.");
 });
 
 // ── Spotify (mini-player do dashboard) ────────────────────────────────────────
@@ -526,7 +526,7 @@ ipcMain.handle("mailbox:open-attachment", async (_event, attachmentPath: string)
 ipcMain.handle("telemetry:get-history",  () => getAnomalyHistory());
 ipcMain.handle("telemetry:get-insights", () => getInsights());
 
-// ── pairing (NEUROAXIS Portal mobile) ───────────────────────────────────────────
+// ── pairing (ELYSIUM-M mobile) ───────────────────────────────────────────
 
 async function getPairingPayload() {
   const endpoints = getAllLocalIPv4();
@@ -555,7 +555,7 @@ ipcMain.handle("pairing:get-info", () => getPairingPayload());
 ipcMain.handle("pairing:regenerate-token", async () => {
   const token = regenerateServerToken();
   setActiveToken(token);
-  notify("NEUROAXIS", "Token regenerado. Pareamentos antigos do Portal precisam escanear o QR de novo.");
+  notify("ELYSIUM", "Token regenerado. Pareamentos antigos do ELYSIUM-M precisam escanear o QR de novo.");
   return getPairingPayload();
 });
 
@@ -625,7 +625,7 @@ app.on("ready", async () => {
     const preview = unseenFromMobile.length === 1
       ? (unseenFromMobile[0].text?.slice(0, 80) || unseenFromMobile[0].attachment?.name || "item")
       : `${unseenFromMobile.length} itens`;
-    notify("NEUROAXIS — Mailbox", `Recebido do celular: ${preview}`);
+    notify("ELYSIUM — Mailbox", `Recebido do celular: ${preview}`);
   }
 
   mailboxEvents.on("new-message", (msg) => {
@@ -638,7 +638,7 @@ app.on("ready", async () => {
   // O agendador entra depois do servidor e do TTS porque dispara na hora o que venceu
   // com o PC desligado — precisa de tudo de pé para falar e notificar.
   startScheduler((reminder) => {
-    notify("NEUROAXIS — Lembrete", reminder.text);
+    notify("ELYSIUM — Lembrete", reminder.text);
     speak(`Lembrete: ${reminder.text}`).catch(() => { /* best-effort */ });
     void sendPush("reminder", "Lembrete", reminder.text, { reminderId: reminder.id });
     dashWin?.webContents.send("reminder:fired", reminder);
@@ -654,9 +654,9 @@ app.on("ready", async () => {
   if (!hasApiKey()) openConfigWindow();
 
   const ok = globalShortcut.register(cfg.shortcut, handleShortcut);
-  if (!ok) notify("NEUROAXIS — Aviso", `Atalho ${cfg.shortcut} não pôde ser registrado. Tente via bandeja.`);
+  if (!ok) notify("ELYSIUM — Aviso", `Atalho ${cfg.shortcut} não pôde ser registrado. Tente via bandeja.`);
 
-  notify("NEUROAXIS", "Pronto! Pressione Ctrl+Shift+J para falar.");
+  notify("ELYSIUM", "Pronto! Pressione Ctrl+Shift+J para falar.");
   speak("Oi! O que faremos hoje?").catch(() => { /* best-effort */ });
 });
 

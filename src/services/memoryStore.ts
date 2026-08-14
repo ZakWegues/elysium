@@ -4,13 +4,13 @@ import * as crypto from "node:crypto";
 /**
  * Memória de longo prazo do assistente.
  *
- * Fatos curtos que o usuário pediu para o NEUROAXIS lembrar entre sessões — o
+ * Fatos curtos que o usuário pediu para o ELYSIUM lembrar entre sessões — o
  * histórico de conversa em `brain.ts` é volátil e some por inatividade, então nada
  * dito ontem sobrevive até hoje sem isto.
  *
  * O conteúdo entra no system prompt a cada pedido, então o custo é pago em todas as
  * chamadas ao cérebro. Daí o teto baixo de itens e de tamanho por item: memória é
- * para "meu projeto principal é o NEUROAXIS", não para colar documento.
+ * para "meu projeto principal é o ELYSIUM", não para colar documento.
  */
 
 export interface MemoryFact {

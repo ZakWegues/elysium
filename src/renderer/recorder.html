@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html>
-<head><meta charset="utf-8"><title>NEUROAXIS Recorder</title></head>
+<head><meta charset="utf-8"><title>ELYSIUM Recorder</title></head>
 <body>
 <script>
   const SILENCE_THRESHOLD = 0.01;
@@ -13,7 +13,7 @@
   let maxTimer = null;
   let silenceMs = 2500;
 
-  window.neuroaxis.onStartRecording(async (cfg) => {
+  window.elysium.onStartRecording(async (cfg) => {
     silenceMs = cfg.silenceMs;
     chunks = [];
     clearTimeout(silenceTimer);
@@ -25,7 +25,7 @@
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
     } catch (e) {
-      window.neuroaxis.sendError("Microfone: " + e.message);
+      window.elysium.sendError("Microfone: " + e.message);
       return;
     }
 
@@ -46,7 +46,7 @@
       if (audioCtx.state !== "closed") audioCtx.close();
       const blob = new Blob(chunks, { type: mimeType });
       const buf = await blob.arrayBuffer();
-      window.neuroaxis.sendAudio(buf);
+      window.elysium.sendAudio(buf);
     };
 
     mediaRecorder.start(100);
@@ -63,7 +63,7 @@
       // Throttle audio level IPC to ~30fps
       const now = performance.now();
       if (now - lastLevelSend > 33) {
-        window.neuroaxis.sendAudioLevel(rms);
+        window.elysium.sendAudioLevel(rms);
         lastLevelSend = now;
       }
 

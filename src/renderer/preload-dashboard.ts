@@ -58,7 +58,7 @@ contextBridge.exposeInMainWorld("nx", {
   getTelemetryHistory: ()                       => ipcRenderer.invoke("telemetry:get-history"),
   getInsights:         ()                       => ipcRenderer.invoke("telemetry:get-insights"),
 
-  // ── Pairing (NEUROAXIS Portal mobile) ───────────────────────────────────────
+  // ── Pairing (ELYSIUM-M mobile) ───────────────────────────────────────
   getPairingInfo:  ()                           => ipcRenderer.invoke("pairing:get-info"),
   regenerateToken: ()                           => ipcRenderer.invoke("pairing:regenerate-token"),
 

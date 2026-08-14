@@ -137,12 +137,12 @@ export function startMonitor(alert: (title: string, msg: string) => void): void 
 
     if (!isNaN(ram) && ram > 92 && now - _ramAlertedAt > ALERT_COOLDOWN) {
       _ramAlertedAt = now;
-      alert("NEUROAXIS — RAM Alta", `Uso de RAM em ${ram.toFixed(1)}%. Considere fechar alguns programas.`);
+      alert("ELYSIUM — RAM Alta", `Uso de RAM em ${ram.toFixed(1)}%. Considere fechar alguns programas.`);
     }
 
     if (bat !== -1 && !isNaN(bat) && bat < 20 && now - _batAlertedAt > ALERT_COOLDOWN) {
       _batAlertedAt = now;
-      alert("NEUROAXIS — Bateria Baixa", `Bateria em ${bat}%. Conecte o carregador.`);
+      alert("ELYSIUM — Bateria Baixa", `Bateria em ${bat}%. Conecte o carregador.`);
     }
   };
 

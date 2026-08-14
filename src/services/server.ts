@@ -1,5 +1,5 @@
 /**
- * NEUROAXIS local server — HTTP + WebSocket (native Node.js, zero extra deps).
+ * ELYSIUM local server — HTTP + WebSocket (native Node.js, zero extra deps).
  *
  * Security: every request/connection must carry the 32-byte hex token in
  *   Authorization: Bearer <token>
@@ -13,7 +13,7 @@
  *   POST /api/rpc               → { method, params } → { result }  (chamada tipada)
  *   WS   /api/stream            → binary audio frames → STT → reply (text frame)
  *
- * Métodos RPC marcados `destructive` exigem o header X-Neuroaxis-Confirm: 1.
+ * Métodos RPC marcados `destructive` exigem o header X-Elysium-Confirm: 1.
  *
  *   POST /api/mailbox/messages               → mobile posts a message, { id, createdAt } (from:"mobile")
  *   GET  /api/mailbox/messages               → full thread (both from:"pc" and from:"mobile"), metadata only
@@ -183,7 +183,7 @@ function authorized(req: http.IncomingMessage): boolean {
 function spotifyResultPage(title: string, message: string, ok: boolean): string {
   const color = ok ? "#1db954" : "#e5484d";
   return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8">
-<title>NEUROAXIS</title></head>
+<title>ELYSIUM</title></head>
 <body style="font-family:system-ui,sans-serif;background:#0f0f28;color:#f1f5f9;display:flex;
 align-items:center;justify-content:center;height:100vh;margin:0">
 <div style="text-align:center;max-width:420px;padding:32px">
@@ -206,7 +206,7 @@ async function handleSpotifyCallback(
   // O usuário pode ter clicado em "cancelar" na tela do Spotify.
   const denied = params.get("error");
   if (denied) {
-    sendPage(200, "Login cancelado", "Você pode tentar de novo pelo NEUROAXIS quando quiser.", false);
+    sendPage(200, "Login cancelado", "Você pode tentar de novo pelo ELYSIUM quando quiser.", false);
     return;
   }
 
@@ -219,7 +219,7 @@ async function handleSpotifyCallback(
 
   try {
     await completeSpotifyLogin(code, state);
-    sendPage(200, "Spotify conectado", "Pode fechar esta aba e voltar para o NEUROAXIS.", true);
+    sendPage(200, "Spotify conectado", "Pode fechar esta aba e voltar para o ELYSIUM.", true);
   } catch (e) {
     console.error("[spotify] callback falhou:", e);
     sendPage(400, "Não deu certo", String(e instanceof Error ? e.message : e), false);
@@ -344,7 +344,14 @@ function makeHandler(
       try { parsed = JSON.parse(body) as { method?: unknown; params?: unknown }; }
       catch { sendJson(res, 400, { error: "Body inválido: JSON esperado" }); return; }
 
-      const confirmed = req.headers["x-neuroaxis-confirm"] === "1";
+      // Aceita o header antigo junto com o novo porque desktop e celular NÃO atualizam
+      // ao mesmo tempo: o desktop é build local, o celular é APK/OTA. Se o servidor só
+      // aceitasse o nome novo, existiria uma janela em que todo método destrutivo
+      // devolveria 403 para um app ainda não atualizado — e o sintoma no celular seria
+      // "falhou", sem pista da causa. O nome antigo sai depois que o APK novo estiver
+      // instalado e confirmado.
+      const confirmed =
+        req.headers["x-elysium-confirm"] === "1" || req.headers["x-neuroaxis-confirm"] === "1";
 
       try {
         const result = await handleRpc(parsed.method, parsed.params, { confirmed });
@@ -597,14 +604,14 @@ export function startServer(
   });
 
   server.listen(port, "0.0.0.0", () => {
-    console.log(`[NEUROAXIS server] listening on 0.0.0.0:${port}`);
+    console.log(`[ELYSIUM server] listening on 0.0.0.0:${port}`);
   });
 
   server.on("error", (e: NodeJS.ErrnoException) => {
     if (e.code === "EADDRINUSE") {
-      console.warn(`[NEUROAXIS server] port ${port} in use, skipping server.`);
+      console.warn(`[ELYSIUM server] port ${port} in use, skipping server.`);
     } else {
-      console.error("[NEUROAXIS server] error:", e.message);
+      console.error("[ELYSIUM server] error:", e.message);
     }
   });
 

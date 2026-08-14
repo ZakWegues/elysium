@@ -1,4 +1,4 @@
-' Lançador silencioso do NEUROAXIS.
+' Lançador silencioso do ELYSIUM.
 '
 ' A pasta é derivada da localização deste próprio arquivo, e não escrita fixa: o
 ' repositório muda de lugar (foi para dentro da pasta-mãe ELYSIUM) e um caminho fixo

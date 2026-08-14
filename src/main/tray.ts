@@ -39,7 +39,7 @@ export function createTray(
   _onVoiceOpen = onVoiceOpen;
   _onCommand = onCommand;
   tray = new Tray(buildIcon());
-  tray.setToolTip("NEUROAXIS");
+  tray.setToolTip("ELYSIUM");
   refreshMenu("idle");
   return tray;
 }
@@ -89,7 +89,7 @@ function refreshMenu(st: AssistantState): void {
     : "📋 Nenhum comando ainda";
 
   const template: MenuItemConstructorOptions[] = [
-    { label: `NEUROAXIS — ${stateLabel(st)}`, enabled: false },
+    { label: `ELYSIUM — ${stateLabel(st)}`, enabled: false },
     { type: "separator" },
     { label: lastLabel, enabled: false },
     { type: "separator" },
@@ -110,5 +110,5 @@ function refreshMenu(st: AssistantState): void {
     { label: "✕ Sair", click: () => _onQuit() },
   ];
   tray.setContextMenu(Menu.buildFromTemplate(template));
-  tray.setToolTip(`NEUROAXIS — ${stateLabel(st)}`);
+  tray.setToolTip(`ELYSIUM — ${stateLabel(st)}`);
 }

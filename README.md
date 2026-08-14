@@ -1,4 +1,4 @@
-# NEUROAXIS
+# ELYSIUM
 
 Assistente de voz desktop para Windows. Roda em segundo plano na bandeja do sistema, ativado por atalho de teclado global. Entende comandos em português do Brasil e executa ações reais no computador.
 

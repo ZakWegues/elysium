@@ -1,11 +1,11 @@
-# Libera a porta do NEUROAXIS no Firewall do Windows para o túnel (Tailscale/ZeroTier).
+# Libera a porta do ELYSIUM no Firewall do Windows para o túnel (Tailscale/ZeroTier).
 #
 # POR QUE ISTO É NECESSÁRIO
 #
 # As regras que o Windows criou sozinho para o Electron valem só no perfil "Privado".
 # O adaptador do túnel nem sempre cai nesse perfil — quando cai em "Público", o
 # firewall descarta a conexão do celular em silêncio, e o sintoma é idêntico ao de PC
-# desligado: o app diz que não alcança e não há nada no log do NEUROAXIS.
+# desligado: o app diz que não alcança e não há nada no log do ELYSIUM.
 #
 # POR QUE A REGRA É ESTREITA
 #
@@ -21,11 +21,15 @@
 #     powershell -ExecutionPolicy Bypass -File .\scripts\liberar-acesso-remoto.ps1
 #
 # COMO DESFAZER
-#   Remove-NetFirewallRule -DisplayName "NEUROAXIS - acesso remoto"
+#   Remove-NetFirewallRule -DisplayName "ELYSIUM - acesso remoto"
 
 $ErrorActionPreference = 'Stop'
 
-$RuleName = 'NEUROAXIS - acesso remoto'
+$RuleName = 'ELYSIUM - acesso remoto'
+# Nome usado antes do rename NEUROAXIS → ELYSIUM. A regra antiga continua ativa no
+# firewall depois da troca de nome, e uma regra de porta órfã não some sozinha nem dá
+# sinal de que existe — por isso ela é removida aqui em vez de ficar acumulando.
+$RuleNameLegado = 'NEUROAXIS - acesso remoto'
 $Port = 4200
 
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()
@@ -51,15 +55,17 @@ $Origens = @(
 )
 
 # Recriar em vez de editar: mais simples de auditar e idempotente ao rodar de novo.
-$existente = Get-NetFirewallRule -DisplayName $RuleName -ErrorAction SilentlyContinue
-if ($existente) {
-    Remove-NetFirewallRule -DisplayName $RuleName
-    Write-Host '  Regra anterior removida.' -ForegroundColor DarkGray
+foreach ($nome in @($RuleName, $RuleNameLegado)) {
+    $existente = Get-NetFirewallRule -DisplayName $nome -ErrorAction SilentlyContinue
+    if ($existente) {
+        Remove-NetFirewallRule -DisplayName $nome
+        Write-Host "  Regra anterior removida: $nome" -ForegroundColor DarkGray
+    }
 }
 
 New-NetFirewallRule `
     -DisplayName $RuleName `
-    -Description 'Permite que o NEUROAXIS Portal alcance este PC pela rede local e pelo tunel (Tailscale/ZeroTier).' `
+    -Description 'Permite que o ELYSIUM-M alcance este PC pela rede local e pelo tunel (Tailscale/ZeroTier).' `
     -Direction Inbound `
     -Action Allow `
     -Protocol TCP `

@@ -1,5 +1,5 @@
 /**
- * NEUROAXIS RPC — superfície tipada que o Portal (celular) usa para controlar o PC
+ * ELYSIUM RPC — superfície tipada que o Portal (celular) usa para controlar o PC
  * sem passar pelo cérebro Llama.
  *
  * Motivo: até aqui a única porta de comando do mobile era POST /api/command, que joga
@@ -7,7 +7,7 @@
  * não deve depender de o modelo interpretar uma frase. Cada método abaixo é uma
  * chamada determinística, validada e whitelistada.
  *
- * Segurança: métodos marcados `destructive` exigem o header X-Neuroaxis-Confirm, que o
+ * Segurança: métodos marcados `destructive` exigem o header X-Elysium-Confirm, que o
  * app só manda depois de confirmar a identidade do dono por biometria. É uma trava
  * contra chamada acidental/automatizada, não contra um atacante que já tem o token —
  * contra esse, a defesa é o token não vazar e a porta não ser exposta à internet.
@@ -54,7 +54,7 @@ export class RpcError extends Error {
 }
 
 export interface RpcContext {
-  /** true quando o cliente mandou X-Neuroaxis-Confirm (biometria já validada no celular). */
+  /** true quando o cliente mandou X-Elysium-Confirm (biometria já validada no celular). */
   confirmed: boolean;
 }
 
@@ -563,7 +563,7 @@ export async function handleRpc(
   if (!def) throw new RpcError(404, `método desconhecido: ${method}`);
 
   if (def.destructive && !ctx.confirmed) {
-    throw new RpcError(403, `método "${method}" exige confirmação (header X-Neuroaxis-Confirm)`);
+    throw new RpcError(403, `método "${method}" exige confirmação (header X-Elysium-Confirm)`);
   }
 
   const safeParams: Record<string, unknown> =

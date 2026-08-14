@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from "electron";
 
-contextBridge.exposeInMainWorld("neuroaxis", {
+contextBridge.exposeInMainWorld("elysium", {
   onStartRecording: (cb: (cfg: { silenceMs: number; maxRecordMs: number }) => void) => {
     ipcRenderer.on("start-recording", (_e, cfg) => cb(cfg as { silenceMs: number; maxRecordMs: number }));
   },

@@ -6,7 +6,7 @@ import * as crypto from "node:crypto";
 import { EventEmitter } from "node:events";
 
 /**
- * Async mailbox / self-chat thread between desktop and NEUROAXIS Portal (mobile).
+ * Async mailbox / self-chat thread between desktop and ELYSIUM-M (mobile).
  * Single ordered thread, each message tagged with its origin (`from`).
  * Metadata (JSON) lives in electron-store; attachment bytes live on disk under
  * userData/mailbox-attachments — never inside the electron-store JSON blob.

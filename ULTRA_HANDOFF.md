@@ -1,4 +1,4 @@
-# ULTRA HANDOFF — NEUROAXIS
+# ULTRA HANDOFF — ELYSIUM
 
 > **Documento único do ecossistema.** Substitui e absorve o antigo `HANDOFF.md`, o
 > `CONTRATO_RPC.md` e o `CONTEXTO_NEUROAXIS.md`. Se alguma coisa aqui divergir de outro
@@ -29,6 +29,7 @@
 | 15 | [Pendências conhecidas](#15-pendências-conhecidas) |
 | 16 | [Catálogo de features futuras](#16-catálogo-de-features-futuras) |
 | 17 | [Como validar](#17-como-validar) |
+| 18 | [Plano ELYSIUM — rename, redesign, cérebro local](#18-plano-elysium--rename-redesign-cérebro-local) |
 
 ---
 
@@ -88,16 +89,21 @@ para você não perder tempo lendo — nem confiar em — um deles.
 
 Dois aplicativos pessoais, de uso real (não protótipo), que conversam pela rede.
 
-### NEUROAXIS (desktop)
+> ⚠️ **Rename em andamento (§18).** O bloco 7 trocou a marca visível para ELYSIUM /
+> ELYSIUM-M, mas pastas, repositórios, `appId`, `android.package` e caminhos de dado ainda
+> são `neuroaxis` — eles mudam nos blocos 8, 9 e 10. Onde este documento cita um caminho
+> com `neuroaxis`, o caminho está certo; onde cita a marca, é ELYSIUM.
 
-- Pasta: `c:\Users\ZAK\neuroaxis` · repo: `ZakWegues/neuroaxis` · branch `main`
+### ELYSIUM (desktop)
+
+- Pasta: `c:\Users\ZAK\ELYSIUM\neuroaxis` · repo: `ZakWegues/neuroaxis` · branch `main`
 - Electron 31 + TypeScript, Windows 11
 - Assistente de voz em português do Brasil que vive na bandeja do sistema
 - Atalho global `Ctrl+Shift+J` funciona com qualquer app em foco
 
-### NEUROAXIS Portal (mobile)
+### ELYSIUM-M (mobile)
 
-- Pasta: `c:\Users\ZAK\neuroaxis-portal` · repo: `ZakWegues/neuroaxis-portal` · branch `main`
+- Pasta: `c:\Users\ZAK\ELYSIUM\neuroaxis-portal` · repo: `ZakWegues/neuroaxis-portal` · branch `main`
 - Expo SDK 57 + React Native 0.86 + TypeScript, Android
 - App companion: parea por QR code e vira controle remoto completo do PC
 
@@ -190,6 +196,19 @@ exatamente com o código, sem sobra e sem falta.
 Todos os 6 blocos concluídos: RPC tipado e pareamento multi-endereço · central de sistema,
 clipboard e energia · espelhamento e trackpad · memória, lembretes e push · visão, busca web
 e Spotify · Home, modo escuro, share intent e build do APK.
+
+### Blocos do plano ELYSIUM (§18)
+
+| bloco | estado |
+|---|---|
+| 7 (A1) — branding visível nos dois lados | ✅ concluído |
+| 8 (A2) — identidade do desktop + migração do userData | ⬜ |
+| 9 (A3) — identidade do mobile (APK novo) | ⬜ |
+| 10 (A4) — repositórios e pastas | ⬜ |
+| 11 (B) — motor de temas por família + 3 variações do Vidro Líquido | ⬜ |
+| 12 (B) — os 3 temas ELYSIUM | ⬜ |
+| 13 (C1) — bancada de medição do roteador | ⬜ |
+| 14 (C2) — provider configurável + fallback + VRAM | ⬜ |
 
 ### O que aconteceu na sessão de 11/08/2026
 
@@ -603,8 +622,14 @@ determinístico, validado e whitelistado.
 Os **3 métodos destrutivos** (`system.killProcess`, `apps.close`, `power.control`) exigem:
 
 ```
-X-Neuroaxis-Confirm: 1
+X-Elysium-Confirm: 1
 ```
+
+> **O servidor também aceita o `X-Neuroaxis-Confirm` antigo**, de propósito (bloco 7).
+> Desktop e celular não atualizam ao mesmo tempo — o desktop é build local, o celular é
+> APK/OTA — e sem o aceite duplo existiria uma janela em que todo destrutivo devolveria 403
+> para um app ainda não atualizado, com "falhou" no celular e nenhuma pista da causa. O nome
+> antigo sai depois que o APK do bloco 9 estiver instalado e confirmado.
 
 Sem ele → **403**. O app só manda esse header depois de validar biometria
 (`expo-local-authentication`). É trava contra toque acidental, **não** defesa contra quem já
@@ -1387,7 +1412,7 @@ curl -s -X POST -H "Authorization: Bearer $T" -H "Content-Type: application/json
      -d '{"method":"system.disks"}' http://127.0.0.1:4200/api/rpc
 
 # destrutivo exige o header de confirmação
-curl -s -X POST -H "Authorization: Bearer $T" -H "X-Neuroaxis-Confirm: 1" \
+curl -s -X POST -H "Authorization: Bearer $T" -H "X-Elysium-Confirm: 1" \
      -H "Content-Type: application/json" \
      -d '{"method":"power.control","params":{"operation":"cancel"}}' \
      http://127.0.0.1:4200/api/rpc
@@ -1413,3 +1438,198 @@ o header → 403.
 - [ ] Lembrete de 2 minutos: TTS + notificação no PC + push no celular com o app fechado
 - [ ] Foto pela câmera → resposta correta; pergunta que exige web
 - [ ] Play/pause e "tocando agora" do Spotify nos dois lados
+
+---
+
+## 18. Plano ELYSIUM — rename, redesign, cérebro local
+
+Aprovado pelo Zak em 13/08/2026. Substitui qualquer plano solto: os blocos de trabalho do
+projeto continuam a partir do 7.
+
+### Por que este plano existe
+
+O ecossistema já se chamava ELYSIUM na pasta-mãe e na documentação, mas o rename nunca tinha
+tocado código, identidade de app nem nome de repositório. Junto vieram dois pedidos que
+dependem de nomes estáveis: dar ao desktop identidade visual própria (o tema padrão era uma
+paleta roxo/ciano genérica) e tirar o cérebro da nuvem, movendo roteamento e conversa da Groq
+para o Ollama local.
+
+🔴 **A armadilha central do rename:** a maior parte das ocorrências de "neuroaxis" é texto de
+tela, mas um punhado é **caminho de dado** (`%APPDATA%\neuroaxis`, de onde saem os 10
+arquivos do `electron-store`; as chaves do `AsyncStorage` do Portal) ou **contrato de rede**
+(o header de confirmação). Um find/replace geral apagaria API key, token do servidor,
+memória, lembretes e pareamento — sem erro nenhum, parecendo reset de fábrica.
+
+### Decisões fechadas com o Zak
+
+| decisão | escolha |
+|---|---|
+| Escopo do rename | Tudo: branding, identidade desktop, identidade mobile, repos e pastas |
+| Nome de exibição do mobile | **ELYSIUM-M** |
+| Temas | 6 no total: 3 variações de cor do Vidro Líquido + 3 variações ELYSIUM |
+| Direção visual ELYSIUM | Campos Elísios noturnos — azul-noite com luz dourada |
+| Cérebro local | Medir antes de trocar; `keep_alive` curto + detecção de jogo |
+| Peças que vão para o local | Roteador e conversa. **Visão, STT e busca web ficam na Groq** |
+
+### Ambiente levantado em 13/08/2026 (para o bloco C)
+
+- **Ollama já instalado** em `%LOCALAPPDATA%\Programs\Ollama\ollama.exe`, com `llama3.1:8b` e
+  `llama3.2` (3B) já baixados — 6,7 GB em `~\.ollama\models`. O daemon fica parado.
+- GPU real: **8151 MiB**, ~6,9 GB livres com o PC ocioso. ⚠️ O `Win32_VideoController`
+  reporta 4 GB — campo de 32 bits, mentira conhecida. **Use o `nvidia-smi`.**
+
+---
+
+### Bloco 7 (A1) — Branding visível ✅
+
+Só o que aparece na tela; nenhuma identidade de app, nenhum caminho de dado.
+
+- **Desktop:** títulos de janela e de `notify()`, bandeja, logo do topbar (badge `NA` → `EL`),
+  texto de pareamento, prompts do `brain.ts`, alertas do `systemInfo.ts`, páginas do callback
+  do Spotify, prefixo `[ELYSIUM server]`, `NeuroaxisError` → `ElysiumError`, README, `.vbs`.
+- **Portal:** strings das 7 telas e o rótulo do canal de notificação (o **id** do canal
+  continua `'default'` — mudar o id criaria canal novo e as preferências do usuário no Android
+  ficariam órfãs).
+- **Pontes IPC** renomeadas junto (`window.neuroaxisConfig` → `elysiumConfig`,
+  `window.neuroaxis` → `window.elysium`): preload e HTML viajam no mesmo `dist`, sem skew.
+- **Firewall:** o `liberar-acesso-remoto.ps1` agora remove também a regra de nome antigo. Uma
+  regra de porta órfã não some sozinha nem dá sinal de que existe.
+- **Header de confirmação:** `X-Elysium-Confirm`, com o servidor **aceitando os dois nomes**
+  (ver §9).
+
+### Bloco 8 (A2) — Identidade do desktop, com migração dos dados ⬜
+
+`package.json` (`name` `neuroaxis`→`elysium`, `appId` `com.zak.elysium`, `productName`/
+`shortcutName`/`artifactName` ELYSIUM) · `app.setAppUserModelId` · `AutoLaunch({name:"ELYSIUM"})` ·
+stores `neuroaxis-config`→`elysium-config` e `neuroaxis-telemetry-log`→`elysium-telemetry-log`.
+
+🔴 **Por que isso apaga os dados se feito sem cuidado:** `app.getPath("userData")` deriva do
+`name` do `package.json`. Trocar o nome move o diretório de `%APPDATA%\neuroaxis` para
+`%APPDATA%\elysium`, e os **10 `electron-store`** (`neuroaxis-config`, `chat-sessions`,
+`history`, `mailbox`, `memory`, `presets`, `push`, `reminders`, `spotify`,
+`neuroaxis-telemetry-log`) nascem vazios lá. Some de uma vez: API key, token do servidor
+(**todos os pareamentos morrem**), memória, lembretes, presets, conversas, caixa, tokens de
+push e o refresh do Spotify.
+
+**Migração de um tiro** — `src/main/migrateUserData.ts`: se o diretório novo ainda não tem
+`elysium-config.json` e o antigo existe, **copia** (não move) os `.json`, renomeando os dois
+prefixados. Precisa rodar **antes de qualquer `new Store()`** — os stores são construídos em
+escopo de módulo, então a garantia é ser o **primeiro `import` do `main.ts`**. Idempotente e
+silenciosa em erro: falhar a migração não pode impedir o app de abrir.
+
+**Auto-launch:** o nome novo cria uma entrada nova em `HKCU\...\Run` e **deixa a `NEUROAXIS`
+apontando pro caminho antigo** — dois lançamentos no boot, um quebrado. A migração faz um
+`disable()` no nome antigo, uma vez.
+
+**Instalador:** `appId` novo = produto diferente pro NSIS. O `ELYSIUM-Setup` **não** substitui
+a instalação NEUROAXIS; desinstalar a antiga é manual, depois de confirmar a migração.
+
+### Bloco 9 (A3) — Identidade do mobile: ELYSIUM-M ⬜
+
+**Exige APK novo. Não vai por OTA.** `app.json` (`name`, `slug`, `scheme` `elysium`,
+`android.package`, `ios.bundleIdentifier`, textos de permissão) · `shareIntent.ts`
+(`elysium://`, tem que casar com o `scheme`) · `withReleaseSigning.js` (prefixo `NEUROAXIS_*`,
+config gradle `neuroaxisRelease`) · `build-local.ps1` (saída `elysium-m.apk`).
+
+**As chaves do `AsyncStorage`** (`neuroaxis_pairing`, `neuroaxis_chat_sessions`,
+`neuroaxis_chat_deleted`, `neuroaxis_command_queue`, `neuroaxis_mailbox_*`, `neuroaxis_theme`,
+`neuroaxis_color_scheme`) podem ser renomeadas **de graça neste bloco e só neste**: trocar o
+`android.package` já cria instalação nova, com armazenamento vazio.
+
+> 🔴 **Essas chaves nunca podem ser renomeadas por `npm run update`.** Um OTA que mude uma
+> delas chega num app instalado e o deixa despareado, sem erro visível.
+
+**Chave de assinatura:** renomear os **arquivos** é seguro; **gerar chave nova não é** (mata o
+caminho de atualização por cima, §13). Renomeando o `.keystore`, a linha `STORE_FILE` de
+dentro do `.properties` acompanha.
+
+**EAS:** `slug` novo = projeto novo (`eas build:configure`, `projectId` e `updates.url` novos).
+O vínculo com `a9c62871-2d6d-4e05-b458-1e58655449b5` morre.
+
+**Custo:** desinstalar o Portal → instalar o `elysium-m.apk` → reparear pelo QR → re-registrar
+o push. **As conversas voltam sozinhas** pela sincronização (o PC é a autoridade, §11).
+Pareamento e tema local, não.
+
+> Este bloco só faz sentido depois do 8 validado em uso: parear o app novo contra um desktop
+> cujo `serverToken` ainda não se confirmou que sobreviveu mistura duas investigações.
+
+### Bloco 10 (A4) — Repositórios e pastas ⬜
+
+GitHub `neuroaxis`→`elysium` e `neuroaxis-portal`→`elysium-m`, com `git remote set-url` nos
+dois (redirect do GitHub não é contrato) · pastas locais `ELYSIUM\elysium` e
+`ELYSIUM\elysium-m` (exige nada segurando: app da bandeja, Metro, janelas do VSCode) ·
+`Iniciar ELYSIUM.vbs` (ele deriva a própria pasta, mas um **atalho** pro nome antigo quebra) ·
+os caminhos citados na §1 e §2 deste documento.
+
+### Bloco 11 (B) — Motor de temas: famílias, e as 3 variações do Vidro Líquido ⬜
+
+Levantamento: o `lg` **não é uma paleta**. São **125 seletores `.theme-lg`** no
+`dashboard.html` (raios, sombras, blur, camada de blobs, molas de `cubic-bezier`,
+`prefers-reduced-motion`) mais um bloco próprio no `config.html`. O `applyTheme()` troca só
+**7 variáveis CSS**. Um tema com o mesmo capricho precisa do bloco de CSS dele, não de uma
+linha no objeto `THEMES`.
+
+1. `THEMES` ganha `family: "lg" | "ely"`; `applyTheme` alterna as duas classes pela família.
+2. 🔴 **Compatibilidade do tema guardado.** O `config.theme` em disco é `default` (ou
+   `ocean`/`ember`/`forest`) e essas chaves deixam de existir. `applyTheme` faz
+   `THEMES[id] ? id : "default"` — com `default` fora do objeto, `p` vira `undefined` e **o JS
+   do dashboard morre inteiro na abertura**. Precisa de mapa `{default,ocean,ember,forest} →
+   ely`, fallback constante novo, e `DEFAULTS.theme` do `config.ts` junto.
+3. As 3 variações de cor do Vidro Líquido só funcionam se os `rgba(109,74,255,…)` do bloco
+   `lg` (19 no `dashboard.html`, 4 no `config.html`) virarem `--purple-soft`/`--purple-glow`.
+   Para o `lg` atual o valor calculado fica **idêntico**. Os `rgba(255,255,255,…)` e
+   `rgba(17,17,26,…)` (36 e 29) são o que **faz** o vidro ser claro: ficam.
+4. `config.html:405` hardcoda `cfg.theme === "lg"` e **não aplica paleta nenhuma** — passa a
+   aplicar família + as 7 variáveis, senão a janela de config ignora a variação escolhida.
+
+### Bloco 12 (B) — Os 3 temas ELYSIUM ⬜
+
+Bloco `body.theme-ely` novo. **Nada do `lg` é reescrito.** Os seletores de *movimento*
+(molas nos botões, `lg-modal-in`, `lg-bubble-in`, o brilho que atravessa os botões, o
+`prefers-reduced-motion`) **não têm cor** — basta acrescentar `.theme-ely` às listas que já
+existem: aditivo, e o `lg` fica intacto. As regras *de cor* do `lg` são claras por natureza e
+não servem.
+
+Paleta base (`ely`, "Campos Elísios"): `bg #0a0c14` · `surface #131726` · ouro `#d9b168` ·
+ouro vivo `#f2d49b` · éter `#9fd8cf` · texto marfim `#eee7d8`. Atmosfera: blobs dourados/éter
+gated por família, **feixes de luz** diagonais a ~6% (o elemento que o `lg` não tem), vidro
+sobre escuro com borda em ouro. Variações: `ely` (padrão), `ely-dusk` (âmbar/índigo),
+`ely-ether` (prata-ciano frio).
+
+> **As variáveis continuam se chamando `--purple` e `--cyan` mesmo valendo ouro e éter.**
+> Renomear atingiria centenas de usos em 2818 linhas sem ganho funcional. Não "consertar".
+
+### Bloco 13 (C1) — Bancada de medição do roteador ⬜
+
+**Nenhuma linha do app muda.** É a regra 3 da §3 aplicada. `scripts/bench-router.mjs` +
+`bench-cases.json`: ~40 frases reais com gabarito, cobrindo de propósito os 7 pares difíceis
+da §6 e ≥5 pedidos compostos, rodadas com o **mesmo `buildSystemPrompt()`** contra Groq 70B
+(linha de base), `llama3.1:8b` e `llama3.2` (3B). Saída: acerto global, por ação, pares
+difíceis isolados, taxa de JSON inválido, latência p50/p95.
+
+**Confirmar em execução, não presumir:** se o `/v1/chat/completions` do Ollama honra
+`response_format: {type:"json_object"}` (o nativo `/api/chat` tem `format:"json"` garantido) e
+se aceita `keep_alive` no corpo — se não, o controle de VRAM vira `OLLAMA_KEEP_ALIVE` no
+daemon ou o endpoint nativo.
+
+### Bloco 14 (C2) — Provider configurável, Groq como rede de segurança ⬜
+
+`routerProvider`/`chatProvider` (`groq`|`ollama`), `ollamaBaseUrl`, modelos e `keep_alive` no
+`config.ts` + seção nova no `config.html`. Os dois `fetch` quase idênticos do `brain.ts`
+(`decideBrain`, `composeChatReply`) viram um `callChat({provider, model, messages, …})`.
+`stt.ts`, `vision.ts` e `webSearch.ts` **não são tocados**.
+
+**Fallback:** local primeiro; cai pra Groq com JSON inválido, `unknown`, ação fora da união
+`BrainAction`, HTTP de erro ou timeout — cada queda com o motivo no log, pra dar pra medir
+depois se o fallback virou regra.
+
+**VRAM:** `keep_alive: "60s"` tira o modelo da GPU sozinho um minuto depois do último comando
+(custo: ~2-4 s de recarga na volta). Mais detecção de jogo — processo em primeiro plano contra
+uma lista editável (`src/config/games.json`, no espírito do `apps.json`); casou → vai direto
+pra Groq sem tocar na GPU. O `inputHost.ts` já mantém um PowerShell persistente, onde a
+consulta de janela cabe sem custo de spawn (§15: 0,08 ms quente contra ~200 ms por spawn).
+
+**Fica na Groq, e por quê** — para não ser re-decidido: `webSearch.ts` usa `groq/compound-mini`,
+agente que pesquisa sozinho no servidor deles, **sem equivalente local** (o substituto seria
+API de busca + RAG, outro projeto). `vision.ts` disputaria a mesma VRAM apertada por um uso
+pouco frequente. `stt.ts` exigiria whisper.cpp, outra toolchain (C24, marcado como pesado).
