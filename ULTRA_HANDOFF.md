@@ -204,7 +204,7 @@ e Spotify · Home, modo escuro, share intent e build do APK.
 | 8 (A2) — identidade do desktop + migração do userData | ✅ concluído e verificado em execução |
 | 9 (A3) — identidade do mobile (APK novo) | ✅ concluído — APK instalado e pareado |
 | 10 (A4) — repositórios e pastas | ✅ concluído |
-| 11 (B) — motor de temas por família + 3 variações do Vidro Líquido | ⬜ |
+| 11 (B) — motor de temas por família + 3 variações do Vidro Líquido | ✅ concluído |
 | 12 (B) — os 3 temas ELYSIUM | ⬜ |
 | 13 (C1) — bancada de medição do roteador | ⬜ |
 | 14 (C2) — provider configurável + fallback + VRAM | ⬜ |
@@ -1663,7 +1663,7 @@ rename, a entrada em `HKCU\...\Run` apontava para `ELYSIUM\neuroaxis\...`; a pri
 abertura do app detectou que o executável não existia mais e reescreveu para
 `ELYSIUM\elysium\...`. Sem isso, o app teria parado de subir com o Windows em silêncio.
 
-### Bloco 11 (B) — Motor de temas: famílias, e as 3 variações do Vidro Líquido ⬜
+### Bloco 11 (B) — Motor de temas: famílias, e as 3 variações do Vidro Líquido ✅
 
 Levantamento: o `lg` **não é uma paleta**. São **125 seletores `.theme-lg`** no
 `dashboard.html` (raios, sombras, blur, camada de blobs, molas de `cubic-bezier`,
@@ -1683,6 +1683,35 @@ linha no objeto `THEMES`.
    `rgba(17,17,26,…)` (36 e 29) são o que **faz** o vidro ser claro: ficam.
 4. `config.html:405` hardcoda `cfg.theme === "lg"` e **não aplica paleta nenhuma** — passa a
    aplicar família + as 7 variáveis, senão a janela de config ignora a variação escolhida.
+
+**As 3 variações do Vidro Líquido** — mesmo CSS, só a paleta muda:
+
+| id | nome | roxo / ciano |
+|---|---|---|
+| `lg` | Vidro Líquido | `#6d4aff` / `#22b8cf` — **inalterado** |
+| `lg-tide` | Vidro — Maré | `#1e7fd4` / `#17b8a6` |
+| `lg-amber` | Vidro — Âmbar | `#c2602c` / `#c9971f` |
+
+**Como ficou, e o que mudou em relação ao previsto:**
+
+- `--purple-rgb` / `--cyan-rgb` são **derivadas do hex da paleta** por `hexToRgbList()`, e
+  não guardadas junto no `THEMES`. Dois formatos da mesma cor lado a lado saem de sincronia
+  no primeiro tema novo. Conferido que a derivação reproduz os literais antigos exatamente
+  (`#6d4aff` → `109,74,255`, `#22b8cf` → `34,184,207`), então o `lg` não mudou um pixel.
+  Valor não-hex (o `surface` do `lg` é `rgba()`) devolve `null` e a variável fica como está.
+- **Os blobs do fundo também precisaram virar variáveis** — não estava previsto. Em literal,
+  "Maré" e "Âmbar" ficariam com a camada de fundo roxa do `lg`. Tema sem `blobs` próprios
+  limpa os do anterior, senão o fundo guardaria a cor de um tema já trocado.
+- 🔴 **Conflito de cascata no `config.html`, achado ao codar.** O bloco `body.theme-lg` de lá
+  declara `--purple`, `--bg` e `--surface`, e **variável declarada no `body` vence a do
+  `html`** para tudo que está dentro dele. Aplicar a paleta em `document.documentElement`
+  não teria efeito nenhum: as variações sairiam sempre com o roxo do `lg`. Por isso a janela
+  de config aplica no **próprio `body`**, onde estilo inline passa por cima da classe. O
+  dashboard não tem esse problema porque o `body.theme-lg` dele não declara cor de paleta.
+- Os 4 temas clássicos continuam presentes por ora, marcados `family: "classic"` — que não
+  liga classe nenhuma, ou seja, é o visual de sempre. Saem no bloco 12, quando os ELYSIUM
+  entram no lugar; assim cada bloco fecha num estado testável em vez de deixar o seletor
+  quebrado no meio.
 
 ### Bloco 12 (B) — Os 3 temas ELYSIUM ⬜
 

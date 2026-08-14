@@ -7,6 +7,8 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
       --purple: #8b5cf6; --purple-dark: #6d28d9;
+      /* Base para as regras translúcidas. O applyTheme() reescreve a partir da paleta. */
+      --purple-rgb: 139,92,246;
       --bg: #07071a; --surface: #0f0f28; --surface2: #13132e;
       --border: rgba(139,92,246,0.14);
       --text: #f1f5f9; --muted: #94a3b8; --dim: #475569;
@@ -231,12 +233,12 @@
       box-shadow: var(--shadow-card);
     }
     .theme-lg .shortcut-input { color: var(--purple); }
-    .theme-lg input[type="range"] { background: rgba(109,74,255,0.16); }
+    .theme-lg input[type="range"] { background: rgba(var(--purple-rgb),0.16); }
     .theme-lg .toggle-track { background: rgba(17,17,26,0.12); }
     .theme-lg .toggle input:checked + .toggle-track { background: var(--purple); }
     .theme-lg .btn-save {
       background: linear-gradient(135deg, #6d4aff, #8b6dff);
-      box-shadow: 0 4px 16px rgba(109,74,255,0.35);
+      box-shadow: 0 4px 16px rgba(var(--purple-rgb),0.35);
     }
     .theme-lg .btn-reset {
       background: rgba(255,255,255,0.85); color: var(--muted);
@@ -256,8 +258,8 @@
     .theme-lg .eye-btn:hover { transform: translateY(-50%) scale(1.15); }
     .theme-lg .input-wrap input:focus, .theme-lg input[type="text"]:focus,
     .theme-lg select:focus, .theme-lg .shortcut-input:focus, .theme-lg .shortcut-input.capturing {
-      border-color: rgba(109,74,255,0.5);
-      box-shadow: 0 0 0 4px rgba(109,74,255,0.14);
+      border-color: rgba(var(--purple-rgb),0.5);
+      box-shadow: 0 0 0 4px rgba(var(--purple-rgb),0.14);
     }
     @media (prefers-reduced-motion: reduce) {
       .theme-lg * { animation: none !important; transition: none !important; }
@@ -390,6 +392,57 @@
     const status = document.getElementById("status");
     let capturedShortcut = null;
 
+    /**
+     * Espelho enxuto do sistema de temas do dashboard.
+     *
+     * Antes daqui só saía um `classList.toggle("theme-lg", theme === "lg")`, sem aplicar
+     * paleta nenhuma — as cores vinham do `:root` desta página. Funcionava enquanto havia
+     * um tema de vidro só; com variações de cor, esta janela ignoraria a escolhida e
+     * apareceria sempre roxa.
+     *
+     * Só as quatro variáveis que este CSS realmente consome entram aqui. Ao acrescentar
+     * um tema no dashboard, acrescente também nesta tabela.
+     */
+    const THEMES = {
+      default: { family: "classic", purple: "#7b5ea7", bg: "#0d0d1a", surface: "#1a1a2e" },
+      ocean:   { family: "classic", purple: "#3b6ea5", bg: "#0a1420", surface: "#101d2e" },
+      ember:   { family: "classic", purple: "#a5473b", bg: "#1a0d0d", surface: "#2a1414" },
+      forest:  { family: "classic", purple: "#4a7a4e", bg: "#0c150c", surface: "#152015" },
+
+      lg:         { family: "lg", purple: "#6d4aff", bg: "#f2f1f7", surface: "rgba(255,255,255,0.82)" },
+      "lg-tide":  { family: "lg", purple: "#1e7fd4", bg: "#eef4f9", surface: "rgba(255,255,255,0.82)" },
+      "lg-amber": { family: "lg", purple: "#c2602c", bg: "#f8f3ec", surface: "rgba(255,255,255,0.82)" },
+    };
+
+    const THEME_FAMILIES = ["classic", "lg"];
+
+    function hexToRgbList(hex) {
+      const m = /^#?([0-9a-f]{6})$/i.exec(String(hex).trim());
+      if (!m) return null;
+      const n = parseInt(m[1], 16);
+      return `${(n >> 16) & 255},${(n >> 8) & 255},${n & 255}`;
+    }
+
+    function applyTheme(id) {
+      const p = THEMES[id] || THEMES.default;
+
+      for (const fam of THEME_FAMILIES) {
+        document.body.classList.toggle(`theme-${fam}`, fam === p.family && fam !== "classic");
+      }
+
+      // No BODY, não no <html>: o bloco `body.theme-lg` declara --purple, --bg e --surface,
+      // e variável declarada no body vence a do html para tudo que está dentro dele. Estilo
+      // inline no próprio body é o que passa por cima da classe — de outro jeito as
+      // variações de cor do vidro sairiam sempre com o roxo do `lg`.
+      const s = document.body.style;
+      s.setProperty("--purple", p.purple);
+      s.setProperty("--bg", p.bg);
+      s.setProperty("--surface", p.surface);
+
+      const purpleRgb = hexToRgbList(p.purple);
+      if (purpleRgb) s.setProperty("--purple-rgb", purpleRgb);
+    }
+
     // ── load current config ────────────────────────────────────────────────────
     async function loadAll() {
       const [key, cfg] = await Promise.all([
@@ -402,7 +455,7 @@
 
     function applyConfig(cfg) {
       if (!cfg) return;
-      if (cfg.theme !== undefined) document.body.classList.toggle("theme-lg", cfg.theme === "lg");
+      if (cfg.theme !== undefined) applyTheme(cfg.theme);
       setSlider("silenceMs",       cfg.silenceMs       ?? 2500);
       setSlider("maxRecordMs",     cfg.maxRecordMs     ?? 120000);
       setSlider("chatHistoryTurns",cfg.chatHistoryTurns ?? 6);
