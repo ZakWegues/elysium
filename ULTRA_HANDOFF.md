@@ -172,17 +172,18 @@ pedir de novo.**
 
 ### Git
 
-| Repo | Base antes desta sessão de documentação |
-|---|---|
-| `neuroaxis` | `3144fff` — *docs: registra a build local do APK e onde vive a chave de assinatura* |
-| `neuroaxis-portal` | `ddf0a3f` — *fix: segunda build local não falha mais com arquivo travado* |
+| Repo | HEAD (13/08/2026) | Estado |
+|---|---|---|
+| `neuroaxis` | `040b78c` — *docs: um documento único no lugar de cinco que já se contradiziam* | limpo, pusheado |
+| `neuroaxis-portal` | `f3750c7` — *fix: o APK de release não conseguia falar com o PC em rede nenhuma* | limpo, pusheado |
 
-Em cima disso, o commit de 13/08/2026 que criou este documento traz também: a correção do
-cleartext no Portal (`expo-build-properties`), o `expo-system-ui`, a limpeza dos cinco
-documentos concorrentes, e o `Iniciar NEUROAXIS.vbs` deixando de ter caminho fixo.
+Esses dois commits trazem: a correção do cleartext no Portal (`expo-build-properties`), o
+`expo-system-ui`, a limpeza dos cinco documentos concorrentes, e o `Iniciar NEUROAXIS.vbs`
+deixando de ter caminho absoluto.
 
 Verificado antes de subir: `npm run build` no desktop e `npm run typecheck` no Portal, ambos
-sem erro.
+sem erro. Conferido também que os 52 métodos RPC e as 28 ações citados neste documento batem
+exatamente com o código, sem sobra e sem falta.
 
 ### Blocos do plano de expansão
 
