@@ -1613,11 +1613,8 @@ proibido é gerar chave nova. Só o nome da config do gradle mudou
 > `npm run update`, rodar `npx eas-cli init`** para recriar o vínculo; o `eas update` pode
 > recusar por divergência de slug até lá. O build local **não** depende do EAS.
 
-**Ícones conferidos:** `assets/icon.png` e os `android-icon-*` são o **placeholder padrão do
-Expo** (a seta azul do template, sobre `#E6F4FE`), sem texto embutido — nada quebrou com o
-rename e nada precisou ser refeito. Fica o registro de que **o app nunca teve ícone próprio**.
-Se um dia for feito, o lugar natural é junto do bloco 12: uma marca dourada sobre azul-noite
-fecharia a identidade dos dois lados de uma vez.
+**Ícones:** eram o placeholder padrão do Expo (a seta azul do template). **Refeitos em
+14/08/2026** — ver a seção de ícones abaixo.
 
 **Concluído em 14/08/2026:** `npm run build:local` gerou o `dist-apk/elysium-m.apk` (97,8 MB),
 o Portal antigo foi desinstalado, o ELYSIUM-M instalado e pareado pelo QR.
@@ -1874,3 +1871,57 @@ consulta de janela cabe sem custo de spawn (§15: 0,08 ms quente contra ~200 ms 
 agente que pesquisa sozinho no servidor deles, **sem equivalente local** (o substituto seria
 API de busca + RAG, outro projeto). `vision.ts` disputaria a mesma VRAM apertada por um uso
 pouco frequente. `stt.ts` exigiria whisper.cpp, outra toolchain (C24, marcado como pesado).
+
+---
+
+### Ícones — `scripts/gerar-icone.mjs`
+
+Os ícones dos dois lados são **gerados por código**, não são arquivos soltos. Rodar:
+
+```
+cd elysium && node scripts/gerar-icone.mjs
+```
+
+**O que ele escreve**
+
+| destino | arquivo | papel |
+|---|---|---|
+| `elysium/build/` | `icon.ico` | Bandeja e janelas. **Multi-tamanho**: 16, 24, 32, 48, 64, 128, 256 |
+| `elysium/build/` | `icon.png` | 256, usado pelo electron-builder e como reserva |
+| `elysium-m/assets/` | `android-icon-foreground.png` | A marca, dentro da zona segura de 66% |
+| `elysium-m/assets/` | `android-icon-background.png` | Noite do tema com halo dourado |
+| `elysium-m/assets/` | `android-icon-monochrome.png` | Só o "E", para o tema dinâmico do Android 13+ |
+| `elysium-m/assets/` | `icon.png`, `favicon.png` | Quadrado cheio, sem alfa (o iOS recusa alfa) |
+
+**Por que por código, e num gerador só**
+
+O projeto tem quatro dependências em produção de propósito e nenhuma biblioteca de imagem —
+mas PNG é fácil de escrever à mão com o `zlib` que já vem no Node. E manter a marca em um
+lugar só evita o que aconteceria com dois arquivos versionados à mão: divergirem na primeira
+correção de cor, sem ninguém notar até os dois ícones já estarem diferentes. Por isso o
+gerador do desktop escreve também no repositório do mobile.
+
+**Decisões que valem saber antes de mexer**
+
+- **Cada tamanho do `.ico` é renderizado no próprio tamanho**, com supersampling — não é
+  redução do 256. A bandeja desenha em **16px**, e é exatamente ali que encolher o grande
+  borra.
+- **Zona segura de 66% no Android.** O ícone adaptativo é desenhado em 108dp mas só os 72dp
+  centrais são garantidos; o resto o launcher recorta em círculo ou squircle. Marca fora
+  disso perde as pontas em metade dos aparelhos.
+- **A camada monocromática leva só o "E".** O sistema pinta com a cor do tema do usuário e
+  só o alfa importa — mandar o disco inteiro viraria um borrão chapado.
+
+**🔴 Duas armadilhas**
+
+1. **Ícone novo no Android exige APK novo.** Não vai por `npm run update`: é recurso nativo
+   e entra no manifesto.
+2. **`build/` precisa estar no `files` do `package.json`.** Ele não estava — o `build` do
+   electron-builder é `buildResources`, que serve ao instalador e ao `.exe`, e **não** é
+   empacotado no app. No app instalado a bandeja cairia no quadrado transparente do
+   fallback. Nunca apareceu porque nunca houve instalação NSIS nesta máquina. Corrigido em
+   14/08/2026.
+
+> Curiosidade que diz muito sobre documentação: o ícone era um **"J" roxo do "Jarvis PC"**,
+> o nome original do projeto. Sobreviveu ao rename para NEUROAXIS e ao rename para ELYSIUM
+> sem ninguém notar, até o Zak reparar na bandeja.

@@ -28,7 +28,7 @@ import {
 } from "../services/spotify";
 import { state } from "./state";
 import { notify } from "./notify";
-import { createTray, refreshTray, updateLastCommand } from "./tray";
+import { createTray, refreshTray, updateLastCommand, buildIcon as iconePadrao } from "./tray";
 import { transcribe } from "../services/stt";
 import { decideBrain, clearHistory } from "../services/brain";
 import { trackUsage, getTopHistory } from "../services/history";
@@ -82,6 +82,7 @@ function openDashboard(): void {
     minHeight: 560,
     resizable: true,
     title:     "ELYSIUM",
+    icon:      iconePadrao(),
     frame:     false,
     titleBarStyle: "hidden",
     webPreferences: {
@@ -117,6 +118,7 @@ function openConfigWindow(): void {
   configWin = new BrowserWindow({
     width: 480, height: 580, resizable: false,
     title: "Configurar ELYSIUM", skipTaskbar: false,
+    icon: iconePadrao(),
     webPreferences: {
       preload: path.join(__dirname, "../renderer/preload-config.js"),
       contextIsolation: true,

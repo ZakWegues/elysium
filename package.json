@@ -21,7 +21,9 @@
     },
     "files": [
       "dist/**/*",
-      "package.json"
+      "package.json",
+      "build/icon.ico",
+      "build/icon.png"
     ],
     "win": {
       "target": [

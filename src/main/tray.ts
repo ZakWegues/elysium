@@ -15,7 +15,18 @@ let _onCommand: (text: string) => void;
 let _currentState: AssistantState = "idle";
 let _lastCommand = "";
 
-function buildIcon(): Electron.NativeImage {
+/**
+ * O ícone do app, para a bandeja e para as janelas.
+ *
+ * O `.ico` vem primeiro porque tem os tamanhos pequenos renderizados um a um — a bandeja
+ * desenha em 16px, e deixar o Windows encolher o PNG de 256 borra justamente no tamanho
+ * em que o ícone mais aparece. Os dois arquivos saem de `scripts/gerar-icone.mjs`.
+ *
+ * O quadrado transparente no fim é só para o app nunca ficar sem ícone se alguém apagar a
+ * pasta `build`: `new Tray()` lança com imagem vazia, e derrubar o boot por causa de um
+ * ícone seria desproporcional.
+ */
+export function buildIcon(): Electron.NativeImage {
   const iconPath = path.join(app.getAppPath(), "build", "icon.ico");
   if (fs.existsSync(iconPath)) return nativeImage.createFromPath(iconPath);
   const pngPath = path.join(app.getAppPath(), "build", "icon.png");
