@@ -161,6 +161,17 @@ export function broadcastMailboxEvent(direction: "toMobile" | "toDesktop", id: s
 let activeToken = "";
 
 /** Atualiza o token aceito pelo servidor em runtime — ver src/main/main.ts (pairing:regenerate-token). */
+/**
+ * Quantos clientes têm um WebSocket aberto agora.
+ *
+ * É o sinal certo para "o celular está conectado": o app mantém a conexão aberta enquanto
+ * está em uso, e ela cai quando ele sai de alcance. Ter token gravado não prova nada — o
+ * token continua lá com o celular desligado do outro lado da cidade.
+ */
+export function clientesConectados(): number {
+  return wsClients.size;
+}
+
 export function setActiveToken(token: string): void {
   activeToken = token;
 }

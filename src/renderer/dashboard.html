@@ -80,8 +80,7 @@ body.theme-ely {
 }
 
 /* Superfícies: no lugar do preenchimento opaco da base, vidro sobre a noite. */
-.theme-ely #topbar,
-.theme-ely #rtabs {
+.theme-ely #topbar {
   background: rgba(255,255,255,0.045);
   backdrop-filter: var(--glass-blur);
   border-bottom-color: var(--border);
@@ -206,17 +205,17 @@ body.theme-ely {
    navegação, onde o que importa é ver o indicador percorrer o caminho. */
 #layout > #view-inicio,
 #layout > #center,
-#layout > #drawer-left,
+#layout > #view-programas,
 #layout > #drawer-right {
   transition: opacity var(--mov-base) var(--mov-suave),
               transform var(--mov-base) var(--mov-suave),
               display var(--mov-base) allow-discrete;
 }
 @starting-style {
-  #layout[data-view="inicio"]  #view-inicio,
-  #layout[data-view="chat"]    #center,
-  #layout[data-view="pc"]      #drawer-left,
-  #layout[data-view="ajustes"] #drawer-right { opacity: 0; transform: translateY(10px); }
+  #layout[data-view="inicio"]    #view-inicio,
+  #layout[data-view="chat"]      #center,
+  #layout[data-view="programas"] #view-programas,
+  #layout[data-view="ajustes"]   #drawer-right { opacity: 0; transform: translateY(10px); }
 }
 
 /* ── Polegar deslizante da barra de abas ──────────────────
@@ -453,6 +452,39 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
 .chat-tab-btn.tem-novidade .chat-tab-dot { display: block; animation: pulso-uma-vez 600ms var(--mov-suave) 2; }
 @keyframes pulso-uma-vez { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.7); opacity: 0.5; } }
 
+/* ── Bolhas de partida do chat ────────────────────────────
+   Rotacionam a cada abertura do app e a cada entrada na aba. O que você repete vem
+   primeiro; o resto são partidas curadas. Ver `perguntas.ts`. */
+#chat-bolhas {
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 7px;
+  padding: 0 16px 10px;
+}
+/* No lado "Celular" some: recado para si mesmo não tem pergunta pronta. */
+#center.modo-self #chat-bolhas { display: none; }
+#chat-bolhas:empty { display: none; }
+.chat-bolha {
+  max-width: 100%;
+  padding: 8px 15px; border-radius: var(--radius-20);
+  background: rgba(var(--purple-rgb),0.08);
+  border: 1px solid var(--border);
+  color: var(--muted); font-family: inherit; font-size: 11.5px; font-weight: 500;
+  cursor: pointer; text-align: left;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  transition: background var(--mov-micro) var(--mov-curva),
+              border-color var(--mov-micro) var(--mov-curva),
+              color var(--mov-micro) var(--mov-curva);
+}
+.chat-bolha:hover {
+  background: rgba(var(--purple-rgb),0.18);
+  border-color: rgba(var(--purple-rgb),0.42);
+  color: var(--text);
+}
+/* Entram escalonadas, como as listas da Início. */
+#chat-bolhas .chat-bolha { animation: mov-entra var(--mov-base) var(--mov-suave) both; }
+#chat-bolhas .chat-bolha:nth-child(2) { animation-delay: 40ms; }
+#chat-bolhas .chat-bolha:nth-child(3) { animation-delay: 80ms; }
+#chat-bolhas .chat-bolha:nth-child(4) { animation-delay: 120ms; }
+
 /* Timeline */
 #timeline, #timeline-self {
   flex: 1; overflow-y: auto; padding: 12px 16px;
@@ -627,19 +659,6 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
 }
 #drawer-right.open { transform: translateX(0); }
 
-#rtabs {
-  display: flex; flex-shrink: 0;
-  border-bottom: 1px solid var(--border);
-  background: rgba(13,13,26,0.5);
-}
-.rtab-btn {
-  flex: 1; padding: 9px 4px; background: none; border: none; cursor: pointer;
-  color: var(--muted); font-size: 15px;
-  border-bottom: 2px solid transparent;
-  transition: color 0.2s, border-color 0.2s, background 0.2s;
-}
-.rtab-btn:hover { background: rgba(255,255,255,0.03); color: var(--text); }
-.rtab-btn.active { color: var(--purple-bright); border-bottom-color: var(--purple); background: rgba(var(--purple-rgb),0.08); }
 
 #rtab-panels {
   flex: 1; overflow-y: auto; overflow-x: hidden;
@@ -648,8 +667,7 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
 }
 #rtab-panels::-webkit-scrollbar { width: 4px; }
 #rtab-panels::-webkit-scrollbar-thumb { background: var(--border); border-radius: var(--radius-4); }
-.rtab-panel { display: none; }
-.rtab-panel.active { display: block; }
+
 
 #open-config-btn {
   width: 100%; padding: 9px; border-radius: var(--radius-8); border: none; cursor: pointer;
@@ -678,7 +696,7 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
 /* ── Acesso remoto ─────────────────────────────────────────────────────────── */
 #remote-card {
   background: var(--surface); border: 1px solid var(--border2);
-  border-radius: var(--radius-10); padding: 12px;
+  border-radius: var(--radius-10); padding: 12px; margin-top: 4px;
 }
 #remote-status { display: flex; align-items: center; gap: 7px; margin-bottom: 8px; }
 #remote-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dim); flex-shrink: 0; }
@@ -866,18 +884,6 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
 .proc-expand-btn:hover { background: rgba(var(--purple-rgb),0.2); }
 
 /* ── STABILITY TIMELINE ─────────────────────────────────── */
-#stability-wrap {
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--radius-8); overflow: hidden; margin-bottom: 6px;
-}
-#stability-canvas { display: block; width: 100%; height: 50px; }
-#stability-legend {
-  display: flex; gap: 8px; justify-content: center;
-  padding: 3px 0 5px; font-size: 9px; font-weight: 600;
-}
-.sl-cpu   { color: var(--purple-bright); }
-.sl-ram   { color: var(--cyan); }
-.sl-spike { color: var(--yellow); }
 
 /* ── INSIGHTS PANEL ─────────────────────────────────────── */
 #insights-card {
@@ -996,23 +1002,32 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
 .widget-order-toggle { width: 15px; height: 15px; cursor: pointer; accent-color: var(--purple); }
 
 /* ── PAREAMENTO (ELYSIUM-M mobile) ───────────────── */
+/* Um eixo de alinhamento só. Antes o card era `text-align: center` e as caixas de código
+   eram `text-align: left` — rótulo centralizado sobre valor à esquerda, duas vezes
+   seguidas. O QR se centraliza sozinho pelo próprio `margin: 0 auto`. */
 #pairing-card {
   background: var(--surface); border: 1px solid var(--border2);
-  border-radius: var(--radius-10); padding: 12px; text-align: center;
+  border-radius: var(--radius-10); padding: 12px;
+  display: flex; flex-direction: column; gap: 7px;
 }
+#pairing-card .sc-label { margin: 4px 0 0; }
+#pairing-card .save-btn { width: 100%; margin-top: 4px; }
 #pairing-qr {
   display: none; width: 176px; height: 176px; margin: 0 auto 8px;
   background: #fff; border-radius: var(--radius-8); padding: 8px;
 }
 #pairing-qr.show { display: block; }
-#pairing-empty { font-size: 10px; color: var(--muted); padding: 20px 4px; }
+#pairing-empty { font-size: 11px; color: var(--muted); padding: 20px 4px; text-align: center; }
 #pairing-empty.hide { display: none; }
+#pairing-token { cursor: pointer; user-select: none; }
+#pairing-token.revelado { user-select: text; }
+#pairing-token:hover { border-color: rgba(var(--cyan-rgb),0.4); }
 .pairing-mono {
-  font-family: var(--mono); font-size: 10px; color: var(--cyan);
+  font-family: var(--mono); font-size: 10.5px; color: var(--cyan);
   background: rgba(0,0,0,0.3); border: 1px solid var(--border);
   border-radius: var(--radius-6); padding: 5px 8px; word-break: break-all; text-align: left;
 }
-#pairing-hint { font-size: 9px; color: var(--muted); margin-top: 8px; line-height: 1.4; }
+#pairing-hint { font-size: 10.5px; color: var(--muted); margin-top: 6px; line-height: 1.5; }
 
 /* ── LIQUID GLASS: blob background layer ────────────────── */
 #lg-blob-bg { position: fixed; inset: 0; z-index: -1; overflow: hidden; display: none; pointer-events: none; }
@@ -1116,10 +1131,6 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
 .theme-lg #drawer-left  { border-right-color: var(--border); }
 .theme-lg #drawer-right { border-left-color:  var(--border); }
 .theme-lg #drawer-backdrop { background: rgba(17,17,26,0.18); }
-.theme-lg #rtabs { background: rgba(255,255,255,0.5); border-bottom-color: var(--border); }
-.theme-lg .rtab-btn { color: var(--muted); }
-.theme-lg .rtab-btn:hover  { background: rgba(17,17,26,0.03); color: var(--text); }
-.theme-lg .rtab-btn.active { background: rgba(var(--purple-rgb),0.08); color: var(--purple); border-bottom-color: var(--purple); }
 .theme-lg #proc-modal { background: rgba(17,17,26,0.28); backdrop-filter: blur(14px) saturate(140%); }
 .theme-lg .modal-box {
   background: rgba(255,255,255,0.9);
@@ -1137,7 +1148,7 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
 /* ── LIQUID GLASS: cards brancos translúcidos ────────────── */
 .theme-lg .chart-wrap, .theme-lg #temp-row, .theme-lg #bat-row, .theme-lg .disk-card,
 .theme-lg .preset-card, .theme-lg .theme-swatch, .theme-lg #shortcut-card,
-.theme-lg #apikey-card, .theme-lg #insights-card, .theme-lg #stability-wrap,
+.theme-lg #apikey-card,
 .theme-lg #pairing-card, .theme-lg #media-card, .theme-lg #toast-el,
 .theme-lg .widget-order-row, .theme-lg .bubble.assistant, .theme-lg .attachment-file {
   background: rgba(255,255,255,0.82);
@@ -1236,7 +1247,10 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
 .theme-lg #stop-btn { background: rgba(229,72,77,0.1); border-color: rgba(229,72,77,0.35); color: var(--red); }
 .theme-lg #stop-btn:hover { background: rgba(229,72,77,0.2); box-shadow: 0 0 24px rgba(229,72,77,0.28); }
 .theme-lg .insight-item { background: rgba(var(--cyan-rgb),0.06); border-color: rgba(var(--cyan-rgb),0.14); color: var(--text); }
-.theme-lg .pairing-mono { background: rgba(17,17,26,0.04); border-color: var(--border); color: var(--cyan-dark); }
+.theme-lg #pairing-token { cursor: pointer; user-select: none; }
+#pairing-token.revelado { user-select: text; }
+#pairing-token:hover { border-color: rgba(var(--cyan-rgb),0.4); }
+.pairing-mono { background: rgba(17,17,26,0.04); border-color: var(--border); color: var(--cyan-dark); }
 .theme-lg .sys-badge  { background: rgba(17,17,26,0.06); color: var(--muted); }
 .theme-lg .user-badge { background: rgba(var(--cyan-rgb),0.12); color: var(--cyan-dark); }
 .theme-lg .attachment-btn { background: rgba(17,17,26,0.6); color: #fff; }
@@ -1294,7 +1308,6 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
 /* ── As gavetas viram painéis ─────────────────────────────
    Só enquanto uma aba está ativa. A regra é a mesma para as duas: solta do canto, ocupa a
    largura toda, sem sombra de gaveta e sem transform. */
-#layout[data-view] #drawer-left,
 #layout[data-view] #drawer-right {
   position: static;
   transform: none !important;
@@ -1307,10 +1320,10 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
 }
 /* Fora da sua aba, some de vez: `display:none` e não translate, senão o conteúdo
    continuaria recebendo foco por Tab e o leitor de tela ainda o anunciaria. */
-#layout[data-view] #drawer-left,
 #layout[data-view] #drawer-right,
 #layout[data-view] #center,
-#layout[data-view] #view-inicio { display: none; opacity: 0; transform: translateY(-6px); }
+#layout[data-view] #view-inicio,
+#layout[data-view] #view-programas { display: none; opacity: 0; transform: translateY(-6px); }
 
 /* Os painéis se SOBREPÕEM, não dividem espaço.
    Enquanto a troca acontece, o que sai e o que entra estão os dois visíveis por ~220ms —
@@ -1319,24 +1332,17 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
    simplesmente atravessa o outro, que é o que se quer ver. */
 #layout[data-view] > #view-inicio,
 #layout[data-view] > #center,
-#layout[data-view] > #drawer-left,
+#layout[data-view] > #view-programas,
 #layout[data-view] > #drawer-right {
   position: absolute; inset: 0; min-width: 0;
 }
 #layout[data-view="inicio"]  #view-inicio  { display: block; opacity: 1; transform: none; }
 #layout[data-view="chat"]    #center       { display: flex;  opacity: 1; transform: none; }
-#layout[data-view="pc"]      #drawer-left  { display: block; opacity: 1; transform: none; padding: 14px 18px 20px; }
+#layout[data-view="programas"] #view-programas { display: grid; opacity: 1; transform: none; }
 #layout[data-view="ajustes"] #drawer-right { display: flex;  opacity: 1; transform: none; }
 
 
 
-/* Com largura cheia, os widgets de sistema viram grade em vez de coluna estreita. */
-#layout[data-view="pc"] #drawer-left {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 14px;
-  align-content: start;
-}
 
 /* Com abas, as gavetas nunca deslizam — logo o backdrop e os botões de gaveta não fazem
    mais sentido e sairiam sobrando por cima do conteúdo. */
@@ -1356,18 +1362,7 @@ body.tabs .top-btn.drawer-toggle { display: none; }
 #layout[data-view="ajustes"] #rtab-panels {
   max-width: 760px; margin: 0 auto; width: 100%;
 }
-#layout[data-view="ajustes"] #rtabs {
-  max-width: 760px; margin: 0 auto; width: 100%;
-  gap: 4px; padding: 12px 0 0;
-}
-#layout[data-view="ajustes"] .rtab-btn {
-  /* A regra da gaveta antiga dava `flex:1` a cada botão; numa coluna de 262px isso fazia
-     sentido, em 760px vira um botão de 378px. */
-  display: flex; align-items: center; gap: 7px;
-  flex: 0 0 auto; width: auto;
-  padding: 7px 14px; border-radius: var(--radius-20);
-  font-size: 11.5px; font-weight: 600;
-}
+
 /* Os controles compostos (amostras de tema, lista de widgets) seguem o mesmo teto dos
    campos simples — senão só eles esticariam. */
 #layout[data-view="ajustes"] #theme-swatches,
@@ -1439,8 +1434,7 @@ body.tabs .top-btn.drawer-toggle { display: none; }
 #shortcut-input { max-width: 200px; text-align: center; font-family: var(--mono); }
 #apikey-input { font-family: var(--mono); font-size: 11px; }
 #layout[data-view="ajustes"] .save-btn { width: auto; padding: 8px 16px; }
-#layout[data-view="ajustes"] #pairing-card,
-#layout[data-view="ajustes"] #remote-card { max-width: 420px; }
+
 
 /* ── Popover de conversas ─────────────────────────────────
    Mesmo formato do popover de presets; a diferença é a âncora, que aqui é pela esquerda. */
@@ -1456,37 +1450,44 @@ body.tabs .top-btn.drawer-toggle { display: none; }
 #conv-btn:hover { background: rgba(var(--purple-rgb),0.16); color: var(--purple-bright); }
 #chat-mode-tabs { position: relative; }
 
-/* ── ABA PC ───────────────────────────────────────────────
-   A gaveta de sistema foi desenhada para 272px de largura. Com a janela inteira, os
-   mesmos blocos empilhados deixavam metade da tela vazia. */
-#layout[data-view="pc"] .pc-fila {
-  display: grid; gap: 12px; margin-bottom: 4px;
-  /* `auto-fit` em vez de colunas fixas: neste PC não há sensor de temperatura nem
-     bateria, e com grade rígida os cards escondidos deixariam buraco ou empurrariam o
-     resto para uma segunda linha. Assim o que sobra ocupa a largura. */
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+/* ── ABA PROGRAMAS ────────────────────────────────────────
+   Duas colunas: o que se abre e fecha à esquerda, o que se aciona à direita. Sem
+   gráfico, porque gráfico aqui não leva a lugar nenhum. */
+#view-programas {
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 20px; align-content: start;
+  overflow-y: auto; padding: 20px 24px 28px;
+  scrollbar-width: thin; scrollbar-color: var(--border) transparent;
 }
-/* Os dois gráficos valem por dois: eles têm forma para mostrar, os outros têm um número. */
-#layout[data-view="pc"] .pc-fila > .chart-wrap:not(.pc-mini) { grid-column: span 2; }
-/* `hidden` sozinho não bastaria: o `display:flex` da regra de cima é do autor e ganha do
-   `display:none` que o navegador aplica ao atributo. */
-#layout[data-view="pc"] .pc-fila .chart-wrap[hidden] { display: none; }
-@media (max-width: 760px) {
-  #layout[data-view="pc"] .pc-fila > .chart-wrap:not(.pc-mini) { grid-column: span 1; }
+#view-programas::-webkit-scrollbar { width: 4px; }
+#view-programas::-webkit-scrollbar-thumb { background: var(--border); border-radius: var(--radius-4); }
+.prog-col { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+.prog-secao { display: flex; flex-direction: column; gap: 9px; }
+.prog-secao h3 {
+  font-size: 12px; font-weight: 600; color: var(--muted);
+  padding-bottom: 7px; border-bottom: 1px solid var(--border);
 }
-.pc-fila .chart-wrap { margin-bottom: 0; display: flex; flex-direction: column; justify-content: space-between; }
-.pc-mini #temp-row, .pc-mini #bat-row { margin: 0; border: none; background: none; padding: 6px 0 0; }
+#prog-busca {
+  padding: 8px 11px; border-radius: var(--radius-7); max-width: 300px;
+  background: rgba(0,0,0,0.2); border: 1px solid var(--border);
+  color: var(--text); font-family: inherit; font-size: 12px; outline: none;
+}
+#prog-busca:focus { border-color: var(--purple); }
 
-/* Na aba PC os três widgets ficam um sob o outro em largura cheia, e não numa grade de
-   colunas: gráfico e tabela querem largura, não altura. */
-#layout[data-view="pc"] #drawer-left {
-  display: block;
-  padding: 16px 20px 24px;
+.prog-abertos { display: flex; flex-wrap: wrap; gap: 7px; }
+.prog-aberto {
+  display: flex; align-items: center; gap: 4px;
+  padding: 6px 6px 6px 13px; border-radius: var(--radius-20);
+  background: rgba(var(--purple-rgb),0.12); border: 1px solid var(--border);
+  font-size: 11.5px; color: var(--text);
 }
-#layout[data-view="pc"] .widget { max-width: 1100px; margin: 0 auto 18px; }
-#layout[data-view="pc"] #proc-search { width: auto; flex: 1; max-width: 260px; }
-#layout[data-view="pc"] #disks-wrap { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
-#layout[data-view="pc"] #stability-wrap { max-width: 1100px; }
+.prog-aberto button {
+  width: 20px; height: 20px; border-radius: 50%; border: none;
+  background: none; color: var(--muted); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.prog-aberto button:hover { background: rgba(224,82,82,0.2); color: var(--red); }
+#view-programas .pilulas { max-height: 260px; overflow-y: auto; }
 
 /* ── PRESETS: bolinha e popover ───────────────────────────
    Um botão redondo flutuando no canto superior direito do conteúdo, sem encostar na barra
@@ -1610,6 +1611,41 @@ body.tabs .top-btn.drawer-toggle { display: none; }
 .pop-form-acoes button.primario { background: rgba(var(--purple-rgb),0.22); color: var(--purple-bright); border-color: rgba(var(--purple-rgb),0.4); }
 .pop-form-acoes button:hover { background: rgba(var(--purple-rgb),0.14); color: var(--text); }
 
+/* ── ORBE DE CONEXÃO ──────────────────────────────────────
+   O estado do celular ao lado da saudação. Verde alcançável, cinza não. O anel pulsa
+   devagar enquanto está conectado — é a única animação em laço do app, e existe porque
+   "vivo" precisa se distinguir de "parado numa cor". */
+.home-saudacao { display: flex; align-items: center; gap: 13px; min-width: 0; }
+#orbe {
+  width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(var(--purple-rgb),0.08); border: 1px solid var(--border);
+  cursor: pointer; position: relative;
+  transition: background var(--mov-micro) var(--mov-curva);
+}
+#orbe:hover { background: rgba(var(--purple-rgb),0.20); }
+.orbe-ponto {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--dim, #5a5d7a);
+  transition: background var(--mov-base) var(--mov-curva);
+}
+#orbe.online .orbe-ponto { background: var(--green); }
+/* O anel é um pseudo-elemento para não custar um nó a mais; só existe quando online. */
+#orbe.online::after {
+  content: ""; position: absolute; inset: -1px; border-radius: 50%;
+  border: 1px solid var(--green);
+  animation: orbe-pulso 2.4s var(--mov-suave) infinite;
+}
+@keyframes orbe-pulso {
+  0%   { transform: scale(1);    opacity: 0.5; }
+  70%  { transform: scale(1.35); opacity: 0; }
+  100% { transform: scale(1.35); opacity: 0; }
+}
+
+/* ── AJUSTES à direita ────────────────────────────────────
+   Separa os destinos de conteúdo do destino de configuração. */
+.vtab-fim { margin-left: auto; }
+
 /* ── TELA INÍCIO ──────────────────────────────────────────
    Um catálogo de cards, não uma tela fixa. A grade usa `auto-fill` com um mínimo
    de 280px, e cada card declara se ocupa uma ou duas colunas.
@@ -1641,7 +1677,34 @@ body.tabs .top-btn.drawer-toggle { display: none; }
   margin-bottom: 16px; padding: 12px 14px;
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-10);
 }
-#home-personalizar.aberto { display: flex; animation: mov-entra var(--mov-base) var(--mov-suave) both; }
+#home-personalizar.aberto { display: block; animation: mov-entra var(--mov-base) var(--mov-suave) both; }
+.pers-lista { display: flex; flex-direction: column; gap: 3px; }
+.pers-linha {
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 7px; border-radius: var(--radius-6);
+}
+.pers-linha:hover { background: rgba(var(--purple-rgb),0.06); }
+.pers-linha.off .pers-nome { opacity: 0.45; }
+.pers-nome {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px;
+  font-size: 12px; color: var(--text); cursor: pointer;
+}
+.pers-nome input { accent-color: var(--purple); cursor: pointer; }
+.pers-linha button {
+  width: 24px; height: 24px; border-radius: var(--radius-6); border: none;
+  background: none; color: var(--muted); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.pers-linha button:hover:not(:disabled) { background: rgba(var(--purple-rgb),0.16); color: var(--text); }
+.pers-linha button.aceso { color: var(--purple-bright); }
+.pers-linha button:disabled { opacity: 0.25; cursor: default; }
+.pers-padrao {
+  display: flex; align-items: center; gap: 7px; margin-top: 10px;
+  padding: 7px 13px; border-radius: var(--radius-20);
+  background: none; border: 1px dashed var(--border2); color: var(--muted);
+  font-family: inherit; font-size: 11px; cursor: pointer;
+}
+.pers-padrao:hover { background: rgba(var(--purple-rgb),0.10); color: var(--text); }
 .home-toggle {
   display: flex; align-items: center; gap: 6px;
   padding: 5px 11px 5px 8px; border-radius: var(--radius-20);
@@ -1671,6 +1734,18 @@ body.tabs .top-btn.drawer-toggle { display: none; }
   backdrop-filter: var(--glass-blur);
 }
 .home-card.arrastando { opacity: 0.35; }
+/* Card fixo: fica no topo e não sai do lugar quando os outros são arrastados. */
+.home-card.fixo { border-color: rgba(var(--purple-rgb),0.34); }
+.home-card-pin {
+  width: 22px; height: 22px; border: none; border-radius: 50%; cursor: pointer;
+  background: none; color: var(--muted); opacity: 0;
+  display: flex; align-items: center; justify-content: center; margin-left: auto;
+  transition: opacity var(--mov-micro) var(--mov-curva), color var(--mov-micro) var(--mov-curva);
+}
+.home-card:hover .home-card-pin { opacity: 0.55; }
+.home-card-pin:hover { opacity: 1; color: var(--purple-bright); }
+.home-card.fixo .home-card-pin { opacity: 1; color: var(--purple-bright); }
+.home-card-grip { margin-left: 8px; }
 .home-card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 11px; }
 .home-card-title { display: flex; align-items: center; gap: 7px; font-size: 11.5px; font-weight: 600; color: var(--muted); }
 .home-card-grip { color: var(--muted); opacity: 0; cursor: grab; transition: opacity var(--mov-micro) var(--mov-curva); }
@@ -1710,21 +1785,47 @@ body.tabs .top-btn.drawer-toggle { display: none; }
 .bolha:hover { background: rgba(var(--purple-rgb),0.20); border-color: rgba(var(--purple-rgb),0.42); }
 .bolha .ico { color: var(--purple-bright); }
 
-/* ── Card de música ───────────────────────────────────── */
-.mus-linha { display: flex; align-items: center; gap: 11px; margin-bottom: 12px; }
-.mus-capa { width: 46px; height: 46px; border-radius: var(--radius-7); object-fit: cover; flex-shrink: 0; }
+/* ── Card de música ─────────────────────────────────────
+   O card usava 3 das 8 operações que a ponte IPC já suportava e descartava 6 dos 11
+   campos de `NowPlaying`. Agora usa tudo: posição, volume, aleatório, repetir,
+   álbum e o dispositivo que está tocando. */
+.mus-topo { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+.mus-capa { width: 72px; height: 72px; border-radius: var(--radius-8); object-fit: cover; flex-shrink: 0; }
 .mus-capa.vazia { display: flex; align-items: center; justify-content: center; background: rgba(var(--purple-rgb),0.10); color: var(--muted); }
-.mus-txt { min-width: 0; }
-.mus-faixa { font-size: 12.5px; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.mus-artista { font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mus-txt { min-width: 0; flex: 1; }
+.mus-faixa { font-size: 14px; font-weight: 700; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mus-artista { font-size: 12px; color: var(--text); opacity: 0.75; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 1px; }
+.mus-album { font-size: 10.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px; }
+.mus-device { display: flex; align-items: center; gap: 5px; font-size: 10px; color: var(--muted); margin-top: 5px; }
+
+/* Alvo de clique alto com trilha fina: a trilha de 4px sozinha exigiria mira. */
+.mus-seek { padding: 5px 0; cursor: pointer; }
+.mus-seek-trilha { height: 4px; border-radius: 2px; background: rgba(var(--purple-rgb),0.16); overflow: hidden; }
+.mus-seek-trilha > i {
+  display: block; height: 100%; width: 100%; border-radius: 2px;
+  background: var(--purple-bright); transform-origin: left center;
+  transition: transform 1s linear;
+}
+.mus-seek:hover .mus-seek-trilha { background: rgba(var(--purple-rgb),0.26); }
+.mus-tempos {
+  display: flex; justify-content: space-between;
+  font-size: 10px; color: var(--muted); font-variant-numeric: tabular-nums; margin-bottom: 12px;
+}
+
 .mus-ctrl { display: flex; align-items: center; justify-content: center; gap: 10px; }
 .mus-ctrl button {
-  width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--border);
+  width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--border);
   background: rgba(var(--purple-rgb),0.08); color: var(--text);
   display: flex; align-items: center; justify-content: center; cursor: pointer;
 }
-.mus-ctrl button.principal { width: 40px; height: 40px; background: rgba(var(--purple-rgb),0.20); color: var(--purple-bright); }
+.mus-ctrl button.principal { width: 44px; height: 44px; background: rgba(var(--purple-rgb),0.20); color: var(--purple-bright); }
+.mus-ctrl button.secundario { width: 30px; height: 30px; border-color: transparent; background: none; color: var(--muted); }
+.mus-ctrl button.secundario.aceso { color: var(--purple-bright); background: rgba(var(--purple-rgb),0.16); }
 .mus-ctrl button:hover { background: rgba(var(--purple-rgb),0.26); }
+
+.mus-vol { display: flex; align-items: center; gap: 9px; margin-top: 13px; color: var(--muted); }
+.mus-vol input[type="range"] { flex: 1; min-width: 0; accent-color: var(--purple); cursor: pointer; }
+#mus-vol-val { font-size: 10.5px; min-width: 24px; text-align: right; font-variant-numeric: tabular-nums; }
 
 /* ── Clima ────────────────────────────────────────────── */
 .clima-agora { display: flex; align-items: center; gap: 11px; }
@@ -1854,6 +1955,10 @@ body.tabs .top-btn.drawer-toggle { display: none; }
   <symbol id="i-cloud" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19.5h-11a4.5 4.5 0 0 1-.6-9A6.5 6.5 0 0 1 18 8.6a5 5 0 0 1-.5 10.9z"/></symbol>
   <symbol id="i-grip" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5h.01M15 5h.01M9 12h.01M15 12h.01M9 19h.01M15 19h.01"/></symbol>
   <symbol id="i-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 5v5h-5"/><path d="M3.5 19v-5h5"/><path d="M19.4 10a7.5 7.5 0 0 0-13-3.1L3.5 10M4.6 14a7.5 7.5 0 0 0 13 3.1l2.9-3.1"/></symbol>
+  <symbol id="i-volume-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4.5 6.5 8.5H3v7h3.5L11 19.5z"/><path d="M22 9.5l-5 5M17 9.5l5 5"/></symbol>
+  <symbol id="i-volume-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4.5 6.5 8.5H3v7h3.5L11 19.5z"/><path d="M15.5 8.8a4.5 4.5 0 0 1 0 6.4"/></symbol>
+  <symbol id="i-repeat-1" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M17 1.5 20.5 5 17 8.5M3.5 11.5V10a4 4 0 0 1 4-4h13M7 22.5 3.5 19 7 15.5M20.5 12.5V14a4 4 0 0 1-4 4h-13"/><path d="M11 10.5l1.5-1v4"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 2h6l-1 6 3 3v2H7v-2l3-3z"/></symbol>
   <symbol id="i-user" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4.5 21v-1a5 5 0 0 1 5-5h5a5 5 0 0 1 5 5v1"/></symbol>
 </svg>
 
@@ -1874,10 +1979,8 @@ body.tabs .top-btn.drawer-toggle { display: none; }
     <div class="logo-badge">EL</div>
     <span class="logo-text">ELYSIUM</span>
   </div>
-  <button class="top-btn drawer-toggle" id="btnDrawerLeft" title="Sistema (tarefas, armazenamento, desempenho)"><svg class="ico" aria-hidden="true"><use href="#i-menu"/></svg></button>
   <div id="status-badge" class="idle">Ocioso</div>
   <div class="topbar-space"></div>
-  <button class="top-btn drawer-toggle" id="btnDrawerRight" title="Configurações, presets, mídia, personalização"><svg class="ico" aria-hidden="true"><use href="#i-settings"/></svg></button>
   <button class="top-btn min" id="btnMin" title="Minimizar"><svg class="ico" aria-hidden="true"><use href="#i-minus"/></svg></button>
   <button class="top-btn"     id="btnClose" title="Fechar"><svg class="ico" aria-hidden="true"><use href="#i-x"/></svg></button>
 </div>
@@ -1887,8 +1990,8 @@ body.tabs .top-btn.drawer-toggle { display: none; }
 <nav id="viewtabs" role="tablist" aria-label="Seções">
   <button class="vtab active" data-view="inicio"  role="tab" aria-selected="true"><span class="vtab-ico"><svg class="ico" aria-hidden="true"><use href="#i-home"/></svg></span><span class="vtab-label">Início</span><span class="vtab-dot"></span></button>
   <button class="vtab"        data-view="chat"    role="tab" aria-selected="false"><span class="vtab-ico"><svg class="ico" aria-hidden="true"><use href="#i-message-circle"/></svg></span><span class="vtab-label">Chat</span><span class="vtab-dot"></span></button>
-  <button class="vtab"        data-view="pc"      role="tab" aria-selected="false"><span class="vtab-ico"><svg class="ico" aria-hidden="true"><use href="#i-monitor"/></svg></span><span class="vtab-label">PC</span><span class="vtab-dot"></span></button>
-  <button class="vtab"        data-view="ajustes" role="tab" aria-selected="false"><span class="vtab-ico"><svg class="ico" aria-hidden="true"><use href="#i-settings"/></svg></span><span class="vtab-label">Ajustes</span><span class="vtab-dot"></span></button>
+  <button class="vtab"        data-view="programas" role="tab" aria-selected="false"><span class="vtab-ico"><svg class="ico" aria-hidden="true"><use href="#i-monitor"/></svg></span><span class="vtab-label">Programas</span><span class="vtab-dot"></span></button>
+  <button class="vtab vtab-fim" data-view="ajustes" role="tab" aria-selected="false"><span class="vtab-ico"><svg class="ico" aria-hidden="true"><use href="#i-settings"/></svg></span><span class="vtab-label">Ajustes</span><span class="vtab-dot"></span></button>
   <span id="vtab-thumb"></span>
 </nav>
 
@@ -1899,9 +2002,16 @@ body.tabs .top-btn.drawer-toggle { display: none; }
   <!-- TELA INÍCIO — catálogo de cards; ver o bloco JS "TELA INÍCIO" -->
   <div id="view-inicio">
     <header class="home-topo">
-      <div>
-        <div class="home-greet" id="home-greet">Olá</div>
-        <div class="home-sub" id="home-sub">O seu dia, de relance.</div>
+      <div class="home-saudacao">
+        <!-- Verde quando o celular está pareado e alcançável. Clicar abre o QR, o token e
+             o acesso de fora de casa — que era uma sub-aba inteira de Ajustes. -->
+        <button id="orbe" title="Conexão com o celular" aria-haspopup="dialog" aria-expanded="false">
+          <span class="orbe-ponto"></span>
+        </button>
+        <div>
+          <div class="home-greet" id="home-greet">Olá</div>
+          <div class="home-sub" id="home-sub">O seu dia, de relance.</div>
+        </div>
       </div>
       <button id="home-btn-personalizar" title="Escolher quais cards aparecem">
         <svg class="ico ico-sm" aria-hidden="true"><use href="#i-sliders"/></svg><span>Personalizar</span>
@@ -1918,80 +2028,11 @@ body.tabs .top-btn.drawer-toggle { display: none; }
 
   <div id="drawer-backdrop"></div>
 
-  <!-- LEFT DRAWER: sistema -->
-  <div id="drawer-left">
-    <div class="widget" id="widget-perf">
-      <!-- Antes eram quatro blocos empilhados numa coluna de 272px. Com a janela
-           inteira disponível, viram uma fileira: dá para ver o estado da máquina de uma
-           olhada só, em vez de rolar. -->
-      <div class="pc-fila">
-        <div class="chart-wrap">
-          <div class="chart-header">
-            <span class="chart-label">Processador</span>
-            <span class="chart-val purple" id="cpu-val">0%</span>
-          </div>
-          <canvas class="spark" id="cpu-canvas" height="44"></canvas>
-        </div>
-        <div class="chart-wrap">
-          <div class="chart-header">
-            <span class="chart-label">Memória</span>
-            <span class="chart-val cyan" id="ram-val">0%</span>
-          </div>
-          <canvas class="spark" id="ram-canvas" height="44"></canvas>
-        </div>
-        <div class="chart-wrap pc-mini" id="temp-wrap">
-          <div class="chart-header">
-            <span class="chart-label">Temperatura</span>
-            <span class="chart-val" id="temp-val">—</span>
-          </div>
-          <div id="temp-row">
-            <span class="temp-icon"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-thermometer"/></svg></span>
-            <span class="temp-label">núcleo da CPU</span>
-          </div>
-        </div>
-        <div class="chart-wrap pc-mini" id="bat-wrap">
-          <div class="chart-header">
-            <span class="chart-label" id="bat-label">Bateria</span>
-            <span class="chart-val" id="bat-val">—</span>
-          </div>
-          <div id="bat-row">
-            <span class="bat-icon" id="bat-icon"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-battery"/></svg></span>
-            <div class="bat-bar-track" style="flex:1">
-              <div class="bat-bar-fill" id="bat-fill" style="transform:scaleX(0);background:var(--green)"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- A legenda "■ CPU ■ RAM ■ Pico" saiu: as cores já são as mesmas dos dois
-           gráficos acima, e a linha só ocupava altura. -->
-      <div class="section-label">Estabilidade nas últimas 24 h</div>
-      <div id="stability-wrap">
-        <canvas id="stability-canvas" height="60"></canvas>
-      </div>
-    </div><!-- /widget-perf -->
-
-    <div class="widget" id="widget-storage">
-      <div class="section-label">Armazenamento</div>
-      <div id="disks-wrap"></div>
-    </div><!-- /widget-storage -->
-
-    <div class="widget" id="widget-taskmgr">
-      <div class="section-label">Processos <button class="proc-expand-btn" id="proc-expand-btn">Ver tudo</button></div>
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-8);overflow:hidden;margin-bottom:6px">
-        <table id="proc-table">
-          <thead>
-            <tr>
-              <th>Processo</th>
-              <th style="text-align:right">CPU</th>
-              <th style="text-align:right">RAM</th>
-            </tr>
-          </thead>
-          <tbody id="proc-body"></tbody>
-        </table>
-      </div>
-    </div><!-- /widget-taskmgr -->
-  </div><!-- /drawer-left -->
+  <!-- ABA PROGRAMAS — ver o bloco JS "ABA PROGRAMAS".
+       Aqui ficava a gaveta de sistema, com dois gráficos de linha, a estabilidade de 24 h,
+       cards de disco e a tabela de processos. Saiu inteira: nada ali era acionável. Quem
+       quiser os números liga os cards na tela Início. -->
+  <div id="view-programas"></div>
 
   <!-- CENTER -->
   <div id="center">
@@ -2007,6 +2048,11 @@ body.tabs .top-btn.drawer-toggle { display: none; }
     </div>
     <div id="timeline" role="log" aria-live="polite"></div>
     <div id="timeline-self" class="hidden" role="log" aria-live="polite"></div>
+
+    <!-- Perguntas de partida. Ficam encostadas na barra de escrita porque é de lá que
+         a próxima mensagem sai — no topo virariam decoração. Só no lado da IA: recado
+         para o celular não tem pergunta pronta. -->
+    <div id="chat-bolhas"></div>
 
     <div id="input-bar">
       <!-- Stop TTS kill switch (visible only during speaking) -->
@@ -2033,29 +2079,21 @@ body.tabs .top-btn.drawer-toggle { display: none; }
     </div>
   </div><!-- /center -->
 
-  <!-- RIGHT DRAWER: configurações / presets / mídia / personalização -->
+  <!-- AJUSTES — uma página só desde que o pareamento virou popover do orbe. -->
   <div id="drawer-right">
-    <div id="rtabs">
-      <button class="rtab-btn active" data-tab="config"     title="Geral"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-settings"/></svg><span>Geral</span></button>
-      <button class="rtab-btn"        data-tab="pareamento" title="Celular"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-smartphone"/></svg><span>Celular</span></button>
-    </div>
     <div id="rtab-panels">
 
       <!-- CONFIGURAÇÕES -->
       <!-- Tudo o que morava na janela `config.html` está aqui agora, gerado a partir do
            esquema em AJUSTES (ver o bloco JS). A janela avulsa continua existindo para a
            bandeja, mas o dashboard não depende mais dela. -->
-      <div class="rtab-panel active" id="tab-config">
+      <div id="tab-config">
 
         <section class="cfg-grupo">
           <h3>Aparência</h3>
           <div class="cfg-row">
             <label>Tema</label>
             <div class="cfg-controle"><div id="theme-swatches"></div></div>
-          </div>
-          <div class="cfg-row">
-            <label>Widgets da aba PC<small>Ordem e visibilidade</small></label>
-            <div class="cfg-controle"><div id="widget-order-list"></div></div>
           </div>
         </section>
 
@@ -2099,36 +2137,40 @@ body.tabs .top-btn.drawer-toggle { display: none; }
         </section>
       </div><!-- /tab-config -->
 
-      <!-- PAREAMENTO (ELYSIUM-M mobile) -->
-      <div class="rtab-panel" id="tab-pareamento">
-        <div class="section-label">PAREAR CELULAR</div>
-        <div id="pairing-card">
-          <img id="pairing-qr" alt="QR code de pareamento">
-          <div id="pairing-empty">Conecte o PC numa rede Wi-Fi pra gerar o QR.</div>
-          <div class="sc-label" style="margin-top:8px">Endereço</div>
-          <div id="pairing-addr" class="pairing-mono">—</div>
-          <div class="sc-label" style="margin-top:6px">Token</div>
-          <div id="pairing-token" class="pairing-mono">—</div>
-          <button class="save-btn" id="pairing-regen-btn" style="margin-top:8px">Regenerar token</button>
-          <div id="pairing-hint">Abra o ELYSIUM-M no celular (mesma rede Wi-Fi) e escaneie o QR.</div>
-        </div>
-
-        <div class="section-label" style="margin-top:14px">ACESSO FORA DE CASA</div>
-        <div id="remote-card">
-          <div id="remote-status">
-            <span id="remote-dot"></span>
-            <span id="remote-label">Verificando…</span>
-          </div>
-          <div id="remote-body"></div>
-        </div>
-      </div><!-- /tab-pareamento -->
-
     </div><!-- /rtab-panels -->
   </div><!-- /drawer-right -->
 
 </div><!-- /layout -->
 
 <!-- PROCESS MANAGER MODAL -->
+<!-- Conexão com o celular. Era a sub-aba "Celular" de Ajustes; virou popover do orbe,
+     e com isso Ajustes ficou com uma página só — a sub-barra de navegação inteira pôde
+     sumir, e com ela a faixa esbranquiçada que ela desenhava. -->
+<div id="orbe-pop" class="pop" role="dialog" aria-label="Conexão com o celular">
+  <div class="pop-titulo">Celular</div>
+  <div class="pop-corpo">
+    <div id="pairing-card">
+      <img id="pairing-qr" alt="QR code de pareamento">
+      <div id="pairing-empty">Conecte o PC numa rede Wi-Fi pra gerar o QR.</div>
+      <div class="sc-label">Endereço</div>
+      <div id="pairing-addr" class="pairing-mono">—</div>
+      <div class="sc-label">Token <span style="opacity:0.6">— clique para mostrar</span></div>
+      <div id="pairing-token" class="pairing-mono">—</div>
+      <button class="save-btn" id="pairing-regen-btn">Regenerar token</button>
+      <div id="pairing-hint">Abra o ELYSIUM-M no celular (mesma rede Wi-Fi) e escaneie o QR.</div>
+    </div>
+
+    <div class="sc-label" style="margin-top:12px">Acesso fora de casa</div>
+    <div id="remote-card">
+      <div id="remote-status">
+        <span id="remote-dot"></span>
+        <span id="remote-label">Verificando…</span>
+      </div>
+      <div id="remote-body"></div>
+    </div>
+  </div>
+</div>
+
 <div id="conv-pop" class="pop" role="dialog" aria-label="Conversas salvas">
   <div class="pop-titulo">Conversas salvas</div>
   <div class="pop-corpo">
@@ -2145,33 +2187,6 @@ body.tabs .top-btn.drawer-toggle { display: none; }
   <div id="preset-pop-corpo"></div>
 </div>
 
-<div id="proc-modal" role="dialog" aria-modal="true" aria-label="Gerenciador de Processos">
-  <div class="modal-box">
-    <div class="modal-header">
-      <span class="modal-title">Gerenciador de Processos</span>
-      <input id="proc-search" type="text" placeholder="Filtrar por nome…" autocomplete="off">
-      <button class="sort-btn active" data-sort="cpu">CPU <svg class="ico ico-sm" aria-hidden="true"><use href="#i-chevron-down"/></svg></button>
-      <button class="sort-btn" data-sort="ram">RAM <svg class="ico ico-sm" aria-hidden="true"><use href="#i-chevron-down"/></svg></button>
-      <button class="sort-btn" data-sort="name">Nome</button>
-      <button id="proc-modal-close" title="Fechar"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-x"/></svg><span>Fechar</span></button>
-    </div>
-    <div class="modal-body">
-      <table id="proc-modal-table">
-        <thead>
-          <tr>
-            <th style="width:200px">Processo</th>
-            <th>PID</th>
-            <th style="text-align:right">CPU %</th>
-            <th style="text-align:right">RAM MB</th>
-            <th style="text-align:center">Tipo</th>
-            <th style="width:80px"></th>
-          </tr>
-        </thead>
-        <tbody id="proc-modal-body"></tbody>
-      </table>
-    </div>
-  </div>
-</div>
 
 <script>
 // ─────────────────────────────────────────────────
@@ -2206,7 +2221,7 @@ function lerp(a, b, t) { return a + (b - a) * t; }
 // Presets gravados em disco e mensagens do main ainda carregam emoji do formato
 // antigo. Traduz o que dá e cai num ícone genérico no resto — um <use> apontando
 // para um símbolo inexistente renderiza um vazio silencioso.
-const ICONES_SPRITE = new Set(["home","message-circle","monitor","inbox","sliders","settings","smartphone","cpu","clock","menu","music","droplet","thermometer","battery","battery-charging","plug","hard-drive","activity","clipboard","mic","arrow-up","x","minus","play","pause","skip-back","skip-forward","chevron-up","chevron-down","star","zap","bulb","check","copy","download","paperclip","shuffle","repeat","volume","cloud","grip","refresh","user"]);
+const ICONES_SPRITE = new Set(["home","message-circle","monitor","inbox","sliders","settings","smartphone","cpu","clock","menu","music","droplet","thermometer","battery","battery-charging","plug","hard-drive","activity","clipboard","mic","arrow-up","x","minus","play","pause","skip-back","skip-forward","chevron-up","chevron-down","star","zap","bulb","check","copy","download","paperclip","shuffle","repeat","volume","cloud","grip","refresh","volume-x","volume-1","repeat-1","pin","user"]);
 const ICONES_LOG = {
   "\u2699\uFE0F": "settings", "\u2699": "settings", "\u26A1": "zap",
   "\uD83C\uDFB5": "music", "\uD83D\uDD0A": "volume", "\uD83C\uDFAE": "sliders",
@@ -2435,6 +2450,38 @@ async function loadSelfThread() {
   } catch { /* ignore */ }
 }
 
+const chatBolhas = document.getElementById("chat-bolhas");
+
+/**
+ * Carrega e desenha a fileira. Sorteia no processo principal (`perguntas.ts`), não aqui:
+ * é lá que mora a contagem de frequência, e sortear nos dois lugares daria duas heurísticas
+ * para manter em par quando o celular pedir as mesmas.
+ */
+async function carregarBolhasChat() {
+  if (!chatBolhas) return;
+  // Uma conversa em andamento não precisa de sugestão de partida; a fileira só faz sentido
+  // enquanto a tela está em branco.
+  if (chatMode !== "ai" || chatMessages.length > 0) { chatBolhas.innerHTML = ""; return; }
+  try {
+    const lista = await window.nx.chatStarters();
+    chatBolhas.innerHTML = (lista ?? [])
+      .map(t => `<button class="chat-bolha" data-pergunta="${escHtml(t)}">${escHtml(t)}</button>`)
+      .join("");
+  } catch { chatBolhas.innerHTML = ""; }
+}
+
+chatBolhas?.addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-pergunta]");
+  if (!b) return;
+  const texto = b.dataset.pergunta;
+  // Os três passos, e não os dois que as pílulas de histórico faziam: sem o
+  // `recordMessage` a mensagem aparece na tela mas não entra na conversa salva.
+  addBubble("user", texto);
+  recordMessage("me", texto);
+  window.nx.chatSend(texto);
+  chatBolhas.innerHTML = "";
+});
+
 function switchChatMode(mode) {
   if (mode === chatMode) return;
   chatMode = mode;
@@ -2452,6 +2499,8 @@ function switchChatMode(mode) {
   }
   // O polegar segue este atributo, por CSS. Sem medir, sem JS de posição.
   document.querySelector(".chat-switch")?.setAttribute("data-modo", mode);
+  document.getElementById("center")?.classList.toggle("modo-self", mode === "self");
+  carregarBolhasChat();
 }
 
 chatTabAi.addEventListener("click", () => switchChatMode("ai"));
@@ -2576,7 +2625,6 @@ function applyTheme(id) {
   document.body.classList.add("theme-rich");
 
   renderThemeSwatches();
-  redesenharGraficos();
 }
 
 function renderThemeSwatches() {
@@ -2599,411 +2647,9 @@ function renderThemeSwatches() {
   });
 }
 
-// ─────────────────────────────────────────────────
-// WIDGET REORDER / VISIBILITY (gaveta esquerda)
-// ─────────────────────────────────────────────────
-const WIDGET_LABELS = {
-  perf:    "Desempenho (CPU/RAM/Temp/Bateria)",
-  storage: "Armazenamento",
-  taskmgr: "Processos",
-};
-const DEFAULT_WIDGET_ORDER = ["perf", "storage", "taskmgr"];
-
-let currentLayout = { order: [...DEFAULT_WIDGET_ORDER], hidden: [] };
-
-function applyLayout(layout) {
-  currentLayout = {
-    order: (layout && layout.order && layout.order.length) ? layout.order : [...DEFAULT_WIDGET_ORDER],
-    hidden: (layout && layout.hidden) ? layout.hidden : [],
-  };
-  const container = document.getElementById("drawer-left");
-  currentLayout.order.forEach(id => {
-    const el = document.getElementById("widget-" + id);
-    if (!el) return;
-    container.appendChild(el);
-    el.classList.toggle("widget-hidden", currentLayout.hidden.includes(id));
-  });
-  renderWidgetOrderList();
-}
-
-function saveLayout() {
-  window.nx.setConfig({ layout: currentLayout }).catch(() => {});
-}
-
-function renderWidgetOrderList() {
-  const wrap = document.getElementById("widget-order-list");
-  wrap.innerHTML = "";
-  currentLayout.order.forEach((id, i) => {
-    const isHidden = currentLayout.hidden.includes(id);
-    const row = document.createElement("div");
-    row.className = "widget-order-row" + (isHidden ? " hidden-widget" : "");
-    row.innerHTML = `
-      <input type="checkbox" class="widget-order-toggle" ${isHidden ? "" : "checked"} title="Mostrar/ocultar">
-      <span class="widget-order-name">${escHtml(WIDGET_LABELS[id] ?? id)}</span>
-      <button class="widget-order-btn" data-dir="up"   ${i === 0 ? "disabled" : ""} title="Mover para cima"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-chevron-up"/></svg></button>
-      <button class="widget-order-btn" data-dir="down" ${i === currentLayout.order.length - 1 ? "disabled" : ""} title="Mover para baixo"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-chevron-down"/></svg></button>`;
-
-    row.querySelector(".widget-order-toggle").addEventListener("change", (e) => {
-      currentLayout.hidden = e.target.checked
-        ? currentLayout.hidden.filter(h => h !== id)
-        : [...currentLayout.hidden, id];
-      applyLayout(currentLayout);
-      saveLayout();
-    });
-
-    row.querySelectorAll(".widget-order-btn").forEach(btn => {
-      btn.addEventListener("click", () => {
-        const dir = btn.dataset.dir === "up" ? -1 : 1;
-        const j = i + dir;
-        if (j < 0 || j >= currentLayout.order.length) return;
-        const order = [...currentLayout.order];
-        [order[i], order[j]] = [order[j], order[i]];
-        currentLayout.order = order;
-        applyLayout(currentLayout);
-        saveLayout();
-      });
-    });
-
-    wrap.appendChild(row);
-  });
-}
-
-// ─────────────────────────────────────────────────
-// CANVAS SPARKLINES
-// ─────────────────────────────────────────────────
-// Temas claros (Vidro Líquido) precisam de grid/rótulos escuros nos canvas.
-// Claro = família do Vidro Líquido. Antes comparava com o id "lg" direto, o que deixaria
-// as variações de cor (Maré, Âmbar) desenhando grade e texto de gráfico como se o fundo
-// fosse escuro. A família é o critério certo: é ela que define o fundo.
-function isLightTheme() { return THEMES[currentTheme]?.family === "lg"; }
-
-function drawChart(canvas, history, color) {
-  const ctx  = canvas.getContext("2d");
-  const W    = canvas.width;
-  const H    = canvas.height;
-  const step = W / (CHART_LEN - 1);
-  ctx.clearRect(0, 0, W, H);
-
-  // Grid line at 75%
-  ctx.strokeStyle = isLightTheme() ? "rgba(17,17,26,0.07)" : "rgba(255,255,255,0.04)";
-  ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(0, H * 0.25); ctx.lineTo(W, H * 0.25); ctx.stroke();
-
-  // Fill area
-  ctx.beginPath();
-  for (let i = 0; i < history.length; i++) {
-    const x = i * step;
-    const y = H - (history[i] / 100) * H;
-    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-  }
-  ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.closePath();
-  const grad = ctx.createLinearGradient(0, 0, 0, H);
-  grad.addColorStop(0, color + "55");
-  grad.addColorStop(1, color + "00");
-  ctx.fillStyle = grad; ctx.fill();
-
-  // Line
-  ctx.beginPath();
-  for (let i = 0; i < history.length; i++) {
-    const x = i * step;
-    const y = H - (history[i] / 100) * H;
-    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-  }
-  ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.stroke();
-}
-
-// ─────────────────────────────────────────────────
-// TELEMETRY
-// ─────────────────────────────────────────────────
-const cpuCanvas  = document.getElementById("cpu-canvas");
-const ramCanvas  = document.getElementById("ram-canvas");
-const cpuVal     = document.getElementById("cpu-val");
-const ramVal     = document.getElementById("ram-val");
-const tempVal    = document.getElementById("temp-val");
-const batVal     = document.getElementById("bat-val");
-const batFill    = document.getElementById("bat-fill");
-const batIcon    = document.getElementById("bat-icon");
-const disksWrap  = document.getElementById("disks-wrap");
-const procBody   = document.getElementById("proc-body");
-
-/**
- * Ajusta o bitmap do canvas à caixa que ele realmente ocupa, na densidade da tela.
- *
- * Sem isto, o `width="220"` do HTML é o tamanho do bitmap e o `width:100%` do CSS é o
- * tamanho na tela — o navegador estica um no outro e o traço sai borrado. Em largura
- * cheia, que é o que a aba PC virou, a diferença é gritante.
- */
-function ajustarCanvas(cv) {
-  if (!cv) return false;
-  const r = cv.getBoundingClientRect();
-  if (!r.width) return false;
-  const d = window.devicePixelRatio || 1;
-  const w = Math.round(r.width * d);
-  const h = Math.round((r.height || cv.height) * d);
-  if (cv.width === w && cv.height === h) return false;
-  cv.width = w; cv.height = h;
-  return true;
-}
-
-function redesenharGraficos() {
-  ajustarCanvas(cpuCanvas); ajustarCanvas(ramCanvas);
-  drawChart(cpuCanvas, cpuHistory, getThemeColor("--purple-bright"));
-  drawChart(ramCanvas, ramHistory, getThemeColor("--cyan"));
-  if (ajustarCanvas(stabilityCanvas)) renderStabilityCanvas(lastStabilityHistory);
-}
-window.addEventListener("resize", redesenharGraficos);
-
-function updateTelemetry(t) {
-  ajustarCanvas(cpuCanvas);
-  ajustarCanvas(ramCanvas);
-  // CPU
-  cpuHistory.push(t.cpu_pct ?? 0); cpuHistory.shift();
-  cpuVal.textContent = (t.cpu_pct ?? 0) + "%";
-  drawChart(cpuCanvas, cpuHistory, getThemeColor("--purple-bright"));
-
-  // RAM
-  ramHistory.push(t.ram_pct ?? 0); ramHistory.shift();
-  ramVal.textContent = (t.ram_pct ?? 0) + "%";
-  drawChart(ramCanvas, ramHistory, getThemeColor("--cyan"));
-
-  // Temp
-  if (t.cpu_temp != null) {
-    const c = t.cpu_temp;
-    tempVal.textContent = c + "°C";
-    tempVal.style.color = c > 85 ? "var(--red)" : c > 70 ? "var(--yellow)" : "var(--cyan)";
-  } else {
-    tempVal.textContent = "—";
-  }
-
-  // Battery
-  // Num desktop não há bateria, e o card mostrava uma barra cheia com ícone de tomada —
-  // um lugar inteiro ocupado para dizer "está na tomada", que já se sabe. Some.
-  const batWrap = document.getElementById("bat-wrap");
-  if (batWrap) batWrap.hidden = t.battery_pct == null;
-  // Mesma coisa para a temperatura: sem sensor, o card só mostrava um traço.
-  const tempWrap = document.getElementById("temp-wrap");
-  if (tempWrap) tempWrap.hidden = t.cpu_temp == null;
-  if (t.battery_pct != null) {
-    const pct = t.battery_pct;
-    batVal.textContent = pct + "%";
-    const clr = pct < 20 ? "var(--red)" : pct < 40 ? "var(--yellow)" : "var(--green)";
-    batVal.style.color = clr;
-    batFill.style.transform = `scaleX(${pct / 100})`;
-    batFill.style.background = clr;
-    batIcon.innerHTML = ico(t.battery_charging ? "battery-charging" : "battery", "ico-sm");
-  }
-
-  // Disks
-  if (Array.isArray(t.disks)) {
-    disksWrap.innerHTML = "";
-    t.disks.forEach(d => {
-      const pct = d.usedPct ?? 0;
-      const clr = pct > 90 ? "var(--purple-bright)" : "var(--cyan)";
-      disksWrap.insertAdjacentHTML("beforeend", `
-        <div class="disk-card">
-          <span class="disk-letter">${escHtml(d.name)}:</span>
-          <div class="disk-info">
-            <div style="display:flex;justify-content:space-between">
-              <span class="disk-nums">${d.freeGB} GB livre</span>
-              <span class="disk-nums">${d.totalGB} GB</span>
-            </div>
-            <div class="disk-bar-track">
-              <div class="disk-bar-fill" style="transform:scaleX(${pct/100});background:${clr}"></div>
-            </div>
-          </div>
-        </div>`);
-    });
-  }
-
-  // Processes — store full list, render compact top-5 in sidebar
-  if (Array.isArray(t.processes)) {
-    allProcesses = t.processes;
-    procBody.innerHTML = "";
-    // Top-10: na coluna de 272px cabiam cinco; em largura cheia, sobrava tabela vazia.
-    procBody.classList.add("mov-lista");
-    t.processes.slice(0, 10).forEach(p => {
-      const tr = document.createElement("tr");
-      tr.className = "proc-row";
-      tr.innerHTML = `
-        <td><span class="proc-name" title="${escHtml(p.name)}">${escHtml(p.name)}</span></td>
-        <td class="proc-cpu">${p.cpu}%</td>
-        <td class="proc-ram">${p.ramMB}M</td>`;
-      procBody.appendChild(tr);
-    });
-    // Refresh modal if open
-    if (document.getElementById("proc-modal").classList.contains("open")) renderProcModal();
-  }
-}
-
-// ─────────────────────────────────────────────────
-// PROCESS MODAL
-// ─────────────────────────────────────────────────
-const procModal      = document.getElementById("proc-modal");
-const procModalBody  = document.getElementById("proc-modal-body");
-const procSearch     = document.getElementById("proc-search");
-const sortBtns       = document.querySelectorAll(".sort-btn[data-sort]");
-
-function renderProcModal() {
-  let list = [...allProcesses];
-
-  // Filter
-  if (procModalFilter) {
-    const f = procModalFilter.toLowerCase();
-    list = list.filter(p => p.name.toLowerCase().includes(f));
-  }
-
-  // Sort
-  if (procModalSortBy === "cpu")        list.sort((a, b) => b.cpu   - a.cpu);
-  else if (procModalSortBy === "ram")   list.sort((a, b) => b.ramMB - a.ramMB);
-  else /* name */                       list.sort((a, b) => a.name.localeCompare(b.name));
-
-  procModalBody.innerHTML = "";
-  list.forEach(p => {
-    const isSys = p.isSystem;
-    const badge = isSys
-      ? `<span class="sys-badge">sistema</span>`
-      : `<span class="user-badge">usuário</span>`;
-
-    const killCell = isSys
-      ? `<td style="text-align:center"><span style="font-size:9px;color:var(--muted)">protegido</span></td>`
-      : `<td style="text-align:center"><button class="kill-btn" data-pid="${p.pid}" title="Encerrar ${escHtml(p.name)}"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-x"/></svg><span>Encerrar</span></button></td>`;
-
-    const tr = document.createElement("tr");
-    tr.className = "proc-row";
-    tr.dataset.pid = p.pid;
-    tr.innerHTML = `
-      <td><span class="proc-name" style="max-width:180px" title="${escHtml(p.name)}">${escHtml(p.name)}</span>${badge}</td>
-      <td style="color:var(--muted);font-size:10px">${p.pid}</td>
-      <td class="proc-cpu" style="text-align:right">${p.cpu}%</td>
-      <td class="proc-ram" style="text-align:right">${p.ramMB} MB</td>
-      <td style="text-align:center">${isSys ? ico("settings", "ico-sm") : ico("user", "ico-sm")}</td>
-      ${killCell}`;
-    procModalBody.appendChild(tr);
-  });
-}
-
-function openProcModal() {
-  renderProcModal();
-  procModal.classList.add("open");
-  procSearch.focus();
-}
-
-function closeProcModal() { procModal.classList.remove("open"); }
-
-document.getElementById("proc-expand-btn").addEventListener("click", openProcModal);
-document.getElementById("proc-modal-close").addEventListener("click", closeProcModal);
-procModal.addEventListener("click", (e) => { if (e.target === procModal) closeProcModal(); });
-
-procSearch.addEventListener("input", (e) => {
-  procModalFilter = e.target.value.trim();
-  renderProcModal();
-});
-
-sortBtns.forEach(btn => {
-  btn.addEventListener("click", () => {
-    procModalSortBy = btn.dataset.sort;
-    sortBtns.forEach(b => b.classList.toggle("active", b === btn));
-    renderProcModal();
-  });
-});
-
-// Kill process — modal body
-procModalBody.addEventListener("click", (e) => {
-  const btn = e.target.closest(".kill-btn");
-  if (!btn) return;
-  const pid = parseInt(btn.dataset.pid, 10);
-  if (!pid) return;
-  const row = btn.closest("tr");
-  if (row) { row.classList.add("dying"); setTimeout(() => row.remove(), 500); }
-  window.nx.killProcess(pid);
-});
-
-// ─────────────────────────────────────────────────
-// STABILITY TIMELINE (24 h anomaly canvas)
-// ─────────────────────────────────────────────────
-const stabilityCanvas = document.getElementById("stability-canvas");
-/** Último histórico lido, para redesenhar ao trocar de tema ou redimensionar. */
-let lastStabilityHistory = [];
-
-function renderStabilityCanvas(history) {
-  const ctx = stabilityCanvas.getContext("2d");
-  const W = stabilityCanvas.width, H = stabilityCanvas.height;
-  ctx.clearRect(0, 0, W, H);
-
-  const light = isLightTheme();
-
-  // Background
-  const bg = ctx.createLinearGradient(0, 0, 0, H);
-  bg.addColorStop(0, light ? "rgba(255,255,255,0.85)" : "rgba(26,26,46,0.8)");
-  bg.addColorStop(1, light ? "rgba(255,255,255,0.45)" : "rgba(13,13,26,0.4)");
-  ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
-
-  // Vertical grid (every 6 h)
-  ctx.strokeStyle = light ? "rgba(17,17,26,0.07)" : "rgba(255,255,255,0.04)"; ctx.lineWidth = 1;
-  for (let i = 1; i < 4; i++) {
-    const x = (W / 4) * i;
-    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
-  }
-
-  // Centre axis
-  ctx.strokeStyle = light ? "rgba(17,17,26,0.1)" : "rgba(255,255,255,0.06)";
-  ctx.beginPath(); ctx.moveTo(0, H / 2); ctx.lineTo(W, H / 2); ctx.stroke();
-
-  // Time labels
-  ctx.fillStyle = light ? "rgba(107,114,128,0.9)" : "rgba(90,93,122,0.7)"; ctx.font = "8px Segoe UI"; ctx.textAlign = "left";
-  ctx.fillText("24h", 2, H - 3);
-  ctx.textAlign = "center";
-  ctx.fillText("12h", W / 2, H - 3);
-  ctx.textAlign = "right";
-  ctx.fillText("agora", W - 2, H - 3);
-
-  if (!history || !history.length) {
-    ctx.fillStyle = light ? "rgba(107,114,128,0.7)" : "rgba(90,93,122,0.5)"; ctx.font = "9px Segoe UI"; ctx.textAlign = "center";
-    ctx.fillText("Nenhuma anomalia", W / 2, H / 2 + 3);
-    return;
-  }
-
-  const now = Date.now();
-  const span = 24 * 60 * 60 * 1000;
-  const COLORS = {
-    cpu_sustained: getThemeColor("--purple-bright"),
-    ram_high:      getThemeColor("--cyan"),
-    spike:         getThemeColor("--yellow"),
-  };
-
-  history.forEach(entry => {
-    const age = now - entry.timestamp;
-    if (age > span) return;
-    const x = W * (1 - age / span);
-    const color = COLORS[entry.type] || "#5a5d7a";
-
-    // Translucent vertical line
-    ctx.strokeStyle = color + "44"; ctx.lineWidth = 1;
-    ctx.beginPath(); ctx.moveTo(x, 2); ctx.lineTo(x, H - 12); ctx.stroke();
-
-    // Dot
-    ctx.fillStyle = color;
-    ctx.beginPath(); ctx.arc(x, H / 2 - 5, 3, 0, Math.PI * 2); ctx.fill();
-  });
-}
-
-
-async function loadTelemetryHistory() {
-  try {
-    const history = await window.nx.getTelemetryHistory();
-    lastStabilityHistory = history || [];
-    renderStabilityCanvas(lastStabilityHistory);
-  } catch { lastStabilityHistory = []; renderStabilityCanvas([]); }
-}
-
-function redrawCanvases() {
-  drawChart(cpuCanvas, cpuHistory, getThemeColor("--purple-bright"));
-  drawChart(ramCanvas, ramHistory, getThemeColor("--cyan"));
-  renderStabilityCanvas(lastStabilityHistory);
-}
-
-// Os insights do sistema saíram daqui: viraram card da tela Início, onde são vistos sem
-// abrir Ajustes. A leitura continua sendo `nx.getInsights()`.
+// Os insights do sistema e a faixa de estabilidade de 24 h saíram daqui: os primeiros
+// viraram card da tela Início, a segunda foi removida junto com a gaveta de sistema no
+// bloco 35 — era um gráfico bonito que não levava a lugar nenhum.
 
 // ─────────────────────────────────────────────────
 // WAVEFORM ANIMATION (rAF loop)
@@ -3132,7 +2778,6 @@ window.nx.onChatBusy(() => {
   addBubble("system", "Aguarde o assistente terminar…");
 });
 
-window.nx.onTelemetry(updateTelemetry);
 
 window.nx.onActionLog((log) => {
   addLog(log.icon ?? "zap", log.text ?? "", log.ok !== false);
@@ -3148,6 +2793,9 @@ const micBtn   = document.getElementById("mic-btn");
 function sendText() {
   const text = cmdInput.value.trim();
   if (!text) return;
+  // Fileira some assim que a conversa começa: a partir daí ela seria ruído entre a
+  // resposta e a próxima pergunta.
+  if (chatBolhas) chatBolhas.innerHTML = "";
   if (chatMode === "self") {
     window.nx.mailboxSend(text);
   } else {
@@ -3413,67 +3061,72 @@ async function loadConfig() {
     if (cidade) cidade.textContent = cfg.climaCidade || "não definida";
     if (cfg.shortcut) shortcutInput.value = cfg.shortcut;
     applyTheme(cfg.theme);
-    applyLayout(cfg.layout);
   } catch {
     applyTheme(FALLBACK_THEME);
-    applyLayout(null);
   }
 }
 
 // ─────────────────────────────────────────────────
-// DRAWERS (esquerda: sistema / direita: config-presets-mídia-personalização)
+// GAVETA DA DIREITA
 // ─────────────────────────────────────────────────
-const drawerLeft    = document.getElementById("drawer-left");
+//
+// Sobrou só o backdrop, que a navegação por abas mantém escondido. As gavetas deslizantes
+// morreram no bloco 18; a esquerda morreu de vez no 35, junto com os widgets de sistema.
 const drawerRight    = document.getElementById("drawer-right");
 const drawerBackdrop = document.getElementById("drawer-backdrop");
-const btnDrawerLeft  = document.getElementById("btnDrawerLeft");
-const btnDrawerRight = document.getElementById("btnDrawerRight");
 
-function closeDrawers() {
-  drawerLeft.classList.remove("open");
-  drawerRight.classList.remove("open");
-  drawerBackdrop.classList.remove("show");
-  btnDrawerLeft.classList.remove("active");
-  btnDrawerRight.classList.remove("active");
-}
+// ─────────────────────────────────────────────────
+// ORBE DE CONEXÃO
+// ─────────────────────────────────────────────────
+//
+// O estado do celular ao lado da saudação, e o pareamento atrás dele. Era uma sub-aba
+// inteira de Ajustes — que ninguém abre por vontade própria depois do primeiro dia, e que
+// mesmo assim ocupava metade da barra de navegação de lá.
 
-function toggleDrawer(which) {
-  const isLeft = which === "left";
-  const target = isLeft ? drawerLeft : drawerRight;
-  const btn    = isLeft ? btnDrawerLeft : btnDrawerRight;
-  const willOpen = !target.classList.contains("open");
-  closeDrawers();
-  if (willOpen) {
-    target.classList.add("open");
-    btn.classList.add("active");
-    drawerBackdrop.classList.add("show");
+const orbe = document.getElementById("orbe");
+const orbePop = document.getElementById("orbe-pop");
+
+function abrirOrbe(abrir) {
+  if (!orbePop) return;
+  const estaAberto = orbePop.classList.contains("aberto");
+  const alvo = abrir ?? !estaAberto;
+  if (alvo === estaAberto) return;
+
+  if (alvo) {
+    const r = orbe.getBoundingClientRect();
+    orbePop.style.top = `${r.bottom + 10}px`;
+    orbePop.style.left = `${r.left}px`;
+    orbePop.classList.add("aberto");
+    loadPairing();
+    orbe.setAttribute("aria-expanded", "true");
+  } else {
+    orbePop.classList.remove("aberto");
+    orbe.setAttribute("aria-expanded", "false");
   }
 }
 
-btnDrawerLeft.addEventListener("click", () => toggleDrawer("left"));
-btnDrawerRight.addEventListener("click", () => toggleDrawer("right"));
-drawerBackdrop.addEventListener("click", closeDrawers);
-document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeDrawers(); });
+orbe?.addEventListener("click", (e) => { e.stopPropagation(); abrirOrbe(); });
+orbePop?.addEventListener("click", (e) => e.stopPropagation());
+document.addEventListener("click", () => abrirOrbe(false));
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && orbePop?.classList.contains("aberto")) { e.stopPropagation(); abrirOrbe(false); }
+}, true);
 
-// ─────────────────────────────────────────────────
-// RIGHT DRAWER TABS
-// ─────────────────────────────────────────────────
-const rtabBtns   = document.querySelectorAll(".rtab-btn");
-const rtabPanels = document.querySelectorAll(".rtab-panel");
-
-rtabBtns.forEach(btn => {
-  btn.addEventListener("click", () => {
-    rtabBtns.forEach(b => b.classList.toggle("active", b === btn));
-    rtabPanels.forEach(p => p.classList.toggle("active", p.id === "tab-" + btn.dataset.tab));
-    if (btn.dataset.tab === "pareamento") loadPairing();
-    if (btn.dataset.tab === "conversas")  loadConversations();
-
-    // O player só consulta a API enquanto está à vista. Deixar o laço rodando com a
-    // aba fechada gastaria cota do Spotify por nada.
-    // O player mudou de casa (virou card da Início) e as conversas viraram popover:
-    // esta gaveta não hospeda mais nenhum dos dois.
-  });
-});
+/**
+ * O ponto verde. "Pareado" não basta: o token pode estar gravado e o celular fora de
+ * alcance. O que interessa é se ele apareceu recentemente — e é o próprio servidor que
+ * sabe disso, porque é ele quem responde ao app.
+ */
+async function atualizarOrbe() {
+  if (!orbe) return;
+  try {
+    const r = await window.nx.rpc("pairing.endpoints");
+    orbe.classList.toggle("online", (r.result?.conectados ?? 0) > 0);
+    orbe.title = (r.result?.conectados ?? 0) > 0
+      ? "Celular conectado"
+      : "Celular fora de alcance — clique para parear";
+  } catch { orbe.classList.remove("online"); }
+}
 
 // ─────────────────────────────────────────────────
 // PAREAMENTO (ELYSIUM-M mobile)
@@ -3499,8 +3152,24 @@ function renderPairing(info) {
     empty.classList.remove("hide");
     addr.textContent = "—";
   }
-  token.textContent = (info && info.token) ? info.token : "—";
+  // O token é a ÚNICA barreira do servidor da porta 4200 — não há TLS, e quem o tem
+  // controla o PC pela rede local. Ele saiu de uma sub-aba de Ajustes para um popover a um
+  // clique da tela inicial, então passa a nascer coberto: quem está compartilhando tela ou
+  // gravando não o expõe sem querer.
+  const bruto = (info && info.token) ? info.token : "";
+  token.dataset.valor = bruto;
+  token.textContent = bruto ? "•".repeat(24) : "—";
+  token.classList.remove("revelado");
 }
+
+/** Alterna entre coberto e à mostra. Clicar de novo cobre. */
+document.getElementById("pairing-token")?.addEventListener("click", (e) => {
+  const el = e.currentTarget;
+  const v = el.dataset.valor;
+  if (!v) return;
+  const mostrando = el.classList.toggle("revelado");
+  el.textContent = mostrando ? v : "•".repeat(24);
+});
 
 async function loadPairing() {
   try {
@@ -3601,10 +3270,9 @@ document.getElementById("btnMin").addEventListener("click", () => window.nx.mini
 // ─────────────────────────────────────────────────
 (async () => {
   await Promise.all([loadHistory(), loadConfig(), loadApiKey(), carregarCards()]);
+  carregarBolhasChat();
   // Non-blocking telemetry history + insights
-  loadTelemetryHistory();
   // Refresh every 30 s
-  setInterval(loadTelemetryHistory, 30_000);
   addBubble("system", "ELYSIUM pronto. Pressione Ctrl+Shift+J ou clique no microfone para falar.");
 })();
 
@@ -3660,16 +3328,12 @@ function switchView(view) {
   // existe em vez de duplicar a lógica dos dois timelines.
   // A Caixa deixou de ser aba: virou o lado direito do switch, dentro do Chat.
 
-  if (view === "chat") requestAnimationFrame(moverPolegar);
+  if (view === "chat") { requestAnimationFrame(moverPolegar); carregarBolhasChat(); }
+  if (view === "programas") carregarProgramas();
   if (view === "inicio") atualizarInicio().then(ligarArrasto);
   // Os canvas nascem dentro de um painel oculto, e elemento em `display:none` mede zero.
   // Só ao entrar na aba dá para saber a largura real.
   if (view === "pc") requestAnimationFrame(redesenharGraficos);
-}
-
-function ativarSubAba(nome) {
-  const btn = document.querySelector(`.rtab-btn[data-tab="${nome}"]`);
-  if (btn) btn.click();
 }
 
 vtabs.forEach(b => b.addEventListener("click", () => switchView(b.dataset.view)));
@@ -4089,6 +3753,180 @@ document.addEventListener("keydown", (e) => {
 }, true);
 window.addEventListener("resize", () => { if (presetPop?.classList.contains("aberto")) posicionarPopover(); });
 
+
+// ─────────────────────────────────────────────────
+// ABA PROGRAMAS
+// ─────────────────────────────────────────────────
+//
+// Era a aba "PC": dois gráficos de linha, uma faixa de estabilidade de 24 h, cards de disco
+// e uma tabela de processos. Bonito de olhar e inútil de usar — nada ali era acionável, e
+// quem quer os números liga os cards `computador`, `processos` e `discos` na tela Início.
+//
+// Agora é só o que se FAZ com o PC: o que está aberto (e fechar), o que dá para abrir, a
+// área de transferência e energia. Tudo por RPC que já existia; nenhum método novo.
+
+const progEl = () => document.getElementById("view-programas");
+
+let progCatalogo = [];      // nomes que o ELYSIUM sabe abrir
+let progAbertos = [];       // interseção do catálogo com o que está rodando
+let progFiltro = "";
+
+/**
+ * `apps.list` é o catálogo dos programas conhecidos; `system.processes` é o que está
+ * rodando, com nome de executável. Só o cruzamento dá uma lista que faz sentido mostrar
+ * como "abertos": processo solto sem entrada no catálogo não teria como ser reaberto
+ * depois, e o catálogo inteiro não diz o que está de pé agora.
+ */
+const normalizarApp = (x) => String(x).toLowerCase().replace(/\.exe$/, "").replace(/[^a-z0-9]/g, "");
+
+async function carregarProgramas() {
+  try {
+    const [ra, rp] = await Promise.all([
+      window.nx.rpc("apps.list"),
+      window.nx.rpc("system.processes"),
+    ]);
+    progCatalogo = (ra.result?.apps ?? []).map(a => (typeof a === "string" ? a : a.key)).filter(Boolean);
+    const rodando = new Set((rp.result?.processes ?? []).filter(p => !p.isSystem).map(p => normalizarApp(p.name)));
+    progAbertos = progCatalogo.filter(k => rodando.has(normalizarApp(k)));
+  } catch {
+    progCatalogo = []; progAbertos = [];
+  }
+  desenharProgramas();
+}
+
+async function desenharProgramas() {
+  const alvo = progEl();
+  if (!alvo) return;
+
+  let recorte = "";
+  try { recorte = (await window.nx.rpc("clipboard.get")).result?.text ?? ""; } catch { /* segue */ }
+
+  const filtrados = progFiltro
+    ? progCatalogo.filter(k => k.toLowerCase().includes(progFiltro.toLowerCase()))
+    : progCatalogo;
+
+  alvo.innerHTML = `
+    <div class="prog-col">
+      <section class="prog-secao">
+        <h3>Abertos agora</h3>
+        ${progAbertos.length
+          ? `<div class="prog-abertos mov-lista">` + progAbertos.map(k =>
+              `<div class="prog-aberto">
+                <span>${escHtml(k)}</span>
+                <button data-fechar="${escHtml(k)}" title="Fechar ${escHtml(k)}">${ico("x", "ico-sm")}</button>
+              </div>`).join("") + `</div>`
+          : `<div class="home-empty">Nenhum programa conhecido aberto.</div>`}
+      </section>
+
+      <section class="prog-secao">
+        <h3>Abrir</h3>
+        <input type="text" id="prog-busca" placeholder="Buscar programa…" autocomplete="off" value="${escHtml(progFiltro)}">
+        <div class="pilulas">${
+          filtrados.slice(0, 40).map(k => `<button class="pilula" data-abrir="${escHtml(k)}">${escHtml(k)}</button>`).join("")
+          || `<div class="home-empty">Nada com esse nome.</div>`
+        }</div>
+      </section>
+    </div>
+
+    <div class="prog-col">
+      <section class="prog-secao">
+        <h3>Área de transferência</h3>
+        <div class="clip-caixa">${recorte ? escHtml(recorte.slice(0, 400)) : "<i>Vazia.</i>"}</div>
+        <div class="home-acoes">
+          <button data-clip="atualizar">${ico("refresh", "ico-sm")}<span>Reler</span></button>
+          <button data-clip="celular"${recorte ? "" : " disabled"}>${ico("smartphone", "ico-sm")}<span>Mandar pro celular</span></button>
+        </div>
+      </section>
+
+      <section class="prog-secao">
+        <h3>Energia</h3>
+        <div class="home-quick">
+          <button data-quick="print">${ico("monitor", "ico-sm")}<span>Tirar print</span></button>
+          <button data-quick="lock" class="danger">${ico("x", "ico-sm")}<span>Bloquear tela</span></button>
+          <button data-quick="sleep" class="danger">${ico("minus", "ico-sm")}<span>Suspender</span></button>
+        </div>
+      </section>
+
+      <section class="prog-secao">
+        <h3>Mídia</h3>
+        <div class="mus-ctrl">
+          <button data-media="previous" title="Anterior">${ico("skip-back", "ico-sm")}</button>
+          <button data-media="play" class="principal" title="Play/Pause">${ico("play")}</button>
+          <button data-media="skip" title="Próxima">${ico("skip-forward", "ico-sm")}</button>
+        </div>
+      </section>
+    </div>`;
+}
+
+// Um ouvinte só, delegado: o painel é redesenhado inteiro a cada atualização, e ouvinte
+// preso em elemento redesenhado morre junto com ele.
+progEl()?.addEventListener("click", async (e) => {
+  const fechar = e.target.closest("button[data-fechar]");
+  if (fechar) {
+    const nome = fechar.dataset.fechar;
+    fechar.disabled = true;
+    try {
+      // Destrutivo: o diálogo de confirmação vive no processo principal (rpcBridge.ts).
+      // Recusar devolve `{ cancelado: true }` em vez de lançar.
+      const r = await window.nx.rpc("apps.close", { name: nome });
+      if (r.result?.cancelado) return;
+      showToast(r.result?.message ?? `${nome} fechado.`);
+      await carregarProgramas();
+    } catch { showToast("Não consegui fechar."); }
+    finally { fechar.disabled = false; }
+    return;
+  }
+
+  const abrir = e.target.closest("button[data-abrir]");
+  if (abrir) {
+    try {
+      await window.nx.rpc("apps.open", { name: abrir.dataset.abrir });
+      showToast(`Abrindo ${abrir.dataset.abrir}…`);
+      // O programa leva um instante para aparecer na lista de processos.
+      setTimeout(carregarProgramas, 1500);
+    } catch { showToast("Não consegui abrir."); }
+    return;
+  }
+
+  const clip = e.target.closest("button[data-clip]");
+  if (clip) {
+    if (clip.dataset.clip === "atualizar") { await desenharProgramas(); return; }
+    try {
+      const t = (await window.nx.rpc("clipboard.get")).result?.text ?? "";
+      if (!t) return;
+      await window.nx.mailboxSend(t);
+      showToast("Mandado para o celular.");
+    } catch { showToast("Não consegui mandar."); }
+    return;
+  }
+
+  const quick = e.target.closest("button[data-quick]");
+  if (quick) {
+    const acoes = {
+      print: () => window.nx.rpc("screen.capture", { maxWidth: 1100 }),
+      lock:  () => window.nx.rpc("power.control", { operation: "lock" }),
+      sleep: () => window.nx.rpc("power.control", { operation: "sleep" }),
+    };
+    quick.disabled = true;
+    try { await acoes[quick.dataset.quick]?.(); } finally { quick.disabled = false; }
+    return;
+  }
+
+  const media = e.target.closest("button[data-media]");
+  if (media) window.nx.mediaControl(media.dataset.media);
+});
+
+progEl()?.addEventListener("input", (e) => {
+  const busca = e.target.closest("#prog-busca");
+  if (!busca) return;
+  progFiltro = busca.value;
+  desenharProgramas().then(() => {
+    // Redesenhar o painel destrói o campo; devolve o foco e o cursor no fim do texto.
+    const novo = document.getElementById("prog-busca");
+    if (novo) { novo.focus(); novo.setSelectionRange(novo.value.length, novo.value.length); }
+  });
+});
+
 // ─────────────────────────────────────────────────
 // TELA INÍCIO
 // ─────────────────────────────────────────────────
@@ -4160,6 +3998,33 @@ function linhaMetrica(rotulo, valor, pct, id) {
 
 function vazio(texto) { return `<div class="home-empty">${escHtml(texto)}</div>`; }
 
+/** ms → "3:07". */
+function msParaTempo(ms) {
+  if (!ms || ms < 0) return "0:00";
+  const seg = Math.floor(ms / 1000);
+  return `${Math.floor(seg / 60)}:${String(seg % 60).padStart(2, "0")}`;
+}
+
+/**
+ * A consulta ao Spotify acontece a cada atualização da Início, o que é longe demais para
+ * uma barra de progresso. Entre elas, o tempo anda localmente de segundo em segundo — o
+ * mesmo truque que o mini-player removido usava.
+ */
+let musTick = 0;
+function ligarTickMusica() {
+  clearInterval(musTick);
+  musTick = setInterval(() => {
+    const n = dadosInicio.spotify;
+    if (!n?.isPlaying || !n.durationMs) return;
+    if (layoutEl.getAttribute("data-view") !== "inicio") return;
+    n.progressMs = Math.min(n.durationMs, (n.progressMs ?? 0) + 1000);
+    const fill = document.getElementById("mus-seek-fill");
+    const dec = document.getElementById("mus-decorrido");
+    if (fill) fill.style.transform = `scaleX(${(n.progressMs / n.durationMs).toFixed(4)})`;
+    if (dec) dec.textContent = msParaTempo(n.progressMs);
+  }, 1000);
+}
+
 // ─────────────────────────────────────────────────
 // O CATÁLOGO
 // ─────────────────────────────────────────────────
@@ -4202,7 +4067,7 @@ const CARDS = {
   },
 
   musica: {
-    titulo: "Tocando", icone: "music", span: 1, precisa: ["spotify"],
+    titulo: "Tocando", icone: "music", span: 2, precisa: ["spotify"],
     render: (d) => {
       const n = d.spotify;
       if (!n) {
@@ -4216,19 +4081,47 @@ const CARDS = {
         </div>
         <div class="home-acoes"><button data-spotify="login">${ico("music", "ico-sm")}<span>Conectar o Spotify</span></button></div>`;
       }
-      const capa = n.albumArt ? `<img class="mus-capa" src="${escHtml(n.albumArt)}" alt="">` : `<div class="mus-capa vazia">${ico("music")}</div>`;
-      return `<div class="mus-linha">
+
+      const capa = n.albumArt
+        ? `<img class="mus-capa" src="${escHtml(n.albumArt)}" alt="">`
+        : `<div class="mus-capa vazia">${ico("music", "ico-lg")}</div>`;
+      const vol = typeof n.volumePercent === "number" ? n.volumePercent : null;
+      const icoVol = vol === null ? "volume" : vol === 0 ? "volume-x" : vol < 50 ? "volume-1" : "volume";
+      const repetindo = n.repeat && n.repeat !== "off";
+
+      return `<div class="mus-topo">
         ${capa}
         <div class="mus-txt">
-          <div class="mus-faixa">${escHtml(n.track ?? "—")}</div>
-          <div class="mus-artista">${escHtml(n.artist ?? "")}</div>
+          <div class="mus-faixa" title="${escHtml(n.track ?? "")}">${escHtml(n.track ?? "—")}</div>
+          <div class="mus-artista" title="${escHtml(n.artist ?? "")}">${escHtml(n.artist ?? "")}</div>
+          ${n.album ? `<div class="mus-album">${escHtml(n.album)}</div>` : ""}
+          ${n.device ? `<div class="mus-device">${ico("monitor", "ico-sm")}<span>${escHtml(n.device)}</span></div>` : ""}
         </div>
       </div>
+
+      <!-- Clicar na trilha pula para a posicao: o IPC ja aceitava seek, o card e que
+           descartava progressMs e durationMs. -->
+      <div class="mus-seek" id="mus-seek" title="Clique para pular">
+        <div class="mus-seek-trilha"><i id="mus-seek-fill" style="transform:scaleX(${(n.durationMs ? n.progressMs / n.durationMs : 0).toFixed(4)})"></i></div>
+      </div>
+      <div class="mus-tempos">
+        <span id="mus-decorrido">${msParaTempo(n.progressMs)}</span>
+        <span>${msParaTempo(n.durationMs)}</span>
+      </div>
+
       <div class="mus-ctrl">
+        <button data-mus="shuffle" class="secundario ${n.shuffle ? "aceso" : ""}" title="Aleatório">${ico("shuffle", "ico-sm")}</button>
         <button data-mus="previous" title="Anterior">${ico("skip-back", "ico-sm")}</button>
         <button data-mus="playpause" class="principal" title="Play/Pause">${ico(n.isPlaying ? "pause" : "play")}</button>
         <button data-mus="next" title="Próxima">${ico("skip-forward", "ico-sm")}</button>
-      </div>`;
+        <button data-mus="repeat" class="secundario ${repetindo ? "aceso" : ""}" title="Repetir">${ico(n.repeat === "track" ? "repeat-1" : "repeat", "ico-sm")}</button>
+      </div>
+
+      ${vol === null ? "" : `<div class="mus-vol">
+        ${ico(icoVol, "ico-sm")}
+        <input type="range" id="mus-vol" min="0" max="100" value="${vol}" title="Volume">
+        <span id="mus-vol-val">${vol}</span>
+      </div>`}`;
     },
   },
 
@@ -4321,12 +4214,21 @@ const CARDS = {
 /** Ordem de fábrica. Cards fora desta lista existem mas nascem desligados. */
 const CARDS_PADRAO = ["sugestoes", "computador", "musica", "lembretes", "insights", "atalhos"];
 
-let estadoCards = { ordem: CARDS_PADRAO.slice(), ocultos: [] };
+/**
+ * `fixos` são desenhados antes de todos os outros e não saem do lugar quando você arrasta
+ * o resto. Serve para o que você quer sempre no mesmo canto — clima, no caso.
+ */
+let estadoCards = { ordem: CARDS_PADRAO.slice(), ocultos: [], fixos: ["clima"] };
 let dadosInicio = {};
 
 function cardsVisiveis() {
-  return estadoCards.ordem.filter(id => CARDS[id] && !estadoCards.ocultos.includes(id));
+  const vis = estadoCards.ordem.filter(id => CARDS[id] && !estadoCards.ocultos.includes(id));
+  // Fixos primeiro, na ordem em que foram fixados; o resto mantém a ordem arrastada.
+  const fixos = (estadoCards.fixos ?? []).filter(id => vis.includes(id));
+  return [...fixos, ...vis.filter(id => !fixos.includes(id))];
 }
+
+function ehFixo(id) { return (estadoCards.fixos ?? []).includes(id); }
 
 // ─────────────────────────────────────────────────
 // BUSCA DE DADOS
@@ -4354,7 +4256,9 @@ async function carregarDadosInicio() {
     (r?.reminders ?? []).filter(x => !x.firedAt && x.dueAt > Date.now()).sort((a, b) => a.dueAt - b.dueAt)));
   if (precisa.has("processos")) jobs.push(rpc("processos", "system.processes", undefined, r =>
     (r?.processes ?? []).slice().sort((a, b) => (b.cpu ?? 0) - (a.cpu ?? 0))));
-  if (precisa.has("programas")) jobs.push(rpc("programas", "apps.list", undefined, r => r?.apps ?? []));
+  // `apps.list` devolve { key, command }, não strings — o card só quer o nome.
+  if (precisa.has("programas")) jobs.push(rpc("programas", "apps.list", undefined,
+    r => (r?.apps ?? []).map(a => (typeof a === "string" ? a : a.key)).filter(Boolean)));
   if (precisa.has("clipboard")) jobs.push(rpc("clipboard", "clipboard.get", undefined, r => r?.text ?? ""));
   if (precisa.has("sugestoes")) jobs.push(rpc("sugestoes", "suggestions.list", undefined, r => r?.suggestions ?? []));
   if (precisa.has("clima")) jobs.push(rpc("clima", "weather.now", undefined, r => r ?? null));
@@ -4392,10 +4296,12 @@ function desenharInicio() {
 
   grade.innerHTML = visiveis.map(id => {
     const c = CARDS[id];
-    return `<section class="home-card" data-card="${id}" data-span="${c.span}" draggable="true">
+    const fixo = ehFixo(id);
+    return `<section class="home-card${fixo ? " fixo" : ""}" data-card="${id}" data-span="${c.span}" draggable="${!fixo}">
       <header class="home-card-head">
         <span class="home-card-title">${ico(c.icone, "ico-sm")}<span>${escHtml(c.titulo)}</span></span>
-        <span class="home-card-grip" title="Arraste para reordenar">${ico("grip", "ico-sm")}</span>
+        <button class="home-card-pin" data-fixar="${id}" title="${fixo ? "Soltar" : "Fixar no topo"}">${ico("pin", "ico-sm")}</button>
+        ${fixo ? "" : `<span class="home-card-grip" title="Arraste para reordenar">${ico("grip", "ico-sm")}</span>`}
       </header>
       <div class="home-card-corpo">${c.render(dadosInicio)}</div>
     </section>`;
@@ -4414,6 +4320,8 @@ async function atualizarInicio() {
   if (!gradeInicio()?.children.length) desenharInicio();
   dadosInicio = await carregarDadosInicio();
   desenharInicio();
+  ligarTickMusica();
+  atualizarOrbe();
 }
 
 // ─────────────────────────────────────────────────
@@ -4459,7 +4367,7 @@ function ligarArrasto() {
 
   grade.addEventListener("dragstart", (e) => {
     const card = e.target.closest(".home-card");
-    if (!card) return;
+    if (!card || card.classList.contains("fixo")) return;
     cardArrastado = card.dataset.card;
     card.classList.add("arrastando");
     e.dataTransfer.effectAllowed = "move";
@@ -4477,6 +4385,8 @@ function ligarArrasto() {
     e.preventDefault();
     const alvo = e.target.closest(".home-card");
     if (!alvo || !cardArrastado || alvo.dataset.card === cardArrastado) return;
+    // Soltar em cima de um fixo não faz nada: ele é fixo justamente para não sair de lá.
+    if (alvo.classList.contains("fixo")) return;
 
     const de = estadoCards.ordem.indexOf(cardArrastado);
     const para = estadoCards.ordem.indexOf(alvo.dataset.card);
@@ -4491,6 +4401,8 @@ function ligarArrasto() {
 }
 
 async function salvarCards() {
+  // O objeto inteiro, porque `setOverride` faz merge raso: gravar só `ordem` apagaria
+  // `ocultos` e `fixos`.
   try { await window.nx.setConfig({ homeCards: estadoCards }); } catch { /* segue com o que está na tela */ }
 }
 
@@ -4508,11 +4420,15 @@ async function carregarCards() {
         ordem: [...conhecidos, ...faltando],
         ocultos: (salvo.ocultos ?? []).filter(id => CARDS[id])
           .concat(faltando.filter(id => !CARDS_PADRAO.includes(id))),
+        // Configuração gravada antes desta versão não tem `fixos` — nasce sem nenhum,
+        // em vez de reimpor o padrão de fábrica por cima de uma escolha já feita.
+        fixos: (salvo.fixos ?? []).filter(id => CARDS[id]),
       };
     } else {
       estadoCards = {
         ordem: [...CARDS_PADRAO, ...Object.keys(CARDS).filter(id => !CARDS_PADRAO.includes(id))],
         ocultos: Object.keys(CARDS).filter(id => !CARDS_PADRAO.includes(id)),
+        fixos: ["clima"],
       };
     }
   } catch { /* fica com o padrão */ }
@@ -4527,11 +4443,26 @@ function abrirPersonalizar() {
   if (!cx) return;
   const aberto = cx.classList.toggle("aberto");
   if (!aberto) return;
-  cx.innerHTML = Object.entries(CARDS).map(([id, c]) =>
-    `<label class="home-toggle">
-      <input type="checkbox" data-card-toggle="${id}" ${estadoCards.ocultos.includes(id) ? "" : "checked"}>
-      ${ico(c.icone, "ico-sm")}<span>${escHtml(c.titulo)}</span>
-    </label>`).join("");
+  // Uma linha por card, com tudo à mão: ligar, fixar e mover. O arrasto continua
+  // valendo, mas botão funciona sem mira — e sem mira é o caso de quem tem pressa.
+  cx.innerHTML = `<div class="pers-lista">` + cardsVisiveis().concat(
+    Object.keys(CARDS).filter(id => estadoCards.ocultos.includes(id))
+  ).map((id) => {
+    const c = CARDS[id];
+    const ligado = !estadoCards.ocultos.includes(id);
+    const fixo = ehFixo(id);
+    const i = cardsVisiveis().indexOf(id);
+    return `<div class="pers-linha${ligado ? "" : " off"}">
+      <label class="pers-nome">
+        <input type="checkbox" data-card-toggle="${id}" ${ligado ? "checked" : ""}>
+        ${ico(c.icone, "ico-sm")}<span>${escHtml(c.titulo)}</span>
+      </label>
+      <button data-fixar="${id}" class="${fixo ? "aceso" : ""}" title="${fixo ? "Soltar" : "Fixar no topo"}">${ico("pin", "ico-sm")}</button>
+      <button data-mover="${id}" data-dir="-1" ${!ligado || i <= 0 ? "disabled" : ""} title="Subir">${ico("chevron-up", "ico-sm")}</button>
+      <button data-mover="${id}" data-dir="1" ${!ligado || i < 0 || i >= cardsVisiveis().length - 1 ? "disabled" : ""} title="Descer">${ico("chevron-down", "ico-sm")}</button>
+    </div>`;
+  }).join("") + `</div>
+  <button class="pers-padrao" data-padrao="1">${ico("refresh", "ico-sm")}<span>Voltar ao padrão</span></button>`;
 }
 
 // ─────────────────────────────────────────────────
@@ -4546,6 +4477,55 @@ document.getElementById("view-inicio")?.addEventListener("click", async (e) => {
 
   const btnPers = alvo("#home-btn-personalizar");
   if (btnPers) { abrirPersonalizar(); return; }
+
+  const fixar = alvo("button[data-fixar]");
+  if (fixar) {
+    const id = fixar.dataset.fixar;
+    const fixos = estadoCards.fixos ?? [];
+    estadoCards.fixos = fixos.includes(id) ? fixos.filter(x => x !== id) : [...fixos, id];
+    await salvarCards();
+    await atualizarInicio();
+    ligarArrasto();
+    if (document.getElementById("home-personalizar")?.classList.contains("aberto")) {
+      abrirPersonalizar(); abrirPersonalizar();   // redesenha a lista sem fechá-la
+    }
+    return;
+  }
+
+  const mover = alvo("button[data-mover]");
+  if (mover) {
+    const id = mover.dataset.mover;
+    const dir = Number(mover.dataset.dir);
+    const vis = cardsVisiveis();
+    const de = vis.indexOf(id), para = de + dir;
+    if (de < 0 || para < 0 || para >= vis.length) return;
+    // Reordena a lista visível e reescreve a ordem completa preservando a posição dos
+    // ocultos — mesma regra do arrasto.
+    const nova = vis.slice();
+    nova.splice(para, 0, ...nova.splice(de, 1));
+    let k = 0;
+    estadoCards.ordem = estadoCards.ordem.map(x => (vis.includes(x) ? nova[k++] : x));
+    await salvarCards();
+    await atualizarInicio();
+    ligarArrasto();
+    abrirPersonalizar(); abrirPersonalizar();
+    return;
+  }
+
+  const padrao = alvo("button[data-padrao]");
+  if (padrao) {
+    estadoCards = {
+      ordem: [...CARDS_PADRAO, ...Object.keys(CARDS).filter(id => !CARDS_PADRAO.includes(id))],
+      ocultos: Object.keys(CARDS).filter(id => !CARDS_PADRAO.includes(id)),
+      fixos: ["clima"],
+    };
+    await salvarCards();
+    await atualizarInicio();
+    ligarArrasto();
+    abrirPersonalizar(); abrirPersonalizar();
+    showToast("Cards de volta ao padrão.");
+    return;
+  }
 
   const quick = alvo("button[data-quick]");
   if (quick) {
@@ -4569,11 +4549,33 @@ document.getElementById("view-inicio")?.addEventListener("click", async (e) => {
   const mus = alvo("button[data-mus]");
   if (mus) {
     const op = mus.dataset.mus;
+    const n = dadosInicio.spotify;
     try {
-      if (op === "playpause") await window.nx.spotifyCommand(dadosInicio.spotify?.isPlaying ? "pause" : "play");
+      if (op === "playpause") await window.nx.spotifyCommand(n?.isPlaying ? "pause" : "play");
+      else if (op === "shuffle") await window.nx.spotifyCommand("shuffle", !n?.shuffle);
+      // off → context → track → off. Um botão só para os três estados, como no Spotify.
+      else if (op === "repeat") {
+        const ordem = ["off", "context", "track"];
+        await window.nx.spotifyCommand("repeat", ordem[(ordem.indexOf(n?.repeat ?? "off") + 1) % 3]);
+      }
       else await window.nx.spotifyCommand(op);
       setTimeout(atualizarInicio, 400);   // a API do Spotify leva um instante para refletir
     } catch { showToast("Não consegui falar com o Spotify."); }
+    return;
+  }
+
+  // Pular para uma posição da faixa.
+  const seek = alvo("#mus-seek");
+  if (seek) {
+    const n = dadosInicio.spotify;
+    if (!n?.durationMs) return;
+    const r = seek.getBoundingClientRect();
+    const destino = Math.round(Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)) * n.durationMs);
+    // Move a barra na hora: esperar a resposta do Spotify faz o clique parecer ignorado.
+    n.progressMs = destino;
+    const fill = document.getElementById("mus-seek-fill");
+    if (fill) { fill.style.transition = "none"; fill.style.transform = `scaleX(${destino / n.durationMs})`; }
+    try { await window.nx.spotifyCommand("seek", destino); } catch { showToast("Não consegui pular."); }
     return;
   }
 
@@ -4619,7 +4621,23 @@ document.getElementById("view-inicio")?.addEventListener("click", async (e) => {
   }
 });
 
+// Um comando por pixel arrastado estouraria a cota da API — o valor aparece no `input`
+// e só é enviado no `change`, que dispara ao soltar.
+document.getElementById("view-inicio")?.addEventListener("input", (e) => {
+  const v = e.target.closest("#mus-vol");
+  if (!v) return;
+  const saida = document.getElementById("mus-vol-val");
+  if (saida) saida.textContent = v.value;
+});
+
 document.getElementById("view-inicio")?.addEventListener("change", async (e) => {
+  const vol = e.target.closest("#mus-vol");
+  if (vol) {
+    try { await window.nx.spotifyCommand("volume", Number(vol.value)); }
+    catch { showToast("Não consegui mudar o volume."); }
+    if (dadosInicio.spotify) dadosInicio.spotify.volumePercent = Number(vol.value);
+    return;
+  }
   const t = e.target.closest("input[data-card-toggle]");
   if (!t) return;
   const id = t.dataset.cardToggle;
@@ -4694,8 +4712,10 @@ try {
 // `visibilitychange` disparam juntos ao restaurar, e sem ele seriam dois sorteios.
 let reSorteio = 0;
 function reabriu() {
-  if (layoutEl.getAttribute("data-view") !== "inicio") return;
+  const view = layoutEl.getAttribute("data-view");
   clearTimeout(reSorteio);
+  if (view === "chat") { carregarBolhasChat(); return; }
+  if (view !== "inicio") return;
   reSorteio = setTimeout(() => atualizarInicio().then(ligarArrasto), 120);
 }
 window.addEventListener("focus", reabriu);

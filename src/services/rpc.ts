@@ -18,6 +18,7 @@ import * as path from "node:path";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import { getAllLocalIPv4 } from "../main/network";
+import { clientesConectados } from "./server";
 import { getConfig } from "../main/config";
 
 function hostnameOf(): string {
@@ -413,6 +414,9 @@ const METHODS: Record<string, MethodDef> = {
         hasTunnel: endpoints.some(e => e.tunnel),
         hostname: hostnameOf(),
         port: getConfig().serverPort ?? 4200,
+        // Quantos clientes estão com o WebSocket aberto agora. O dashboard usa isto para
+        // o orbe de conexão; ter token gravado não prova que o celular está por perto.
+        conectados: clientesConectados(),
       };
     },
   },
