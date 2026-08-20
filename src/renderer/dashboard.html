@@ -1115,6 +1115,157 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
 .theme-lg .attachment-btn:hover { background: rgba(17,17,26,0.78); }
 .theme-lg #toast-el { color: var(--text); }
 .theme-lg .vbar { filter: drop-shadow(0 0 4px rgba(var(--purple-rgb),0.45)); }
+
+/* ── NAVEGAÇÃO POR ABAS ───────────────────────────────────
+   O dashboard nasceu com duas gavetas deslizantes e uma timeline no meio. O app mobile
+   navega por destinos nomeados, um de cada vez, e é essa a estrutura que se quis aqui.
+
+   🔴 NADA DE MARKUP FOI MOVIDO. As gavetas continuam exatamente onde estavam no HTML —
+   com os gráficos, o Spotify, o pareamento e a telemetria que já funcionavam. O que muda é
+   que, com `data-view` no #layout, elas deixam de ser `absolute` com translateX e viram
+   painel de largura cheia. Reescrever 3000 linhas para trocar de navegação seria jogar
+   fora tudo que já está de pé.
+
+   As abas ficam no TOPO, e não no rodapé como no celular: barra inferior existe em telefone
+   por alcance do polegar, razão que não vale para mouse. O destino é o mesmo, o lugar é o
+   que a plataforma pede. */
+
+#viewtabs {
+  display: flex; align-items: stretch; gap: 2px;
+  height: 40px; padding: 0 10px;
+  background: rgba(var(--purple-rgb), 0.04);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.vtab {
+  display: flex; align-items: center; gap: 7px;
+  padding: 0 14px; border: none; background: none;
+  color: var(--muted); font-family: inherit; font-size: 12px; font-weight: 600;
+  cursor: pointer; position: relative;
+  border-bottom: 2px solid transparent;
+  transition: color 0.2s, background 0.2s;
+}
+.vtab:hover { color: var(--text); background: rgba(var(--purple-rgb), 0.06); }
+.vtab.active { color: var(--purple-bright); border-bottom-color: var(--purple); }
+.vtab-ico { font-size: 14px; line-height: 1; }
+/* Abaixo de ~880px de largura os rótulos saem e ficam só os ícones, em vez de a barra
+   quebrar em duas linhas ou cortar destino. */
+@media (max-width: 880px) { .vtab-label { display: none; } .vtab { padding: 0 11px; } }
+
+/* Um ponto no destino que tem novidade — mesma ideia do badge da TabBar do celular. */
+.vtab-dot {
+  position: absolute; top: 7px; right: 7px;
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--cyan); display: none;
+}
+.vtab.has-news .vtab-dot { display: block; }
+
+/* O layout perde os 40px da barra de abas além dos 42 do topbar. */
+#layout { height: calc(100vh - 82px); }
+
+/* ── As gavetas viram painéis ─────────────────────────────
+   Só enquanto uma aba está ativa. A regra é a mesma para as duas: solta do canto, ocupa a
+   largura toda, sem sombra de gaveta e sem transform. */
+#layout[data-view] #drawer-left,
+#layout[data-view] #drawer-right {
+  position: static;
+  transform: none !important;
+  width: 100%;
+  max-width: none;
+  box-shadow: none;
+  border-left: none;
+  border-right: none;
+  z-index: auto;
+  transition: none;
+}
+/* Fora da sua aba, some de vez: `display:none` e não translate, senão o conteúdo
+   continuaria recebendo foco por Tab e o leitor de tela ainda o anunciaria. */
+#layout[data-view] #drawer-left,
+#layout[data-view] #drawer-right,
+#layout[data-view] #center,
+#layout[data-view] #view-inicio { display: none; }
+
+/* `flex: 1` porque #layout é flex: sem isto o painel encolhe até o conteúdo e sobra meia
+   janela vazia à direita. Vale para todas as views, não só a Início. */
+#layout[data-view] > *:not([hidden]) { flex: 1 1 auto; min-width: 0; }
+#layout[data-view="inicio"]  #view-inicio  { display: block; }
+#layout[data-view="chat"]    #center,
+#layout[data-view="caixa"]   #center       { display: flex; }
+#layout[data-view="pc"]      #drawer-left  { display: block; padding: 14px 18px 20px; }
+#layout[data-view="presets"] #drawer-right,
+#layout[data-view="ajustes"] #drawer-right { display: flex; }
+
+/* Na aba Presets a fileira de sub-abas some: o destino já É os presets, e uma sub-aba
+   marcando o lugar em que você já está é ruído. */
+#layout[data-view="presets"] #rtabs { display: none; }
+
+/* Com largura cheia, os widgets de sistema viram grade em vez de coluna estreita. */
+#layout[data-view="pc"] #drawer-left {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 14px;
+  align-content: start;
+}
+
+/* Com abas, as gavetas nunca deslizam — logo o backdrop e os botões de gaveta não fazem
+   mais sentido e sairiam sobrando por cima do conteúdo. */
+#layout[data-view] #drawer-backdrop { display: none !important; }
+body.tabs .top-btn.drawer-toggle { display: none; }
+
+/* ── TELA INÍCIO ──────────────────────────────────────────
+   O espelho da Home do celular: o estado do PC de relance, atalhos, o que está agendado e
+   energia. É a única tela nova de verdade deste bloco. */
+#view-inicio {
+  overflow-y: auto; padding: 18px 20px 24px;
+  scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+}
+#view-inicio::-webkit-scrollbar { width: 4px; }
+#view-inicio::-webkit-scrollbar-thumb { background: var(--border); border-radius: var(--radius-4); }
+
+.home-greet { font-size: 20px; font-weight: 700; color: var(--text); margin-bottom: 2px; }
+.home-sub   { font-size: 12px; color: var(--muted); margin-bottom: 18px; }
+
+.home-grid {
+  display: grid; gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+.home-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-10); padding: 14px 16px;
+  box-shadow: var(--shadow-card, none);
+  backdrop-filter: var(--glass-blur);
+}
+.home-card-title {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--muted); margin-bottom: 10px;
+}
+.home-metric-row { display: flex; align-items: baseline; gap: 8px; margin-bottom: 9px; }
+.home-metric-label { font-size: 11px; color: var(--muted); flex: 1; }
+.home-metric-val { font-size: 15px; font-weight: 700; color: var(--purple-bright); font-variant-numeric: tabular-nums; }
+.home-bar { height: 5px; border-radius: 3px; background: rgba(var(--purple-rgb),0.14); overflow: hidden; }
+.home-bar > i { display: block; height: 100%; background: var(--purple); border-radius: 3px; transition: width 0.4s ease; }
+
+.home-quick { display: flex; flex-wrap: wrap; gap: 7px; }
+.home-quick button {
+  padding: 7px 12px; border-radius: var(--radius-20);
+  background: rgba(var(--purple-rgb),0.12); color: var(--purple-bright);
+  border: 1px solid var(--border); cursor: pointer;
+  font-family: inherit; font-size: 11.5px; font-weight: 600;
+}
+.home-quick button:hover { background: rgba(var(--purple-rgb),0.22); }
+.home-quick button.danger { background: rgba(224,82,82,0.12); color: var(--red); }
+.home-quick button.danger:hover { background: rgba(224,82,82,0.22); }
+
+.home-list { display: flex; flex-direction: column; gap: 7px; }
+.home-item {
+  display: flex; align-items: center; gap: 9px;
+  font-size: 12px; color: var(--text);
+  padding: 7px 9px; border-radius: var(--radius-6);
+  background: rgba(var(--purple-rgb),0.05);
+}
+.home-item .when { color: var(--muted); font-size: 10.5px; margin-left: auto; white-space: nowrap; }
+.home-empty { font-size: 11.5px; color: var(--muted); font-style: italic; }
+
 </style>
 </head>
 <body>
@@ -1143,8 +1294,60 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
   <button class="top-btn"     id="btnClose" title="Fechar">&#x2715;</button>
 </div>
 
+
+<!-- ABAS — os mesmos destinos do celular. Ver o bloco de CSS "NAVEGAÇÃO POR ABAS". -->
+<nav id="viewtabs" role="tablist" aria-label="Seções">
+  <button class="vtab active" data-view="inicio"  role="tab" aria-selected="true"><span class="vtab-ico">&#x1F3E0;</span><span class="vtab-label">Início</span><span class="vtab-dot"></span></button>
+  <button class="vtab"        data-view="chat"    role="tab" aria-selected="false"><span class="vtab-ico">&#x1F4AC;</span><span class="vtab-label">Chat</span><span class="vtab-dot"></span></button>
+  <button class="vtab"        data-view="pc"      role="tab" aria-selected="false"><span class="vtab-ico">&#x1F5A5;</span><span class="vtab-label">PC</span><span class="vtab-dot"></span></button>
+  <button class="vtab"        data-view="caixa"   role="tab" aria-selected="false"><span class="vtab-ico">&#x1F4E5;</span><span class="vtab-label">Caixa</span><span class="vtab-dot"></span></button>
+  <button class="vtab"        data-view="presets" role="tab" aria-selected="false"><span class="vtab-ico">&#x1F3AE;</span><span class="vtab-label">Presets</span><span class="vtab-dot"></span></button>
+  <button class="vtab"        data-view="ajustes" role="tab" aria-selected="false"><span class="vtab-ico">&#x2699;</span><span class="vtab-label">Ajustes</span><span class="vtab-dot"></span></button>
+</nav>
+
 <!-- MAIN LAYOUT -->
-<div id="layout">
+<div id="layout" data-view="inicio">
+
+
+  <!-- TELA INÍCIO — espelho da Home do celular -->
+  <div id="view-inicio">
+    <div class="home-greet" id="home-greet">Olá</div>
+    <div class="home-sub"   id="home-sub">Carregando o estado do PC…</div>
+
+    <div class="home-grid">
+      <div class="home-card">
+        <div class="home-card-title">Este computador</div>
+        <div class="home-metric-row"><span class="home-metric-label">Processador</span><span class="home-metric-val" id="home-cpu">—</span></div>
+        <div class="home-bar"><i id="home-cpu-bar" style="width:0%"></i></div>
+        <div style="height:10px"></div>
+        <div class="home-metric-row"><span class="home-metric-label">Memória</span><span class="home-metric-val" id="home-ram">—</span></div>
+        <div class="home-bar"><i id="home-ram-bar" style="width:0%"></i></div>
+        <div style="height:10px"></div>
+        <div class="home-metric-row"><span class="home-metric-label">Disco principal</span><span class="home-metric-val" id="home-disk">—</span></div>
+        <div class="home-bar"><i id="home-disk-bar" style="width:0%"></i></div>
+      </div>
+
+      <div class="home-card">
+        <div class="home-card-title">Próximos lembretes</div>
+        <div class="home-list" id="home-reminders"><div class="home-empty">Carregando…</div></div>
+      </div>
+
+      <div class="home-card">
+        <div class="home-card-title">Atalhos</div>
+        <div class="home-quick" id="home-quick">
+          <button data-quick="print">Tirar print</button>
+          <button data-quick="clip">Ver área de transferência</button>
+          <button data-quick="lock" class="danger">Bloquear tela</button>
+          <button data-quick="sleep" class="danger">Suspender</button>
+        </div>
+      </div>
+
+      <div class="home-card">
+        <div class="home-card-title">Memória de longo prazo</div>
+        <div class="home-list" id="home-memory"><div class="home-empty">Carregando…</div></div>
+      </div>
+    </div>
+  </div>
 
   <div id="drawer-backdrop"></div>
 
@@ -3012,6 +3215,197 @@ document.getElementById("btnMin").addEventListener("click", () => window.close()
   setInterval(() => { loadTelemetryHistory(); loadInsights(); }, 30_000);
   addBubble("system", "ELYSIUM pronto. Pressione Ctrl+Shift+J ou clique 🎤 para falar.");
 })();
+
+// ─────────────────────────────────────────────────
+// NAVEGAÇÃO POR ABAS
+// ─────────────────────────────────────────────────
+//
+// Os mesmos destinos do celular. O trabalho pesado é CSS: com `data-view` no #layout, as
+// gavetas deixam de ser painéis deslizantes e viram conteúdo de largura cheia. Nenhum
+// markup foi movido — o que já funcionava continua exatamente onde estava.
+
+const layoutEl = document.getElementById("layout");
+const vtabs = document.querySelectorAll(".vtab");
+
+/** Última aba usada, para o app reabrir onde você estava. */
+const VIEW_KEY = "elysium_view";
+
+function switchView(view) {
+  layoutEl.setAttribute("data-view", view);
+  vtabs.forEach(b => {
+    const ativa = b.dataset.view === view;
+    b.classList.toggle("active", ativa);
+    b.setAttribute("aria-selected", ativa ? "true" : "false");
+    if (ativa) b.classList.remove("has-news");
+  });
+  try { localStorage.setItem(VIEW_KEY, view); } catch { /* modo privado, ignora */ }
+
+  // Chat e Caixa são a mesma tela em modos diferentes: reaproveita o switchChatMode que já
+  // existe em vez de duplicar a lógica dos dois timelines.
+  if (view === "chat")  switchChatMode("ai");
+  if (view === "caixa") switchChatMode("self");
+
+  // Presets e Ajustes dividem a mesma gaveta. Ao entrar em Presets, força a sub-aba certa,
+  // senão você cairia na última que estivesse aberta.
+  if (view === "presets") ativarSubAba("presets");
+  if (view === "ajustes" && document.querySelector(".rtab-btn.active")?.dataset.tab === "presets") {
+    ativarSubAba("config");
+  }
+
+  // O player do Spotify só consulta a API enquanto está à vista — mesma razão da aba de
+  // mídia: laço rodando escondido gastaria cota por nada.
+  if (view !== "ajustes") spStopPolling();
+
+  if (view === "inicio") atualizarInicio();
+}
+
+function ativarSubAba(nome) {
+  const btn = document.querySelector(`.rtab-btn[data-tab="${nome}"]`);
+  if (btn) btn.click();
+}
+
+vtabs.forEach(b => b.addEventListener("click", () => switchView(b.dataset.view)));
+
+// Ctrl+1..6 percorre os destinos, como no navegador. Fica fora do input de comando para
+// não roubar a digitação.
+document.addEventListener("keydown", (e) => {
+  if (!e.ctrlKey || e.altKey || e.shiftKey) return;
+  const n = Number(e.key);
+  if (!Number.isInteger(n) || n < 1 || n > vtabs.length) return;
+  e.preventDefault();
+  switchView(vtabs[n - 1].dataset.view);
+});
+
+// ─────────────────────────────────────────────────
+// TELA INÍCIO
+// ─────────────────────────────────────────────────
+
+function saudacao() {
+  const h = new Date().getHours();
+  if (h < 5)  return "Boa madrugada";
+  if (h < 12) return "Bom dia";
+  if (h < 18) return "Boa tarde";
+  return "Boa noite";
+}
+
+/** `dueAt` em epoch ms → "hoje 14:30", "amanhã 09:00" ou "12/09 09:00". */
+function quandoTexto(epochMs) {
+  const d = new Date(epochMs);
+  const hoje = new Date();
+  const dia = (x) => `${x.getFullYear()}-${x.getMonth()}-${x.getDate()}`;
+  const amanha = new Date(hoje.getTime() + 86400000);
+  const hora = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  if (dia(d) === dia(hoje))  return `hoje ${hora}`;
+  if (dia(d) === dia(amanha)) return `amanhã ${hora}`;
+  return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")} ${hora}`;
+}
+
+function setBarra(idVal, idBar, texto, pct) {
+  const v = document.getElementById(idVal);
+  const b = document.getElementById(idBar);
+  if (v) v.textContent = texto;
+  if (b) b.style.width = `${Math.max(0, Math.min(100, pct))}%`;
+}
+
+/**
+ * A Início lê tudo pela ponte RPC — os mesmos métodos que o celular chama. Nenhum canal
+ * IPC novo foi criado para ela, e é isso que garante que as duas telas mostrem a mesma
+ * coisa sem serem mantidas em par.
+ */
+async function atualizarInicio() {
+  document.getElementById("home-greet").textContent = saudacao() + ", Zak";
+
+  const [tel, lem, mem] = await Promise.all([
+    window.nx.rpc("system.telemetry"),
+    window.nx.rpc("reminders.list"),
+    window.nx.rpc("memory.list"),
+  ]);
+
+  // ── estado da máquina
+  const t = tel.result;
+  if (t) {
+    setBarra("home-cpu", "home-cpu-bar", `${Math.round(t.cpu_pct ?? 0)}%`, t.cpu_pct ?? 0);
+    setBarra("home-ram", "home-ram-bar", `${Math.round(t.ram_pct ?? 0)}%`, t.ram_pct ?? 0);
+
+    const disco = (t.disks ?? [])[0];
+    if (disco) {
+      setBarra("home-disk", "home-disk-bar", `${disco.freeGB} GB livres`, disco.usedPct ?? 0);
+    }
+
+    const partes = [];
+    if (typeof t.battery_pct === "number") {
+      partes.push(`bateria ${t.battery_pct}%${t.battery_charging ? " carregando" : ""}`);
+    }
+    if (typeof t.cpu_temp === "number") partes.push(`${t.cpu_temp}°C`);
+    document.getElementById("home-sub").textContent =
+      partes.length ? partes.join(" · ") : "Tudo em ordem por aqui.";
+  } else {
+    document.getElementById("home-sub").textContent = "Não consegui ler o estado do PC.";
+  }
+
+  // ── lembretes: só o que ainda vai acontecer, os três mais próximos
+  const alvo = document.getElementById("home-reminders");
+  const lembretes = (lem.result?.reminders ?? [])
+    .filter(r => !r.firedAt && r.dueAt > Date.now())
+    .sort((a, b) => a.dueAt - b.dueAt)
+    .slice(0, 3);
+
+  alvo.innerHTML = lembretes.length
+    ? lembretes.map(r =>
+        `<div class="home-item"><span>&#x23F0;</span><span>${escHtml(r.text)}</span>` +
+        `<span class="when">${escHtml(quandoTexto(r.dueAt))}</span></div>`).join("")
+    : `<div class="home-empty">Nada agendado.</div>`;
+
+  // ── memória
+  const alvoMem = document.getElementById("home-memory");
+  const fatos = (mem.result?.facts ?? []).slice(-3).reverse();
+  alvoMem.innerHTML = fatos.length
+    ? fatos.map(f => `<div class="home-item"><span>&#x1F9E0;</span><span>${escHtml(f.text)}</span></div>`).join("")
+    : `<div class="home-empty">Nada guardado ainda.</div>`;
+}
+
+// Atalhos da Início. Os destrutivos passam pelo diálogo do main — ver rpcBridge.ts.
+document.getElementById("home-quick")?.addEventListener("click", async (e) => {
+  const btn = e.target.closest("button[data-quick]");
+  if (!btn) return;
+
+  const acoes = {
+    print: () => window.nx.rpc("screen.capture", { maxWidth: 1100 }),
+    clip:  async () => {
+      const r = await window.nx.rpc("clipboard.get");
+      showToast(r.result?.text ? `Área de transferência: ${r.result.text.slice(0, 80)}` : "Área de transferência vazia");
+    },
+    lock:  () => window.nx.rpc("power.control", { operation: "lock" }),
+    sleep: () => window.nx.rpc("power.control", { operation: "sleep" }),
+  };
+
+  btn.disabled = true;
+  try { await acoes[btn.dataset.quick]?.(); }
+  finally { btn.disabled = false; }
+});
+
+// A telemetria já chega de 5 em 5 segundos por IPC; aproveitar o mesmo evento evita um
+// segundo laço de polling só para esta tela.
+window.nx.onTelemetry?.(() => {
+  if (layoutEl.getAttribute("data-view") === "inicio") atualizarInicio();
+});
+
+// Item novo na Caixa marca o destino, como o badge da TabBar do celular.
+window.nx.onMailboxMessage(() => {
+  if (layoutEl.getAttribute("data-view") !== "caixa") {
+    document.querySelector('.vtab[data-view="caixa"]')?.classList.add("has-news");
+  }
+});
+
+// Restaura a última aba. `body.tabs` esconde os botões de gaveta, que não fazem mais
+// sentido — as gavetas não deslizam mais.
+document.body.classList.add("tabs");
+try {
+  const salva = localStorage.getItem(VIEW_KEY);
+  if (salva && document.querySelector(`.vtab[data-view="${salva}"]`)) switchView(salva);
+  else switchView("inicio");
+} catch { switchView("inicio"); }
+
 </script>
 </body>
 </html>

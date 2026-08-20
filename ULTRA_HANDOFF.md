@@ -1967,7 +1967,7 @@ token no renderer, sem porta.
 
 ---
 
-### Bloco 15 — O modo escuro do ELYSIUM-M ⬜
+### Bloco 15 — O modo escuro do ELYSIUM-M ✅
 
 Três defeitos verificados no código:
 
@@ -1989,7 +1989,7 @@ Três defeitos verificados no código:
 
 Vai por `npm run update` (é só JS). Julgamento visual do Zak — blur não sai em screenshot.
 
-### Bloco 16 — Temas alinhados: 3 cores × claro/escuro ⬜
+### Bloco 16 — Temas alinhados: 3 cores × claro/escuro ✅
 
 Os dois lados divergiram no bloco 12: o desktop tem seis temas em duas famílias, o mobile
 tem as quatro cores antigas. A tela de Ajustes do app diz *"Espelha os temas do ELYSIUM
@@ -2009,13 +2009,13 @@ de nome de tema.
 > ⚠️ `elysium_theme` no `AsyncStorage` guarda `default`, `ocean`… Sem mapa de aposentados o
 > app abre com tema indefinido — a mesma falha silenciosa que o bloco 12 tratou no desktop.
 
-### Bloco 17 — Ponte RPC única para o desktop ⬜
+### Bloco 17 — Ponte RPC única para o desktop ✅
 
 `ipcMain.handle("rpc:call", …)` chamando `handleRpc()` direto; `preload-dashboard.ts` expõe
 `nx.rpc(method, params)`. **Destrutivos** ganham `dialog.showMessageBox` no main — a trava
 não pode morar no renderer, quem decide se confirmou tem que ser quem executa.
 
-### Bloco 18 — Abas e tela Início no desktop ⬜
+### Bloco 18 — Abas e tela Início no desktop ✅
 
 **Não é reescrita.** O `dashboard.html` tem 3000 linhas com chat, gráficos, Spotify,
 pareamento e telemetria funcionando. O caminho é envolver os blocos existentes em
@@ -2024,6 +2024,42 @@ mostrar/esconder por view.
 
 Abas: **Início** (nova — estado do PC, atalhos, próximos lembretes, energia) · **Chat** (o
 `#center` intacto) · **PC** · **Caixa** · **Presets** · **Ajustes**.
+
+### Como ficou (blocos 15 a 18)
+
+**O modo escuro** teve os três defeitos corrigidos e o principal era mesmo o véu: o brilho
+saiu de `absoluteFill` e virou aresta de cima com **altura fixa** — reflexo não cresce junto
+com o card, e uma fração da altura viraria véu de novo num card alto. As manchas do fundo
+viraram soma de sete círculos concêntricos, com queda medida de 6% na borda a 35% no centro.
+
+**Os temas** viraram três cores × claro/escuro nos dois lados. As amostras do seletor do app
+mostram as cores do **modo atual**: as duas caras de um tema são bem diferentes, e mostrar a
+clara no escuro faria a amostra mentir sobre o que acontece ao tocar nela.
+
+**A ponte RPC** (`src/main/rpcBridge.ts`) chama `handleRpc()` direto do main. Duas coisas que
+valem para quem for mexer:
+
+- O diálogo de confirmação é preso a uma janela **visível**. O app mantém o recorder
+  invisível aberto o tempo todo e ele costuma ser o primeiro de `getAllWindows()` — um modal
+  preso nele travaria o app à espera de clique em algo que ninguém vê.
+- Cancelar devolve `{cancelado:true}`, não exceção: mudar de ideia é caminho normal.
+
+**As abas** (bloco 18) não moveram markup nenhum. Com `data-view` no `#layout`, as gavetas
+deixam de ser `position:absolute` com translateX e viram painel de largura cheia. As 3000
+linhas de chat, gráficos, Spotify, pareamento e telemetria continuam exatamente onde estavam.
+
+- Ficaram no **topo**, não no rodapé como no celular: barra inferior existe em telefone por
+  alcance do polegar, razão que não vale para mouse.
+- **Chat e Caixa são a mesma tela** em modos diferentes, reusando o `switchChatMode()` que já
+  existia. Presets e Ajustes dividem a mesma gaveta.
+- ⚠️ Armadilha que apareceu: `#layout` é flex, e um painel sem `flex` encolhe até o conteúdo
+  — a Início nasceu numa coluna estreita com meia janela vazia à direita. A regra
+  `#layout[data-view] > * { flex: 1 1 auto }` resolve para todas as views.
+
+**Ferramenta nova:** `scripts/eval-no-dashboard.mjs` executa expressões dentro do renderer
+pela porta de depuração (`electron . --remote-debugging-port=9222`). Sem ela não dá para
+provar que uma ponte foi ligada — nome de canal errado no preload dá exatamente o mesmo
+sintoma que serviço funcionando, com a tela quebrada em silêncio.
 
 ### Bloco 19 — As telas que faltam no desktop ⬜
 
