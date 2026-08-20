@@ -1,6 +1,13 @@
 import { contextBridge, ipcRenderer } from "electron";
 
 contextBridge.exposeInMainWorld("nx", {
+  /**
+   * Os 52 métodos RPC, os mesmos que o celular usa. Devolve
+   * `{result}`, `{error, status}` ou `{cancelado:true}` — este último quando um método
+   * destrutivo teve a confirmação recusada, que é caminho normal e não erro.
+   */
+  rpc:        (method: string, params?: unknown) => ipcRenderer.invoke("rpc:call", method, params),
+  rpcMethods: () => ipcRenderer.invoke("rpc:methods"),
   // ── Voice ──────────────────────────────────────────────────────────────────
   startListening:  ()                       => ipcRenderer.send("voice:start"),
   onState:         (cb: (s: string)    => void) => { ipcRenderer.on("voice:state",        (_e, s) => cb(s)); },

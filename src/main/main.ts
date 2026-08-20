@@ -37,6 +37,7 @@ import { ElysiumError } from "../services/errors";
 import { processCommand, resolveAction } from "../services/command";
 import { startServer, setActiveToken, broadcastMailboxEvent } from "../services/server";
 import { ollamaDisponivel } from "../services/llm";
+import { registerRpcBridge } from "./rpcBridge";
 import { startMonitor, getDashboardTelemetry, killProcess } from "../actions/systemInfo";
 import type { BrainAction } from "../services/brain";
 import { mediaControl } from "../actions/mediaControl";
@@ -609,6 +610,10 @@ app.on("ready", async () => {
     stopScheduler();
     app.exit(0);
   };
+
+  // Ponte dos 52 métodos RPC para o dashboard. Antes do createTray porque o menu da
+  // bandeja já pode disparar telas que usam a ponte.
+  registerRpcBridge();
 
   createTray(
     quit,
