@@ -38,6 +38,12 @@ import { cancelReminder, createReminder, listAll, ReminderKind } from "./schedul
 import { getPushPrefs, registerToken, setPushPrefs, unregisterToken, PushCategory } from "./push";
 import { askAboutImage, askAboutScreen } from "./vision";
 import { searchWeb } from "./webSearch";
+import { listarSugestoes } from "./sugestoes";
+import { climaAgora } from "./clima";
+import {
+  getAllPresets, getPreset, findPresetKey, savePreset, deletePresetByKey,
+} from "./presetsStore";
+import { runPreset } from "../actions/runPreset";
 import * as spotify from "./spotify";
 import {
   listSessions as listChatSessions, getSession as getChatSession,
@@ -463,6 +469,65 @@ const METHODS: Record<string, MethodDef> = {
   },
   "memory.remove": {
     handler: async (params) => ({ removed: removeFactById(requireString(params, "id")) }),
+  },
+
+  // — sugestões da tela Início —
+  //
+  // Um método só, e ele serve os dois lados: o dashboard e o celular recebem exatamente
+  // as mesmas bolhas, sorteadas no mesmo lugar. Fosse cada lado montar as suas, seriam
+  // duas heurísticas para manter em par.
+  "suggestions.list": {
+    handler: async () => ({ suggestions: await listarSugestoes() }),
+  },
+
+  // — clima —
+  "weather.now": {
+    handler: async () => await climaAgora(),
+  },
+
+  // — presets —
+  //
+  // O `presetsStore` existia desde o início e nunca foi exposto aqui. Sem isto, a tela de
+  // presets do celular só tinha um caminho: montar a frase "executa o preset X" e mandar
+  // para o LLM em /api/command — lento e não-determinístico para um comando já conhecido.
+  "presets.list": {
+    handler: async () => ({
+      presets: Object.entries(getAllPresets()).map(([name, p]) => ({
+        name, description: p.description, icon: p.icon, actions: p.actions.length,
+      })),
+    }),
+  },
+  "presets.run": {
+    handler: async (params) => {
+      const nome = requireString(params, "name");
+      const preset = getPreset(nome);
+      if (!preset) throw new RpcError(404, `não encontrei o preset "${nome}"`);
+      const reply = await runPreset(nome);
+      return { ran: findPresetKey(nome), reply };
+    },
+  },
+  "presets.save": {
+    handler: async (params) => {
+      const nome = requireString(params, "name");
+      const acoes = params?.actions;
+      if (!Array.isArray(acoes) || !acoes.length) {
+        throw new RpcError(400, 'param "actions" deve ser uma lista não vazia');
+      }
+      savePreset(nome, {
+        description: optionalString(params, "description") ?? nome,
+        icon: optionalString(params, "icon"),
+        actions: acoes as never,
+      });
+      return { saved: nome };
+    },
+  },
+  "presets.delete": {
+    handler: async (params) => {
+      const chave = findPresetKey(requireString(params, "name"));
+      if (!chave) throw new RpcError(404, "preset não encontrado");
+      deletePresetByKey(chave);
+      return { deleted: chave };
+    },
   },
 
   // — lembretes —

@@ -150,6 +150,99 @@ body.theme-ely {
   .ely-shaft { animation: none !important; }
 }
 
+
+/* ── ÍCONES ───────────────────────────────────────────────
+   Substituem os emoji. Herdam a cor do texto, então acompanham tema, hover e
+   estado desabilitado sem uma regra por ícone. */
+.ico { width: 16px; height: 16px; flex-shrink: 0; display: block; }
+.ico-sm { width: 13px; height: 13px; }
+.ico-lg { width: 20px; height: 20px; }
+.conv-star .ico.on, .ico.on { fill: currentColor; }
+
+
+/* ── MOVIMENTO ────────────────────────────────────────────
+   Três durações e duas curvas, e nada além disso. Regras:
+     · nada passa de 300 ms — acima disso vira espera, não resposta;
+     · nada faz bounce, exceto o popover, que é mola porque é iOS;
+     · só `transform` e `opacity` — animar width/height/top força layout a
+       cada quadro e engasga junto com o resto do app.
+   O interruptor de acessibilidade no fim do bloco zera tudo de uma vez. */
+:root {
+  --mov-micro: 120ms;   /* hover, foco, toggle */
+  --mov-base: 220ms;    /* troca de aba, card entrando */
+  --mov-saida: 140ms;   /* saída é sempre mais rápida que entrada */
+  --mov-curva: cubic-bezier(0.2, 0, 0.2, 1);
+  --mov-suave: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* Entradas em CSS puro: sem classe adicionada por JS, sem requestAnimationFrame. */
+@keyframes mov-entra {
+  from { opacity: 0; transform: translateY(6px) scale(0.99); }
+  to   { opacity: 1; transform: none; }
+}
+.mov-entra { animation: mov-entra var(--mov-base) var(--mov-suave) both; }
+.bubble, .log-card { animation: mov-entra var(--mov-base) var(--mov-suave) both; }
+
+/* Escalonamento na montagem de lista. Seis é o teto de propósito: a partir daí a
+   espera acumulada passa a ser sentida como lentidão. */
+.mov-lista > * { animation: mov-entra var(--mov-base) var(--mov-suave) both; }
+.mov-lista > *:nth-child(1) { animation-delay: 0ms; }
+.mov-lista > *:nth-child(2) { animation-delay: 30ms; }
+.mov-lista > *:nth-child(3) { animation-delay: 60ms; }
+.mov-lista > *:nth-child(4) { animation-delay: 90ms; }
+.mov-lista > *:nth-child(5) { animation-delay: 120ms; }
+.mov-lista > *:nth-child(n+6) { animation-delay: 150ms; }
+
+/* ── Troca de aba pela View Transitions API ───────────────
+   O Chromium 126 do Electron 31 faz o cross-fade sozinho a partir de um
+   snapshot do antes e do depois. Sem biblioteca, sem estado intermediário no JS
+   e sem os dois painéis coexistindo no DOM. */
+::view-transition-old(conteudo) {
+  animation: vt-sai var(--mov-saida) var(--mov-curva) both;
+}
+::view-transition-new(conteudo) {
+  animation: vt-entra var(--mov-base) var(--mov-suave) both;
+}
+@keyframes vt-sai   { to   { opacity: 0; transform: translateY(-4px); } }
+@keyframes vt-entra { from { opacity: 0; transform: translateY(8px);  } }
+#layout > #view-inicio,
+#layout > #center,
+#layout > #drawer-left,
+#layout > #drawer-right { view-transition-name: conteudo; }
+/* Só o painel visível carrega o nome na prática: os outros estão em
+   display:none, e elemento oculto não entra na transição. Dois elementos com o
+   mesmo view-transition-name ao mesmo tempo cancelariam a transição inteira. */
+
+/* ── Polegar deslizante da barra de abas ──────────────────
+   Substitui o `border-bottom` que apagava num destino e acendia noutro. O
+   traço percorre a distância, e é esse percurso que diz de onde você veio. */
+#viewtabs { position: relative; }
+#vtab-thumb {
+  position: absolute; bottom: 0; left: 0; height: 2px;
+  background: var(--purple); border-radius: 2px 2px 0 0;
+  width: 1px; transform: translateX(0) scaleX(0); transform-origin: left center;
+  transition: transform var(--mov-base) var(--mov-suave);
+  pointer-events: none;
+}
+
+/* ── Micro-interações ─────────────────────────────────────
+   Recuo de 1px ao apertar, em vez de bounce ao passar o mouse. */
+button:not(:disabled):active { transform: translateY(1px); }
+.vtab:active { transform: none; }
+button, input, .home-card, .chart-wrap, .home-item {
+  transition: background var(--mov-micro) var(--mov-curva),
+              border-color var(--mov-micro) var(--mov-curva),
+              color var(--mov-micro) var(--mov-curva),
+              transform var(--mov-micro) var(--mov-curva);
+}
+.home-card:hover { transform: translateY(-1px); }
+
+/* Barras de métrica por `scaleX`: a largura em % reflui a cada quadro, a escala não. */
+.home-bar > i, .bat-bar-fill, .disk-bar-fill {
+  transform-origin: left center;
+  transition: transform var(--mov-base) var(--mov-suave), background var(--mov-base) linear;
+}
+
 html, body { height: 100vh; overflow: hidden; background: var(--bg); color: var(--text); font-family: "Segoe UI", system-ui, sans-serif; font-size: 13px; }
 
 /* ── TOPBAR ─────────────────────────────────────────────── */
@@ -165,15 +258,15 @@ html, body { height: 100vh; overflow: hidden; background: var(--bg); color: var(
 .logo { display: flex; align-items: center; gap: 7px; }
 .logo-badge {
   width: 24px; height: 24px; border-radius: var(--radius-7);
-  background: linear-gradient(135deg, var(--purple), var(--cyan-dark));
+  background: rgba(var(--purple-rgb),0.14);
+  border: 1px solid rgba(var(--purple-rgb),0.42);
   display: flex; align-items: center; justify-content: center;
-  font-size: 11px; font-weight: 800; color: #fff;
-  box-shadow: 0 0 8px rgba(var(--purple-rgb),0.6);
+  font-size: 10px; font-weight: 800; color: var(--purple-bright);
 }
 .logo-text { font-size: 12px; font-weight: 700; letter-spacing: 0.12em; color: var(--purple-bright); }
 #status-badge {
   margin-left: 8px; padding: 2px 9px; border-radius: var(--radius-20);
-  font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  font-size: 10.5px; font-weight: 600;
   background: rgba(var(--purple-rgb),0.15); border: 1px solid rgba(var(--purple-rgb),0.3); color: var(--muted);
   transition: all 0.3s;
 }
@@ -227,8 +320,8 @@ html, body { height: 100vh; overflow: hidden; background: var(--bg); color: var(
 #drawer-left::-webkit-scrollbar-thumb { background: var(--border); border-radius: var(--radius-4); }
 
 .section-label {
-  font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
-  color: var(--muted); margin: 10px 0 5px; padding-left: 2px;
+  font-size: 11px; font-weight: 600;
+  color: var(--muted); margin: 12px 0 6px; padding-left: 2px;
 }
 
 /* Charts */
@@ -265,7 +358,7 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
 .bat-bar-track {
   height: 4px; background: rgba(255,255,255,0.08); border-radius: var(--radius-4); margin-top: 4px;
 }
-.bat-bar-fill { height: 100%; border-radius: var(--radius-4); transition: width 0.5s, background 0.5s; }
+.bat-bar-fill { height: 100%; width: 100%; border-radius: var(--radius-4); transform-origin: left center; }
 
 /* Disks */
 #disks-wrap { margin-bottom: 6px; }
@@ -277,7 +370,7 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
 .disk-letter { font-family: var(--mono); font-size: 11px; font-weight: 700; color: var(--cyan); min-width: 18px; }
 .disk-info { flex: 1; min-width: 0; }
 .disk-bar-track { height: 3px; background: rgba(255,255,255,0.07); border-radius: var(--radius-3); margin-top: 3px; }
-.disk-bar-fill  { height: 100%; border-radius: var(--radius-3); transition: width 0.5s, background 0.5s; }
+.disk-bar-fill  { height: 100%; width: 100%; border-radius: var(--radius-3); transform-origin: left center; }
 .disk-nums { font-size: 10px; color: var(--muted); font-family: var(--mono); white-space: nowrap; }
 
 /* Processes */
@@ -306,19 +399,46 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
 }
 .theme-lg #center { background: transparent; }
 
-/* Chat mode tabs (IA / Eu mesmo) */
+/* ── Switch IA ↔ Celular ──────────────────────────────────
+   Um controle só, centralizado no topo do chat. À esquerda a conversa com a IA, à
+   direita a caixa de recados que aparece no celular — que antes era uma aba inteira
+   repetindo o que este switch já fazia. */
 #chat-mode-tabs {
-  display: flex; gap: 6px; padding: 8px 16px 0;
+  display: flex; justify-content: center; padding: 10px 16px 2px;
+}
+.chat-switch {
+  position: relative; display: flex; padding: 3px;
+  background: rgba(var(--purple-rgb),0.08);
+  border: 1px solid var(--border); border-radius: var(--radius-20);
+}
+/* O polegar é um irmão posicionado atrás dos dois botões: assim o texto ativo não
+   precisa de fundo próprio e a troca é um único translate. */
+#chat-switch-thumb {
+  position: absolute; top: 3px; bottom: 3px; left: 3px;
+  border-radius: var(--radius-20);
+  background: rgba(var(--purple-rgb),0.30);
+  box-shadow: var(--shadow-card, none);
+  transition: transform var(--mov-base) var(--mov-suave), width var(--mov-base) var(--mov-suave);
+  pointer-events: none;
 }
 .chat-tab-btn {
-  background: var(--surface); border: 1px solid var(--border); color: var(--muted);
-  border-radius: var(--radius-7); padding: 5px 12px; font-size: 12px; cursor: pointer;
-  transition: all 0.15s;
+  position: relative; z-index: 1;
+  display: flex; align-items: center; gap: 7px;
+  background: none; border: none; color: var(--muted);
+  border-radius: var(--radius-20); padding: 6px 18px;
+  font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+  transition: color var(--mov-micro) var(--mov-curva);
 }
-.chat-tab-btn:hover { border-color: var(--border2); color: var(--text); }
-.chat-tab-btn.active {
-  background: rgba(var(--purple-rgb),0.18); border-color: rgba(var(--purple-rgb),0.45); color: #c4b5fd;
+.chat-tab-btn:hover { color: var(--text); }
+.chat-tab-btn.active { color: var(--purple-bright); }
+.chat-tab-btn:active { transform: none; }
+/* Recado novo enquanto você está do lado da IA. Pulsa uma vez e fica aceso. */
+.chat-tab-dot {
+  width: 6px; height: 6px; border-radius: 50%; background: var(--cyan);
+  display: none; margin-left: -2px;
 }
+.chat-tab-btn.tem-novidade .chat-tab-dot { display: block; animation: pulso-uma-vez 600ms var(--mov-suave) 2; }
+@keyframes pulso-uma-vez { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.7); opacity: 0.5; } }
 
 /* Timeline */
 #timeline, #timeline-self {
@@ -451,7 +571,7 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
   padding: 10px 0 4px;
 }
 #voice-zone.active { display: flex; }
-#wave-status { font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--purple-bright); }
+#wave-status { font-size: 11.5px; font-weight: 600; color: var(--purple-bright); }
 #bars-row { display: flex; align-items: flex-end; gap: 5px; height: 40px; }
 .vbar { width: 5px; border-radius: var(--radius-4); background: var(--purple-bright); filter: drop-shadow(0 0 5px var(--purple)); transition: filter 0.3s, background 0.3s; }
 .state-processing .vbar { background: var(--cyan); filter: drop-shadow(0 0 5px var(--cyan)); }
@@ -540,7 +660,7 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
   display: flex; align-items: center; justify-content: center; font-size: 16px;
   transition: background 0.2s, box-shadow 0.2s;
 }
-.media-btn:hover { background: rgba(var(--cyan-rgb),0.28); box-shadow: 0 0 10px rgba(var(--cyan-rgb),0.3); }
+.media-btn:hover { background: rgba(var(--cyan-rgb),0.28); color: var(--text); }
 
 /* ── Acesso remoto ─────────────────────────────────────────────────────────── */
 #remote-card {
@@ -692,7 +812,7 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
   background: var(--surface); border: 1px solid var(--border);
   border-radius: var(--radius-9); padding: 10px;
 }
-#shortcut-card .sc-label { font-size: 9px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+#shortcut-card .sc-label { font-size: 11px; font-weight: 600; color: var(--muted); margin-bottom: 7px; }
 #shortcut-input {
   width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--border);
   border-radius: var(--radius-6); padding: 6px 9px; color: var(--cyan);
@@ -707,7 +827,7 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
   background: var(--surface); border: 1px solid var(--border);
   border-radius: var(--radius-9); padding: 10px; margin-top: 6px;
 }
-#apikey-card .sc-label { font-size: 9px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+#apikey-card .sc-label { font-size: 11px; font-weight: 600; color: var(--muted); margin-bottom: 7px; }
 #apikey-input {
   width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--border);
   border-radius: var(--radius-6); padding: 6px 9px; color: var(--text);
@@ -751,7 +871,7 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
   background: var(--surface); border: 1px solid rgba(var(--cyan-rgb),0.2);
   border-radius: var(--radius-9); padding: 10px; margin-top: 6px;
 }
-#insights-card .sc-label { font-size: 9px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+#insights-card .sc-label { font-size: 11px; font-weight: 600; color: var(--muted); margin-bottom: 7px; }
 .insight-item {
   display: flex; align-items: flex-start; gap: 6px;
   background: rgba(var(--cyan-rgb),0.05); border: 1px solid rgba(var(--cyan-rgb),0.12);
@@ -1189,15 +1309,11 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
    janela vazia à direita. Vale para todas as views, não só a Início. */
 #layout[data-view] > *:not([hidden]) { flex: 1 1 auto; min-width: 0; }
 #layout[data-view="inicio"]  #view-inicio  { display: block; }
-#layout[data-view="chat"]    #center,
-#layout[data-view="caixa"]   #center       { display: flex; }
+#layout[data-view="chat"]    #center       { display: flex; }
 #layout[data-view="pc"]      #drawer-left  { display: block; padding: 14px 18px 20px; }
-#layout[data-view="presets"] #drawer-right,
 #layout[data-view="ajustes"] #drawer-right { display: flex; }
 
-/* Na aba Presets a fileira de sub-abas some: o destino já É os presets, e uma sub-aba
-   marcando o lugar em que você já está é ruído. */
-#layout[data-view="presets"] #rtabs { display: none; }
+
 
 /* Com largura cheia, os widgets de sistema viram grade em vez de coluna estreita. */
 #layout[data-view="pc"] #drawer-left {
@@ -1212,51 +1328,338 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
 #layout[data-view] #drawer-backdrop { display: none !important; }
 body.tabs .top-btn.drawer-toggle { display: none; }
 
+
+
+/* ── AJUSTES ──────────────────────────────────────────────
+   A gaveta foi desenhada para 262px. Quando o bloco 18 a transformou em aba, a regra
+   `width:100%` sem teto passou a valer para a janela inteira: o botão "Salvar" de 5px de
+   padding esticava por 1200px, enquanto os botões de tamanho fixo em pixel continuavam
+   minúsculos e sozinhos no meio do vazio. Três estratégias de largura conflitando.
+
+   O conserto é uma coluna com teto e uma grade rótulo/controle: o rótulo tem largura
+   previsível, e o controle tem um máximo real. */
+#layout[data-view="ajustes"] #rtab-panels {
+  max-width: 760px; margin: 0 auto; width: 100%;
+}
+#layout[data-view="ajustes"] #rtabs {
+  max-width: 760px; margin: 0 auto; width: 100%;
+  gap: 4px; padding: 12px 0 0;
+}
+#layout[data-view="ajustes"] .rtab-btn {
+  /* A regra da gaveta antiga dava `flex:1` a cada botão; numa coluna de 262px isso fazia
+     sentido, em 760px vira um botão de 378px. */
+  display: flex; align-items: center; gap: 7px;
+  flex: 0 0 auto; width: auto;
+  padding: 7px 14px; border-radius: var(--radius-20);
+  font-size: 11.5px; font-weight: 600;
+}
+/* Os controles compostos (amostras de tema, lista de widgets) seguem o mesmo teto dos
+   campos simples — senão só eles esticariam. */
+#layout[data-view="ajustes"] #theme-swatches,
+#layout[data-view="ajustes"] #widget-order-list { max-width: 340px; }
+
+.cfg-grupo { margin-bottom: 26px; }
+.cfg-grupo h3 {
+  font-size: 13px; font-weight: 700; color: var(--text);
+  margin-bottom: 4px; padding-bottom: 7px; border-bottom: 1px solid var(--border);
+}
+.cfg-nota { font-size: 11px; color: var(--muted); line-height: 1.6; margin: 8px 0 4px; }
+
+.cfg-row {
+  display: grid; grid-template-columns: 200px minmax(0, 1fr);
+  gap: 16px; align-items: start; padding: 11px 0;
+  border-bottom: 1px solid rgba(var(--purple-rgb),0.06);
+}
+.cfg-row:last-child { border-bottom: none; }
+.cfg-row > label { font-size: 12px; color: var(--text); padding-top: 5px; }
+.cfg-row > label small { display: block; font-size: 10.5px; color: var(--muted); line-height: 1.5; margin-top: 3px; }
+/* Numa janela estreita a grade vira uma coluna, em vez de espremer o controle. */
+@media (max-width: 620px) { .cfg-row { grid-template-columns: 1fr; gap: 6px; } }
+
+.cfg-controle { display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+.cfg-inline { flex-direction: row; align-items: center; gap: 8px; }
+.cfg-controle input[type="text"],
+.cfg-controle input[type="password"],
+.cfg-controle select {
+  /* O teto é o que impede o campo de esticar pela janela inteira. */
+  max-width: 340px; width: 100%;
+  padding: 8px 11px; border-radius: var(--radius-7);
+  background: rgba(0,0,0,0.2); border: 1px solid var(--border);
+  color: var(--text); font-family: inherit; font-size: 12px; outline: none;
+}
+.cfg-controle select { cursor: pointer; }
+.cfg-controle input:focus, .cfg-controle select:focus { border-color: var(--purple); }
+.cfg-atual { font-size: 11.5px; color: var(--purple-bright); font-weight: 600; white-space: nowrap; }
+
+.cfg-faixa { display: flex; align-items: center; gap: 11px; max-width: 340px; }
+.cfg-faixa input[type="range"] { flex: 1; min-width: 0; accent-color: var(--purple); cursor: pointer; }
+.cfg-faixa-val { font-size: 11.5px; color: var(--purple-bright); font-weight: 600; min-width: 62px; text-align: right; font-variant-numeric: tabular-nums; }
+
+/* Interruptor. Só `transform` no polegar — o resto é cor. */
+.cfg-switch { position: relative; width: 38px; height: 22px; flex-shrink: 0; cursor: pointer; }
+.cfg-switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+.cfg-switch span {
+  position: absolute; inset: 0; border-radius: 11px;
+  background: rgba(var(--purple-rgb),0.14); border: 1px solid var(--border);
+  transition: background var(--mov-micro) var(--mov-curva);
+}
+.cfg-switch span::after {
+  content: ""; position: absolute; top: 2px; left: 2px;
+  width: 16px; height: 16px; border-radius: 50%; background: var(--muted);
+  transition: transform var(--mov-base) var(--mov-suave), background var(--mov-micro) var(--mov-curva);
+}
+.cfg-switch input:checked + span { background: rgba(var(--purple-rgb),0.34); border-color: rgba(var(--purple-rgb),0.5); }
+.cfg-switch input:checked + span::after { transform: translateX(16px); background: var(--purple-bright); }
+
+#clima-resultados { display: flex; flex-direction: column; gap: 3px; max-width: 340px; }
+.clima-op {
+  display: flex; justify-content: space-between; align-items: center; gap: 10px;
+  padding: 8px 11px; border-radius: var(--radius-6);
+  background: rgba(var(--purple-rgb),0.06); border: 1px solid var(--border);
+  color: var(--text); font-family: inherit; font-size: 11.5px; cursor: pointer; text-align: left;
+}
+.clima-op:hover { background: rgba(var(--purple-rgb),0.18); }
+.clima-op span { font-size: 10.5px; color: var(--muted); }
+
+#shortcut-input { max-width: 200px; text-align: center; font-family: var(--mono); }
+#apikey-input { font-family: var(--mono); font-size: 11px; }
+#layout[data-view="ajustes"] .save-btn { width: auto; padding: 8px 16px; }
+#layout[data-view="ajustes"] #pairing-card,
+#layout[data-view="ajustes"] #remote-card { max-width: 420px; }
+
+/* ── Popover de conversas ─────────────────────────────────
+   Mesmo formato do popover de presets; a diferença é a âncora, que aqui é pela esquerda. */
+#conv-pop { transform-origin: top left; }
+#conv-pop::before { left: 14px; right: auto; }
+#conv-btn {
+  position: absolute; left: 16px; top: 10px;
+  width: 32px; height: 32px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: none; border: 1px solid var(--border); color: var(--muted); cursor: pointer;
+  transition: background var(--mov-micro) var(--mov-curva), color var(--mov-micro) var(--mov-curva);
+}
+#conv-btn:hover { background: rgba(var(--purple-rgb),0.16); color: var(--purple-bright); }
+#chat-mode-tabs { position: relative; }
+
+/* ── ABA PC ───────────────────────────────────────────────
+   A gaveta de sistema foi desenhada para 272px de largura. Com a janela inteira, os
+   mesmos blocos empilhados deixavam metade da tela vazia. */
+#layout[data-view="pc"] .pc-fila {
+  display: grid; gap: 12px; margin-bottom: 4px;
+  /* `auto-fit` em vez de colunas fixas: neste PC não há sensor de temperatura nem
+     bateria, e com grade rígida os cards escondidos deixariam buraco ou empurrariam o
+     resto para uma segunda linha. Assim o que sobra ocupa a largura. */
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+/* Os dois gráficos valem por dois: eles têm forma para mostrar, os outros têm um número. */
+#layout[data-view="pc"] .pc-fila > .chart-wrap:not(.pc-mini) { grid-column: span 2; }
+/* `hidden` sozinho não bastaria: o `display:flex` da regra de cima é do autor e ganha do
+   `display:none` que o navegador aplica ao atributo. */
+#layout[data-view="pc"] .pc-fila .chart-wrap[hidden] { display: none; }
+@media (max-width: 760px) {
+  #layout[data-view="pc"] .pc-fila > .chart-wrap:not(.pc-mini) { grid-column: span 1; }
+}
+.pc-fila .chart-wrap { margin-bottom: 0; display: flex; flex-direction: column; justify-content: space-between; }
+.pc-mini #temp-row, .pc-mini #bat-row { margin: 0; border: none; background: none; padding: 6px 0 0; }
+
+/* Na aba PC os três widgets ficam um sob o outro em largura cheia, e não numa grade de
+   colunas: gráfico e tabela querem largura, não altura. */
+#layout[data-view="pc"] #drawer-left {
+  display: block;
+  padding: 16px 20px 24px;
+}
+#layout[data-view="pc"] .widget { max-width: 1100px; margin: 0 auto 18px; }
+#layout[data-view="pc"] #proc-search { width: auto; flex: 1; max-width: 260px; }
+#layout[data-view="pc"] #disks-wrap { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+#layout[data-view="pc"] #stability-wrap { max-width: 1100px; }
+
+/* ── PRESETS: bolinha e popover ───────────────────────────
+   Um botão redondo flutuando no canto superior direito do conteúdo, sem encostar na barra
+   de abas. O popover abre estilo iOS: escala a partir do canto de origem, com careta
+   apontando para o botão, e sai mais rápido do que entra.
+
+   É o único lugar do app onde o movimento usa mola — o resto segue a escala do bloco de
+   MOVIMENTO. Mola aqui é a assinatura do formato; mola em tudo seria o "bounce em todo
+   hover" que denuncia interface gerada. */
+#preset-btn {
+  position: absolute; top: 12px; right: 16px; z-index: 60;
+  width: 36px; height: 36px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--surface); border: 1px solid var(--border);
+  color: var(--purple-bright); cursor: pointer;
+  box-shadow: var(--shadow-card, 0 2px 10px rgba(0,0,0,0.3));
+  backdrop-filter: var(--glass-blur);
+  transition: background var(--mov-micro) var(--mov-curva), transform var(--mov-micro) var(--mov-curva);
+}
+/* Só no Chat: na Início aquele canto é do botão "Personalizar", e na aba PC a bolinha
+   cobria o card da direita. */
+#preset-btn { display: none; }
+#layout[data-view="chat"] #preset-btn { display: flex; }
+#preset-btn:hover { background: rgba(var(--purple-rgb),0.20); }
+#preset-btn:active { transform: scale(0.94); }
+#preset-btn[aria-expanded="true"] { background: rgba(var(--purple-rgb),0.28); }
+
+#preset-pop, .pop {
+  position: fixed; z-index: 300;
+  width: 296px;
+  padding: 12px; border-radius: var(--radius-10);
+  background: var(--surface2); border: 1px solid var(--border2);
+  box-shadow: var(--shadow-float, 0 12px 40px rgba(0,0,0,0.5));
+  backdrop-filter: var(--glass-blur);
+  transform-origin: top right;
+  transform: scale(0.9) translateY(-6px); opacity: 0;
+  transition: transform var(--mov-saida) var(--mov-curva), opacity var(--mov-saida) var(--mov-curva);
+}
+#preset-pop-corpo, .pop-corpo {
+  max-height: 56vh; overflow-y: auto;
+  scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+}
+#preset-pop-corpo::-webkit-scrollbar, .pop-corpo::-webkit-scrollbar { width: 4px; }
+#preset-pop-corpo::-webkit-scrollbar-thumb, .pop-corpo::-webkit-scrollbar-thumb { background: var(--border); border-radius: var(--radius-4); }
+#preset-pop.aberto, .pop.aberto {
+  transform: none; opacity: 1;
+  /* Mola: passa um pouco do alvo e volta. Curta o bastante para não virar espera. */
+  transition: transform 320ms cubic-bezier(0.2, 1.35, 0.4, 1), opacity var(--mov-micro) linear;
+}
+/* A careta. Quadrado girado com as mesmas borda e cor do popover; a metade de baixo fica
+   escondida atrás dele, e o que sobra é o bico. */
+#preset-pop::before, .pop::before {
+  content: ""; position: absolute; top: -6px; right: 13px;
+  width: 11px; height: 11px; transform: rotate(45deg);
+  background: var(--surface2);
+  border-left: 1px solid var(--border2); border-top: 1px solid var(--border2);
+}
+#preset-pop-titulo, .pop-titulo { font-size: 11.5px; font-weight: 600; color: var(--muted); margin-bottom: 10px; padding: 0 2px; }
+
+.pop-lista { display: flex; flex-direction: column; gap: 5px; }
+.pop-item { display: flex; align-items: stretch; gap: 4px; }
+.pop-rodar {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 9px;
+  padding: 9px 11px; border-radius: var(--radius-7);
+  background: rgba(var(--purple-rgb),0.07); border: 1px solid var(--border);
+  color: var(--text); font-family: inherit; font-size: 12px; cursor: pointer; text-align: left;
+}
+.pop-rodar:hover { background: rgba(var(--purple-rgb),0.18); }
+.pop-rodar .ico { color: var(--purple-bright); }
+.pop-nome { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pop-qtd { font-size: 10px; color: var(--muted); white-space: nowrap; }
+.pop-apagar {
+  width: 30px; border-radius: var(--radius-7);
+  background: none; border: 1px solid transparent; color: var(--muted); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.pop-apagar:hover { background: rgba(224,82,82,0.14); color: var(--red); border-color: rgba(224,82,82,0.3); }
+
+.pop-novo {
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  width: 100%; margin-top: 9px; padding: 9px;
+  border-radius: var(--radius-7); border: 1px dashed var(--border2);
+  background: none; color: var(--purple-bright);
+  font-family: inherit; font-size: 11.5px; font-weight: 600; cursor: pointer;
+}
+.pop-novo:hover { background: rgba(var(--purple-rgb),0.12); }
+
+.pop-form { display: flex; flex-direction: column; gap: 9px; }
+#preset-nome {
+  padding: 8px 10px; border-radius: var(--radius-7);
+  background: rgba(0,0,0,0.2); border: 1px solid var(--border);
+  color: var(--text); font-family: inherit; font-size: 12px; outline: none;
+}
+#preset-nome:focus { border-color: var(--purple); }
+.pop-check-lista { display: flex; flex-direction: column; gap: 3px; max-height: 200px; overflow-y: auto; }
+.pop-check {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 9px; border-radius: var(--radius-6);
+  font-size: 11.5px; color: var(--text); cursor: pointer;
+}
+.pop-check:hover { background: rgba(var(--purple-rgb),0.08); }
+.pop-check input { accent-color: var(--purple); cursor: pointer; }
+.pop-form-acoes { display: flex; gap: 7px; justify-content: flex-end; }
+.pop-form-acoes button {
+  padding: 7px 14px; border-radius: var(--radius-7);
+  background: none; border: 1px solid var(--border); color: var(--muted);
+  font-family: inherit; font-size: 11.5px; font-weight: 600; cursor: pointer;
+}
+.pop-form-acoes button.primario { background: rgba(var(--purple-rgb),0.22); color: var(--purple-bright); border-color: rgba(var(--purple-rgb),0.4); }
+.pop-form-acoes button:hover { background: rgba(var(--purple-rgb),0.14); color: var(--text); }
+
 /* ── TELA INÍCIO ──────────────────────────────────────────
-   O espelho da Home do celular: o estado do PC de relance, atalhos, o que está agendado e
-   energia. É a única tela nova de verdade deste bloco. */
+   Um catálogo de cards, não uma tela fixa. A grade usa `auto-fill` com um mínimo
+   de 280px, e cada card declara se ocupa uma ou duas colunas.
+
+   O `span` existe por um motivo concreto: fileira de cards do mesmo tamanho é um
+   dos sinais mais reconhecíveis de interface gerada por IA. Aqui a largura vem do
+   que o card tem para mostrar — sugestões e insights são linhas de texto e pedem
+   o dobro; uma métrica cabe em metade. */
 #view-inicio {
-  overflow-y: auto; padding: 18px 20px 24px;
+  overflow-y: auto; padding: 18px 20px 28px;
   scrollbar-width: thin; scrollbar-color: var(--border) transparent;
 }
 #view-inicio::-webkit-scrollbar { width: 4px; }
 #view-inicio::-webkit-scrollbar-thumb { background: var(--border); border-radius: var(--radius-4); }
 
-.home-greet { font-size: 20px; font-weight: 700; color: var(--text); margin-bottom: 2px; }
-.home-sub   { font-size: 12px; color: var(--muted); margin-bottom: 18px; }
+.home-topo { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+.home-greet { font-size: 21px; font-weight: 700; color: var(--text); margin-bottom: 3px; }
+.home-sub   { font-size: 12px; color: var(--muted); }
+#home-btn-personalizar {
+  display: flex; align-items: center; gap: 6px; flex-shrink: 0;
+  padding: 7px 13px; border-radius: var(--radius-20);
+  background: rgba(var(--purple-rgb),0.10); border: 1px solid var(--border);
+  color: var(--purple-bright); font-family: inherit; font-size: 11.5px; font-weight: 600; cursor: pointer;
+}
+#home-btn-personalizar:hover { background: rgba(var(--purple-rgb),0.20); }
+
+#home-personalizar {
+  display: none; flex-wrap: wrap; gap: 8px;
+  margin-bottom: 16px; padding: 12px 14px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-10);
+}
+#home-personalizar.aberto { display: flex; animation: mov-entra var(--mov-base) var(--mov-suave) both; }
+.home-toggle {
+  display: flex; align-items: center; gap: 6px;
+  padding: 5px 11px 5px 8px; border-radius: var(--radius-20);
+  background: rgba(var(--purple-rgb),0.06); border: 1px solid var(--border);
+  font-size: 11.5px; color: var(--muted); cursor: pointer; user-select: none;
+}
+.home-toggle:has(input:checked) { color: var(--text); background: rgba(var(--purple-rgb),0.16); }
+.home-toggle input { accent-color: var(--purple); cursor: pointer; }
 
 .home-grid {
   display: grid; gap: 14px;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  align-items: start;
+  /* `dense` porque os cards têm larguras diferentes: sem ele, um card de duas colunas
+     que não cabe no resto da linha deixa o buraco aberto e desce inteiro. */
+  grid-auto-flow: dense;
 }
+.home-card[data-span="2"] { grid-column: span 2; }
+/* Numa janela estreita, duas colunas não existem e `span 2` viraria um card
+   estourando a grade. */
+@media (max-width: 720px) { .home-card[data-span="2"] { grid-column: span 1; } }
+
 .home-card {
   background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--radius-10); padding: 14px 16px;
+  border-radius: var(--radius-10); padding: 13px 15px 15px;
   box-shadow: var(--shadow-card, none);
   backdrop-filter: var(--glass-blur);
 }
-.home-card-title {
-  font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
-  color: var(--muted); margin-bottom: 10px;
-}
-.home-metric-row { display: flex; align-items: baseline; gap: 8px; margin-bottom: 9px; }
-.home-metric-label { font-size: 11px; color: var(--muted); flex: 1; }
-.home-metric-val { font-size: 15px; font-weight: 700; color: var(--purple-bright); font-variant-numeric: tabular-nums; }
+.home-card.arrastando { opacity: 0.35; }
+.home-card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 11px; }
+.home-card-title { display: flex; align-items: center; gap: 7px; font-size: 11.5px; font-weight: 600; color: var(--muted); }
+.home-card-grip { color: var(--muted); opacity: 0; cursor: grab; transition: opacity var(--mov-micro) var(--mov-curva); }
+.home-card:hover .home-card-grip { opacity: 0.55; }
+.home-card-grip:active { cursor: grabbing; }
+
+.home-metric { margin-bottom: 10px; }
+.home-metric:last-child { margin-bottom: 0; }
+.home-metric-row { display: flex; align-items: baseline; gap: 8px; margin-bottom: 5px; }
+.home-metric-label { font-size: 11.5px; color: var(--muted); flex: 1; }
+.home-metric-val { font-size: 14px; font-weight: 700; color: var(--purple-bright); font-variant-numeric: tabular-nums; }
 .home-bar { height: 5px; border-radius: 3px; background: rgba(var(--purple-rgb),0.14); overflow: hidden; }
-.home-bar > i { display: block; height: 100%; background: var(--purple); border-radius: 3px; transition: width 0.4s ease; }
+.home-bar > i { display: block; height: 100%; width: 100%; background: var(--purple); border-radius: 3px; transform-origin: left center; transition: transform var(--mov-base) var(--mov-suave); }
+.home-rodape { margin-top: 10px; font-size: 10.5px; color: var(--muted); }
 
-.home-quick { display: flex; flex-wrap: wrap; gap: 7px; }
-.home-quick button {
-  padding: 7px 12px; border-radius: var(--radius-20);
-  background: rgba(var(--purple-rgb),0.12); color: var(--purple-bright);
-  border: 1px solid var(--border); cursor: pointer;
-  font-family: inherit; font-size: 11.5px; font-weight: 600;
-}
-.home-quick button:hover { background: rgba(var(--purple-rgb),0.22); }
-.home-quick button.danger { background: rgba(224,82,82,0.12); color: var(--red); }
-.home-quick button.danger:hover { background: rgba(224,82,82,0.22); }
-
-.home-list { display: flex; flex-direction: column; gap: 7px; }
+.home-list { display: flex; flex-direction: column; gap: 6px; }
 .home-item {
   display: flex; align-items: center; gap: 9px;
   font-size: 12px; color: var(--text);
@@ -1264,11 +1667,160 @@ body.tabs .top-btn.drawer-toggle { display: none; }
   background: rgba(var(--purple-rgb),0.05);
 }
 .home-item .when { color: var(--muted); font-size: 10.5px; margin-left: auto; white-space: nowrap; }
+.home-item > span:not(.when) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .home-empty { font-size: 11.5px; color: var(--muted); font-style: italic; }
+
+/* ── Bolhas de sugestão ───────────────────────────────────
+   Rotacionam a cada abertura da janela. Ver o serviço `sugestoes.ts`. */
+.bolhas { display: flex; flex-wrap: wrap; gap: 8px; }
+.bolha {
+  display: flex; align-items: center; gap: 7px;
+  padding: 9px 15px; border-radius: var(--radius-20);
+  background: rgba(var(--purple-rgb),0.10); border: 1px solid var(--border);
+  color: var(--text); font-family: inherit; font-size: 12px; font-weight: 500;
+  cursor: pointer; text-align: left;
+}
+.bolha:hover { background: rgba(var(--purple-rgb),0.20); border-color: rgba(var(--purple-rgb),0.42); }
+.bolha .ico { color: var(--purple-bright); }
+
+/* ── Card de música ───────────────────────────────────── */
+.mus-linha { display: flex; align-items: center; gap: 11px; margin-bottom: 12px; }
+.mus-capa { width: 46px; height: 46px; border-radius: var(--radius-7); object-fit: cover; flex-shrink: 0; }
+.mus-capa.vazia { display: flex; align-items: center; justify-content: center; background: rgba(var(--purple-rgb),0.10); color: var(--muted); }
+.mus-txt { min-width: 0; }
+.mus-faixa { font-size: 12.5px; font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mus-artista { font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mus-ctrl { display: flex; align-items: center; justify-content: center; gap: 10px; }
+.mus-ctrl button {
+  width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--border);
+  background: rgba(var(--purple-rgb),0.08); color: var(--text);
+  display: flex; align-items: center; justify-content: center; cursor: pointer;
+}
+.mus-ctrl button.principal { width: 40px; height: 40px; background: rgba(var(--purple-rgb),0.20); color: var(--purple-bright); }
+.mus-ctrl button:hover { background: rgba(var(--purple-rgb),0.26); }
+
+/* ── Clima ────────────────────────────────────────────── */
+.clima-agora { display: flex; align-items: center; gap: 11px; }
+.clima-temp { font-size: 26px; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
+.clima-desc { font-size: 12px; color: var(--muted); }
+
+/* ── Formulário de lembrete ───────────────────────────── */
+.lembrete-novo { display: flex; gap: 6px; margin-top: 10px; }
+.lembrete-novo input[type="text"] { flex: 1; min-width: 0; }
+.lembrete-novo input {
+  padding: 6px 9px; border-radius: var(--radius-6);
+  background: rgba(0,0,0,0.18); border: 1px solid var(--border);
+  color: var(--text); font-family: inherit; font-size: 11.5px; outline: none;
+}
+.lembrete-novo input:focus { border-color: var(--purple); }
+.lembrete-novo input[type="time"] { color-scheme: dark; }
+.lembrete-novo button {
+  padding: 0 11px; border-radius: var(--radius-6); border: 1px solid var(--border);
+  background: rgba(var(--purple-rgb),0.16); color: var(--purple-bright); cursor: pointer;
+  display: flex; align-items: center;
+}
+
+/* ── Pílulas, ações e área de transferência ───────────── */
+.pilulas { display: flex; flex-wrap: wrap; gap: 6px; }
+.pilula {
+  padding: 5px 11px; border-radius: var(--radius-20);
+  background: rgba(var(--purple-rgb),0.09); border: 1px solid var(--border);
+  color: var(--text); font-family: inherit; font-size: 11px; cursor: pointer;
+}
+.pilula:hover { background: rgba(var(--purple-rgb),0.20); }
+
+.home-acoes, .home-quick { display: flex; flex-wrap: wrap; gap: 7px; }
+.home-acoes button, .home-quick button {
+  display: flex; align-items: center; gap: 6px;
+  padding: 7px 13px; border-radius: var(--radius-20);
+  background: rgba(var(--purple-rgb),0.11); color: var(--purple-bright);
+  border: 1px solid var(--border); cursor: pointer;
+  font-family: inherit; font-size: 11.5px; font-weight: 600;
+}
+.home-acoes button:hover, .home-quick button:hover { background: rgba(var(--purple-rgb),0.21); }
+.home-acoes button:disabled { opacity: 0.4; cursor: default; }
+.home-quick button.danger { background: rgba(224,82,82,0.12); color: var(--red); }
+.home-quick button.danger:hover { background: rgba(224,82,82,0.22); }
+.home-acoes { margin-top: 10px; }
+
+.clip-caixa {
+  font-size: 11.5px; color: var(--text); line-height: 1.55;
+  max-height: 88px; overflow: hidden;
+  padding: 9px 11px; border-radius: var(--radius-6);
+  background: rgba(0,0,0,0.18); border: 1px solid var(--border);
+  word-break: break-word;
+}
+.clip-caixa i { color: var(--muted); }
+
+
+
+/* ── Reduzir movimento ────────────────────────────────────
+   Quem liga isso no Windows costuma ter um motivo físico. Zera tudo de uma vez,
+   inclusive o que for adicionado depois. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) { animation: none !important; }
+}
 
 </style>
 </head>
 <body>
+
+<!-- Ícones. Traço herdando `currentColor`; substituem os emoji, que são o sinal
+     mais visível de interface gerada por IA (e mudam de desenho a cada sistema). -->
+<svg id="ico-sprite" aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden">
+  <symbol id="i-home" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5 12 3l9 6.5V20a1.5 1.5 0 0 1-1.5 1.5h-4V14h-7v7.5h-4A1.5 1.5 0 0 1 3 20z"/></symbol>
+  <symbol id="i-message-circle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.5 8.5 0 0 1-11.9 7.8L3.5 21l1.7-5.4A8.5 8.5 0 1 1 21 11.5z"/></symbol>
+  <symbol id="i-monitor" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="3.5" width="19" height="13" rx="2"/><path d="M8.5 21h7M12 16.5V21"/></symbol>
+  <symbol id="i-inbox" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 12h-5l-2 3h-5l-2-3h-5"/><path d="M5.9 4.9 2.5 12v6a2 2 0 0 0 2 2h15a2 2 0 0 0 2-2v-6l-3.4-7.1a2 2 0 0 0-1.8-1.1H7.7a2 2 0 0 0-1.8 1.1z"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1.5 14h5M9.5 8h5M17.5 16h5"/></symbol>
+  <symbol id="i-settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M19.1 14.6a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.9 2.9l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.9-2.9l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H2.2a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1.1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.9-2.9l.1.1a1.7 1.7 0 0 0 1.9.3h.1a1.7 1.7 0 0 0 1-1.6V2.2a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.9 2.9l-.1.1a1.7 1.7 0 0 0-.3 1.9v.1a1.7 1.7 0 0 0 1.6 1h.2a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.6 1z"/></symbol>
+  <symbol id="i-smartphone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5.5" y="2.5" width="13" height="19" rx="2.5"/><path d="M11.5 18.5h1"/></symbol>
+  <symbol id="i-cpu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="14" height="14" rx="2"/><rect x="9.5" y="9.5" width="5" height="5" rx="1"/><path d="M9.5 1.5V5M14.5 1.5V5M9.5 19v3.5M14.5 19v3.5M19 9.5h3.5M19 14.5h3.5M1.5 9.5H5M1.5 14.5H5"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 6.8V12l3.4 2"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 6.5h17M3.5 12h17M3.5 17.5h17"/></symbol>
+  <symbol id="i-music" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></symbol>
+  <symbol id="i-droplet" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.7 6.7 8a7.5 7.5 0 1 0 10.6 0z"/></symbol>
+  <symbol id="i-thermometer" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 14.8V4.5a2.5 2.5 0 0 0-5 0v10.3a4.5 4.5 0 1 0 5 0z"/></symbol>
+  <symbol id="i-battery" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="1.5" y="6.5" width="17" height="11" rx="2.5"/><path d="M21.5 10.5v3"/></symbol>
+  <symbol id="i-battery-charging" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6.5H4a2.5 2.5 0 0 0-2.5 2.5v6A2.5 2.5 0 0 0 4 17.5h1.5M13 6.5h3a2.5 2.5 0 0 1 2.5 2.5v6a2.5 2.5 0 0 1-2.5 2.5h-2.5M21.5 10.5v3M11 4.5 7 12h4l-1 7.5 5-8h-4z"/></symbol>
+  <symbol id="i-plug" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2.5v6M15 2.5v6M6.5 8.5h11v3a5.5 5.5 0 0 1-11 0z"/><path d="M12 17v4.5"/></symbol>
+  <symbol id="i-hard-drive" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 12h19"/><path d="M5.9 4.9 2.5 12v6a2 2 0 0 0 2 2h15a2 2 0 0 0 2-2v-6l-3.4-7.1a2 2 0 0 0-1.8-1.1H7.7a2 2 0 0 0-1.8 1.1z"/><path d="M6.5 16h.01M10 16h.01"/></symbol>
+  <symbol id="i-activity" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 8.5-6-17L6 12H2"/></symbol>
+  <symbol id="i-clipboard" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4.5h1.5a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2h-11a2 2 0 0 1-2-2v-13a2 2 0 0 1 2-2H8"/><rect x="8.5" y="2.5" width="7" height="4" rx="1.4"/></symbol>
+  <symbol id="i-mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="11.5" rx="3"/><path d="M18.5 11v1.5a6.5 6.5 0 0 1-13 0V11M12 19v3M8.5 22h7"/></symbol>
+  <symbol id="i-arrow-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V4.5M5.5 11 12 4.5 18.5 11"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+  <symbol id="i-minus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4.5 19.5 12 7 19.5z"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4.5v15M15 4.5v15"/></symbol>
+  <symbol id="i-skip-back" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M18.5 5v14L8 12z"/><path d="M5.5 5v14"/></symbol>
+  <symbol id="i-skip-forward" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 5v14L16 12z"/><path d="M18.5 5v14"/></symbol>
+  <symbol id="i-chevron-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 14.5 12 8.5l6 6"/></symbol>
+  <symbol id="i-chevron-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9.5 12 15.5l6-6"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3 6.4 20.2l1.1-6.2L3 9.6l6.2-.9z"/></symbol>
+  <symbol id="i-zap" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 2 4 13.5h7L10.5 22 20 10.5h-7z"/></symbol>
+  <symbol id="i-bulb" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 18h5M10 21.5h4"/><path d="M12 2.5a6.5 6.5 0 0 1 3.8 11.8c-.5.4-.8 1-.8 1.6v.1H9v-.1c0-.6-.3-1.2-.8-1.6A6.5 6.5 0 0 1 12 2.5z"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.5 9.5 17.5 19.5 6.5"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="8.5" y="8.5" width="12" height="12" rx="2"/><path d="M4.5 15.5h-.5a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v.5"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5v12M7 10.5l5 5 5-5M4 20.5h16"/></symbol>
+  <symbol id="i-paperclip" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 11.5 12 20a5.5 5.5 0 0 1-7.8-7.8l8.6-8.6a3.7 3.7 0 0 1 5.2 5.2l-8.6 8.6a1.8 1.8 0 0 1-2.6-2.6l7.9-7.9"/></symbol>
+  <symbol id="i-shuffle" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3.5h4.5V8M20.5 3.5 14 10M16 20.5h4.5V16M20.5 20.5 3.5 3.5M3.5 20.5 9 15"/></symbol>
+  <symbol id="i-repeat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M17 1.5 20.5 5 17 8.5M3.5 11.5V10a4 4 0 0 1 4-4h13M7 22.5 3.5 19 7 15.5M20.5 12.5V14a4 4 0 0 1-4 4h-13"/></symbol>
+  <symbol id="i-volume" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4.5 6.5 8.5H3v7h3.5L11 19.5z"/><path d="M15.5 8.8a4.5 4.5 0 0 1 0 6.4M18.6 5.7a9 9 0 0 1 0 12.6"/></symbol>
+  <symbol id="i-cloud" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19.5h-11a4.5 4.5 0 0 1-.6-9A6.5 6.5 0 0 1 18 8.6a5 5 0 0 1-.5 10.9z"/></symbol>
+  <symbol id="i-grip" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5h.01M15 5h.01M9 12h.01M15 12h.01M9 19h.01M15 19h.01"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 5v5h-5"/><path d="M3.5 19v-5h5"/><path d="M19.4 10a7.5 7.5 0 0 0-13-3.1L3.5 10M4.6 14a7.5 7.5 0 0 0 13 3.1l2.9-3.1"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4.5 21v-1a5 5 0 0 1 5-5h5a5 5 0 0 1 5 5v1"/></symbol>
+</svg>
+
 <div id="lg-blob-bg">
   <div class="lg-blob lg-blob-1"></div>
   <div class="lg-blob lg-blob-2"></div>
@@ -1286,136 +1838,115 @@ body.tabs .top-btn.drawer-toggle { display: none; }
     <div class="logo-badge">EL</div>
     <span class="logo-text">ELYSIUM</span>
   </div>
-  <button class="top-btn drawer-toggle" id="btnDrawerLeft" title="Sistema (tarefas, armazenamento, desempenho)">&#x2630;</button>
-  <div id="status-badge" class="idle">OCIOSO</div>
+  <button class="top-btn drawer-toggle" id="btnDrawerLeft" title="Sistema (tarefas, armazenamento, desempenho)"><svg class="ico" aria-hidden="true"><use href="#i-menu"/></svg></button>
+  <div id="status-badge" class="idle">Ocioso</div>
   <div class="topbar-space"></div>
-  <button class="top-btn drawer-toggle" id="btnDrawerRight" title="Configurações, presets, mídia, personalização">&#x2699;</button>
-  <button class="top-btn min" id="btnMin" title="Minimizar">&#x2212;</button>
-  <button class="top-btn"     id="btnClose" title="Fechar">&#x2715;</button>
+  <button class="top-btn drawer-toggle" id="btnDrawerRight" title="Configurações, presets, mídia, personalização"><svg class="ico" aria-hidden="true"><use href="#i-settings"/></svg></button>
+  <button class="top-btn min" id="btnMin" title="Minimizar"><svg class="ico" aria-hidden="true"><use href="#i-minus"/></svg></button>
+  <button class="top-btn"     id="btnClose" title="Fechar"><svg class="ico" aria-hidden="true"><use href="#i-x"/></svg></button>
 </div>
 
 
 <!-- ABAS — os mesmos destinos do celular. Ver o bloco de CSS "NAVEGAÇÃO POR ABAS". -->
 <nav id="viewtabs" role="tablist" aria-label="Seções">
-  <button class="vtab active" data-view="inicio"  role="tab" aria-selected="true"><span class="vtab-ico">&#x1F3E0;</span><span class="vtab-label">Início</span><span class="vtab-dot"></span></button>
-  <button class="vtab"        data-view="chat"    role="tab" aria-selected="false"><span class="vtab-ico">&#x1F4AC;</span><span class="vtab-label">Chat</span><span class="vtab-dot"></span></button>
-  <button class="vtab"        data-view="pc"      role="tab" aria-selected="false"><span class="vtab-ico">&#x1F5A5;</span><span class="vtab-label">PC</span><span class="vtab-dot"></span></button>
-  <button class="vtab"        data-view="caixa"   role="tab" aria-selected="false"><span class="vtab-ico">&#x1F4E5;</span><span class="vtab-label">Caixa</span><span class="vtab-dot"></span></button>
-  <button class="vtab"        data-view="presets" role="tab" aria-selected="false"><span class="vtab-ico">&#x1F3AE;</span><span class="vtab-label">Presets</span><span class="vtab-dot"></span></button>
-  <button class="vtab"        data-view="ajustes" role="tab" aria-selected="false"><span class="vtab-ico">&#x2699;</span><span class="vtab-label">Ajustes</span><span class="vtab-dot"></span></button>
+  <button class="vtab active" data-view="inicio"  role="tab" aria-selected="true"><span class="vtab-ico"><svg class="ico" aria-hidden="true"><use href="#i-home"/></svg></span><span class="vtab-label">Início</span><span class="vtab-dot"></span></button>
+  <button class="vtab"        data-view="chat"    role="tab" aria-selected="false"><span class="vtab-ico"><svg class="ico" aria-hidden="true"><use href="#i-message-circle"/></svg></span><span class="vtab-label">Chat</span><span class="vtab-dot"></span></button>
+  <button class="vtab"        data-view="pc"      role="tab" aria-selected="false"><span class="vtab-ico"><svg class="ico" aria-hidden="true"><use href="#i-monitor"/></svg></span><span class="vtab-label">PC</span><span class="vtab-dot"></span></button>
+  <button class="vtab"        data-view="ajustes" role="tab" aria-selected="false"><span class="vtab-ico"><svg class="ico" aria-hidden="true"><use href="#i-settings"/></svg></span><span class="vtab-label">Ajustes</span><span class="vtab-dot"></span></button>
+  <span id="vtab-thumb"></span>
 </nav>
 
 <!-- MAIN LAYOUT -->
 <div id="layout" data-view="inicio">
 
 
-  <!-- TELA INÍCIO — espelho da Home do celular -->
+  <!-- TELA INÍCIO — catálogo de cards; ver o bloco JS "TELA INÍCIO" -->
   <div id="view-inicio">
-    <div class="home-greet" id="home-greet">Olá</div>
-    <div class="home-sub"   id="home-sub">Carregando o estado do PC…</div>
-
-    <div class="home-grid">
-      <div class="home-card">
-        <div class="home-card-title">Este computador</div>
-        <div class="home-metric-row"><span class="home-metric-label">Processador</span><span class="home-metric-val" id="home-cpu">—</span></div>
-        <div class="home-bar"><i id="home-cpu-bar" style="width:0%"></i></div>
-        <div style="height:10px"></div>
-        <div class="home-metric-row"><span class="home-metric-label">Memória</span><span class="home-metric-val" id="home-ram">—</span></div>
-        <div class="home-bar"><i id="home-ram-bar" style="width:0%"></i></div>
-        <div style="height:10px"></div>
-        <div class="home-metric-row"><span class="home-metric-label">Disco principal</span><span class="home-metric-val" id="home-disk">—</span></div>
-        <div class="home-bar"><i id="home-disk-bar" style="width:0%"></i></div>
+    <header class="home-topo">
+      <div>
+        <div class="home-greet" id="home-greet">Olá</div>
+        <div class="home-sub" id="home-sub">O seu dia, de relance.</div>
       </div>
+      <button id="home-btn-personalizar" title="Escolher quais cards aparecem">
+        <svg class="ico ico-sm" aria-hidden="true"><use href="#i-sliders"/></svg><span>Personalizar</span>
+      </button>
+    </header>
 
-      <div class="home-card">
-        <div class="home-card-title">Próximos lembretes</div>
-        <div class="home-list" id="home-reminders"><div class="home-empty">Carregando…</div></div>
-      </div>
-
-      <div class="home-card">
-        <div class="home-card-title">Atalhos</div>
-        <div class="home-quick" id="home-quick">
-          <button data-quick="print">Tirar print</button>
-          <button data-quick="clip">Ver área de transferência</button>
-          <button data-quick="lock" class="danger">Bloquear tela</button>
-          <button data-quick="sleep" class="danger">Suspender</button>
-        </div>
-      </div>
-
-      <div class="home-card">
-        <div class="home-card-title">Memória de longo prazo</div>
-        <div class="home-list" id="home-memory"><div class="home-empty">Carregando…</div></div>
-      </div>
-    </div>
+    <div id="home-personalizar"></div>
+    <div class="home-grid mov-lista" id="home-grid"></div>
   </div>
+
+  <button id="preset-btn" title="Presets" aria-haspopup="dialog" aria-expanded="false">
+    <svg class="ico" aria-hidden="true"><use href="#i-sliders"/></svg>
+  </button>
 
   <div id="drawer-backdrop"></div>
 
   <!-- LEFT DRAWER: sistema -->
   <div id="drawer-left">
     <div class="widget" id="widget-perf">
-      <div class="section-label">CPU</div>
-      <div class="chart-wrap">
-        <div class="chart-header">
-          <span class="chart-label">Processador</span>
-          <span class="chart-val purple" id="cpu-val">0%</span>
-        </div>
-        <canvas class="spark" id="cpu-canvas" width="220" height="44"></canvas>
-      </div>
-
-      <div class="section-label">RAM</div>
-      <div class="chart-wrap">
-        <div class="chart-header">
-          <span class="chart-label">Memória</span>
-          <span class="chart-val cyan" id="ram-val">0%</span>
-        </div>
-        <canvas class="spark" id="ram-canvas" width="220" height="44"></canvas>
-      </div>
-
-      <div class="section-label">TEMPERATURA</div>
-      <div id="temp-row">
-        <span class="temp-icon">🌡️</span>
-        <span class="temp-label">CPU Temp</span>
-        <span id="temp-val">—</span>
-      </div>
-
-      <div class="section-label">BATERIA</div>
-      <div id="bat-row">
-        <span class="bat-icon" id="bat-icon">🔋</span>
-        <div style="flex:1">
-          <div style="display:flex;justify-content:space-between;align-items:center">
-            <span class="bat-label" id="bat-label">Bateria</span>
-            <span id="bat-val" style="font-family:var(--mono);font-size:12px;font-weight:700">—</span>
+      <!-- Antes eram quatro blocos empilhados numa coluna de 272px. Com a janela
+           inteira disponível, viram uma fileira: dá para ver o estado da máquina de uma
+           olhada só, em vez de rolar. -->
+      <div class="pc-fila">
+        <div class="chart-wrap">
+          <div class="chart-header">
+            <span class="chart-label">Processador</span>
+            <span class="chart-val purple" id="cpu-val">0%</span>
           </div>
-          <div class="bat-bar-track" style="margin-top:4px">
-            <div class="bat-bar-fill" id="bat-fill" style="width:0%;background:var(--green)"></div>
+          <canvas class="spark" id="cpu-canvas" height="44"></canvas>
+        </div>
+        <div class="chart-wrap">
+          <div class="chart-header">
+            <span class="chart-label">Memória</span>
+            <span class="chart-val cyan" id="ram-val">0%</span>
+          </div>
+          <canvas class="spark" id="ram-canvas" height="44"></canvas>
+        </div>
+        <div class="chart-wrap pc-mini" id="temp-wrap">
+          <div class="chart-header">
+            <span class="chart-label">Temperatura</span>
+            <span class="chart-val" id="temp-val">—</span>
+          </div>
+          <div id="temp-row">
+            <span class="temp-icon"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-thermometer"/></svg></span>
+            <span class="temp-label">núcleo da CPU</span>
           </div>
         </div>
+        <div class="chart-wrap pc-mini" id="bat-wrap">
+          <div class="chart-header">
+            <span class="chart-label" id="bat-label">Bateria</span>
+            <span class="chart-val" id="bat-val">—</span>
+          </div>
+          <div id="bat-row">
+            <span class="bat-icon" id="bat-icon"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-battery"/></svg></span>
+            <div class="bat-bar-track" style="flex:1">
+              <div class="bat-bar-fill" id="bat-fill" style="transform:scaleX(0);background:var(--green)"></div>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div class="section-label">ESTABILIDADE 24 H</div>
+      <!-- A legenda "■ CPU ■ RAM ■ Pico" saiu: as cores já são as mesmas dos dois
+           gráficos acima, e a linha só ocupava altura. -->
+      <div class="section-label">Estabilidade nas últimas 24 h</div>
       <div id="stability-wrap">
-        <canvas id="stability-canvas" width="236" height="50"></canvas>
-        <div id="stability-legend">
-          <span class="sl-cpu">■ CPU</span>
-          <span class="sl-ram">■ RAM</span>
-          <span class="sl-spike">■ Pico</span>
-        </div>
+        <canvas id="stability-canvas" height="60"></canvas>
       </div>
     </div><!-- /widget-perf -->
 
     <div class="widget" id="widget-storage">
-      <div class="section-label">ARMAZENAMENTO</div>
+      <div class="section-label">Armazenamento</div>
       <div id="disks-wrap"></div>
     </div><!-- /widget-storage -->
 
     <div class="widget" id="widget-taskmgr">
-      <div class="section-label">PROCESSOS <button class="proc-expand-btn" id="proc-expand-btn">Ver tudo →</button></div>
+      <div class="section-label">Processos <button class="proc-expand-btn" id="proc-expand-btn">Ver tudo</button></div>
       <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-8);overflow:hidden;margin-bottom:6px">
         <table id="proc-table">
           <thead>
             <tr>
-              <th style="width:84px">Processo</th>
+              <th>Processo</th>
               <th style="text-align:right">CPU</th>
               <th style="text-align:right">RAM</th>
             </tr>
@@ -1429,8 +1960,14 @@ body.tabs .top-btn.drawer-toggle { display: none; }
   <!-- CENTER -->
   <div id="center">
     <div id="chat-mode-tabs">
-      <button class="chat-tab-btn active" id="chat-tab-ai"   title="Conversar com a IA">&#x1F916; IA</button>
-      <button class="chat-tab-btn"        id="chat-tab-self" title="Mensagens com você mesmo (aparece no celular)">&#x1F4F1; Eu mesmo</button>
+      <button id="conv-btn" title="Conversas salvas" aria-haspopup="dialog" aria-expanded="false">
+        <svg class="ico ico-sm" aria-hidden="true"><use href="#i-clock"/></svg>
+      </button>
+      <div class="chat-switch" role="tablist" aria-label="Com quem você está falando">
+        <span id="chat-switch-thumb"></span>
+        <button class="chat-tab-btn active" id="chat-tab-ai" role="tab" aria-selected="true" title="Conversar com a IA"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-cpu"/></svg><span>IA</span></button>
+        <button class="chat-tab-btn" id="chat-tab-self" role="tab" aria-selected="false" title="Recados que aparecem no seu celular"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-smartphone"/></svg><span>Celular</span><span class="chat-tab-dot"></span></button>
+      </div>
     </div>
     <div id="timeline" role="log" aria-live="polite"></div>
     <div id="timeline-self" class="hidden" role="log" aria-live="polite"></div>
@@ -1438,7 +1975,7 @@ body.tabs .top-btn.drawer-toggle { display: none; }
     <div id="input-bar">
       <!-- Stop TTS kill switch (visible only during speaking) -->
       <div id="stop-zone">
-        <button id="stop-btn" title="Esc para interromper">🛑 Interromper Voz</button>
+        <button id="stop-btn" title="Esc para interromper"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-x"/></svg><span>Interromper voz</span></button>
       </div>
       <!-- Waveform zone (visible when listening/processing) -->
       <div id="voice-zone">
@@ -1454,8 +1991,8 @@ body.tabs .top-btn.drawer-toggle { display: none; }
       <!-- Text input -->
       <div id="text-zone">
         <input id="cmd-input" type="text" placeholder="Digite um comando ou pergunta…" autocomplete="off">
-        <button class="mic-btn" id="mic-btn" title="Ativar voz (Ctrl+Shift+J)">🎤</button>
-        <button class="send-btn" id="send-btn" title="Enviar">&#x2191;</button>
+        <button class="mic-btn" id="mic-btn" title="Ativar voz (Ctrl+Shift+J)"><svg class="ico" aria-hidden="true"><use href="#i-mic"/></svg></button>
+        <button class="send-btn" id="send-btn" title="Enviar"><svg class="ico" aria-hidden="true"><use href="#i-arrow-up"/></svg></button>
       </div>
     </div>
   </div><!-- /center -->
@@ -1463,132 +2000,68 @@ body.tabs .top-btn.drawer-toggle { display: none; }
   <!-- RIGHT DRAWER: configurações / presets / mídia / personalização -->
   <div id="drawer-right">
     <div id="rtabs">
-      <button class="rtab-btn active" data-tab="config"        title="Configurações">&#x2699;</button>
-      <button class="rtab-btn"        data-tab="conversas"     title="Conversas salvas">&#x1F4AC;</button>
-      <button class="rtab-btn"        data-tab="presets"       title="Presets">&#x1F3AE;</button>
-      <button class="rtab-btn"        data-tab="media"         title="Mídia">&#x1F3B5;</button>
-      <button class="rtab-btn"        data-tab="personalizacao" title="Personalização">&#x1F3A8;</button>
-      <button class="rtab-btn"        data-tab="pareamento"    title="Parear celular">&#x1F4F1;</button>
+      <button class="rtab-btn active" data-tab="config"     title="Geral"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-settings"/></svg><span>Geral</span></button>
+      <button class="rtab-btn"        data-tab="pareamento" title="Celular"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-smartphone"/></svg><span>Celular</span></button>
     </div>
     <div id="rtab-panels">
 
       <!-- CONFIGURAÇÕES -->
+      <!-- Tudo o que morava na janela `config.html` está aqui agora, gerado a partir do
+           esquema em AJUSTES (ver o bloco JS). A janela avulsa continua existindo para a
+           bandeja, mas o dashboard não depende mais dela. -->
       <div class="rtab-panel active" id="tab-config">
-        <button id="open-config-btn">Abrir configurações completas</button>
 
-        <div class="section-label">ATALHO GLOBAL</div>
-        <div id="shortcut-card">
-          <div class="sc-label">Tecla de ativação</div>
-          <input id="shortcut-input" readonly placeholder="Ctrl+Shift+J" title="Clique e pressione o novo atalho">
-          <div id="shortcut-hint">Clique e pressione a combinação</div>
-        </div>
-
-        <div class="section-label">API KEY</div>
-        <div id="apikey-card">
-          <div class="sc-label">Groq API Key</div>
-          <input id="apikey-input" type="password" placeholder="gsk_…" autocomplete="off">
-          <button class="save-btn" id="apikey-save">Salvar</button>
-        </div>
-
-        <div class="section-label" style="margin-top:8px">INSIGHTS DO SISTEMA</div>
-        <div id="insights-card">
-          <div class="sc-label">Análise automática</div>
-          <div id="insights-body">
-            <div id="insights-empty">Sem anomalias detectadas nas últimas 24 h.</div>
+        <section class="cfg-grupo">
+          <h3>Aparência</h3>
+          <div class="cfg-row">
+            <label>Tema</label>
+            <div class="cfg-controle"><div id="theme-swatches"></div></div>
           </div>
-        </div>
-      </div><!-- /tab-config -->
+          <div class="cfg-row">
+            <label>Widgets da aba PC<small>Ordem e visibilidade</small></label>
+            <div class="cfg-controle"><div id="widget-order-list"></div></div>
+          </div>
+        </section>
 
-      <!-- PRESETS -->
-      <div class="rtab-panel" id="tab-presets">
-        <div class="section-label">PRESETS</div>
-        <div id="presets-grid"></div>
-
-        <div class="section-label">RECENTES</div>
-        <div id="quick-wrap"></div>
-      </div><!-- /tab-presets -->
-
-      <!-- MÍDIA -->
-      <!-- CONVERSAS -->
-      <div class="rtab-panel" id="tab-conversas">
-        <div class="section-label">CONVERSAS</div>
-        <button id="conv-new-btn" class="sp-primary-btn" style="background:var(--purple);margin-bottom:10px">
-          + Nova conversa
-        </button>
-        <div id="conv-list"></div>
-        <div id="conv-hint">
-          As 5 conversas mais recentes ficam guardadas. Favoritar uma tira ela dessa contagem —
-          favoritas nunca são apagadas sozinhas.
-        </div>
-      </div><!-- /tab-conversas -->
-
-      <div class="rtab-panel" id="tab-media">
-        <div class="section-label">SPOTIFY</div>
-
-        <!-- Estado desconectado: só aparece antes do primeiro login. -->
-        <div id="sp-connect" class="sp-card" style="display:none">
-          <div class="sp-empty-art">&#127925;</div>
-          <div id="sp-connect-text">Conecte sua conta para ver o que está tocando e controlar a faixa.</div>
-          <button id="sp-connect-btn" class="sp-primary-btn">Conectar Spotify</button>
-        </div>
-
-        <!-- Player. Escondido enquanto não há nada tocando. -->
-        <div id="sp-player" class="sp-card" style="display:none">
-          <img id="sp-art" alt="">
-          <div id="sp-track"></div>
-          <div id="sp-artist"></div>
-
-          <div id="sp-seek-row">
-            <span id="sp-elapsed">0:00</span>
-            <div id="sp-seek" title="Clique para pular">
-              <div id="sp-seek-fill"></div>
-              <div id="sp-seek-knob"></div>
+        <section class="cfg-grupo">
+          <h3>Atalho e conta</h3>
+          <div class="cfg-row">
+            <label>Tecla de ativação<small>Clique e pressione a combinação</small></label>
+            <div class="cfg-controle">
+              <input id="shortcut-input" readonly placeholder="Ctrl+Shift+J" title="Clique e pressione o novo atalho">
+              <div id="shortcut-hint"></div>
             </div>
-            <span id="sp-total">0:00</span>
           </div>
-
-          <div id="sp-controls">
-            <button class="sp-btn" id="sp-shuffle" title="Aleatório">&#128256;</button>
-            <button class="sp-btn" data-sp="previous" title="Anterior">&#x23EE;</button>
-            <button class="sp-btn sp-btn-main" id="sp-playpause" title="Play/Pause">&#x25B6;</button>
-            <button class="sp-btn" data-sp="next" title="Próxima">&#x23ED;</button>
-            <button class="sp-btn" id="sp-repeat" title="Repetir">&#128257;</button>
+          <div class="cfg-row">
+            <label>Groq API Key<small>Usada só quando o provedor for Nuvem</small></label>
+            <div class="cfg-controle cfg-inline">
+              <input id="apikey-input" type="password" placeholder="gsk_…" autocomplete="off">
+              <button class="save-btn" id="apikey-save">Salvar</button>
+            </div>
           </div>
+        </section>
 
-          <div id="sp-vol-row">
-            <span class="sp-vol-icon">&#128266;</span>
-            <input type="range" id="sp-vol" min="0" max="100" value="50">
-            <span id="sp-vol-val">50</span>
+        <section class="cfg-grupo">
+          <h3>Clima</h3>
+          <div class="cfg-row">
+            <label>Cidade<small>Só o nome e as coordenadas são gravados</small></label>
+            <div class="cfg-controle">
+              <div class="cfg-inline">
+                <input type="text" id="clima-busca" placeholder="Buscar cidade…" autocomplete="off">
+                <span id="clima-atual" class="cfg-atual">—</span>
+              </div>
+              <div id="clima-resultados"></div>
+            </div>
           </div>
+        </section>
 
-          <div id="sp-device"></div>
-        </div>
+        <div id="cfg-form"></div>
 
-        <!-- Conectado mas sem dispositivo tocando: a API não liga o Spotify sozinha. -->
-        <div id="sp-idle" class="sp-card" style="display:none">
-          <div class="sp-empty-art">&#9209;</div>
-          <div id="sp-idle-text">Nada tocando. Abra o Spotify em algum dispositivo e dê play.</div>
-        </div>
-
-        <div class="section-label" style="margin-top:14px">TECLAS DE MÍDIA</div>
-        <div id="media-card">
-          <div id="media-title">Funcionam com qualquer player</div>
-          <div id="media-controls">
-            <button class="media-btn" data-op="previous" title="Anterior">&#x23EE;</button>
-            <button class="media-btn" data-op="play"     title="Play/Pause">&#x23EF;</button>
-            <button class="media-btn" data-op="skip"     title="Próxima">&#x23ED;</button>
-          </div>
-        </div>
-      </div><!-- /tab-media -->
-
-      <!-- PERSONALIZAÇÃO -->
-      <div class="rtab-panel" id="tab-personalizacao">
-        <div class="section-label">TEMA</div>
-        <div id="theme-swatches"></div>
-
-        <div class="section-label" style="margin-top:8px">GAVETA DO SISTEMA</div>
-        <div id="widget-order-list"></div>
-      </div><!-- /tab-personalizacao -->
+        <section class="cfg-grupo">
+          <h3>Comandos recentes</h3>
+          <div id="quick-wrap"></div>
+        </section>
+      </div><!-- /tab-config -->
 
       <!-- PAREAMENTO (ELYSIUM-M mobile) -->
       <div class="rtab-panel" id="tab-pareamento">
@@ -1620,15 +2093,31 @@ body.tabs .top-btn.drawer-toggle { display: none; }
 </div><!-- /layout -->
 
 <!-- PROCESS MANAGER MODAL -->
+<div id="conv-pop" class="pop" role="dialog" aria-label="Conversas salvas" hidden>
+  <div class="pop-titulo">Conversas salvas</div>
+  <div class="pop-corpo">
+    <button id="conv-new-btn" class="pop-novo">
+      <svg class="ico ico-sm" aria-hidden="true"><use href="#i-check"/></svg><span>Nova conversa</span>
+    </button>
+    <div id="conv-list"></div>
+    <div id="conv-hint"></div>
+  </div>
+</div>
+
+<div id="preset-pop" role="dialog" aria-label="Presets" hidden>
+  <div id="preset-pop-titulo">Presets</div>
+  <div id="preset-pop-corpo"></div>
+</div>
+
 <div id="proc-modal" role="dialog" aria-modal="true" aria-label="Gerenciador de Processos">
   <div class="modal-box">
     <div class="modal-header">
       <span class="modal-title">Gerenciador de Processos</span>
       <input id="proc-search" type="text" placeholder="Filtrar por nome…" autocomplete="off">
-      <button class="sort-btn active" data-sort="cpu">CPU ↓</button>
-      <button class="sort-btn" data-sort="ram">RAM ↓</button>
+      <button class="sort-btn active" data-sort="cpu">CPU <svg class="ico ico-sm" aria-hidden="true"><use href="#i-chevron-down"/></svg></button>
+      <button class="sort-btn" data-sort="ram">RAM <svg class="ico ico-sm" aria-hidden="true"><use href="#i-chevron-down"/></svg></button>
       <button class="sort-btn" data-sort="name">Nome</button>
-      <button id="proc-modal-close" title="Fechar">✕ Fechar</button>
+      <button id="proc-modal-close" title="Fechar"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-x"/></svg><span>Fechar</span></button>
     </div>
     <div class="modal-body">
       <table id="proc-modal-table">
@@ -1675,6 +2164,27 @@ let procModalFilter = "";
 // HELPERS
 // ─────────────────────────────────────────────────
 function lerp(a, b, t) { return a + (b - a) * t; }
+
+
+// Mesmo sprite do markup, para os pedaços de interface montados em JS.
+// Presets gravados em disco e mensagens do main ainda carregam emoji do formato
+// antigo. Traduz o que dá e cai num ícone genérico no resto — um <use> apontando
+// para um símbolo inexistente renderiza um vazio silencioso.
+const ICONES_SPRITE = new Set(["home","message-circle","monitor","inbox","sliders","settings","smartphone","cpu","clock","menu","music","droplet","thermometer","battery","battery-charging","plug","hard-drive","activity","clipboard","mic","arrow-up","x","minus","play","pause","skip-back","skip-forward","chevron-up","chevron-down","star","zap","bulb","check","copy","download","paperclip","shuffle","repeat","volume","cloud","grip","refresh","user"]);
+const ICONES_LOG = {
+  "\u2699\uFE0F": "settings", "\u2699": "settings", "\u26A1": "zap",
+  "\uD83C\uDFB5": "music", "\uD83D\uDD0A": "volume", "\uD83C\uDFAE": "sliders",
+  "\uD83D\uDCA1": "bulb", "\uD83D\uDDA5\uFE0F": "monitor", "\uD83D\uDCF1": "smartphone",
+};
+function nomeDeIcone(bruto) {
+  if (!bruto) return "zap";
+  if (ICONES_SPRITE.has(bruto)) return bruto;
+  return ICONES_LOG[bruto] ?? "zap";
+}
+function ico(nome, cls) {
+  const n = nomeDeIcone(nome);
+  return `<svg class="ico${cls ? " " + cls : ""}" aria-hidden="true"><use href="#i-${n}"/></svg>`;
+}
 
 function escHtml(s) {
   return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
@@ -1768,7 +2278,7 @@ function addLog(icon, text, success = true) {
   const wasBottom = isAtBottom();
   const div = document.createElement("div");
   div.className = "log-card";
-  div.innerHTML = `<span class="log-icon">${icon}</span><span>${escHtml(text)}</span><span class="${success ? "log-ok" : "log-err"}">${success ? "✓" : "✗"}</span>`;
+  div.innerHTML = `<span class="log-icon">${ico(icon, "ico-sm")}</span><span>${escHtml(text)}</span><span class="${success ? "log-ok" : "log-err"}">${success ? ico("check", "ico-sm") : ico("x", "ico-sm")}</span>`;
   timeline.appendChild(div);
   if (wasBottom) scrollToBottom();
 }
@@ -1817,7 +2327,7 @@ function buildAttachmentEl(attachment) {
     const copyBtn = document.createElement("button");
     copyBtn.className = "attachment-btn";
     copyBtn.title = "Copiar";
-    copyBtn.textContent = "📋";
+    copyBtn.innerHTML = ico("copy", "ico-sm");
     copyBtn.addEventListener("click", async (e) => {
       e.stopPropagation();
       try { await window.nx.mailboxCopyImage(attachment.filePath); showToast("Copiado!"); }
@@ -1827,7 +2337,7 @@ function buildAttachmentEl(attachment) {
     const dlBtn = document.createElement("button");
     dlBtn.className = "attachment-btn";
     dlBtn.title = "Baixar";
-    dlBtn.textContent = "⬇️";
+    dlBtn.innerHTML = ico("download", "ico-sm");
     dlBtn.addEventListener("click", async (e) => {
       e.stopPropagation();
       try {
@@ -1844,7 +2354,7 @@ function buildAttachmentEl(attachment) {
 
   const el = document.createElement("div");
   el.className = "attachment-file";
-  el.textContent = `📎 ${attachment.name}`;
+  el.innerHTML = ico("paperclip", "ico-sm") + `<span>${escHtml(attachment.name)}</span>`;
   el.title = "Clique para abrir";
   el.addEventListener("click", () => {
     window.nx.mailboxOpenAttachment(attachment.filePath).catch(() => showToast("Falha ao abrir arquivo.", true));
@@ -1878,6 +2388,18 @@ async function loadSelfThread() {
   } catch { /* ignore */ }
 }
 
+/**
+ * Posiciona o polegar sob o lado ativo. Mede o botão em vez de assumir metade: "IA" e
+ * "Celular" têm larguras diferentes, e o controle é dimensionado pelo conteúdo.
+ */
+function moverPolegarChat() {
+  const ativo = document.querySelector(".chat-tab-btn.active");
+  const thumb = document.getElementById("chat-switch-thumb");
+  if (!ativo || !thumb) return;
+  thumb.style.width = `${ativo.offsetWidth}px`;
+  thumb.style.transform = `translateX(${ativo.offsetLeft - 3}px)`;
+}
+
 function switchChatMode(mode) {
   if (mode === chatMode) return;
   chatMode = mode;
@@ -1887,9 +2409,13 @@ function switchChatMode(mode) {
   timelineSelf.classList.toggle("hidden", mode !== "self");
   cmdInput.placeholder = mode === "ai"
     ? "Digite um comando ou pergunta…"
-    : "Mensagem pra você mesmo (aparece no celular)…";
+    : "Recado pra você mesmo (aparece no celular)…";
   micBtn.classList.toggle("hidden", mode !== "ai");
-  if (mode === "self" && !selfLoaded) loadSelfThread();
+  if (mode === "self") {
+    document.getElementById("chat-tab-self")?.classList.remove("tem-novidade");
+    if (!selfLoaded) loadSelfThread();
+  }
+  moverPolegarChat();
 }
 
 chatTabAi.addEventListener("click", () => switchChatMode("ai"));
@@ -2014,7 +2540,7 @@ function applyTheme(id) {
   document.body.classList.add("theme-rich");
 
   renderThemeSwatches();
-  redrawCanvases();
+  redesenharGraficos();
 }
 
 function renderThemeSwatches() {
@@ -2078,8 +2604,8 @@ function renderWidgetOrderList() {
     row.innerHTML = `
       <input type="checkbox" class="widget-order-toggle" ${isHidden ? "" : "checked"} title="Mostrar/ocultar">
       <span class="widget-order-name">${escHtml(WIDGET_LABELS[id] ?? id)}</span>
-      <button class="widget-order-btn" data-dir="up"   ${i === 0 ? "disabled" : ""} title="Mover para cima">&#x25B2;</button>
-      <button class="widget-order-btn" data-dir="down" ${i === currentLayout.order.length - 1 ? "disabled" : ""} title="Mover para baixo">&#x25BC;</button>`;
+      <button class="widget-order-btn" data-dir="up"   ${i === 0 ? "disabled" : ""} title="Mover para cima"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-chevron-up"/></svg></button>
+      <button class="widget-order-btn" data-dir="down" ${i === currentLayout.order.length - 1 ? "disabled" : ""} title="Mover para baixo"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-chevron-down"/></svg></button>`;
 
     row.querySelector(".widget-order-toggle").addEventListener("change", (e) => {
       currentLayout.hidden = e.target.checked
@@ -2164,7 +2690,36 @@ const batIcon    = document.getElementById("bat-icon");
 const disksWrap  = document.getElementById("disks-wrap");
 const procBody   = document.getElementById("proc-body");
 
+/**
+ * Ajusta o bitmap do canvas à caixa que ele realmente ocupa, na densidade da tela.
+ *
+ * Sem isto, o `width="220"` do HTML é o tamanho do bitmap e o `width:100%` do CSS é o
+ * tamanho na tela — o navegador estica um no outro e o traço sai borrado. Em largura
+ * cheia, que é o que a aba PC virou, a diferença é gritante.
+ */
+function ajustarCanvas(cv) {
+  if (!cv) return false;
+  const r = cv.getBoundingClientRect();
+  if (!r.width) return false;
+  const d = window.devicePixelRatio || 1;
+  const w = Math.round(r.width * d);
+  const h = Math.round((r.height || cv.height) * d);
+  if (cv.width === w && cv.height === h) return false;
+  cv.width = w; cv.height = h;
+  return true;
+}
+
+function redesenharGraficos() {
+  ajustarCanvas(cpuCanvas); ajustarCanvas(ramCanvas);
+  drawChart(cpuCanvas, cpuHistory, getThemeColor("--purple-bright"));
+  drawChart(ramCanvas, ramHistory, getThemeColor("--cyan"));
+  if (ajustarCanvas(stabilityCanvas)) renderStabilityCanvas(lastStabilityHistory);
+}
+window.addEventListener("resize", redesenharGraficos);
+
 function updateTelemetry(t) {
+  ajustarCanvas(cpuCanvas);
+  ajustarCanvas(ramCanvas);
   // CPU
   cpuHistory.push(t.cpu_pct ?? 0); cpuHistory.shift();
   cpuVal.textContent = (t.cpu_pct ?? 0) + "%";
@@ -2185,20 +2740,21 @@ function updateTelemetry(t) {
   }
 
   // Battery
+  // Num desktop não há bateria, e o card mostrava uma barra cheia com ícone de tomada —
+  // um lugar inteiro ocupado para dizer "está na tomada", que já se sabe. Some.
+  const batWrap = document.getElementById("bat-wrap");
+  if (batWrap) batWrap.hidden = t.battery_pct == null;
+  // Mesma coisa para a temperatura: sem sensor, o card só mostrava um traço.
+  const tempWrap = document.getElementById("temp-wrap");
+  if (tempWrap) tempWrap.hidden = t.cpu_temp == null;
   if (t.battery_pct != null) {
     const pct = t.battery_pct;
     batVal.textContent = pct + "%";
     const clr = pct < 20 ? "var(--red)" : pct < 40 ? "var(--yellow)" : "var(--green)";
     batVal.style.color = clr;
-    batFill.style.width  = pct + "%";
+    batFill.style.transform = `scaleX(${pct / 100})`;
     batFill.style.background = clr;
-    batIcon.textContent = t.battery_charging ? "⚡" : "🔋";
-  } else {
-    batVal.textContent = "AC";
-    batVal.style.color = "var(--cyan)";
-    batFill.style.width = "100%";
-    batFill.style.background = "var(--cyan)";
-    batIcon.textContent = "🔌";
+    batIcon.innerHTML = ico(t.battery_charging ? "battery-charging" : "battery", "ico-sm");
   }
 
   // Disks
@@ -2216,7 +2772,7 @@ function updateTelemetry(t) {
               <span class="disk-nums">${d.totalGB} GB</span>
             </div>
             <div class="disk-bar-track">
-              <div class="disk-bar-fill" style="width:${pct}%;background:${clr}"></div>
+              <div class="disk-bar-fill" style="transform:scaleX(${pct/100});background:${clr}"></div>
             </div>
           </div>
         </div>`);
@@ -2227,7 +2783,9 @@ function updateTelemetry(t) {
   if (Array.isArray(t.processes)) {
     allProcesses = t.processes;
     procBody.innerHTML = "";
-    t.processes.slice(0, 5).forEach(p => {
+    // Top-10: na coluna de 272px cabiam cinco; em largura cheia, sobrava tabela vazia.
+    procBody.classList.add("mov-lista");
+    t.processes.slice(0, 10).forEach(p => {
       const tr = document.createElement("tr");
       tr.className = "proc-row";
       tr.innerHTML = `
@@ -2272,7 +2830,7 @@ function renderProcModal() {
 
     const killCell = isSys
       ? `<td style="text-align:center"><span style="font-size:9px;color:var(--muted)">protegido</span></td>`
-      : `<td style="text-align:center"><button class="kill-btn" data-pid="${p.pid}" title="Encerrar ${escHtml(p.name)}">✕ Encerrar</button></td>`;
+      : `<td style="text-align:center"><button class="kill-btn" data-pid="${p.pid}" title="Encerrar ${escHtml(p.name)}"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-x"/></svg><span>Encerrar</span></button></td>`;
 
     const tr = document.createElement("tr");
     tr.className = "proc-row";
@@ -2282,7 +2840,7 @@ function renderProcModal() {
       <td style="color:var(--muted);font-size:10px">${p.pid}</td>
       <td class="proc-cpu" style="text-align:right">${p.cpu}%</td>
       <td class="proc-ram" style="text-align:right">${p.ramMB} MB</td>
-      <td style="text-align:center">${isSys ? "⚙️" : "👤"}</td>
+      <td style="text-align:center">${isSys ? ico("settings", "ico-sm") : ico("user", "ico-sm")}</td>
       ${killCell}`;
     procModalBody.appendChild(tr);
   });
@@ -2328,6 +2886,8 @@ procModalBody.addEventListener("click", (e) => {
 // STABILITY TIMELINE (24 h anomaly canvas)
 // ─────────────────────────────────────────────────
 const stabilityCanvas = document.getElementById("stability-canvas");
+/** Último histórico lido, para redesenhar ao trocar de tema ou redimensionar. */
+let lastStabilityHistory = [];
 
 function renderStabilityCanvas(history) {
   const ctx = stabilityCanvas.getContext("2d");
@@ -2391,7 +2951,6 @@ function renderStabilityCanvas(history) {
   });
 }
 
-let lastStabilityHistory = [];
 
 async function loadTelemetryHistory() {
   try {
@@ -2407,31 +2966,8 @@ function redrawCanvases() {
   renderStabilityCanvas(lastStabilityHistory);
 }
 
-// ─────────────────────────────────────────────────
-// INSIGHTS PANEL
-// ─────────────────────────────────────────────────
-const insightsBody  = document.getElementById("insights-body");
-const insightsEmpty = document.getElementById("insights-empty");
-
-async function loadInsights() {
-  try {
-    const insights = await window.nx.getInsights();
-    if (!insights || !insights.length) {
-      insightsEmpty.style.display = "";
-      // Remove any previous insight items
-      insightsBody.querySelectorAll(".insight-item").forEach(el => el.remove());
-      return;
-    }
-    insightsEmpty.style.display = "none";
-    insightsBody.querySelectorAll(".insight-item").forEach(el => el.remove());
-    insights.forEach(text => {
-      const div = document.createElement("div");
-      div.className = "insight-item";
-      div.innerHTML = `<span class="insight-icon">💡</span><span>${escHtml(text)}</span>`;
-      insightsBody.appendChild(div);
-    });
-  } catch { /* best-effort */ }
-}
+// Os insights do sistema saíram daqui: viraram card da tela Início, onde são vistos sem
+// abrir Ajustes. A leitura continua sendo `nx.getInsights()`.
 
 // ─────────────────────────────────────────────────
 // WAVEFORM ANIMATION (rAF loop)
@@ -2462,7 +2998,7 @@ const barsRow      = document.getElementById("bars-row");
 const stopZone     = document.getElementById("stop-zone");
 
 const STATE_LABELS = {
-  idle: "OCIOSO", listening: "OUVINDO", processing: "PROCESSANDO",
+  idle: "Ocioso", listening: "OUVINDO", processing: "PROCESSANDO",
   speaking: "RESPONDENDO", error: "ERRO"
 };
 const WAVE_LABELS = {
@@ -2533,7 +3069,7 @@ window.nx.onTranscript((text) => {
 
 window.nx.onActionLabel((label) => {
   waveStatus.textContent = label;
-  addLog("⚙️", label, true);
+  addLog("settings", label, true);
 });
 
 window.nx.onReply((text) => {
@@ -2563,7 +3099,7 @@ window.nx.onChatBusy(() => {
 window.nx.onTelemetry(updateTelemetry);
 
 window.nx.onActionLog((log) => {
-  addLog(log.icon ?? "⚡", log.text ?? "", log.ok !== false);
+  addLog(log.icon ?? "zap", log.text ?? "", log.ok !== false);
 });
 
 // ─────────────────────────────────────────────────
@@ -2600,10 +3136,11 @@ micBtn.addEventListener("click", () => {
 // ─────────────────────────────────────────────────
 // MEDIA CONTROLS
 // ─────────────────────────────────────────────────
-document.getElementById("media-controls").addEventListener("click", (e) => {
-  const btn = e.target.closest(".media-btn");
-  if (!btn) return;
-  window.nx.mediaControl(btn.dataset.op);
+// As teclas de mídia do sistema funcionam com qualquer player, não só com o Spotify —
+// por isso viraram o estado vazio do card "Tocando" em vez de sumirem junto com o widget.
+document.getElementById("view-inicio")?.addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-media]");
+  if (btn) window.nx.mediaControl(btn.dataset.media);
 });
 
 // ─────────────────────────────────────────────────
@@ -2633,8 +3170,8 @@ async function persistSession() {
   try {
     const saved = await window.nx.chatSessionsSave(chatSessionId, chatMessages);
     if (saved) chatSessionId = saved.id;
-    // A lista fica visível ao lado; sem isto o título só apareceria na próxima abertura.
-    if (document.getElementById("tab-conversas").classList.contains("active")) loadConversations();
+    // A lista virou popover: só vale redesenhar se ele estiver aberto na hora.
+    if (convPop?.classList.contains("aberto")) loadConversations();
   } catch (e) {
     console.error("[conversas] falha ao gravar:", e);
   }
@@ -2685,7 +3222,8 @@ async function loadConversations() {
 
     const star = document.createElement("button");
     star.className = "conv-act" + (s.favorite ? " on" : "");
-    star.textContent = s.favorite ? "★" : "☆";
+    star.innerHTML = ico("star", "ico-sm");
+    star.classList.toggle("on", !!s.favorite);
     star.title = s.favorite ? "Desfavoritar" : "Favoritar (nunca é apagada sozinha)";
     star.addEventListener("click", async (e) => {
       e.stopPropagation();
@@ -2695,7 +3233,7 @@ async function loadConversations() {
 
     const del = document.createElement("button");
     del.className = "conv-act del";
-    del.textContent = "✕";
+    del.innerHTML = ico("x", "ico-sm");
     del.title = "Apagar";
     del.addEventListener("click", async (e) => {
       e.stopPropagation();
@@ -2745,193 +3283,8 @@ document.getElementById("conv-new-btn").addEventListener("click", () => {
   showToast("Nova conversa");
 });
 
-// ─────────────────────────────────────────────────
-// SPOTIFY — MINI-PLAYER
-// ─────────────────────────────────────────────────
-const spConnect  = document.getElementById("sp-connect");
-const spPlayer   = document.getElementById("sp-player");
-const spIdle     = document.getElementById("sp-idle");
-const spArt      = document.getElementById("sp-art");
-const spTrack    = document.getElementById("sp-track");
-const spArtist   = document.getElementById("sp-artist");
-const spElapsed  = document.getElementById("sp-elapsed");
-const spTotal    = document.getElementById("sp-total");
-const spSeek     = document.getElementById("sp-seek");
-const spSeekFill = document.getElementById("sp-seek-fill");
-const spSeekKnob = document.getElementById("sp-seek-knob");
-const spPlayPause= document.getElementById("sp-playpause");
-const spShuffle  = document.getElementById("sp-shuffle");
-const spRepeat   = document.getElementById("sp-repeat");
-const spVol      = document.getElementById("sp-vol");
-const spVolVal   = document.getElementById("sp-vol-val");
-const spDevice   = document.getElementById("sp-device");
-
-let spState = null;          // último NowPlaying recebido
-let spPollTimer = null;      // consulta ao PC
-let spTickTimer = null;      // avanço local do progresso
-let spDraggingVol = false;   // não sobrescrever o slider enquanto o usuário arrasta
-
-function spFormatTime(ms) {
-  const total = Math.max(0, Math.floor(ms / 1000));
-  return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
-}
-
-function spShow(which) {
-  spConnect.style.display = which === "connect" ? "" : "none";
-  spPlayer.style.display  = which === "player"  ? "" : "none";
-  spIdle.style.display    = which === "idle"    ? "" : "none";
-}
-
-function spRenderProgress() {
-  if (!spState || !spState.durationMs) return;
-  const pct = Math.min(100, (spState.progressMs / spState.durationMs) * 100);
-  spSeekFill.style.width = pct + "%";
-  spSeekKnob.style.left  = pct + "%";
-  spElapsed.textContent  = spFormatTime(spState.progressMs);
-  spTotal.textContent    = spFormatTime(spState.durationMs);
-}
-
-function spRender(now) {
-  spState = now;
-  if (!now) { spShow("idle"); return; }
-  spShow("player");
-
-  if (now.albumArt && spArt.src !== now.albumArt) spArt.src = now.albumArt;
-  spTrack.textContent  = now.track;
-  spArtist.textContent = now.artist;
-  // Entidade HTML direta: textContent não interpreta entidades, então usamos o caractere.
-  spPlayPause.textContent = now.isPlaying ? "❚❚" : "▶";
-  spShuffle.classList.toggle("sp-on", now.shuffle);
-  spRepeat.classList.toggle("sp-on", now.repeat !== "off");
-  spRepeat.title = now.repeat === "track" ? "Repetindo a faixa"
-                 : now.repeat === "context" ? "Repetindo a lista" : "Repetir";
-  spDevice.textContent = now.device ? `Tocando em ${now.device}` : "";
-
-  if (now.volumePercent !== null && !spDraggingVol) {
-    spVol.value = now.volumePercent;
-    spVolVal.textContent = now.volumePercent;
-  }
-  spRenderProgress();
-}
-
-async function spPoll() {
-  const res = await window.nx.spotifyNowPlaying();
-  if (!res.ok) { spShow("idle"); spState = null; return; }
-  spRender(res.nowPlaying);
-}
-
-/**
- * O progresso avança localmente entre as consultas. Perguntar ao Spotify a cada
- * segundo só para mover uma barra seria desperdício de rede e de cota da API.
- */
-function spTick() {
-  if (!spState || !spState.isPlaying) return;
-  spState.progressMs = Math.min(spState.durationMs, spState.progressMs + 1000);
-  spRenderProgress();
-}
-
-async function spRefreshStatus() {
-  const { connected } = await window.nx.spotifyStatus();
-  if (!connected) { spShow("connect"); spStopPolling(); return; }
-  await spPoll();
-  spStartPolling();
-}
-
-function spStartPolling() {
-  if (spPollTimer) return;
-  spPollTimer = setInterval(spPoll, 5000);
-  spTickTimer = setInterval(spTick, 1000);
-}
-
-function spStopPolling() {
-  clearInterval(spPollTimer); clearInterval(spTickTimer);
-  spPollTimer = spTickTimer = null;
-}
-
-async function spSend(op, value) {
-  const res = await window.nx.spotifyCommand(op, value);
-  if (!res.ok) { showToast(res.error || "Falha no comando do Spotify"); return false; }
-  return true;
-}
-
-document.getElementById("sp-connect-btn").addEventListener("click", async () => {
-  await window.nx.spotifyLogin();
-  showToast("Autorize na janela do navegador que abriu");
-  // O login termina fora do app; reconsultar depois evita obrigar o usuário a
-  // reabrir a aba para o player aparecer.
-  setTimeout(spRefreshStatus, 8000);
-});
-
-document.getElementById("sp-controls").addEventListener("click", async (e) => {
-  const btn = e.target.closest(".sp-btn");
-  if (!btn) return;
-
-  if (btn.id === "sp-playpause") {
-    const wasPlaying = spState && spState.isPlaying;
-    if (await spSend(wasPlaying ? "pause" : "play") && spState) {
-      // Reflete na hora: esperar o próximo poll faz o botão parecer travado.
-      spState.isPlaying = !wasPlaying;
-      spPlayPause.textContent = spState.isPlaying ? "❚❚" : "▶";
-    }
-    return;
-  }
-  if (btn.id === "sp-shuffle") {
-    if (await spSend("shuffle", !(spState && spState.shuffle))) setTimeout(spPoll, 350);
-    return;
-  }
-  if (btn.id === "sp-repeat") {
-    const order = ["off", "context", "track"];
-    const next = order[(order.indexOf(spState ? spState.repeat : "off") + 1) % order.length];
-    if (await spSend("repeat", next)) setTimeout(spPoll, 350);
-    return;
-  }
-  if (btn.dataset.sp) {
-    if (await spSend(btn.dataset.sp)) setTimeout(spPoll, 500);
-  }
-});
-
-spSeek.addEventListener("click", async (e) => {
-  if (!spState || !spState.durationMs) return;
-  const rect = spSeek.getBoundingClientRect();
-  const ratio = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
-  const target = Math.floor(ratio * spState.durationMs);
-  spState.progressMs = target;
-  spRenderProgress();
-  await spSend("seek", target);
-});
-
-spVol.addEventListener("input", () => {
-  spDraggingVol = true;
-  spVolVal.textContent = spVol.value;
-});
-// Só manda ao soltar: um comando por pixel arrastado estouraria a API.
-spVol.addEventListener("change", async () => {
-  await spSend("volume", Number(spVol.value));
-  spDraggingVol = false;
-});
-
-// ─────────────────────────────────────────────────
-// PRESETS
-// ─────────────────────────────────────────────────
-const presetsGrid = document.getElementById("presets-grid");
-
-async function loadPresets() {
-  try {
-    const presets = await window.nx.getPresets();
-    presetsGrid.innerHTML = "";
-    for (const [key, p] of Object.entries(presets)) {
-      const card = document.createElement("div");
-      card.className = "preset-card";
-      card.innerHTML = `<span class="preset-icon">${p.icon ?? "⚡"}</span><span class="preset-name">${escHtml(p.description ?? key)}</span>`;
-      card.addEventListener("click", () => {
-        const cmd = `ativa o modo ${key}`;
-        addBubble("user", cmd);
-        window.nx.chatSend(cmd);
-      });
-      presetsGrid.appendChild(card);
-    }
-  } catch { /* ignore */ }
-}
+// O mini-player do Spotify saiu da gaveta: virou o card "Tocando" da tela Início, que
+// fala com os mesmos canais `nx.spotify*`. Manter os dois seria manter duas telas em par.
 
 // ─────────────────────────────────────────────────
 // QUICK / HISTORY
@@ -3018,6 +3371,9 @@ apikeySave.addEventListener("click", async () => {
 async function loadConfig() {
   try {
     const cfg = await window.nx.getConfig();
+    desenharAjustes(cfg);
+    const cidade = document.getElementById("clima-atual");
+    if (cidade) cidade.textContent = cfg.climaCidade || "não definida";
     if (cfg.shortcut) shortcutInput.value = cfg.shortcut;
     applyTheme(cfg.theme);
     applyLayout(cfg.layout);
@@ -3077,8 +3433,8 @@ rtabBtns.forEach(btn => {
 
     // O player só consulta a API enquanto está à vista. Deixar o laço rodando com a
     // aba fechada gastaria cota do Spotify por nada.
-    if (btn.dataset.tab === "media") spRefreshStatus();
-    else spStopPolling();
+    // O player mudou de casa (virou card da Início) e as conversas viraram popover:
+    // esta gaveta não hospeda mais nenhum dos dois.
   });
 });
 
@@ -3195,7 +3551,6 @@ document.getElementById("pairing-regen-btn").addEventListener("click", async () 
 // ─────────────────────────────────────────────────
 // OPEN FULL CONFIG WINDOW
 // ─────────────────────────────────────────────────
-document.getElementById("open-config-btn").addEventListener("click", () => window.nx.openConfigWindow());
 
 // ─────────────────────────────────────────────────
 // WINDOW CONTROLS
@@ -3207,13 +3562,12 @@ document.getElementById("btnMin").addEventListener("click", () => window.close()
 // INIT
 // ─────────────────────────────────────────────────
 (async () => {
-  await Promise.all([loadPresets(), loadHistory(), loadConfig(), loadApiKey()]);
+  await Promise.all([loadHistory(), loadConfig(), loadApiKey(), carregarCards()]);
   // Non-blocking telemetry history + insights
   loadTelemetryHistory();
-  loadInsights();
   // Refresh every 30 s
-  setInterval(() => { loadTelemetryHistory(); loadInsights(); }, 30_000);
-  addBubble("system", "ELYSIUM pronto. Pressione Ctrl+Shift+J ou clique 🎤 para falar.");
+  setInterval(loadTelemetryHistory, 30_000);
+  addBubble("system", "ELYSIUM pronto. Pressione Ctrl+Shift+J ou clique no microfone para falar.");
 })();
 
 // ─────────────────────────────────────────────────
@@ -3230,7 +3584,31 @@ const vtabs = document.querySelectorAll(".vtab");
 /** Última aba usada, para o app reabrir onde você estava. */
 const VIEW_KEY = "elysium_view";
 
+/**
+ * Posiciona o traço sob a aba ativa. Lê a geometria real do botão em vez de
+ * calcular por índice, porque as abas não têm largura igual (e abaixo de 880px
+ * os rótulos somem e todas encolhem).
+ */
+function moverPolegar() {
+  const ativa = document.querySelector(".vtab.active");
+  const thumb = document.getElementById("vtab-thumb");
+  if (!ativa || !thumb) return;
+  thumb.style.transform = `translateX(${ativa.offsetLeft}px) scaleX(${ativa.offsetWidth})`;
+  thumb.style.width = "1px";
+}
+window.addEventListener("resize", moverPolegar);
+
 function switchView(view) {
+  // A View Transitions API cuida do cross-fade entre o painel que sai e o que
+  // entra. Se não existir, a troca acontece igual — só sem animação.
+  if (document.startViewTransition && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    document.startViewTransition(() => aplicarView(view));
+  } else {
+    aplicarView(view);
+  }
+}
+
+function aplicarView(view) {
   layoutEl.setAttribute("data-view", view);
   vtabs.forEach(b => {
     const ativa = b.dataset.view === view;
@@ -3238,25 +3616,17 @@ function switchView(view) {
     b.setAttribute("aria-selected", ativa ? "true" : "false");
     if (ativa) b.classList.remove("has-news");
   });
+  moverPolegar();
   try { localStorage.setItem(VIEW_KEY, view); } catch { /* modo privado, ignora */ }
 
   // Chat e Caixa são a mesma tela em modos diferentes: reaproveita o switchChatMode que já
   // existe em vez de duplicar a lógica dos dois timelines.
-  if (view === "chat")  switchChatMode("ai");
-  if (view === "caixa") switchChatMode("self");
+  // A Caixa deixou de ser aba: virou o lado direito do switch, dentro do Chat.
 
-  // Presets e Ajustes dividem a mesma gaveta. Ao entrar em Presets, força a sub-aba certa,
-  // senão você cairia na última que estivesse aberta.
-  if (view === "presets") ativarSubAba("presets");
-  if (view === "ajustes" && document.querySelector(".rtab-btn.active")?.dataset.tab === "presets") {
-    ativarSubAba("config");
-  }
-
-  // O player do Spotify só consulta a API enquanto está à vista — mesma razão da aba de
-  // mídia: laço rodando escondido gastaria cota por nada.
-  if (view !== "ajustes") spStopPolling();
-
-  if (view === "inicio") atualizarInicio();
+  if (view === "inicio") atualizarInicio().then(ligarArrasto);
+  // Os canvas nascem dentro de um painel oculto, e elemento em `display:none` mede zero.
+  // Só ao entrar na aba dá para saber a largura real.
+  if (view === "pc") requestAnimationFrame(redesenharGraficos);
 }
 
 function ativarSubAba(nome) {
@@ -3276,9 +3646,413 @@ document.addEventListener("keydown", (e) => {
   switchView(vtabs[n - 1].dataset.view);
 });
 
+
+// ─────────────────────────────────────────────────
+// AJUSTES — tudo numa tela só
+// ─────────────────────────────────────────────────
+//
+// As configurações completas moravam numa janela à parte (`config.html`), atrás de um
+// botão "Abrir configurações completas". Agora estão aqui.
+//
+// O formulário é GERADO A PARTIR DE UM ESQUEMA, não copiado do `config.html`. Duplicar
+// aquelas ~400 linhas de markup criaria duas telas para manter em par, e a primeira vez
+// que um campo mudasse de nome elas divergiriam em silêncio. Aqui cada campo é uma
+// entrada na lista abaixo, e a persistência usa o `nx.getConfig`/`nx.setConfig` que o
+// preload do dashboard já expunha.
+//
+// `config.html` continua existindo como janela avulsa da bandeja.
+
+const AJUSTES = [
+  {
+    grupo: "Cérebro",
+    nota: "Medido em 14/08/2026 com 46 casos reais: o llama3.2 local acertou 93%, sem nenhum " +
+          "JSON inválido. O ponto fraco é pedido composto (“fecha o Chrome e abre o VS Code”), " +
+          "onde acerta 12 de 18 — às vezes executa só metade.",
+    campos: [
+      { chave: "routerProvider", rotulo: "Quem decide a ação", tipo: "select", opcoes: [
+        ["ollama", "Local — Ollama nesta máquina"], ["groq", "Nuvem — Groq"]] },
+      { chave: "chatProvider", rotulo: "Quem escreve a resposta", tipo: "select", opcoes: [
+        ["ollama", "Local — Ollama nesta máquina"], ["groq", "Nuvem — Groq"]] },
+      { chave: "ollamaRouterModel", rotulo: "Modelo local", tipo: "texto", dica: "ollama pull llama3.2" },
+      { chave: "fallbackToGroq", rotulo: "Cair na Groq se o local falhar", tipo: "bool",
+        dica: "Cobre JSON quebrado e Ollama fora do ar. Não cobre pedido composto pela metade — aquilo é JSON válido." },
+      { chave: "evitarGpuOcupada", rotulo: "Usar a nuvem com jogo aberto", tipo: "bool",
+        dica: "O modelo local ocupa ~2,6 GB de VRAM enquanto carregado." },
+    ],
+  },
+  {
+    grupo: "Voz",
+    campos: [
+      { chave: "silenceMs", rotulo: "Silêncio para parar", tipo: "faixa", min: 500, max: 5000, passo: 100, unidade: "ms" },
+      { chave: "maxRecordMs", rotulo: "Gravação máxima", tipo: "faixa", min: 10000, max: 300000, passo: 5000, unidade: "ms" },
+    ],
+  },
+  {
+    grupo: "Conversa",
+    campos: [
+      { chave: "chatHistoryTurns", rotulo: "Turnos na memória", tipo: "faixa", min: 2, max: 20, passo: 1, unidade: "" },
+      { chave: "chatIdleResetMs", rotulo: "Reset por inatividade", tipo: "faixa", min: 60000, max: 3600000, passo: 60000, unidade: "ms" },
+    ],
+  },
+  {
+    grupo: "Modelos da Groq",
+    nota: "Só entram quando o provedor acima for Nuvem, ou quando o local falhar.",
+    campos: [
+      { chave: "sttModel", rotulo: "Transcrição", tipo: "select", opcoes: [
+        ["whisper-large-v3", "Whisper Large v3"], ["whisper-large-v3-turbo", "Whisper Large v3 Turbo"]] },
+      { chave: "routerModel", rotulo: "Decide a ação", tipo: "select", opcoes: [
+        ["llama-3.3-70b-versatile", "Llama 3.3 70B"], ["llama-3.1-8b-instant", "Llama 3.1 8B"]],
+        dica: "No plano gratuito o 8B tem cota de 6 mil tokens/min, metade dos 12 mil do 70B — o menor gasta mais." },
+      { chave: "brainModel", rotulo: "Escreve a resposta", tipo: "select", opcoes: [
+        ["llama-3.3-70b-versatile", "Llama 3.3 70B"], ["llama-3.1-8b-instant", "Llama 3.1 8B"]] },
+    ],
+  },
+  {
+    grupo: "Sistema",
+    campos: [
+      { chave: "autoLaunch", rotulo: "Iniciar com o Windows", tipo: "bool" },
+    ],
+  },
+];
+
+/** Formata um valor de faixa para leitura humana. */
+function valorLegivel(campo, v) {
+  if (campo.unidade !== "ms") return String(v);
+  if (v < 1000) return `${v} ms`;
+  if (v < 60000) return `${(v / 1000).toFixed(v % 1000 ? 1 : 0).replace(".", ",")} s`;
+  return `${Math.round(v / 60000)} min`;
+}
+
+function desenharAjustes(cfg) {
+  const alvo = document.getElementById("cfg-form");
+  if (!alvo) return;
+
+  alvo.innerHTML = AJUSTES.map(g => `
+    <section class="cfg-grupo">
+      <h3>${escHtml(g.grupo)}</h3>
+      ${g.nota ? `<p class="cfg-nota">${escHtml(g.nota)}</p>` : ""}
+      ${g.campos.map(c => {
+        const v = cfg[c.chave];
+        let controle;
+        if (c.tipo === "select") {
+          controle = `<select data-cfg="${c.chave}">` + c.opcoes.map(([val, txt]) =>
+            `<option value="${escHtml(val)}"${val === v ? " selected" : ""}>${escHtml(txt)}</option>`).join("") + `</select>`;
+        } else if (c.tipo === "bool") {
+          controle = `<label class="cfg-switch"><input type="checkbox" data-cfg="${c.chave}"${v ? " checked" : ""}><span></span></label>`;
+        } else if (c.tipo === "faixa") {
+          controle = `<div class="cfg-faixa">
+            <input type="range" data-cfg="${c.chave}" min="${c.min}" max="${c.max}" step="${c.passo}" value="${Number(v) || c.min}">
+            <span class="cfg-faixa-val" data-val-de="${c.chave}">${escHtml(valorLegivel(c, Number(v) || c.min))}</span>
+          </div>`;
+        } else {
+          controle = `<input type="text" data-cfg="${c.chave}" value="${escHtml(String(v ?? ""))}" spellcheck="false">`;
+        }
+        return `<div class="cfg-row">
+          <label>${escHtml(c.rotulo)}${c.dica ? `<small>${escHtml(c.dica)}</small>` : ""}</label>
+          <div class="cfg-controle">${controle}</div>
+        </div>`;
+      }).join("")}
+    </section>`).join("");
+}
+
+/**
+ * Grava campo a campo, no `change`. Não há botão "Salvar" de propósito: com botão, sair da
+ * tela perde o que foi mexido — e esta tela agora é uma aba, de onde se sai o tempo todo.
+ */
+document.getElementById("tab-config")?.addEventListener("change", async (e) => {
+  const el = e.target.closest("[data-cfg]");
+  if (!el) return;
+  const chave = el.dataset.cfg;
+  const valor = el.type === "checkbox" ? el.checked
+              : el.type === "range" ? Number(el.value)
+              : el.value;
+  try { await window.nx.setConfig({ [chave]: valor }); showToast("Salvo."); }
+  catch { showToast("Não consegui salvar."); }
+});
+
+// O número ao lado do controle acompanha o arrasto; a gravação só acontece no `change`,
+// que dispara ao soltar — senão seriam dezenas de escritas em disco por arrasto.
+document.getElementById("tab-config")?.addEventListener("input", (e) => {
+  const el = e.target.closest('input[type="range"][data-cfg]');
+  if (!el) return;
+  const campo = AJUSTES.flatMap(g => g.campos).find(c => c.chave === el.dataset.cfg);
+  const saida = document.querySelector(`[data-val-de="${el.dataset.cfg}"]`);
+  if (campo && saida) saida.textContent = valorLegivel(campo, Number(el.value));
+});
+
+// ── Cidade do clima ──────────────────────────────
+//
+// A busca usa a API de geocodificação da própria Open-Meteo — mesma casa do clima, também
+// sem chave. O que fica gravado é o nome escolhido mais latitude e longitude; não há
+// geolocalização do sistema nem descoberta por IP em lugar nenhum.
+
+let buscaClimaTimer = 0;
+
+document.getElementById("clima-busca")?.addEventListener("input", (e) => {
+  const termo = e.target.value.trim();
+  const lista = document.getElementById("clima-resultados");
+  clearTimeout(buscaClimaTimer);
+  if (termo.length < 3) { lista.innerHTML = ""; return; }
+  // Debounce: sem ele seria uma requisição por tecla digitada.
+  buscaClimaTimer = setTimeout(async () => {
+    try {
+      const r = await fetch(
+        `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(termo)}&count=5&language=pt`);
+      const j = await r.json();
+      const achados = j.results ?? [];
+      lista.innerHTML = achados.length
+        ? achados.map(c =>
+            `<button class="clima-op" data-lat="${c.latitude}" data-lon="${c.longitude}" data-nome="${escHtml(c.name)}">
+              ${escHtml(c.name)}<span>${escHtml([c.admin1, c.country].filter(Boolean).join(", "))}</span>
+            </button>`).join("")
+        : `<div class="home-empty">Nada encontrado.</div>`;
+    } catch { lista.innerHTML = `<div class="home-empty">Sem conexão para buscar.</div>`; }
+  }, 350);
+});
+
+document.getElementById("clima-resultados")?.addEventListener("click", async (e) => {
+  const op = e.target.closest(".clima-op");
+  if (!op) return;
+  try {
+    await window.nx.setConfig({
+      climaCidade: op.dataset.nome,
+      climaLat: Number(op.dataset.lat),
+      climaLon: Number(op.dataset.lon),
+    });
+    document.getElementById("clima-atual").textContent = op.dataset.nome;
+    document.getElementById("clima-busca").value = "";
+    document.getElementById("clima-resultados").innerHTML = "";
+    showToast(`Clima de ${op.dataset.nome}.`);
+  } catch { showToast("Não consegui salvar a cidade."); }
+});
+
+// ── Conversas salvas, num popover ────────────────
+//
+// Saíram da gaveta de Ajustes: conversa salva não é configuração. Viraram um botão de
+// relógio no topo do chat, que é exatamente onde o ELYSIUM-M já as coloca.
+
+const convPop = document.getElementById("conv-pop");
+const convBtn = document.getElementById("conv-btn");
+
+function abrirConversas(abrir) {
+  if (!convPop) return;
+  const estaAberto = convPop.classList.contains("aberto");
+  const alvo = abrir ?? !estaAberto;
+  if (alvo === estaAberto) return;
+
+  if (alvo) {
+    const r = convBtn.getBoundingClientRect();
+    convPop.style.top = `${r.bottom + 10}px`;
+    convPop.style.left = `${r.left}px`;
+    convPop.hidden = false;
+    requestAnimationFrame(() => convPop.classList.add("aberto"));
+    loadConversations();
+    convBtn?.setAttribute("aria-expanded", "true");
+  } else {
+    convPop.classList.remove("aberto");
+    convBtn?.setAttribute("aria-expanded", "false");
+    setTimeout(() => { if (!convPop.classList.contains("aberto")) convPop.hidden = true; }, 160);
+  }
+}
+
+convBtn?.addEventListener("click", (e) => { e.stopPropagation(); abrirConversas(); });
+convPop?.addEventListener("click", (e) => e.stopPropagation());
+document.addEventListener("click", () => abrirConversas(false));
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && convPop?.classList.contains("aberto")) { e.stopPropagation(); abrirConversas(false); }
+}, true);
+
+// ─────────────────────────────────────────────────
+// PRESETS — bolinha e popover
+// ─────────────────────────────────────────────────
+//
+// Os presets saíram da gaveta de Ajustes e da barra de abas. Viraram um botão redondo no
+// canto superior direito do conteúdo, que abre um popover estilo iOS: escala a partir do
+// canto de origem, com careta apontando para o botão.
+//
+// O importante não é o formato, é o CANAL. A tela antiga do celular montava a frase
+// "executa o preset X" e mandava para o LLM em /api/command — lento, e capaz de errar num
+// comando que já se sabe qual é. Agora tudo passa pelos métodos `presets.*` do RPC, que
+// não existiam até este bloco apesar de o `presetsStore` estar lá desde o começo.
+
+const presetPop = document.getElementById("preset-pop");
+const presetBtn = document.getElementById("preset-btn");
+let presetsCache = [];
+let modoCriar = false;
+
+function posicionarPopover() {
+  if (!presetBtn || !presetPop) return;
+  const r = presetBtn.getBoundingClientRect();
+  // Ancorado pela direita, alinhado à borda direita do botão: assim a careta cai sobre
+  // ele em qualquer largura de janela, sem cálculo de colisão.
+  presetPop.style.top = `${r.bottom + 10}px`;
+  presetPop.style.right = `${window.innerWidth - r.right}px`;
+}
+
+function abrirPresets(abrir) {
+  if (!presetPop) return;
+  const estaAberto = presetPop.classList.contains("aberto");
+  const alvo = abrir ?? !estaAberto;
+  if (alvo === estaAberto) return;
+
+  if (alvo) {
+    modoCriar = false;
+    posicionarPopover();
+    presetPop.hidden = false;
+    // Um quadro entre tornar visível e animar: sem isso o navegador agrupa as duas
+    // mudanças e o popover simplesmente aparece no estado final.
+    requestAnimationFrame(() => presetPop.classList.add("aberto"));
+    carregarPresetsPop();
+    presetBtn?.setAttribute("aria-expanded", "true");
+  } else {
+    presetPop.classList.remove("aberto");
+    presetBtn?.setAttribute("aria-expanded", "false");
+    // Só some do fluxo depois da saída, senão o conteúdo continuaria recebendo Tab.
+    setTimeout(() => { if (!presetPop.classList.contains("aberto")) presetPop.hidden = true; }, 160);
+  }
+}
+
+async function carregarPresetsPop() {
+  const corpo = document.getElementById("preset-pop-corpo");
+  if (!corpo) return;
+  try {
+    const r = await window.nx.rpc("presets.list");
+    presetsCache = r.result?.presets ?? [];
+  } catch { presetsCache = []; }
+  desenharPresetsPop();
+}
+
+function desenharPresetsPop() {
+  const corpo = document.getElementById("preset-pop-corpo");
+  if (!corpo) return;
+
+  if (modoCriar) { desenharCriarPreset(corpo); return; }
+
+  corpo.innerHTML = presetsCache.length
+    ? `<div class="pop-lista mov-lista">` + presetsCache.map(p =>
+        `<div class="pop-item">
+          <button class="pop-rodar" data-rodar="${escHtml(p.name)}">
+            ${ico(p.icon || "sliders", "ico-sm")}
+            <span class="pop-nome">${escHtml(p.description || p.name)}</span>
+            <span class="pop-qtd">${p.actions} ${p.actions === 1 ? "ação" : "ações"}</span>
+          </button>
+          <button class="pop-apagar" data-apagar="${escHtml(p.name)}" title="Apagar preset">${ico("x", "ico-sm")}</button>
+        </div>`).join("") + `</div>`
+    : `<div class="home-empty">Nenhum preset ainda.</div>`;
+
+  corpo.innerHTML += `<button class="pop-novo" data-pop="criar">${ico("check", "ico-sm")}<span>Criar com o que está aberto</span></button>`;
+}
+
+/**
+ * Criar preset a partir dos programas abertos agora.
+ *
+ * `apps.list` é o catálogo dos ~75 programas conhecidos, não o que está rodando — e
+ * `system.processes` é o que está rodando, mas com nome de executável. O cruzamento dos
+ * dois é o que dá uma lista que faz sentido oferecer: só programa que o ELYSIUM sabe
+ * abrir depois, senão o preset nasceria com uma ação que falha.
+ */
+async function desenharCriarPreset(corpo) {
+  corpo.innerHTML = `<div class="home-empty">Vendo o que está aberto…</div>`;
+  let abertos = [];
+  try {
+    const [ra, rp] = await Promise.all([
+      window.nx.rpc("apps.list"),
+      window.nx.rpc("system.processes"),
+    ]);
+    const catalogo = ra.result?.apps ?? [];
+    const rodando = (rp.result?.processes ?? []).filter(p => !p.isSystem);
+    const normalizar = (x) => String(x).toLowerCase().replace(/\.exe$/, "").replace(/[^a-z0-9]/g, "");
+    const rodandoNorm = new Set(rodando.map(p => normalizar(p.name)));
+    abertos = catalogo.filter(nome => rodandoNorm.has(normalizar(nome)));
+  } catch { abertos = []; }
+
+  corpo.innerHTML = abertos.length
+    ? `<div class="pop-form">
+        <input type="text" id="preset-nome" placeholder="Nome do preset" autocomplete="off">
+        <div class="pop-check-lista">` +
+        abertos.map(nome =>
+          `<label class="pop-check"><input type="checkbox" value="${escHtml(nome)}" checked><span>${escHtml(nome)}</span></label>`).join("") +
+        `</div>
+        <div class="pop-form-acoes">
+          <button data-pop="cancelar">Cancelar</button>
+          <button data-pop="salvar" class="primario">Salvar</button>
+        </div>
+      </div>`
+    : `<div class="home-empty">Não reconheci nenhum programa aberto.</div>
+       <button class="pop-novo" data-pop="cancelar">${ico("chevron-up", "ico-sm")}<span>Voltar</span></button>`;
+}
+
+presetBtn?.addEventListener("click", (e) => { e.stopPropagation(); abrirPresets(); });
+
+presetPop?.addEventListener("click", async (e) => {
+  e.stopPropagation();
+  const alvo = (sel) => e.target.closest(sel);
+
+  const rodar = alvo("button[data-rodar]");
+  if (rodar) {
+    const nome = rodar.dataset.rodar;
+    rodar.disabled = true;
+    try {
+      const r = await window.nx.rpc("presets.run", { name: nome });
+      showToast(r.result?.reply ?? `${nome} ativado.`);
+      abrirPresets(false);
+    } catch { showToast("Não consegui rodar o preset."); }
+    finally { rodar.disabled = false; }
+    return;
+  }
+
+  const apagar = alvo("button[data-apagar]");
+  if (apagar) {
+    const nome = apagar.dataset.apagar;
+    try { await window.nx.rpc("presets.delete", { name: nome }); showToast(`Preset ${nome} apagado.`); await carregarPresetsPop(); }
+    catch { showToast("Não consegui apagar."); }
+    return;
+  }
+
+  const acao = alvo("button[data-pop]")?.dataset.pop;
+  if (acao === "criar")    { modoCriar = true;  desenharPresetsPop(); return; }
+  if (acao === "cancelar") { modoCriar = false; desenharPresetsPop(); return; }
+  if (acao === "salvar") {
+    const nome = document.getElementById("preset-nome")?.value.trim();
+    const marcados = [...presetPop.querySelectorAll(".pop-check input:checked")].map(i => i.value);
+    if (!nome)          { showToast("Dê um nome ao preset."); return; }
+    if (!marcados.length) { showToast("Escolha ao menos um programa."); return; }
+    try {
+      await window.nx.rpc("presets.save", {
+        name: nome,
+        description: nome,
+        icon: "sliders",
+        actions: marcados.map(app => ({ action: "open_app", app_name: app })),
+      });
+      showToast(`Preset “${nome}” criado.`);
+      modoCriar = false;
+      await carregarPresetsPop();
+    } catch { showToast("Não consegui salvar o preset."); }
+  }
+});
+
+// Clicar fora e Esc fecham. O clique no próprio popover para de propagar acima, então
+// este ouvinte no documento só vê o que é realmente "fora".
+document.addEventListener("click", () => abrirPresets(false));
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && presetPop?.classList.contains("aberto")) {
+    e.stopPropagation();
+    abrirPresets(false);
+  }
+}, true);
+window.addEventListener("resize", () => { if (presetPop?.classList.contains("aberto")) posicionarPopover(); });
+
 // ─────────────────────────────────────────────────
 // TELA INÍCIO
 // ─────────────────────────────────────────────────
+//
+// A Início virou um catálogo de cards: cada card se declara num registro, sabe o que
+// precisa buscar e como se desenhar. Ligar, desligar e arrastar mexem só na ordem — nenhum
+// card conhece os outros, e adicionar um novo é acrescentar uma entrada aqui.
+//
+// Tudo é lido pela ponte RPC, os mesmos métodos que o celular chama. Nenhum canal IPC novo
+// foi criado para esta tela, e é isso que garante que as duas mostrem a mesma coisa sem
+// serem mantidas em par.
 
 function saudacao() {
   const h = new Date().getHours();
@@ -3295,105 +4069,567 @@ function quandoTexto(epochMs) {
   const dia = (x) => `${x.getFullYear()}-${x.getMonth()}-${x.getDate()}`;
   const amanha = new Date(hoje.getTime() + 86400000);
   const hora = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-  if (dia(d) === dia(hoje))  return `hoje ${hora}`;
+  if (dia(d) === dia(hoje))   return `hoje ${hora}`;
   if (dia(d) === dia(amanha)) return `amanhã ${hora}`;
   return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")} ${hora}`;
 }
 
-function setBarra(idVal, idBar, texto, pct) {
-  const v = document.getElementById(idVal);
-  const b = document.getElementById(idBar);
-  if (v) v.textContent = texto;
-  if (b) b.style.width = `${Math.max(0, Math.min(100, pct))}%`;
+/**
+ * Anima um número inteiro do valor atual até o novo. Trocar "38%" por "61%" de um quadro
+ * para o outro some com a informação de que subiu — a contagem mostra a direção sem
+ * precisar de seta nem de cor.
+ */
+function animarNumero(el, alvo, sufixo = "%") {
+  const de = parseFloat(el.dataset.num ?? "0");
+  if (de === alvo || matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    el.dataset.num = String(alvo);
+    el.textContent = Math.round(alvo) + sufixo;
+    return;
+  }
+  el.dataset.num = String(alvo);
+  const t0 = performance.now();
+  cancelAnimationFrame(Number(el.dataset.raf ?? 0));
+  const passo = (t) => {
+    const p = Math.min(1, (t - t0) / 400);
+    const e = 1 - Math.pow(1 - p, 3);   // desacelera no fim: é a parte que se lê
+    el.textContent = Math.round(de + (alvo - de) * e) + sufixo;
+    if (p < 1) el.dataset.raf = String(requestAnimationFrame(passo));
+  };
+  el.dataset.raf = String(requestAnimationFrame(passo));
 }
+
+/** Barra de métrica. `scaleX` em vez de `width`: escala é composta na GPU e não reflui. */
+function barra(pct) {
+  return `<div class="home-bar"><i style="transform:scaleX(${Math.max(0, Math.min(100, pct)) / 100})"></i></div>`;
+}
+
+function linhaMetrica(rotulo, valor, pct, id) {
+  return `<div class="home-metric">
+    <div class="home-metric-row"><span class="home-metric-label">${escHtml(rotulo)}</span>` +
+    `<span class="home-metric-val"${id ? ` id="${id}"` : ""}>${escHtml(valor)}</span></div>
+    ${barra(pct)}
+  </div>`;
+}
+
+function vazio(texto) { return `<div class="home-empty">${escHtml(texto)}</div>`; }
+
+// ─────────────────────────────────────────────────
+// O CATÁLOGO
+// ─────────────────────────────────────────────────
+//
+// `precisa` lista as chaves de dado que o card consome. Só o que os cards VISÍVEIS pedem é
+// buscado — desligar o card de programas para de chamar `apps.list` de verdade, em vez de
+// buscar e jogar fora.
+//
+// `span` quebra a grade de propósito. Uma fileira de cards do mesmo tamanho é um dos
+// sinais mais reconhecíveis de interface gerada por IA; larguras diferentes vêm do que
+// cada card tem para mostrar.
+
+const CARDS = {
+  sugestoes: {
+    titulo: "Para agora", icone: "zap", span: 2, precisa: ["sugestoes"],
+    render: (d) => {
+      const lista = d.sugestoes ?? [];
+      if (!lista.length) return vazio("Nada de urgente por aqui.");
+      return `<div class="bolhas mov-lista">` + lista.map((s, i) =>
+        `<button class="bolha" data-sug="${i}" title="${escHtml(s.detalhe ?? "")}">` +
+        `${ico(s.icone ?? "zap", "ico-sm")}<span>${escHtml(s.texto)}</span></button>`).join("") + `</div>`;
+    },
+  },
+
+  computador: {
+    titulo: "Este computador", icone: "activity", span: 1, precisa: ["telemetria"],
+    render: (d) => {
+      const t = d.telemetria;
+      if (!t) return vazio("Não consegui ler o estado do PC.");
+      const disco = (t.disks ?? [])[0];
+      let html = linhaMetrica("Processador", `${Math.round(t.cpu_pct ?? 0)}%`, t.cpu_pct ?? 0, "home-cpu")
+               + linhaMetrica("Memória", `${Math.round(t.ram_pct ?? 0)}%`, t.ram_pct ?? 0, "home-ram");
+      if (disco) html += linhaMetrica(`Disco ${escHtml(disco.name ?? "principal")}`, `${disco.freeGB} GB livres`, disco.usedPct ?? 0);
+      const extras = [];
+      if (typeof t.cpu_temp === "number") extras.push(`${t.cpu_temp}°C`);
+      if (typeof t.battery_pct === "number") extras.push(`bateria ${t.battery_pct}%${t.battery_charging ? ", carregando" : ""}`);
+      if (extras.length) html += `<div class="home-rodape">${escHtml(extras.join(" · "))}</div>`;
+      return html;
+    },
+  },
+
+  musica: {
+    titulo: "Tocando", icone: "music", span: 1, precisa: ["spotify"],
+    render: (d) => {
+      const n = d.spotify;
+      if (!n) {
+        // Sem Spotify, as teclas de mídia do sistema ainda controlam o que estiver tocando
+        // em qualquer player — o card continua servindo para alguma coisa.
+        return `<div class="home-empty">Nada tocando no Spotify.</div>
+        <div class="mus-ctrl">
+          <button data-media="previous" title="Anterior">${ico("skip-back", "ico-sm")}</button>
+          <button data-media="play" class="principal" title="Play/Pause">${ico("play")}</button>
+          <button data-media="skip" title="Próxima">${ico("skip-forward", "ico-sm")}</button>
+        </div>
+        <div class="home-acoes"><button data-spotify="login">${ico("music", "ico-sm")}<span>Conectar o Spotify</span></button></div>`;
+      }
+      const capa = n.albumArt ? `<img class="mus-capa" src="${escHtml(n.albumArt)}" alt="">` : `<div class="mus-capa vazia">${ico("music")}</div>`;
+      return `<div class="mus-linha">
+        ${capa}
+        <div class="mus-txt">
+          <div class="mus-faixa">${escHtml(n.track ?? "—")}</div>
+          <div class="mus-artista">${escHtml(n.artist ?? "")}</div>
+        </div>
+      </div>
+      <div class="mus-ctrl">
+        <button data-mus="previous" title="Anterior">${ico("skip-back", "ico-sm")}</button>
+        <button data-mus="playpause" class="principal" title="Play/Pause">${ico(n.isPlaying ? "pause" : "play")}</button>
+        <button data-mus="next" title="Próxima">${ico("skip-forward", "ico-sm")}</button>
+      </div>`;
+    },
+  },
+
+  clima: {
+    titulo: "Lá fora", icone: "cloud", span: 1, precisa: ["clima"],
+    render: (d) => {
+      const c = d.clima;
+      if (!c) return vazio("Defina a cidade em Ajustes para ver o tempo.");
+      return `<div class="clima-agora">
+        ${ico(c.icone ?? "cloud", "ico-lg")}
+        <span class="clima-temp">${Math.round(c.temperatura)}°</span>
+        <span class="clima-desc">${escHtml(c.descricao)}</span>
+      </div>
+      <div class="home-rodape">${escHtml(c.cidade)} · máx ${Math.round(c.max)}° / mín ${Math.round(c.min)}°</div>`;
+    },
+  },
+
+  lembretes: {
+    titulo: "Próximos lembretes", icone: "clock", span: 1, precisa: ["lembretes"],
+    render: (d) => {
+      const l = (d.lembretes ?? []).slice(0, 4);
+      const lista = l.length
+        ? `<div class="home-list mov-lista">` + l.map(r =>
+            `<div class="home-item">${ico("clock", "ico-sm")}<span>${escHtml(r.text)}</span>` +
+            `<span class="when">${escHtml(quandoTexto(r.dueAt))}</span></div>`).join("") + `</div>`
+        : vazio("Nada agendado.");
+      // `reminders.create` já existia no RPC e não era chamado por ninguém — o lembrete só
+      // podia ser criado por voz ou pelo celular. Agora dá para digitar.
+      return lista + `<form class="lembrete-novo">
+        <input type="text" name="texto" placeholder="Lembrar de…" autocomplete="off">
+        <input type="time" name="hora" required>
+        <button type="submit" title="Criar lembrete">${ico("check", "ico-sm")}</button>
+      </form>`;
+    },
+  },
+
+  insights: {
+    titulo: "O que reparei no sistema", icone: "bulb", span: 2, precisa: ["insights"],
+    render: (d) => {
+      const l = d.insights ?? [];
+      if (!l.length) return vazio("Nada fora do comum até agora.");
+      return `<div class="home-list mov-lista">` + l.slice(0, 4).map(t =>
+        `<div class="home-item">${ico("bulb", "ico-sm")}<span>${escHtml(t)}</span></div>`).join("") + `</div>`;
+    },
+  },
+
+  processos: {
+    titulo: "Consumindo mais", icone: "cpu", span: 1, precisa: ["processos"],
+    render: (d) => {
+      const p = (d.processos ?? []).slice(0, 4);
+      if (!p.length) return vazio("Sem leitura de processos.");
+      return `<div class="home-list mov-lista">` + p.map(x =>
+        `<div class="home-item">${ico("cpu", "ico-sm")}<span>${escHtml(x.name)}</span>` +
+        `<span class="when">${(x.cpu ?? 0).toFixed(0)}% CPU</span></div>`).join("") + `</div>`;
+    },
+  },
+
+  programas: {
+    titulo: "Abrir um programa", icone: "monitor", span: 1, precisa: ["programas"],
+    render: (d) => {
+      const p = (d.programas ?? []).slice(0, 8);
+      if (!p.length) return vazio("Nenhum programa catalogado.");
+      return `<div class="pilulas">` + p.map(nome =>
+        `<button class="pilula" data-abrir="${escHtml(nome)}">${escHtml(nome)}</button>`).join("") + `</div>`;
+    },
+  },
+
+  transferencia: {
+    titulo: "Área de transferência", icone: "clipboard", span: 1, precisa: ["clipboard"],
+    render: (d) => {
+      const txt = d.clipboard;
+      return `<div class="clip-caixa">${txt ? escHtml(txt.slice(0, 220)) : "<i>Vazia.</i>"}</div>
+      <div class="home-acoes">
+        <button data-clip="atualizar">${ico("refresh", "ico-sm")}<span>Reler</span></button>
+        <button data-clip="celular"${txt ? "" : " disabled"}>${ico("smartphone", "ico-sm")}<span>Mandar pro celular</span></button>
+      </div>`;
+    },
+  },
+
+  atalhos: {
+    titulo: "Atalhos", icone: "zap", span: 1, precisa: [],
+    render: () => `<div class="home-quick">
+      <button data-quick="print">${ico("monitor", "ico-sm")}<span>Tirar print</span></button>
+      <button data-quick="lock" class="danger">${ico("x", "ico-sm")}<span>Bloquear tela</span></button>
+      <button data-quick="sleep" class="danger">${ico("minus", "ico-sm")}<span>Suspender</span></button>
+    </div>`,
+  },
+};
+
+/** Ordem de fábrica. Cards fora desta lista existem mas nascem desligados. */
+const CARDS_PADRAO = ["sugestoes", "computador", "musica", "lembretes", "insights", "atalhos"];
+
+let estadoCards = { ordem: CARDS_PADRAO.slice(), ocultos: [] };
+let dadosInicio = {};
+
+function cardsVisiveis() {
+  return estadoCards.ordem.filter(id => CARDS[id] && !estadoCards.ocultos.includes(id));
+}
+
+// ─────────────────────────────────────────────────
+// BUSCA DE DADOS
+// ─────────────────────────────────────────────────
 
 /**
- * A Início lê tudo pela ponte RPC — os mesmos métodos que o celular chama. Nenhum canal
- * IPC novo foi criado para ela, e é isso que garante que as duas telas mostrem a mesma
- * coisa sem serem mantidas em par.
+ * Busca só o que os cards visíveis pedem, em paralelo. Cada fonte falha por conta própria:
+ * o Spotify fora do ar ou o clima sem rede não podem derrubar a tela inteira — é por isso
+ * que cada uma vai num `catch` separado em vez de um `Promise.all` cru.
  */
-async function atualizarInicio() {
-  document.getElementById("home-greet").textContent = saudacao() + ", Zak";
+async function carregarDadosInicio() {
+  const precisa = new Set(cardsVisiveis().flatMap(id => CARDS[id].precisa));
+  const d = {};
+  const jobs = [];
 
-  const [tel, lem, mem] = await Promise.all([
-    window.nx.rpc("system.telemetry"),
-    window.nx.rpc("reminders.list"),
-    window.nx.rpc("memory.list"),
-  ]);
-
-  // ── estado da máquina
-  const t = tel.result;
-  if (t) {
-    setBarra("home-cpu", "home-cpu-bar", `${Math.round(t.cpu_pct ?? 0)}%`, t.cpu_pct ?? 0);
-    setBarra("home-ram", "home-ram-bar", `${Math.round(t.ram_pct ?? 0)}%`, t.ram_pct ?? 0);
-
-    const disco = (t.disks ?? [])[0];
-    if (disco) {
-      setBarra("home-disk", "home-disk-bar", `${disco.freeGB} GB livres`, disco.usedPct ?? 0);
-    }
-
-    const partes = [];
-    if (typeof t.battery_pct === "number") {
-      partes.push(`bateria ${t.battery_pct}%${t.battery_charging ? " carregando" : ""}`);
-    }
-    if (typeof t.cpu_temp === "number") partes.push(`${t.cpu_temp}°C`);
-    document.getElementById("home-sub").textContent =
-      partes.length ? partes.join(" · ") : "Tudo em ordem por aqui.";
-  } else {
-    document.getElementById("home-sub").textContent = "Não consegui ler o estado do PC.";
-  }
-
-  // ── lembretes: só o que ainda vai acontecer, os três mais próximos
-  const alvo = document.getElementById("home-reminders");
-  const lembretes = (lem.result?.reminders ?? [])
-    .filter(r => !r.firedAt && r.dueAt > Date.now())
-    .sort((a, b) => a.dueAt - b.dueAt)
-    .slice(0, 3);
-
-  alvo.innerHTML = lembretes.length
-    ? lembretes.map(r =>
-        `<div class="home-item"><span>&#x23F0;</span><span>${escHtml(r.text)}</span>` +
-        `<span class="when">${escHtml(quandoTexto(r.dueAt))}</span></div>`).join("")
-    : `<div class="home-empty">Nada agendado.</div>`;
-
-  // ── memória
-  const alvoMem = document.getElementById("home-memory");
-  const fatos = (mem.result?.facts ?? []).slice(-3).reverse();
-  alvoMem.innerHTML = fatos.length
-    ? fatos.map(f => `<div class="home-item"><span>&#x1F9E0;</span><span>${escHtml(f.text)}</span></div>`).join("")
-    : `<div class="home-empty">Nada guardado ainda.</div>`;
-}
-
-// Atalhos da Início. Os destrutivos passam pelo diálogo do main — ver rpcBridge.ts.
-document.getElementById("home-quick")?.addEventListener("click", async (e) => {
-  const btn = e.target.closest("button[data-quick]");
-  if (!btn) return;
-
-  const acoes = {
-    print: () => window.nx.rpc("screen.capture", { maxWidth: 1100 }),
-    clip:  async () => {
-      const r = await window.nx.rpc("clipboard.get");
-      showToast(r.result?.text ? `Área de transferência: ${r.result.text.slice(0, 80)}` : "Área de transferência vazia");
-    },
-    lock:  () => window.nx.rpc("power.control", { operation: "lock" }),
-    sleep: () => window.nx.rpc("power.control", { operation: "sleep" }),
+  const rpc = async (chave, metodo, params, extrai) => {
+    try {
+      const r = await window.nx.rpc(metodo, params);
+      d[chave] = extrai(r.result);
+    } catch { d[chave] = undefined; }
   };
 
-  btn.disabled = true;
-  try { await acoes[btn.dataset.quick]?.(); }
-  finally { btn.disabled = false; }
+  if (precisa.has("telemetria")) jobs.push(rpc("telemetria", "system.telemetry", undefined, r => r));
+  if (precisa.has("lembretes")) jobs.push(rpc("lembretes", "reminders.list", undefined, r =>
+    (r?.reminders ?? []).filter(x => !x.firedAt && x.dueAt > Date.now()).sort((a, b) => a.dueAt - b.dueAt)));
+  if (precisa.has("processos")) jobs.push(rpc("processos", "system.processes", undefined, r =>
+    (r?.processes ?? []).slice().sort((a, b) => (b.cpu ?? 0) - (a.cpu ?? 0))));
+  if (precisa.has("programas")) jobs.push(rpc("programas", "apps.list", undefined, r => r?.apps ?? []));
+  if (precisa.has("clipboard")) jobs.push(rpc("clipboard", "clipboard.get", undefined, r => r?.text ?? ""));
+  if (precisa.has("sugestoes")) jobs.push(rpc("sugestoes", "suggestions.list", undefined, r => r?.suggestions ?? []));
+  if (precisa.has("clima")) jobs.push(rpc("clima", "weather.now", undefined, r => r ?? null));
+
+  if (precisa.has("insights")) {
+    jobs.push((async () => {
+      try { d.insights = await window.nx.getInsights(); } catch { d.insights = []; }
+    })());
+  }
+  if (precisa.has("spotify")) {
+    jobs.push((async () => {
+      try {
+        const n = await window.nx.spotifyNowPlaying();
+        // O RPC devolve { nowPlaying }, o IPC devolve o objeto direto — aceita os dois.
+        const np = n?.nowPlaying ?? n;
+        d.spotify = np && np.track ? np : null;
+      } catch { d.spotify = null; }
+    })());
+  }
+
+  await Promise.all(jobs);
+  return d;
+}
+
+// ─────────────────────────────────────────────────
+// DESENHO
+// ─────────────────────────────────────────────────
+
+const gradeInicio = () => document.getElementById("home-grid");
+
+function desenharInicio() {
+  const grade = gradeInicio();
+  if (!grade) return;
+  const visiveis = cardsVisiveis();
+
+  grade.innerHTML = visiveis.map(id => {
+    const c = CARDS[id];
+    return `<section class="home-card" data-card="${id}" data-span="${c.span}" draggable="true">
+      <header class="home-card-head">
+        <span class="home-card-title">${ico(c.icone, "ico-sm")}<span>${escHtml(c.titulo)}</span></span>
+        <span class="home-card-grip" title="Arraste para reordenar">${ico("grip", "ico-sm")}</span>
+      </header>
+      <div class="home-card-corpo">${c.render(dadosInicio)}</div>
+    </section>`;
+  }).join("");
+
+  if (!visiveis.length) {
+    grade.innerHTML = `<div class="home-empty">Todos os cards estão desligados. Use “Personalizar”.</div>`;
+  }
+}
+
+async function atualizarInicio() {
+  const saud = document.getElementById("home-greet");
+  if (saud) saud.textContent = `${saudacao()}, Zak`;
+  // Desenha antes de buscar: as chamadas RPC levam algumas centenas de ms, e sem isto a
+  // tela ficava totalmente em branco nesse intervalo — inclusive na abertura do app.
+  if (!gradeInicio()?.children.length) desenharInicio();
+  dadosInicio = await carregarDadosInicio();
+  desenharInicio();
+}
+
+// ─────────────────────────────────────────────────
+// ARRASTAR PARA REORDENAR
+// ─────────────────────────────────────────────────
+//
+// `draggable` nativo do HTML5 — o dashboard não carrega uma única biblioteca externa e
+// isso não muda por causa disto. O que o navegador não dá é o movimento dos vizinhos: sem
+// ajuda, os cards ao redor pulam para a posição nova de um quadro para o outro.
+//
+// FLIP resolve: mede onde cada card estava (First), reordena o DOM (Last), aplica o
+// deslocamento inverso como transform (Invert) e deixa a transição levar de volta a zero
+// (Play). O card se move de onde estava até onde foi, em vez de aparecer lá.
+
+let cardArrastado = null;
+
+function medirCards() {
+  const m = new Map();
+  gradeInicio()?.querySelectorAll(".home-card").forEach(el => m.set(el.dataset.card, el.getBoundingClientRect()));
+  return m;
+}
+
+function animarDeslocamento(antes) {
+  gradeInicio()?.querySelectorAll(".home-card").forEach(el => {
+    const a = antes.get(el.dataset.card);
+    if (!a) return;
+    const b = el.getBoundingClientRect();
+    const dx = a.left - b.left, dy = a.top - b.top;
+    if (!dx && !dy) return;
+    el.style.transition = "none";
+    el.style.transform = `translate(${dx}px, ${dy}px)`;
+    requestAnimationFrame(() => {
+      el.style.transition = "transform var(--mov-base) var(--mov-suave)";
+      el.style.transform = "";
+    });
+  });
+}
+
+function ligarArrasto() {
+  const grade = gradeInicio();
+  if (!grade || grade.dataset.arrasto) return;
+  grade.dataset.arrasto = "1";
+
+  grade.addEventListener("dragstart", (e) => {
+    const card = e.target.closest(".home-card");
+    if (!card) return;
+    cardArrastado = card.dataset.card;
+    card.classList.add("arrastando");
+    e.dataTransfer.effectAllowed = "move";
+    // Firefox exige que algo seja escrito no dataTransfer para o arrasto começar.
+    e.dataTransfer.setData("text/plain", cardArrastado);
+  });
+
+  grade.addEventListener("dragend", (e) => {
+    e.target.closest(".home-card")?.classList.remove("arrastando");
+    cardArrastado = null;
+    salvarCards();
+  });
+
+  grade.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    const alvo = e.target.closest(".home-card");
+    if (!alvo || !cardArrastado || alvo.dataset.card === cardArrastado) return;
+
+    const de = estadoCards.ordem.indexOf(cardArrastado);
+    const para = estadoCards.ordem.indexOf(alvo.dataset.card);
+    if (de < 0 || para < 0) return;
+
+    const antes = medirCards();
+    estadoCards.ordem.splice(para, 0, ...estadoCards.ordem.splice(de, 1));
+    const el = grade.querySelector(`[data-card="${cardArrastado}"]`);
+    if (de < para) alvo.after(el); else alvo.before(el);
+    animarDeslocamento(antes);
+  });
+}
+
+async function salvarCards() {
+  try { await window.nx.setConfig({ homeCards: estadoCards }); } catch { /* segue com o que está na tela */ }
+}
+
+async function carregarCards() {
+  try {
+    const cfg = await window.nx.getConfig();
+    const salvo = cfg?.homeCards;
+    if (salvo && Array.isArray(salvo.ordem)) {
+      // Um card removido numa versão futura não pode sobrar na ordem gravada, e um card
+      // novo tem que aparecer para quem já tinha configuração salva — senão ele nasce
+      // invisível e ninguém descobre que existe.
+      const conhecidos = salvo.ordem.filter(id => CARDS[id]);
+      const faltando = Object.keys(CARDS).filter(id => !conhecidos.includes(id));
+      estadoCards = {
+        ordem: [...conhecidos, ...faltando],
+        ocultos: (salvo.ocultos ?? []).filter(id => CARDS[id])
+          .concat(faltando.filter(id => !CARDS_PADRAO.includes(id))),
+      };
+    } else {
+      estadoCards = {
+        ordem: [...CARDS_PADRAO, ...Object.keys(CARDS).filter(id => !CARDS_PADRAO.includes(id))],
+        ocultos: Object.keys(CARDS).filter(id => !CARDS_PADRAO.includes(id)),
+      };
+    }
+  } catch { /* fica com o padrão */ }
+}
+
+// ─────────────────────────────────────────────────
+// PERSONALIZAR: ligar e desligar card
+// ─────────────────────────────────────────────────
+
+function abrirPersonalizar() {
+  const cx = document.getElementById("home-personalizar");
+  if (!cx) return;
+  const aberto = cx.classList.toggle("aberto");
+  if (!aberto) return;
+  cx.innerHTML = Object.entries(CARDS).map(([id, c]) =>
+    `<label class="home-toggle">
+      <input type="checkbox" data-card-toggle="${id}" ${estadoCards.ocultos.includes(id) ? "" : "checked"}>
+      ${ico(c.icone, "ico-sm")}<span>${escHtml(c.titulo)}</span>
+    </label>`).join("");
+}
+
+// ─────────────────────────────────────────────────
+// AÇÕES DA TELA
+// ─────────────────────────────────────────────────
+//
+// Um ouvinte só, delegado na tela inteira: os cards são redesenhados a cada atualização, e
+// ouvinte preso em elemento redesenhado morre junto com ele.
+
+document.getElementById("view-inicio")?.addEventListener("click", async (e) => {
+  const alvo = (sel) => e.target.closest(sel);
+
+  const btnPers = alvo("#home-btn-personalizar");
+  if (btnPers) { abrirPersonalizar(); return; }
+
+  const quick = alvo("button[data-quick]");
+  if (quick) {
+    const acoes = {
+      print: () => window.nx.rpc("screen.capture", { maxWidth: 1100 }),
+      lock:  () => window.nx.rpc("power.control", { operation: "lock" }),
+      sleep: () => window.nx.rpc("power.control", { operation: "sleep" }),
+    };
+    quick.disabled = true;
+    try { await acoes[quick.dataset.quick]?.(); } finally { quick.disabled = false; }
+    return;
+  }
+
+  const login = alvo("button[data-spotify]");
+  if (login) {
+    try { await window.nx.spotifyLogin(); showToast("Terminando no navegador…"); }
+    catch { showToast("Não consegui abrir o login do Spotify."); }
+    return;
+  }
+
+  const mus = alvo("button[data-mus]");
+  if (mus) {
+    const op = mus.dataset.mus;
+    try {
+      if (op === "playpause") await window.nx.spotifyCommand(dadosInicio.spotify?.isPlaying ? "pause" : "play");
+      else await window.nx.spotifyCommand(op);
+      setTimeout(atualizarInicio, 400);   // a API do Spotify leva um instante para refletir
+    } catch { showToast("Não consegui falar com o Spotify."); }
+    return;
+  }
+
+  const abrir = alvo("button[data-abrir]");
+  if (abrir) {
+    try { await window.nx.rpc("apps.open", { name: abrir.dataset.abrir }); showToast(`Abrindo ${abrir.dataset.abrir}…`); }
+    catch { showToast("Não consegui abrir."); }
+    return;
+  }
+
+  const clip = alvo("button[data-clip]");
+  if (clip) {
+    if (clip.dataset.clip === "atualizar") { await atualizarInicio(); }
+    else if (dadosInicio.clipboard) {
+      try { await window.nx.mailboxSend(dadosInicio.clipboard); showToast("Mandado para o celular."); }
+      catch { showToast("Não consegui mandar."); }
+    }
+    return;
+  }
+
+  const bolha = alvo("button[data-sug]");
+  if (bolha) {
+    const s = (dadosInicio.sugestoes ?? [])[Number(bolha.dataset.sug)];
+    if (!s) return;
+    // A bolha executa direto pelo RPC. Montar uma frase em português e mandar para o
+    // modelo seria mais lento e não-determinístico, para um comando que já é sabido.
+    if (s.acao?.metodo) {
+      bolha.disabled = true;
+      try {
+        // A caixa de recados vive no IPC, não na superfície do RPC — o serviço de
+        // sugestões marca esse caso com um método sentinela em vez de inventar um
+        // método RPC só para ele.
+        if (s.acao.metodo === "__mailbox") await window.nx.mailboxSend(String(s.acao.params?.texto ?? ""));
+        else await window.nx.rpc(s.acao.metodo, s.acao.params);
+        showToast(s.acao.aviso ?? "Feito."); await atualizarInicio();
+      }
+      catch { showToast("Não consegui executar."); }
+      finally { bolha.disabled = false; }
+    } else if (s.acao?.aba) {
+      switchView(s.acao.aba);
+    }
+    return;
+  }
+});
+
+document.getElementById("view-inicio")?.addEventListener("change", async (e) => {
+  const t = e.target.closest("input[data-card-toggle]");
+  if (!t) return;
+  const id = t.dataset.cardToggle;
+  estadoCards.ocultos = t.checked
+    ? estadoCards.ocultos.filter(x => x !== id)
+    : [...estadoCards.ocultos, id];
+  await salvarCards();
+  await atualizarInicio();
+  ligarArrasto();
+});
+
+document.getElementById("view-inicio")?.addEventListener("submit", async (e) => {
+  const form = e.target.closest(".lembrete-novo");
+  if (!form) return;
+  e.preventDefault();
+  const texto = form.texto.value.trim();
+  const hora = form.hora.value;
+  if (!texto || !hora) { showToast("Falta o texto ou a hora."); return; }
+
+  // A hora digitada é sempre a próxima ocorrência: 08:00 às 14h vira amanhã, não hoje de
+  // manhã — senão o lembrete nasceria já vencido e dispararia na hora.
+  const [h, m] = hora.split(":").map(Number);
+  const quando = new Date();
+  quando.setHours(h, m, 0, 0);
+  if (quando.getTime() <= Date.now()) quando.setDate(quando.getDate() + 1);
+
+  try {
+    await window.nx.rpc("reminders.create", { text: texto, dueAt: quando.getTime() });
+    showToast(`Lembrete criado para ${quandoTexto(quando.getTime())}.`);
+    form.reset();
+    await atualizarInicio();
+  } catch { showToast("Não consegui criar o lembrete."); }
 });
 
 // A telemetria já chega de 5 em 5 segundos por IPC; aproveitar o mesmo evento evita um
 // segundo laço de polling só para esta tela.
-window.nx.onTelemetry?.(() => {
-  if (layoutEl.getAttribute("data-view") === "inicio") atualizarInicio();
+// Só o card de telemetria precisa desse pulso; redesenhar a tela inteira a cada 5 s
+// mataria a digitação no formulário de lembrete e o arrasto em andamento.
+window.nx.onTelemetry?.((t) => {
+  if (layoutEl.getAttribute("data-view") !== "inicio" || cardArrastado) return;
+  if (estadoCards.ocultos.includes("computador")) return;
+  const cpu = document.getElementById("home-cpu");
+  const ram = document.getElementById("home-ram");
+  if (cpu) animarNumero(cpu, Math.round(t.cpu_pct ?? 0));
+  if (ram) animarNumero(ram, Math.round(t.ram_pct ?? 0));
+  const barras = document.querySelectorAll('[data-card="computador"] .home-bar > i');
+  if (barras[0]) barras[0].style.transform = `scaleX(${(t.cpu_pct ?? 0) / 100})`;
+  if (barras[1]) barras[1].style.transform = `scaleX(${(t.ram_pct ?? 0) / 100})`;
+  if (dadosInicio.telemetria) dadosInicio.telemetria = t;
 });
 
-// Item novo na Caixa marca o destino, como o badge da TabBar do celular.
+// Recado novo acende o ponto no lado "Celular" do switch — e também na aba Chat, para
+// quem estiver em outra tela. Antes isso marcava a aba Caixa, que não existe mais.
 window.nx.onMailboxMessage(() => {
-  if (layoutEl.getAttribute("data-view") !== "caixa") {
-    document.querySelector('.vtab[data-view="caixa"]')?.classList.add("has-news");
+  if (chatMode !== "self") document.getElementById("chat-tab-self")?.classList.add("tem-novidade");
+  if (layoutEl.getAttribute("data-view") !== "chat") {
+    document.querySelector('.vtab[data-view="chat"]')?.classList.add("has-news");
   }
 });
 
@@ -3405,6 +4641,29 @@ try {
   if (salva && document.querySelector(`.vtab[data-view="${salva}"]`)) switchView(salva);
   else switchView("inicio");
 } catch { switchView("inicio"); }
+
+// As bolhas trocam a cada volta para a janela — é o que faz a tela ter algo novo a dizer
+// sem ficar redesenhando sozinha o tempo todo. O debounce existe porque `focus` e
+// `visibilitychange` disparam juntos ao restaurar, e sem ele seriam dois sorteios.
+let reSorteio = 0;
+function reabriu() {
+  if (layoutEl.getAttribute("data-view") !== "inicio") return;
+  clearTimeout(reSorteio);
+  reSorteio = setTimeout(() => atualizarInicio().then(ligarArrasto), 120);
+}
+window.addEventListener("focus", reabriu);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) reabriu(); });
+
+// `switchChatMode` sai cedo quando o modo pedido já é o atual — então o polegar do switch
+// não seria posicionado na primeira pintura. Também é preciso remedir quando a janela muda
+// de largura, porque o controle é dimensionado pelo conteúdo.
+moverPolegarChat();
+window.addEventListener("resize", moverPolegarChat);
+
+// A configuração dos cards chega depois do boot; redesenha assim que ela existir.
+carregarCards().then(() => {
+  if (layoutEl.getAttribute("data-view") === "inicio") atualizarInicio().then(ligarArrasto);
+});
 
 </script>
 </body>

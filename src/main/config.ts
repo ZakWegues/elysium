@@ -87,6 +87,16 @@ export interface AppConfig {
   serverPort: number;
   theme: string;
   layout: UiLayout;
+  /**
+   * Cidade do card de clima. Escolhida pelo usuário em Ajustes — não há
+   * geolocalização nem descoberta por IP em lugar nenhum (ver `clima.ts`).
+   * Vazio significa "sem clima": o card e a bolha simplesmente somem.
+   */
+  climaCidade: string;
+  climaLat: number | null;
+  climaLon: number | null;
+  /** Ordem e visibilidade dos cards da tela Início. */
+  homeCards: { ordem: string[]; ocultos: string[] };
 }
 
 const DEFAULTS: AppConfig = {
@@ -114,6 +124,10 @@ const DEFAULTS: AppConfig = {
   serverPort: 4200,
   theme: "ely",
   layout: { order: ["perf", "storage", "taskmgr"], hidden: [] },
+  climaCidade: "",
+  climaLat: null,
+  climaLon: null,
+  homeCards: { ordem: [], ocultos: [] },
 };
 
 function loadDefaults(): AppConfig {

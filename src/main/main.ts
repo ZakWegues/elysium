@@ -294,7 +294,7 @@ ipcMain.on("audio-data", async (_event, buffer: Buffer) => {
 
     const label = getActionsLabel(actions);
     dashWin?.webContents.send("voice:action-label", label);
-    dashWin?.webContents.send("dash:action-log", { icon: "⚙️", text: label, ok: true });
+    dashWin?.webContents.send("dash:action-log", { icon: "settings", text: label, ok: true });
 
     const replies: string[] = [];
     for (const action of actions) {
@@ -357,7 +357,7 @@ ipcMain.on("chat:send", async (_event, text: string) => {
     const actions = await decideBrain(text);
     const label = getActionsLabel(actions);
     dashWin?.webContents.send("voice:action-label", label);
-    dashWin?.webContents.send("dash:action-log", { icon: "⚙️", text: label, ok: true });
+    dashWin?.webContents.send("dash:action-log", { icon: "settings", text: label, ok: true });
 
     const replies: string[] = [];
     for (const action of actions) {
@@ -403,7 +403,7 @@ ipcMain.on("system:kill-process", async (_event, pid: number) => {
 ipcMain.on("media:direct", async (_event, op: string) => {
   try {
     const reply = await mediaControl(op as Parameters<typeof mediaControl>[0]);
-    dashWin?.webContents.send("dash:action-log", { icon: "🎵", text: reply, ok: true });
+    dashWin?.webContents.send("dash:action-log", { icon: "music", text: reply, ok: true });
   } catch { /* ignore */ }
 });
 
