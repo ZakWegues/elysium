@@ -51,14 +51,26 @@ function descreverWmo(codigo: number): { descricao: string; icone: string; chuva
 
 /** Uma leitura por hora basta: a previsão da Open-Meteo não muda mais rápido que isso. */
 const VALIDADE_MS = 60 * 60 * 1000;
+/**
+ * Falha vale bem menos tempo. Guardar "não deu" por uma hora significa que tirar o cabo da
+ * rede por um minuto deixa o card mudo pelo resto da manhã.
+ */
+const VALIDADE_FALHA_MS = 60 * 1000;
 let cache: { em: number; dado: Clima | null } | null = null;
 
+/** Último motivo de falha, para o card dizer "sem conexão" em vez de "defina a cidade". */
+let ultimaFalha: string | null = null;
+
+export function motivoDaFalha(): string | null { return ultimaFalha; }
+
 export async function climaAgora(): Promise<Clima | null> {
-  if (cache && Date.now() - cache.em < VALIDADE_MS) return cache.dado;
+  const validade = cache?.dado ? VALIDADE_MS : VALIDADE_FALHA_MS;
+  if (cache && Date.now() - cache.em < validade) return cache.dado;
 
   const cfg = getConfig();
   const { climaLat: lat, climaLon: lon, climaCidade: cidade } = cfg;
   if (typeof lat !== "number" || typeof lon !== "number" || !cidade) {
+    ultimaFalha = "sem-cidade";
     cache = { em: Date.now(), dado: null };
     return null;
   }
@@ -96,18 +108,29 @@ export async function climaAgora(): Promise<Clima | null> {
       icone,
       chuvaHoje: chuva,
     };
+    ultimaFalha = null;
+    ultimaFalha = null;
     cache = { em: Date.now(), dado };
     return dado;
   } catch (e) {
     console.warn("[clima] não consegui consultar a Open-Meteo:", (e as Error).message);
     // Guarda a falha no cache também: sem rede, isto seria uma tentativa a cada
-    // atualização da Início, cada uma esperando o timeout inteiro.
+    // atualização da Início, cada uma esperando o timeout inteiro — mas por um minuto só.
+    ultimaFalha = "sem-rede";
     cache = { em: Date.now(), dado: null };
     return null;
   }
 }
 
-/** Usado quando a cidade muda em Ajustes — senão o valor velho ficaria até uma hora. */
+/**
+ * Chamado quando a cidade muda em Ajustes.
+ *
+ * 🔴 Sem isto o clima simplesmente NÃO FUNCIONA, e foi o bug relatado: antes de a cidade
+ * existir, `climaAgora()` cacheia `dado: null`. Definir a cidade não invalidava nada, então
+ * o card continuava dizendo "defina a cidade em Ajustes" por até uma hora depois de ela ter
+ * sido definida. A função existia desde o começo e ninguém a chamava.
+ */
 export function limparCacheClima(): void {
   cache = null;
+  ultimaFalha = null;
 }

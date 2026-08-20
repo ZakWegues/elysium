@@ -147,7 +147,7 @@ body.theme-ely {
 @keyframes ely-shaft-2 { from { transform: skewX(-14deg) translateX(0); }    to { transform: skewX(-14deg) translateX(-90px); } }
 
 @media (prefers-reduced-motion: reduce) {
-  .ely-shaft { animation: none !important; }
+  :root:not([data-movimento="sempre"]) .ely-shaft { animation: none !important; }
 }
 
 
@@ -193,25 +193,31 @@ body.theme-ely {
 .mov-lista > *:nth-child(5) { animation-delay: 120ms; }
 .mov-lista > *:nth-child(n+6) { animation-delay: 150ms; }
 
-/* ── Troca de aba pela View Transitions API ───────────────
-   O Chromium 126 do Electron 31 faz o cross-fade sozinho a partir de um
-   snapshot do antes e do depois. Sem biblioteca, sem estado intermediário no JS
-   e sem os dois painéis coexistindo no DOM. */
-::view-transition-old(conteudo) {
-  animation: vt-sai var(--mov-saida) var(--mov-curva) both;
-}
-::view-transition-new(conteudo) {
-  animation: vt-entra var(--mov-base) var(--mov-suave) both;
-}
-@keyframes vt-sai   { to   { opacity: 0; transform: translateY(-4px); } }
-@keyframes vt-entra { from { opacity: 0; transform: translateY(8px);  } }
+/* ── Troca de aba ─────────────────────────────────────────
+   `@starting-style` diz de onde a animação parte na PRIMEIRA vez que o elemento
+   é renderizado, e `transition-behavior: allow-discrete` faz `display` esperar a
+   transição terminar antes de voltar a `none`. Juntos, animam a partir de
+   `display:none` sem uma linha de JS.
+
+   Aqui havia a View Transitions API. Ela tira um snapshot da página e o sobrepõe
+   ao DOM vivo — então a barrinha da barra de abas deslizava POR BAIXO do snapshot,
+   invisível, e sobrava um cross-fade de dois painéis escuros quase iguais, que lê
+   como nada acontecendo. A API serve para morph entre estados diferentes, não para
+   navegação, onde o que importa é ver o indicador percorrer o caminho. */
 #layout > #view-inicio,
 #layout > #center,
 #layout > #drawer-left,
-#layout > #drawer-right { view-transition-name: conteudo; }
-/* Só o painel visível carrega o nome na prática: os outros estão em
-   display:none, e elemento oculto não entra na transição. Dois elementos com o
-   mesmo view-transition-name ao mesmo tempo cancelariam a transição inteira. */
+#layout > #drawer-right {
+  transition: opacity var(--mov-base) var(--mov-suave),
+              transform var(--mov-base) var(--mov-suave),
+              display var(--mov-base) allow-discrete;
+}
+@starting-style {
+  #layout[data-view="inicio"]  #view-inicio,
+  #layout[data-view="chat"]    #center,
+  #layout[data-view="pc"]      #drawer-left,
+  #layout[data-view="ajustes"] #drawer-right { opacity: 0; transform: translateY(10px); }
+}
 
 /* ── Polegar deslizante da barra de abas ──────────────────
    Substitui o `border-bottom` que apagava num destino e acendia noutro. O
@@ -408,24 +414,31 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
 }
 .chat-switch {
   position: relative; display: flex; padding: 3px;
+  width: 232px;
   background: rgba(var(--purple-rgb),0.08);
   border: 1px solid var(--border); border-radius: var(--radius-20);
 }
 /* O polegar é um irmão posicionado atrás dos dois botões: assim o texto ativo não
    precisa de fundo próprio e a troca é um único translate. */
+/* Metade exata do controle, em CSS. A posição vem de um `data-modo` no pai — nenhuma
+   medição, nenhum JS, e portanto nenhuma dependência de o elemento estar visível na hora
+   de inicializar. Era exatamente aí que o switch nascia quebrado. */
 #chat-switch-thumb {
   position: absolute; top: 3px; bottom: 3px; left: 3px;
+  width: calc(50% - 3px);
   border-radius: var(--radius-20);
   background: rgba(var(--purple-rgb),0.30);
   box-shadow: var(--shadow-card, none);
-  transition: transform var(--mov-base) var(--mov-suave), width var(--mov-base) var(--mov-suave);
+  transition: transform 320ms cubic-bezier(0.3, 0.9, 0.25, 1);
   pointer-events: none;
 }
+.chat-switch[data-modo="self"] #chat-switch-thumb { transform: translateX(100%); }
 .chat-tab-btn {
   position: relative; z-index: 1;
-  display: flex; align-items: center; gap: 7px;
+  flex: 1 1 0; min-width: 0;
+  display: flex; align-items: center; justify-content: center; gap: 7px;
   background: none; border: none; color: var(--muted);
-  border-radius: var(--radius-20); padding: 6px 18px;
+  border-radius: var(--radius-20); padding: 6px 12px;
   font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
   transition: color var(--mov-micro) var(--mov-curva);
 }
@@ -1035,29 +1048,24 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
 .theme-rich .top-btn, .theme-rich .send-btn, .theme-rich .mic-btn, .theme-rich .chat-tab-btn,
 .theme-rich .rtab-btn, .theme-rich .media-btn, .theme-rich .widget-order-btn,
 .theme-rich #stop-btn, .theme-rich #proc-modal-close, .theme-rich .sort-btn,
-.theme-rich #open-config-btn, .theme-rich .save-btn, .theme-rich .attachment-btn,
+.theme-rich .save-btn, .theme-rich .attachment-btn,
 .theme-rich .kill-btn, .theme-rich .proc-expand-btn {
-  transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1), background 0.2s ease,
-              box-shadow 0.25s ease, border-color 0.2s ease;
-}
-.theme-rich .top-btn:hover, .theme-rich .send-btn:hover, .theme-rich .mic-btn:hover,
-.theme-rich .chat-tab-btn:hover, .theme-rich .rtab-btn:hover, .theme-rich .media-btn:hover,
-.theme-rich .widget-order-btn:hover:not(:disabled), .theme-rich #stop-btn:hover,
-.theme-rich #proc-modal-close:hover, .theme-rich .sort-btn:hover, .theme-rich #open-config-btn:hover,
-.theme-rich .save-btn:hover, .theme-rich .attachment-btn:hover, .theme-rich .kill-btn:hover,
-.theme-rich .proc-expand-btn:hover {
-  transform: translateY(-1px) scale(1.05);
+  /* Sem overshoot e sem crescer no hover: o hover muda a COR, o toque é que move.
+     Overshoot em hover é o "bounce em todo hover" da lista de sinais de IA — e some
+     no celular, onde não existe hover. */
+  transition: transform var(--mov-micro) var(--mov-curva), background var(--mov-micro) var(--mov-curva),
+              box-shadow var(--mov-micro) var(--mov-curva), border-color var(--mov-micro) var(--mov-curva);
 }
 .theme-rich .top-btn:active, .theme-rich .send-btn:active, .theme-rich .mic-btn:active,
 .theme-rich .chat-tab-btn:active, .theme-rich .rtab-btn:active, .theme-rich .media-btn:active,
 .theme-rich .widget-order-btn:active, .theme-rich #stop-btn:active, .theme-rich #proc-modal-close:active,
-.theme-rich .sort-btn:active, .theme-rich #open-config-btn:active, .theme-rich .save-btn:active,
+.theme-rich .sort-btn:active, .theme-rich .save-btn:active,
 .theme-rich .attachment-btn:active, .theme-rich .kill-btn:active, .theme-rich .proc-expand-btn:active {
-  transform: scale(0.92);
-  transition-duration: 0.1s;
+  transform: scale(0.96);
+  transition-duration: 80ms;
 }
 .theme-rich .preset-card, .theme-rich .theme-swatch {
-  transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1), background 0.2s, border-color 0.2s;
+  transition: transform var(--mov-micro) var(--mov-curva), background var(--mov-micro) var(--mov-curva), border-color var(--mov-micro) var(--mov-curva);
 }
 .theme-rich .preset-card:hover, .theme-rich .theme-swatch:hover { transform: translateY(-2px); }
 .theme-rich .preset-card:active, .theme-rich .theme-swatch:active { transform: scale(0.98); transition-duration: 0.1s; }
@@ -1090,7 +1098,7 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .theme-rich * { animation: none !important; transition: none !important; }
+  :root:not([data-movimento="sempre"]) .theme-rich * { animation: none !important; transition: none !important; }
 }
 
 /* ── LIQUID GLASS: chrome (barras/gavetas/modal) ─────────── */
@@ -1296,22 +1304,29 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
   border-left: none;
   border-right: none;
   z-index: auto;
-  transition: none;
 }
 /* Fora da sua aba, some de vez: `display:none` e não translate, senão o conteúdo
    continuaria recebendo foco por Tab e o leitor de tela ainda o anunciaria. */
 #layout[data-view] #drawer-left,
 #layout[data-view] #drawer-right,
 #layout[data-view] #center,
-#layout[data-view] #view-inicio { display: none; }
+#layout[data-view] #view-inicio { display: none; opacity: 0; transform: translateY(-6px); }
 
-/* `flex: 1` porque #layout é flex: sem isto o painel encolhe até o conteúdo e sobra meia
-   janela vazia à direita. Vale para todas as views, não só a Início. */
-#layout[data-view] > *:not([hidden]) { flex: 1 1 auto; min-width: 0; }
-#layout[data-view="inicio"]  #view-inicio  { display: block; }
-#layout[data-view="chat"]    #center       { display: flex; }
-#layout[data-view="pc"]      #drawer-left  { display: block; padding: 14px 18px 20px; }
-#layout[data-view="ajustes"] #drawer-right { display: flex; }
+/* Os painéis se SOBREPÕEM, não dividem espaço.
+   Enquanto a troca acontece, o que sai e o que entra estão os dois visíveis por ~220ms —
+   `display` só volta a `none` no fim, por causa do `allow-discrete`. Se fossem itens de
+   flex, nesse intervalo eles partiriam a janela ao meio e a tela pularia. Empilhados, um
+   simplesmente atravessa o outro, que é o que se quer ver. */
+#layout[data-view] > #view-inicio,
+#layout[data-view] > #center,
+#layout[data-view] > #drawer-left,
+#layout[data-view] > #drawer-right {
+  position: absolute; inset: 0; min-width: 0;
+}
+#layout[data-view="inicio"]  #view-inicio  { display: block; opacity: 1; transform: none; }
+#layout[data-view="chat"]    #center       { display: flex;  opacity: 1; transform: none; }
+#layout[data-view="pc"]      #drawer-left  { display: block; opacity: 1; transform: none; padding: 14px 18px 20px; }
+#layout[data-view="ajustes"] #drawer-right { display: flex;  opacity: 1; transform: none; }
 
 
 
@@ -1507,8 +1522,12 @@ body.tabs .top-btn.drawer-toggle { display: none; }
   box-shadow: var(--shadow-float, 0 12px 40px rgba(0,0,0,0.5));
   backdrop-filter: var(--glass-blur);
   transform-origin: top right;
-  transform: scale(0.9) translateY(-6px); opacity: 0;
-  transition: transform var(--mov-saida) var(--mov-curva), opacity var(--mov-saida) var(--mov-curva);
+  /* Fechado. `display` entra na transição com `allow-discrete`, então ele espera a
+     saída terminar antes de voltar a `none` — é isso que torna a saída visível. */
+  display: none; opacity: 0; transform: scale(0.92) translateY(-8px);
+  transition: opacity var(--mov-saida) var(--mov-curva),
+              transform var(--mov-saida) var(--mov-curva),
+              display var(--mov-saida) allow-discrete;
 }
 #preset-pop-corpo, .pop-corpo {
   max-height: 56vh; overflow-y: auto;
@@ -1517,9 +1536,17 @@ body.tabs .top-btn.drawer-toggle { display: none; }
 #preset-pop-corpo::-webkit-scrollbar, .pop-corpo::-webkit-scrollbar { width: 4px; }
 #preset-pop-corpo::-webkit-scrollbar-thumb, .pop-corpo::-webkit-scrollbar-thumb { background: var(--border); border-radius: var(--radius-4); }
 #preset-pop.aberto, .pop.aberto {
-  transform: none; opacity: 1;
-  /* Mola: passa um pouco do alvo e volta. Curta o bastante para não virar espera. */
-  transition: transform 320ms cubic-bezier(0.2, 1.35, 0.4, 1), opacity var(--mov-micro) linear;
+  display: block; opacity: 1; transform: none;
+  /* Mola: passa um pouco do alvo e volta. Curta o bastante para não virar espera.
+     É o único lugar do app com overshoot — é a assinatura do formato popover. */
+  transition: opacity var(--mov-micro) linear,
+              transform 340ms cubic-bezier(0.2, 1.3, 0.35, 1),
+              display 340ms allow-discrete;
+}
+/* De onde a entrada parte na primeira renderização. Sem isto o navegador não tem
+   estado anterior e a caixa apareceria pronta. */
+@starting-style {
+  #preset-pop.aberto, .pop.aberto { opacity: 0; transform: scale(0.92) translateY(-8px); }
 }
 /* A careta. Quadrado girado com as mesmas borda e cor do popover; a metade de baixo fica
    escondida atrás dele, e o que sobra é o bico. */
@@ -1757,16 +1784,25 @@ body.tabs .top-btn.drawer-toggle { display: none; }
 /* ── Reduzir movimento ────────────────────────────────────
    Quem liga isso no Windows costuma ter um motivo físico. Zera tudo de uma vez,
    inclusive o que for adicionado depois. */
+/* Segue o Windows, a menos que o app tenha sido mandado ignorar. */
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
+  :root:not([data-movimento="sempre"]) *,
+  :root:not([data-movimento="sempre"]) *::before,
+  :root:not([data-movimento="sempre"]) *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
-  ::view-transition-group(*),
-  ::view-transition-old(*),
-  ::view-transition-new(*) { animation: none !important; }
+}
+/* "Nunca" vale independentemente do que o sistema diga. */
+:root[data-movimento="nunca"] *,
+:root[data-movimento="nunca"] *::before,
+:root[data-movimento="nunca"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
 }
 
 </style>
@@ -1963,7 +1999,7 @@ body.tabs .top-btn.drawer-toggle { display: none; }
       <button id="conv-btn" title="Conversas salvas" aria-haspopup="dialog" aria-expanded="false">
         <svg class="ico ico-sm" aria-hidden="true"><use href="#i-clock"/></svg>
       </button>
-      <div class="chat-switch" role="tablist" aria-label="Com quem você está falando">
+      <div class="chat-switch" data-modo="ai" role="tablist" aria-label="Com quem você está falando">
         <span id="chat-switch-thumb"></span>
         <button class="chat-tab-btn active" id="chat-tab-ai" role="tab" aria-selected="true" title="Conversar com a IA"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-cpu"/></svg><span>IA</span></button>
         <button class="chat-tab-btn" id="chat-tab-self" role="tab" aria-selected="false" title="Recados que aparecem no seu celular"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-smartphone"/></svg><span>Celular</span><span class="chat-tab-dot"></span></button>
@@ -2093,7 +2129,7 @@ body.tabs .top-btn.drawer-toggle { display: none; }
 </div><!-- /layout -->
 
 <!-- PROCESS MANAGER MODAL -->
-<div id="conv-pop" class="pop" role="dialog" aria-label="Conversas salvas" hidden>
+<div id="conv-pop" class="pop" role="dialog" aria-label="Conversas salvas">
   <div class="pop-titulo">Conversas salvas</div>
   <div class="pop-corpo">
     <button id="conv-new-btn" class="pop-novo">
@@ -2104,7 +2140,7 @@ body.tabs .top-btn.drawer-toggle { display: none; }
   </div>
 </div>
 
-<div id="preset-pop" role="dialog" aria-label="Presets" hidden>
+<div id="preset-pop" role="dialog" aria-label="Presets">
   <div id="preset-pop-titulo">Presets</div>
   <div id="preset-pop-corpo"></div>
 </div>
@@ -2184,6 +2220,17 @@ function nomeDeIcone(bruto) {
 function ico(nome, cls) {
   const n = nomeDeIcone(nome);
   return `<svg class="ico${cls ? " " + cls : ""}" aria-hidden="true"><use href="#i-${n}"/></svg>`;
+}
+
+/**
+ * Um lugar só decide se há movimento. O CSS lê o mesmo atributo por seletor; aqui é para o
+ * JS que anima à mão (contagem de números, FLIP do arrasto).
+ */
+function movimentoLigado() {
+  const modo = document.documentElement.dataset.movimento;
+  if (modo === "sempre") return true;
+  if (modo === "nunca") return false;
+  return !matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
 function escHtml(s) {
@@ -2388,18 +2435,6 @@ async function loadSelfThread() {
   } catch { /* ignore */ }
 }
 
-/**
- * Posiciona o polegar sob o lado ativo. Mede o botão em vez de assumir metade: "IA" e
- * "Celular" têm larguras diferentes, e o controle é dimensionado pelo conteúdo.
- */
-function moverPolegarChat() {
-  const ativo = document.querySelector(".chat-tab-btn.active");
-  const thumb = document.getElementById("chat-switch-thumb");
-  if (!ativo || !thumb) return;
-  thumb.style.width = `${ativo.offsetWidth}px`;
-  thumb.style.transform = `translateX(${ativo.offsetLeft - 3}px)`;
-}
-
 function switchChatMode(mode) {
   if (mode === chatMode) return;
   chatMode = mode;
@@ -2415,7 +2450,8 @@ function switchChatMode(mode) {
     document.getElementById("chat-tab-self")?.classList.remove("tem-novidade");
     if (!selfLoaded) loadSelfThread();
   }
-  moverPolegarChat();
+  // O polegar segue este atributo, por CSS. Sem medir, sem JS de posição.
+  document.querySelector(".chat-switch")?.setAttribute("data-modo", mode);
 }
 
 chatTabAi.addEventListener("click", () => switchChatMode("ai"));
@@ -3371,6 +3407,7 @@ apikeySave.addEventListener("click", async () => {
 async function loadConfig() {
   try {
     const cfg = await window.nx.getConfig();
+    document.documentElement.dataset.movimento = cfg.movimento ?? "auto";
     desenharAjustes(cfg);
     const cidade = document.getElementById("clima-atual");
     if (cidade) cidade.textContent = cfg.climaCidade || "não definida";
@@ -3556,7 +3593,8 @@ document.getElementById("pairing-regen-btn").addEventListener("click", async () 
 // WINDOW CONTROLS
 // ─────────────────────────────────────────────────
 document.getElementById("btnClose").addEventListener("click", () => window.close());
-document.getElementById("btnMin").addEventListener("click", () => window.close());
+// Minimizar minimiza; fechar esconde para a bandeja (o handler de `close` no main).
+document.getElementById("btnMin").addEventListener("click", () => window.nx.minimizar());
 
 // ─────────────────────────────────────────────────
 // INIT
@@ -3596,19 +3634,18 @@ function moverPolegar() {
   thumb.style.transform = `translateX(${ativa.offsetLeft}px) scaleX(${ativa.offsetWidth})`;
   thumb.style.width = "1px";
 }
-window.addEventListener("resize", moverPolegar);
+// A largura do rótulo muda quando a fonte termina de carregar, e a barra pode mudar de
+// tamanho sem a janela mudar (o rótulo some abaixo de 880px). Um `resize` de janela não
+// cobre nenhum dos dois casos.
+document.fonts?.ready.then(moverPolegar);
+new ResizeObserver(moverPolegar).observe(document.getElementById("viewtabs"));
 
+/**
+ * A animação de troca é toda CSS (`@starting-style` + `allow-discrete`). Aqui só se muda
+ * o atributo — e é justamente por não haver snapshot cobrindo a página que a barrinha
+ * volta a ser vista deslizando.
+ */
 function switchView(view) {
-  // A View Transitions API cuida do cross-fade entre o painel que sai e o que
-  // entra. Se não existir, a troca acontece igual — só sem animação.
-  if (document.startViewTransition && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
-    document.startViewTransition(() => aplicarView(view));
-  } else {
-    aplicarView(view);
-  }
-}
-
-function aplicarView(view) {
   layoutEl.setAttribute("data-view", view);
   vtabs.forEach(b => {
     const ativa = b.dataset.view === view;
@@ -3623,6 +3660,7 @@ function aplicarView(view) {
   // existe em vez de duplicar a lógica dos dois timelines.
   // A Caixa deixou de ser aba: virou o lado direito do switch, dentro do Chat.
 
+  if (view === "chat") requestAnimationFrame(moverPolegar);
   if (view === "inicio") atualizarInicio().then(ligarArrasto);
   // Os canvas nascem dentro de um painel oculto, e elemento em `display:none` mede zero.
   // Só ao entrar na aba dá para saber a largura real.
@@ -3678,6 +3716,16 @@ const AJUSTES = [
         dica: "Cobre JSON quebrado e Ollama fora do ar. Não cobre pedido composto pela metade — aquilo é JSON válido." },
       { chave: "evitarGpuOcupada", rotulo: "Usar a nuvem com jogo aberto", tipo: "bool",
         dica: "O modelo local ocupa ~2,6 GB de VRAM enquanto carregado." },
+    ],
+  },
+  {
+    grupo: "Aparência",
+    nota: "O Windows deste PC controla animação para o sistema inteiro. Se você desligou " +
+          "\"Efeitos de animação\" lá por causa de jogo ou desempenho, use \"Sempre\" para " +
+          "manter o ELYSIUM animado mesmo assim.",
+    campos: [
+      { chave: "movimento", rotulo: "Animações", tipo: "select", opcoes: [
+        ["auto", "Seguir o Windows"], ["sempre", "Sempre animar"], ["nunca", "Nunca animar"]] },
     ],
   },
   {
@@ -3766,6 +3814,9 @@ document.getElementById("tab-config")?.addEventListener("change", async (e) => {
   const valor = el.type === "checkbox" ? el.checked
               : el.type === "range" ? Number(el.value)
               : el.value;
+  // Aplica na hora o que é visual; esperar reiniciar para ver o efeito de um seletor de
+  // aparência é o tipo de coisa que faz parecer que não funcionou.
+  if (chave === "movimento") document.documentElement.dataset.movimento = String(valor);
   try { await window.nx.setConfig({ [chave]: valor }); showToast("Salvo."); }
   catch { showToast("Não consegui salvar."); }
 });
@@ -3844,14 +3895,12 @@ function abrirConversas(abrir) {
     const r = convBtn.getBoundingClientRect();
     convPop.style.top = `${r.bottom + 10}px`;
     convPop.style.left = `${r.left}px`;
-    convPop.hidden = false;
-    requestAnimationFrame(() => convPop.classList.add("aberto"));
+    convPop.classList.add("aberto");
     loadConversations();
     convBtn?.setAttribute("aria-expanded", "true");
   } else {
     convPop.classList.remove("aberto");
     convBtn?.setAttribute("aria-expanded", "false");
-    setTimeout(() => { if (!convPop.classList.contains("aberto")) convPop.hidden = true; }, 160);
   }
 }
 
@@ -3895,20 +3944,18 @@ function abrirPresets(abrir) {
   const alvo = abrir ?? !estaAberto;
   if (alvo === estaAberto) return;
 
+  // Abrir e fechar é uma classe só. A entrada, a saída e o `display` são CSS
+  // (`@starting-style` + `allow-discrete`) — sem requestAnimationFrame e sem
+  // setTimeout tentando adivinhar quando a saída acabou.
   if (alvo) {
     modoCriar = false;
     posicionarPopover();
-    presetPop.hidden = false;
-    // Um quadro entre tornar visível e animar: sem isso o navegador agrupa as duas
-    // mudanças e o popover simplesmente aparece no estado final.
-    requestAnimationFrame(() => presetPop.classList.add("aberto"));
+    presetPop.classList.add("aberto");
     carregarPresetsPop();
     presetBtn?.setAttribute("aria-expanded", "true");
   } else {
     presetPop.classList.remove("aberto");
     presetBtn?.setAttribute("aria-expanded", "false");
-    // Só some do fluxo depois da saída, senão o conteúdo continuaria recebendo Tab.
-    setTimeout(() => { if (!presetPop.classList.contains("aberto")) presetPop.hidden = true; }, 160);
   }
 }
 
@@ -4081,7 +4128,7 @@ function quandoTexto(epochMs) {
  */
 function animarNumero(el, alvo, sufixo = "%") {
   const de = parseFloat(el.dataset.num ?? "0");
-  if (de === alvo || matchMedia("(prefers-reduced-motion: reduce)").matches) {
+  if (de === alvo || !movimentoLigado()) {
     el.dataset.num = String(alvo);
     el.textContent = Math.round(alvo) + sufixo;
     return;
@@ -4395,7 +4442,7 @@ function animarDeslocamento(antes) {
     if (!a) return;
     const b = el.getBoundingClientRect();
     const dx = a.left - b.left, dy = a.top - b.top;
-    if (!dx && !dy) return;
+    if (!dx && !dy || !movimentoLigado()) return;
     el.style.transition = "none";
     el.style.transform = `translate(${dx}px, ${dy}px)`;
     requestAnimationFrame(() => {
@@ -4653,12 +4700,6 @@ function reabriu() {
 }
 window.addEventListener("focus", reabriu);
 document.addEventListener("visibilitychange", () => { if (!document.hidden) reabriu(); });
-
-// `switchChatMode` sai cedo quando o modo pedido já é o atual — então o polegar do switch
-// não seria posicionado na primeira pintura. Também é preciso remedir quando a janela muda
-// de largura, porque o controle é dimensionado pelo conteúdo.
-moverPolegarChat();
-window.addEventListener("resize", moverPolegarChat);
 
 // A configuração dos cards chega depois do boot; redesenha assim que ela existir.
 carregarCards().then(() => {

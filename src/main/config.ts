@@ -92,6 +92,15 @@ export interface AppConfig {
    * geolocalização nem descoberta por IP em lugar nenhum (ver `clima.ts`).
    * Vazio significa "sem clima": o card e a bolha simplesmente somem.
    */
+  /**
+   * Movimento da interface: "auto" segue o Windows, "sempre" ignora a preferência do
+   * sistema, "nunca" desliga de vez.
+   *
+   * Existe porque "Efeitos de animação" do Windows é um interruptor só para o sistema
+   * inteiro, e quem o desliga por causa de um jogo ou de uma máquina lenta não
+   * necessariamente quer um app parado. O padrão continua sendo obedecer.
+   */
+  movimento: "auto" | "sempre" | "nunca";
   climaCidade: string;
   climaLat: number | null;
   climaLon: number | null;
@@ -124,6 +133,7 @@ const DEFAULTS: AppConfig = {
   serverPort: 4200,
   theme: "ely",
   layout: { order: ["perf", "storage", "taskmgr"], hidden: [] },
+  movimento: "auto",
   climaCidade: "",
   climaLat: null,
   climaLon: null,

@@ -24,6 +24,8 @@ contextBridge.exposeInMainWorld("nx", {
   onChatError:     (cb: (m: string)    => void) => { ipcRenderer.on("chat:error",         (_e, m) => cb(m)); },
   onChatBusy:      (cb: ()             => void) => { ipcRenderer.on("chat:busy",          ()       => cb()); },
   getHistory:      ()                           => ipcRenderer.invoke("history:get"),
+  chatStarters:    ()                           => ipcRenderer.invoke("chat:starters"),
+  minimizar:       ()                           => ipcRenderer.send("window:minimize"),
 
   // ── Config ─────────────────────────────────────────────────────────────────
   getApiKey:       ()                           => ipcRenderer.invoke("config:get-api-key"),

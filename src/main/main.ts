@@ -10,6 +10,7 @@ import * as os from "node:os";
 import { sincronizarInicioAutomatico, removerEntradaLegada } from "./autoLaunch";
 import * as QRCode from "qrcode";
 import { getConfig, getApiKey, setApiKey, hasApiKey, setOverride, getOrCreateServerToken, regenerateServerToken, AppConfig } from "./config";
+import { limparCacheClima } from "../services/clima";
 import { getLocalIPv4, getAllLocalIPv4 } from "./network";
 import { inputHost } from "../services/inputHost";
 import { startScheduler, stopScheduler } from "../services/scheduler";
@@ -32,6 +33,7 @@ import { createTray, refreshTray, updateLastCommand, buildIcon as iconePadrao } 
 import { transcribe } from "../services/stt";
 import { decideBrain, clearHistory } from "../services/brain";
 import { trackUsage, getTopHistory } from "../services/history";
+import { registrarPergunta, bolhasDoChat } from "../services/perguntas";
 import { synthesize, cancelSpeak } from "../services/tts";
 import { ElysiumError } from "../services/errors";
 import { processCommand, resolveAction } from "../services/command";
@@ -82,6 +84,7 @@ function openDashboard(): void {
     minWidth:  800,
     minHeight: 560,
     resizable: true,
+    show:      false,
     title:     "ELYSIUM",
     icon:      iconePadrao(),
     frame:     false,
@@ -94,6 +97,9 @@ function openDashboard(): void {
     },
   });
   dashWin.setMenu(null);
+  // Mostrar só quando houver o que mostrar. Sem isto, a janela aparece branca por um
+  // instante antes do primeiro quadro — é o detalhe que separa "app nativo" de "página".
+  dashWin.once("ready-to-show", () => dashWin?.show());
   dashWin.loadFile(path.join(__dirname, "../renderer/dashboard.html"));
 
   // Push telemetry immediately when renderer finishes loading (no 3 s wait)
@@ -354,6 +360,7 @@ ipcMain.on("chat:send", async (_event, text: string) => {
   }
   state.set("processing");
   try {
+    registrarPergunta(text);
     const actions = await decideBrain(text);
     const label = getActionsLabel(actions);
     dashWin?.webContents.send("voice:action-label", label);
@@ -387,6 +394,9 @@ ipcMain.on("chat:clear", () => {
   notify("ELYSIUM", "Histórico apagado.");
 });
 
+/** Bolhas de partida do chat — ver `perguntas.ts`. */
+ipcMain.handle("chat:starters", () => bolhasDoChat(4));
+
 ipcMain.handle("history:get", () => getTopHistory(8));
 
 // ── system IPC ────────────────────────────────────────────────────────────────
@@ -417,6 +427,19 @@ ipcMain.handle("config:set-api-key", (_e, key: string) => {
 ipcMain.on("config:close", () => configWin?.close());
 ipcMain.on("config:open-window", () => openConfigWindow());
 
+/**
+ * Minimizar tem que minimizar.
+ *
+ * O botão do dashboard chamava `window.close()`, que o handler de `close` intercepta e
+ * transforma em `hide()` — ou seja, minimizar fazia a janela SUMIR para a bandeja em vez de
+ * ir para a barra de tarefas. Fechar continua indo para a bandeja de propósito: o atalho
+ * global, o servidor do celular e os lembretes agendados vivem no processo principal.
+ */
+ipcMain.on("window:minimize", () => {
+  const janela = BrowserWindow.getFocusedWindow() ?? dashWin;
+  janela?.minimize();
+});
+
 ipcMain.handle("config:get-all", () => getConfig());
 
 ipcMain.handle("brain:ollama-status", async (_e, modelo?: string) => {
@@ -426,6 +449,13 @@ ipcMain.handle("brain:ollama-status", async (_e, modelo?: string) => {
 ipcMain.handle("config:set-all", async (_e, patch: Partial<AppConfig>) => {
   const prev = getConfig();
   setOverride(patch);
+
+  // Trocar a cidade tem que valer AGORA. O cache do clima guarda até uma hora, e guarda
+  // inclusive o `null` de quando ainda não havia cidade — sem invalidar aqui, o card
+  // continua pedindo para você definir uma cidade que você acabou de definir.
+  if (patch.climaCidade !== undefined || patch.climaLat !== undefined || patch.climaLon !== undefined) {
+    limparCacheClima();
+  }
 
   if (patch.shortcut && patch.shortcut !== prev.shortcut) {
     globalShortcut.unregisterAll();
@@ -437,7 +467,9 @@ ipcMain.handle("config:set-all", async (_e, patch: Partial<AppConfig>) => {
     await sincronizarInicioAutomatico(patch.autoLaunch);
   }
 
-  notify("ELYSIUM", "Configurações salvas.");
+  // Sem notificação do Windows aqui. Este handler é chamado ao arrastar um card da tela
+  // Início, ao trocar de tema e a cada campo de Ajustes — uma notificação por gravação
+  // vira ruído constante. Quem grava explicitamente já mostra um toast na própria tela.
 });
 
 ipcMain.handle("config:reset-defaults", () => {

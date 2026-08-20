@@ -39,7 +39,7 @@ import { getPushPrefs, registerToken, setPushPrefs, unregisterToken, PushCategor
 import { askAboutImage, askAboutScreen } from "./vision";
 import { searchWeb } from "./webSearch";
 import { listarSugestoes } from "./sugestoes";
-import { climaAgora } from "./clima";
+import { climaAgora, motivoDaFalha } from "./clima";
 import {
   getAllPresets, getPreset, findPresetKey, savePreset, deletePresetByKey,
 } from "./presetsStore";
@@ -482,7 +482,12 @@ const METHODS: Record<string, MethodDef> = {
 
   // — clima —
   "weather.now": {
-    handler: async () => await climaAgora(),
+    handler: async () => {
+      const clima = await climaAgora();
+      // O motivo vai junto para o card distinguir "você não definiu a cidade" de "a
+      // consulta falhou" — duas situações com soluções bem diferentes.
+      return clima ?? { erro: motivoDaFalha() ?? "sem-cidade" };
+    },
   },
 
   // — presets —

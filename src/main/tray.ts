@@ -51,6 +51,9 @@ export function createTray(
   _onCommand = onCommand;
   tray = new Tray(buildIcon());
   tray.setToolTip("ELYSIUM");
+  // No Windows o clique esquerdo no ícone não faz nada por padrão — só o menu de contexto
+  // abria o dashboard, o que é um passo a mais para a ação mais comum.
+  tray.on("click", () => _onChatOpen?.());
   refreshMenu("idle");
   return tray;
 }
