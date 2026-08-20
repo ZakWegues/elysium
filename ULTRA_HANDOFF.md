@@ -2528,8 +2528,21 @@ lampejo branco) e clique esquerdo na bandeja abrindo o dashboard.
 - **Instalar o `release/ELYSIUM-Setup-1.0.0.exe`** e fixar na barra de tarefas. Só depois de
   instalado o atalho carrega o `AppUserModelId` certo — fixar o `electron.exe` de
   desenvolvimento fixa o Electron, não o ELYSIUM.
-- **O APK do celular continua não instalado** (`elysium-m/dist-apk/elysium-m.apk`). Três OTAs
-  esperam nele, todos no fingerprint `066f2ab6…`.
+- **Instalar o APK do celular.** Ele fica em `elysium-m/dist-apk/elysium-m.apk`, gerado
+  por `npm run build:local`.
+
+  > 🔴 **O APK NÃO ESTÁ NO PAINEL DO EXPO, e o que está lá não serve.** O último build de
+  > nuvem é de 11/08/2026 com fingerprint `7597e3f4…`; os OTAs saem em `066f2ab6…`, então
+  > nenhum jamais chegaria nele. E o projeto no painel ainda se chama `neuroaxis-portal` —
+  > o slug foi revertido de propósito quando o rename quebrou o OTA (§18) —, o que faz o
+  > lugar errado parecer o certo. **Baixar de lá é perda de tempo garantida.**
+  >
+  > Renomear o slug resolveria a confusão, mas muda o fingerprint e invalida todo OTA
+  > publicado: só vale a pena junto com um APK novo, nunca isolado.
+
+  Depois de instalar: abrir → esperar uns 10 s com internet → **fechar de verdade**, tirando
+  das recentes → abrir de novo. O `expo-updates` baixa numa abertura e aplica na seguinte;
+  só voltar do segundo plano não basta.
 - Fechar um programa pela aba Programas — o diálogo de confirmação precisa de clique humano, e
   **recusar tem que cancelar de verdade**.
 - Arrastar a barra de progresso e o volume do Spotify com música tocando.
