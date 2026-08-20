@@ -30,6 +30,7 @@
 | 16 | [Catálogo de features futuras](#16-catálogo-de-features-futuras) |
 | 17 | [Como validar](#17-como-validar) |
 | 18 | [Plano ELYSIUM — rename, redesign, cérebro local](#18-plano-elysium--rename-redesign-cérebro-local) |
+| 19 | [Plano fase 2 — vidro, paridade e conteúdo](#19-plano-fase-2--vidro-paridade-e-conteúdo-blocos-15-a-22) |
 
 ---
 
@@ -1925,3 +1926,152 @@ gerador do desktop escreve também no repositório do mobile.
 > Curiosidade que diz muito sobre documentação: o ícone era um **"J" roxo do "Jarvis PC"**,
 > o nome original do projeto. Sobreviveu ao rename para NEUROAXIS e ao rename para ELYSIUM
 > sem ninguém notar, até o Zak reparar na bandeja.
+
+---
+
+## 19. Plano fase 2 — vidro, paridade e conteúdo (blocos 15 a 22)
+
+Aprovado pelo Zak em 14/08/2026. **Nada aqui foi executado** — ele pediu explicitamente
+"planejar agora, codar depois". Os blocos 7 a 14 da §18 estão concluídos.
+
+### O que motivou
+
+1. **O modo escuro do ELYSIUM-M está feio.** Não é gosto: são três defeitos objetivos,
+   localizados no código e descritos no bloco 15.
+2. **O desktop deve ganhar a cara do mobile** — meta antiga (§3), que o bloco 12 atendeu só
+   na cor. O mobile navega por abas com uma tela Início; o desktop segue com duas gavetas.
+3. **O desktop tem serviço e RPC para lembretes, memória, energia, área de transferência e
+   programas — e nenhuma tela para nada disso.** Zero ocorrências de "lembrete", "memória" ou
+   "clipboard" no `dashboard.html`. Hoje só dá para usar por voz ou pelo celular.
+
+### Decisões fechadas com o Zak
+
+| decisão | escolha |
+|---|---|
+| Cara do mobile no desktop | Tela Início + navegação por abas |
+| Temas | **3 cores × claro/escuro** nos dois lados; "seguir o sistema" continua valendo |
+| Funções novas | Todas: telas que faltam · Ctrl+K e busca · automação · streaming |
+| Streaming | Texto palavra a palavra; **a voz espera a resposta fechar** |
+| Backend das telas novas | Reusar os 52 métodos RPC — uma implementação só |
+
+### 🔴 Correção de rota: o RPC do desktop NÃO passa por HTTP
+
+A escolha inicial era o dashboard chamar `http://127.0.0.1:4200/api/rpc`, como o celular
+faz. **Não funcionaria:** o servidor não manda cabeçalho de CORS (removido de propósito,
+§8) e o renderer é uma página `file://` — o navegador recusaria a resposta, exatamente como
+aconteceu com o `expo start --web`.
+
+A intenção é honrada sem HTTP: **`handleRpc()` já é exportado** pelo `rpc.ts`, então o main
+chama a função direto e o renderer fala com ele por um canal IPC genérico. Sem CORS, sem
+token no renderer, sem porta.
+
+---
+
+### Bloco 15 — O modo escuro do ELYSIUM-M ⬜
+
+Três defeitos verificados no código:
+
+1. **O "brilho de borda" é um véu branco sobre a superfície inteira.**
+   `GlassSurface.tsx:51` desenha `rgba(255,255,255,0.55) → 0.08 → 0.22` em
+   **`StyleSheet.absoluteFill`** — cobrindo o card todo, não a aresta — e em branco fixo, sem
+   olhar o modo. No claro passa despercebido; no escuro **todo `Card` e `Button` de vidro
+   ganha uma névoa leitosa**. É a causa principal do "feio".
+   → Gradiente só na aresta de cima (como o `GlassModal` já faz certo em `styles.topSheen`),
+   com alfa vindo da paleta.
+2. **Os blobs do fundo são discos de borda dura.** `AppBackground.tsx` cria círculos de 340px
+   com `borderRadius: 170` e **nenhum desfoque** — o React Native não tem equivalente ao
+   `filter: blur()` que a versão do desktop usa. A 26% sobre fundo quase preto, viram dois
+   discos chapados.
+   → Empilhar ~6 círculos concêntricos com opacidade decrescente (gaussiana barata), ou
+   `LinearGradient` com paradas transparentes. Sem dependência nova.
+3. **O vidro escuro fica invisível assim que o véu sair** — `glassSurface` no escuro é
+   `rgba(255,255,255,0.06)`. Hoje é o defeito 1 que dá corpo aos cards.
+
+Vai por `npm run update` (é só JS). Julgamento visual do Zak — blur não sai em screenshot.
+
+### Bloco 16 — Temas alinhados: 3 cores × claro/escuro ⬜
+
+Os dois lados divergiram no bloco 12: o desktop tem seis temas em duas famílias, o mobile
+tem as quatro cores antigas. A tela de Ajustes do app diz *"Espelha os temas do ELYSIUM
+desktop"* — **virou mentira**.
+
+Modelo novo, igual dos dois lados — sem inventar cor nenhuma, só reagrupando as seis:
+
+| tema | claro (vidro) | escuro (noite) |
+|---|---|---|
+| **Elísio** | Vidro — Âmbar `#c2602c` | Campos Elísios — ouro `#d9b168` |
+| **Maré** | Vidro — Maré `#1e7fd4` | Éter — prata-ciano `#a8c4d8` |
+| **Crepúsculo** | Vidro Líquido `#6d4aff` | Crepúsculo — âmbar/rosa `#f0a850` |
+
+No mobile só `palettes.ts` muda de verdade: os componentes consomem `palette.*` e não sabem
+de nome de tema.
+
+> ⚠️ `elysium_theme` no `AsyncStorage` guarda `default`, `ocean`… Sem mapa de aposentados o
+> app abre com tema indefinido — a mesma falha silenciosa que o bloco 12 tratou no desktop.
+
+### Bloco 17 — Ponte RPC única para o desktop ⬜
+
+`ipcMain.handle("rpc:call", …)` chamando `handleRpc()` direto; `preload-dashboard.ts` expõe
+`nx.rpc(method, params)`. **Destrutivos** ganham `dialog.showMessageBox` no main — a trava
+não pode morar no renderer, quem decide se confirmou tem que ser quem executa.
+
+### Bloco 18 — Abas e tela Início no desktop ⬜
+
+**Não é reescrita.** O `dashboard.html` tem 3000 linhas com chat, gráficos, Spotify,
+pareamento e telemetria funcionando. O caminho é envolver os blocos existentes em
+`<section data-view>`, trocar as gavetas por uma barra de abas espelhando o app, e
+mostrar/esconder por view.
+
+Abas: **Início** (nova — estado do PC, atalhos, próximos lembretes, energia) · **Chat** (o
+`#center` intacto) · **PC** · **Caixa** · **Presets** · **Ajustes**.
+
+### Bloco 19 — As telas que faltam no desktop ⬜
+
+Maior ganho por menor risco: **o backend já faz tudo**, e há RPC para tudo. Lembretes
+(`reminders.*`), memória (`memory.*`), energia (`power.control`), área de transferência
+(`clipboard.*`) e programas (`apps.*`). Nenhum serviço novo, nenhum método RPC novo.
+
+### Bloco 20 — Paleta de comandos (Ctrl+K) e busca ⬜
+
+C21 + C14. Atalho **local** no dashboard — o global é o `Ctrl+Shift+J` e não se mexe. Índice
+montado do que já existe: `apps.json` (~75), presets, lembretes, conversas, memória, ações.
+Executa pela ponte do bloco 17, sem passar pelo modelo — mesmo argumento que criou o RPC na
+§9. Mais busca no histórico de chat e na Caixa, nos dois lados.
+
+### Bloco 21 — Respostas em streaming ⬜
+
+`llm.ts` ganha modo `stream`: o Ollama nativo devolve **NDJSON**, a Groq devolve **SSE** —
+dois parsers, uma interface (`onToken`). Canal `chat:reply-chunk` para o dashboard, e o
+WebSocket que já existe para o celular. **A voz só fala quando a resposta fecha**; a fila do
+`tts.ts` não é tocada.
+
+> ⚠️ `processCommand` devolve `Promise<string>` e é o que o `POST /api/command` usa. O
+> streaming **não pode quebrar esse contrato**: o caminho HTTP continua devolvendo a resposta
+> inteira, e o streaming vai pelo WebSocket.
+
+### Bloco 22 — Automação: foco, pomodoro, presets agendados ⬜
+
+Tudo reaproveita o `scheduler.ts`, que já persiste e re-arma no boot. Modo foco (C9) reusa a
+leitura de processos com cache do `gpuGuard.ts`. Pomodoro (C10). Presets por horário e no
+boot (C11) — o gatilho por Wi-Fi fica de fora, exige detecção de rede que não existe.
+
+### Ordem, e por quê
+
+```
+15 escuro do mobile   → bug, rápido, visível no mesmo dia
+16 temas alinhados    → mexe nas mesmas paletas do 15
+17 ponte RPC          → fundação dos dois seguintes
+18 abas + Início      → estrutura, antes de encher de tela
+19 telas que faltam   → preenche as abas
+20 Ctrl+K e busca     → precisa das telas e da ponte
+21 streaming          → mexe no cérebro; depois do visual estável
+22 automação          → o maior, e o único que inventa serviço novo
+```
+
+### O que ainda precisa de decisão
+
+| bloco | pergunta |
+|---|---|
+| 18 | Seis abas cabem numa janela de 1024×720? Talvez Ajustes siga como janela separada |
+| 20 | O Ctrl+K pode rodar ação destrutiva, ou só as seguras? |
+| 22 | "Bloquear app" no modo foco: fechar o processo ou só avisar? Fechar mata trabalho não salvo |
