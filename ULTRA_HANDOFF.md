@@ -2111,3 +2111,226 @@ boot (C11) — o gatilho por Wi-Fi fica de fora, exige detecção de rede que n�
 | 18 | Seis abas cabem numa janela de 1024×720? Talvez Ajustes siga como janela separada |
 | 20 | O Ctrl+K pode rodar ação destrutiva, ou só as seguras? |
 | 22 | "Bloquear app" no modo foco: fechar o processo ou só avisar? Fechar mata trabalho não salvo |
+
+---
+
+## 20. Plano fase 3 — tirar a cara de IA, Início por cards, movimento (blocos 23 a 31)
+
+> **Status: concluída.** Desktop no commit `d7b362e`, celular no `c4b1c52`, OTA publicado
+> no fingerprint `066f2ab6…`. Os blocos 19 a 22 da §19 (telas que faltam, Ctrl+K, streaming,
+> automação) continuam válidos e são a fila seguinte.
+
+### Por que esta fase existiu
+
+O bloco 18 entregou a estrutura certa (abas + Início) e um acabamento errado. O veredito do
+Zak ao ver a tela foi *"não gostei do design no geral"*, com treze correções. Quase todas
+tinham causa concreta no código — não eram gosto solto:
+
+1. **O desenho entregava que foi feito por IA.** Pedido explícito de pesquisar os sinais e
+   removê-los, *"tipo o neon na logo"*.
+2. **A aba Ajustes quebrou ao virar aba.** A gaveta foi desenhada para 262 px
+   (`dashboard.html:487`); o bloco 18 trocou por `width:100%` **sem `max-width`**. Passaram a
+   conviver três estratégias de largura: `100%` esticava pela janela toda, px fixo continuava
+   minúsculo, `auto` encolhia. É a causa mecânica do "comprimento esquisito dos botões".
+3. **Sobrava estrutura e faltava conteúdo.** A Caixa era uma aba repetindo o que o switch do
+   chat já fazia; presets, player e insights estavam enterrados em Ajustes.
+
+### Decisões fechadas
+
+| decisão | escolha |
+|---|---|
+| Clima | **Open-Meteo**, sem chave; cidade escolhida pelo usuário |
+| Caixa no celular | Some da TabBar; vira o lado direito do switch dentro do Chat |
+| Presets | Bolinha no canto superior direito do chat, popover estilo iOS. Sem aba |
+| Escopo no celular | **Só o necessário.** O que já estava bom não se tocou |
+| Movimento | Muita animação, sob uma escala única |
+
+### Bloco 23 — os sinais de design gerado por IA
+
+A pesquisa (fontes no fim desta seção) nomeia 16 vícios. O dashboard tinha **6**:
+
+| vício | onde estava | o que virou |
+|---|---|---|
+| Gradiente roxo→ciano + glow neon — *o sinal nº 1 de 2026* | `.logo-badge`, gradiente e `box-shadow: 0 0 8px` | Cor chapada + borda de 1 px. É o "neon na logo" que o Zak apontou |
+| Emoji como ícone de navegação | abas, sub-abas, chat, atalhos | **Sprite de 40 símbolos SVG**, traço em `currentColor`, com os **mesmos nomes do Feather** que o celular já usa |
+| Rótulos ALL-CAPS com `letter-spacing: 0.14em` | 8 lugares | Caixa de frase, 11 px, sem tracking |
+| Glow colorido em hover | `.media-btn:hover` | Realce neutro |
+| Orbes de gradiente flutuando | `#lg-blob-bg`, `#ely-shafts` | **Mantidos** — é a identidade Liquid Glass. Só opacidade menor |
+| N cards idênticos em grade | `.home-grid` | Resolvido pelo bloco 25: `span` diferente por card |
+
+> **A fonte NÃO mudou, e isso é deliberado.** O vício apontado é *Inter*. O desktop usa
+> `"Segoe UI", system-ui` e o celular a fonte do sistema — zero `fontFamily` em
+> `elysium-m/src`. Fonte nativa em app nativo é acerto, não vício. Seguir a receita aqui
+> teria sido aplicar a regra sem ler o caso.
+>
+> O `drop-shadow` colorido das `.vbar` **fica**: a própria recomendação abre exceção para
+> "estado interativo específico", e aquilo é o indicador de voz.
+
+### Bloco 24 — movimento
+
+> ⚠️ **A tensão que este bloco resolve.** A mesma pesquisa lista **"um bounce em todo
+> hover"** como sinal de IA. Muita animação e pouca cara de IA só convivem com uma **escala
+> compartilhada**, aplicada em tudo, em vez de um efeito inventado por elemento.
+
+| papel | duração | curva |
+|---|---|---|
+| micro (hover, foco, toggle) | 120 ms | `cubic-bezier(0.2, 0, 0.2, 1)` |
+| padrão (troca de aba, card entrando) | 220 ms | `cubic-bezier(0.2, 0.8, 0.2, 1)` |
+| entrada com peso (popover) | mola | rigidez 380 |
+| saída | 140 ms | sempre mais rápida que a entrada |
+
+Regras: nada passa de 300 ms; nada faz bounce exceto o popover; **só `transform` e
+`opacity`** — animar `width`/`height`/`top` força layout a cada quadro.
+
+- **Desktop:** o Chromium 126 do Electron 31 dá de graça — **View Transitions API**
+  (`document.startViewTransition`) na troca de aba, e **`@starting-style`** para entradas em
+  CSS puro. Mais FLIP no arrasto, polegar deslizante nas abas e no switch, números que
+  interpolam, barras por `scaleX`.
+- **Celular:** `src/lib/motion.ts` com a mesma escala. `Animated` + `LayoutAnimation` +
+  `PanResponder`, **tudo do core**.
+- `prefers-reduced-motion` e `AccessibilityInfo.isReduceMotionEnabled()` zeram tudo.
+
+> 🔴 **Nenhuma dependência nova, e não é detalhe.** `react-native-reanimated` e
+> `react-native-gesture-handler` são **nativas**: mudariam o fingerprint do `expo-updates` e
+> obrigariam a gerar um APK novo. Todo este trabalho precisava viajar por OTA.
+
+### Blocos 25 a 27 — Início por cards, sugestões, clima
+
+A Início virou **catálogo**: cada card se declara num registro, sabe o que precisa buscar, e
+liga/desliga/arrasta. **Só o que os cards visíveis pedem é buscado** — desligar "Programas"
+para de chamar `apps.list` de verdade.
+
+Saiu a memória de longo prazo. Entraram player, sugestões, insights do sistema, clima,
+processos, programas e área de transferência.
+
+- **Arrasto:** desktop com `draggable` nativo do HTML5 + FLIP; celular com `PanResponder`.
+  O `dashboard.html` continua sem carregar **uma única** biblioteca externa.
+- **Persistência:** desktop em `config.homeCards`; celular na chave **nova**
+  `elysium_home_cards`. Criar chave é seguro; **renomear continua proibido por OTA**.
+- **`sugestoes.ts`** — 4 bolhas sorteadas por peso entre candidatas derivadas de estado que
+  o app já tem. Re-sorteia a cada volta para a janela. Cada bolha executa por RPC direto,
+  nunca pelo modelo — mesmo argumento da §9.
+- **`clima.ts`** — Open-Meteo, sem chave, sem SDK, `fetch` puro. Cache de 1 h, timeout de
+  6 s explícito (o `fetch` do Node espera para sempre por padrão), e **falha em silêncio**:
+  sem rede o card some, nunca segura a Início.
+
+### Bloco 28 — switch IA ↔ Celular
+
+"Eu mesmo" virou "Celular". Dois botões colados no canto viraram um switch centralizado com
+polegar deslizante. **A aba Caixa morreu**: repetia o que o switch já fazia.
+
+No celular, `MailboxScreen` deixou de ser destino da TabBar e virou modo do Chat — a TabBar
+caiu de 6 para **4**. O conteúdo e o composer da Caixa não mudaram, só onde ela mora.
+
+> ⚠️ `shareIntent.ts` apontava para a tela `mailbox`. Agora abre o Chat já no lado do PC.
+> Sem isso, compartilhar do Android cairia num destino que não existe mais.
+
+### Bloco 29 — presets em popover, e o achado do bloco
+
+Bolinha no canto superior direito do chat; popover que escala a partir do canto de origem,
+com careta apontando para o botão. É o **único** lugar do app que usa mola.
+
+> 🔴 **NÃO EXISTIAM métodos `presets.*` no RPC.** O `presetsStore.ts` estava lá desde o
+> começo com `getAllPresets`, `getPreset`, `savePreset` e `deletePresetByKey` — e nada disso
+> exposto. Dos 52 métodos, **zero** eram de preset. Era por isso que o `PresetsScreen.tsx`
+> do celular montava a frase `"executa o preset ${name}"` e mandava para o LLM em
+> `/api/command`: era o único caminho que existia.
+
+Entraram `presets.list` / `presets.run` / `presets.save` / `presets.delete`. O popover agora
+lista, roda num toque, apaga, e **cria a partir dos programas abertos agora** — cruzando
+`apps.list` (catálogo do que o ELYSIUM sabe abrir) com `system.processes` (o que está
+rodando). Só o cruzamento dá uma lista que faz sentido oferecer; senão o preset nasceria com
+uma ação que falha.
+
+### Bloco 30 — aba PC
+
+- **Os canvas borravam.** Tinham `width` fixo no atributo HTML (`220`) e `width:100%` no
+  CSS: o navegador esticava um no outro. Agora `ajustarCanvas()` acompanha a caixa real com
+  `devicePixelRatio`, e remede ao entrar na aba — elemento em `display:none` mede zero.
+- Quatro blocos empilhados viraram uma fileira `auto-fit`. Top-5 de processos virou top-10.
+- **Bateria e temperatura somem quando não há sensor.**
+  > O `hidden` sozinho não bastou: o `display:flex` da regra do card é do autor e **ganha**
+  > do `display:none` que o navegador aplica ao atributo. Precisou de
+  > `.chart-wrap[hidden] { display: none; }`.
+- **Celular:** o `MonitorDrawer` mostrava duas barras num card alto e vazio (o broadcast só
+  traz CPU, RAM e bateria, que é `null` em desktop). Entraram discos e processos por RPC ao
+  abrir a gaveta.
+
+### Bloco 31 — Ajustes completos numa tela
+
+Sub-abas de **6 para 2**: Geral e Celular.
+
+O formulário é **gerado a partir de um esquema** (`AJUSTES` no `dashboard.html`), não
+copiado das ~400 linhas do `config.html` — duplicar criaria duas telas para manter em par, e
+a primeira mudança de nome as faria divergir em silêncio. `config.html` continua existindo
+como janela avulsa da bandeja.
+
+Grava campo a campo no `change`, **sem botão Salvar**: com botão, sair da tela perderia o
+que foi mexido, e esta tela agora é uma aba, de onde se sai o tempo todo.
+
+Conserto das larguras:
+
+```css
+#layout[data-view="ajustes"] #rtab-panels { max-width: 760px; margin: 0 auto; }
+.cfg-row { display: grid; grid-template-columns: 200px minmax(0, 1fr); }
+.cfg-controle input, .cfg-controle select { max-width: 340px; }
+```
+
+Player e presets saíram; Conversas virou popover no topo do chat, como o celular já fazia.
+
+### O que ficou de fora, e por quê
+
+**No celular, deliberadamente intocados:** `AppBackground` (as `Mancha` foram refeitas no
+bloco 15), `GlassSurface`, `GlassModal`, `Card`, `Button`, `Drawer`, `MetricBar`,
+`palettes.ts`, `ThemeContext`, `SettingsScreen`, `ConversationsScreen`, `PairingScreen`,
+`CameraAsk`, `TrackpadFullscreen`, e todo o `ControlScreen` fora do `MonitorDrawer`.
+
+**Apagados:** `PresetsScreen.tsx` (substituída pelo popover) e `TelemetryScreen.tsx`, que não
+era importada em lugar nenhum desde que o `MonitorDrawer` a substituiu.
+
+### Armadilhas que este bloco descobriu
+
+- **`ELECTRON_RUN_AS_NODE=1` no ambiente.** Quem roda dentro do VS Code / Claude Code herda
+  essa variável, e o `electron.exe` executa o main como **Node puro** — `app.getPath` e
+  `ipcMain` vêm `undefined` e o app morre no boot. Para lançar de um script, remova a
+  variável do ambiente do processo filho.
+- **`Page.captureScreenshot` fica pendurado PARA SEMPRE** com a janela oculta: o compositor
+  não produz quadro, e o comando não responde nem dá erro. Foi o que travou o `shot.mjs` no
+  bloco 18 — a causa nunca foi o script. O dashboard se esconde ao perder o foco; abrir uma
+  segunda instância chama `dashWin.show()`. O script agora **falha claro** em vez de travar.
+- **Ordem de declaração numa regra CSS.** `display: none` escrito **antes** de `display:
+  flex` na mesma regra não faz nada — na mesma especificidade, a última declaração vence.
+- **Remover markup mata JS silenciosamente.** Ao tirar o painel de mídia, sobraram ~20
+  `getElementById` apontando para elementos que não existiam mais. A **primeira** linha a
+  falhar derruba o script inteiro, e a tela abre em branco. Vale varrer:
+  ```bash
+  node -e 'const t=require("fs").readFileSync("src/renderer/dashboard.html","utf8");
+    const m=t.slice(t.indexOf("<body>"),t.indexOf("<script>"));
+    const ids=new Set([...m.matchAll(/id="([^"]+)"/g)].map(x=>x[1]));
+    console.log([...new Set([...t.matchAll(/getElementById\("([^"]+)"\)/g)].map(x=>x[1]))]
+      .filter(u=>!ids.has(u)).join(", "));'
+  ```
+
+### Como validar
+
+Obrigatório antes de cada commit: `npm run build` (desktop) e `npm run typecheck` (celular).
+No celular vale também `npx expo export --platform android`: **o typecheck não pega import
+quebrado em tempo de execução, o bundle pega.**
+
+- **23:** capturar nos 3 temas × claro/escuro; conferir que um tema antigo gravado ainda abre.
+- **24:** trocar de aba 20× e ver se engasga. Ligar "reduzir movimento" nos dois sistemas e
+  conferir que **tudo** para.
+- **25:** arrastar, fechar, reabrir — a ordem tem que voltar. Desligar todos os cards.
+- **26 e 27:** minimizar e restaurar 5×, ver bolhas diferentes. **Puxar o cabo de rede** e
+  confirmar que a Início abre igual, só sem clima.
+- **28:** **compartilhar um link do Android** — é a regressão fácil aqui.
+- **29:** rodar um preset pelo popover e por voz, comparar.
+- **30:** redimensionar a janela e olhar se o canvas está nítido.
+- Matar `electron.exe` antes de testar build nova (§14).
+
+### Fontes da pesquisa
+
+- [AI Design Slop: 16 Patterns That Out Your App as Vibe-Coded — Developers Digest](https://www.developersdigest.tech/blog/ai-design-slop-and-how-to-spot-it)
+- [AI Slop Fonts and Gradients — 925 Studios](https://www.925studios.co/blog/ai-slop-design-tells)
+- [Why Your AI Keeps Building the Same Purple Gradient Website](https://prg.sh/ramblings/Why-Your-AI-Keeps-Building-the-Same-Purple-Gradient-Website)
+- [How To Spot AI-Generated Design — UX Planet](https://uxplanet.org/how-to-spot-ai-generated-design-697aaabe76c8)
