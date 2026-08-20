@@ -40,6 +40,7 @@ import { getPushPrefs, registerToken, setPushPrefs, unregisterToken, PushCategor
 import { askAboutImage, askAboutScreen } from "./vision";
 import { searchWeb } from "./webSearch";
 import { listarSugestoes } from "./sugestoes";
+import { bolhasDoChat } from "./perguntas";
 import { climaAgora, motivoDaFalha } from "./clima";
 import {
   getAllPresets, getPreset, findPresetKey, savePreset, deletePresetByKey,
@@ -482,6 +483,15 @@ const METHODS: Record<string, MethodDef> = {
   // duas heurísticas para manter em par.
   "suggestions.list": {
     handler: async () => ({ suggestions: await listarSugestoes() }),
+  },
+
+  // — perguntas de partida do chat —
+  //
+  // Sorteadas no mesmo lugar que as do desktop. Fosse cada lado montar as suas, seriam
+  // duas heurísticas de frequência para manter em par — e só o desktop vê o que você
+  // pergunta, porque é ele que fala com o cérebro.
+  "chat.starters": {
+    handler: async () => ({ starters: bolhasDoChat(4) }),
   },
 
   // — clima —
