@@ -2334,3 +2334,212 @@ quebrado em tempo de execução, o bundle pega.**
 - [AI Slop Fonts and Gradients — 925 Studios](https://www.925studios.co/blog/ai-slop-design-tells)
 - [Why Your AI Keeps Building the Same Purple Gradient Website](https://prg.sh/ramblings/Why-Your-AI-Keeps-Building-the-Same-Purple-Gradient-Website)
 - [How To Spot AI-Generated Design — UX Planet](https://uxplanet.org/how-to-spot-ai-generated-design-697aaabe76c8)
+
+---
+
+## 21. Fase 4 — o movimento que não acontecia, e o resto (blocos 32 a 40)
+
+> **Status: concluída.** Desktop em `139f5a4` · `28985c0` · `9216a99`; celular em `c0ac014`.
+> OTA publicado no fingerprint `066f2ab6…`. Instalador em
+> `release/ELYSIUM-Setup-1.0.0.exe`.
+
+### Por que esta fase existiu
+
+A §20 declarou uma camada de movimento inteira e o Zak não via **nenhuma** animação:
+popover pulando para o estado final, troca de aba sem transição, switch do chat
+teleportando. Eram **quatro causas somadas**, e a principal não era código.
+
+#### 🔴 A causa raiz: o Windows estava com animação desligada
+
+`SPI_GETCLIENTAREAANIMATION` retorna **False** neste PC — *Configurações → Acessibilidade →
+Efeitos visuais → Efeitos de animação* está **desligado**. O Chromium reporta
+`prefers-reduced-motion: reduce` e o interruptor global da §20 zerava tudo, corretamente.
+
+> ⚠️ **Não leia isso pelo registro.** A primeira tentativa consultou
+> `HKCU\Control Panel\Desktop\UserPreferencesMask` e concluiu o oposto — o bit lido estava
+> errado. Para checar de verdade:
+> ```powershell
+> Add-Type -TypeDefinition 'using System;using System.Runtime.InteropServices;
+>   public class SPI { [DllImport("user32.dll")] public static extern bool
+>   SystemParametersInfo(uint a, uint b, ref bool c, uint d); }'
+> $v=$false; [SPI]::SystemParametersInfo(0x1042,0,[ref]$v,0); $v   # False = desligado
+> ```
+> Ou, mais simples: `matchMedia("(prefers-reduced-motion: reduce)").matches` no renderer.
+
+Entrou `config.movimento`: **`auto`** (segue o Windows, padrão) · **`sempre`** · **`nunca`**.
+Quem desliga animação do sistema por causa de jogo ou desempenho pode manter o app animado.
+Está em Ajustes → Aparência. **O do Zak está em `sempre`.**
+
+#### Os três bugs de código
+
+**1. Popover com um `requestAnimationFrame` só.** O callback do rAF roda *antes* da etapa de
+recálculo de estilo do mesmo quadro: `hidden = false` e `classList.add("aberto")` fundiam num
+recalc só, sem *before-change style*, e nenhuma transição disparava. O comentário no código
+afirmava justamente o contrário. **Trocado por `@starting-style` +
+`transition-behavior: allow-discrete`** — animar a partir de `display:none` vira CSS puro, sem
+rAF e sem `setTimeout` adivinhando o fim da saída.
+
+**2. O polegar do switch IA↔Celular nascia com largura zero.** Ele não declarava `width`; quem
+escrevia era o JS medindo o botão ativo, e o bootstrap rodava **depois** do `switchView` que
+restaura a aba Início — com `#center` em `display:none`, `offsetWidth` é 0. **O switch nascia
+invisível em toda sessão** e só ganhava corpo se você clicasse em "Celular". Em vez de remendar
+a ordem de inicialização, **a medição foi eliminada**: lados de largura igual e `width: 50%` em
+CSS, com `translateX` comandado por um `data-modo`. Não tem como quebrar de novo.
+
+**3. A View Transitions API escondia a própria animação.** Ela tira um snapshot da página e o
+sobrepõe ao DOM vivo — a barrinha deslizava **por baixo** dele, invisível, e sobrava um
+cross-fade de dois painéis escuros quase iguais. **Removida.** A API serve para morph entre
+estados, não para navegação, onde o que importa é ver o indicador percorrer o caminho.
+
+> ⚠️ **Os painéis agora se SOBREPÕEM** (`position: absolute; inset: 0`), não dividem espaço de
+> flex. Durante a troca os dois ficam visíveis por ~220 ms por causa do `allow-discrete`; como
+> itens de flex, nesse intervalo partiriam a janela ao meio.
+
+### O que mudou, bloco a bloco
+
+| bloco | o quê |
+|---|---|
+| **32** | Os três consertos acima + a preferência de movimento. Saiu também o overshoot com `scale(1.05)` no hover que a §20 prometeu remover — iOS responde ao toque, não ao cursor |
+| **33** | **Orbe de conexão** na Início e cards **fixáveis** |
+| **34** | **Bolhas de pergunta** acima da barra de escrita |
+| **35** | A aba PC virou **"Programas"** |
+| **36** | **Ajustes à direita** da barra, sem sub-navbar |
+| **37** | Clima que funciona |
+| **38** | Player do Spotify completo |
+| **39** | Minimizar minimiza; instalador |
+| **40** | Paridade curta no celular |
+
+### Bloco 33 — orbe e cards fixáveis
+
+O orbe fica ao lado da saudação. **O sinal não é "tem token gravado"** — isso continua
+verdade com o celular desligado do outro lado da cidade. É `wsClients.size`, exposto agora
+como `conectados` em `pairing.endpoints`: o app mantém o WebSocket aberto enquanto está em
+uso, e ele cai quando sai de alcance.
+
+Clicar abre o QR, endereço, token e o acesso de fora de casa — o conteúdo da antiga sub-aba
+"Celular", **movido**, com os três desalinhamentos consertados (`margin: 0 auto`, um eixo de
+alinhamento só, botão acompanhando).
+
+> 🔴 **O token nasce coberto.** Ele é a **única** barreira do servidor da porta 4200 e não há
+> TLS. Saindo de uma sub-aba enterrada para um clique da tela inicial, deixá-lo à mostra
+> exporia o controle do PC em qualquer compartilhamento de tela. Clique revela.
+
+`homeCards` ganhou `fixos`: desenhados antes de todos e imunes ao arrasto. Clima nasce fixo.
+"Personalizar" virou uma linha por card com ligar, fixar e mover **por botão** — arrasto exige
+mira, botão não — mais "voltar ao padrão".
+
+### Bloco 34 — bolhas de pergunta
+
+Até 4 chips centralizados entre o switch e a barra de escrita, só no lado IA. Rotacionam a
+cada abertura e a cada entrada na aba.
+
+> 🔴 **A frequência não existia.** `history.ts` devolve `null` para tudo que não seja abrir
+> app/URL/música/preset — **conversa nunca foi registrada em lugar nenhum**. Entrou
+> `src/services/perguntas.ts`, store próprio. Alargar o `history.ts` seria pior: ele alimenta
+> o menu da bandeja, e a bandeja passaria a oferecer "que horas são?" como atalho de sistema.
+>
+> Como o registro começa agora, **as bolhas só mostram curadas até você repetir uma pergunta**
+> (mínimo 2 vezes para entrar).
+
+Clicar faz `addBubble` + `recordMessage` + `chatSend`, **os três**. As pílulas de histórico
+faziam só dois — a mensagem aparecia na tela mas não entrava na conversa salva.
+
+### Bloco 35 — a aba PC virou "Programas"
+
+Saíram gráficos de CPU/RAM, estabilidade de 24 h, cards de disco e a tabela de processos com
+o modal. Entrou o acionável: abertos agora com botão de fechar (cruzando `apps.list` com
+`system.processes`), catálogo com busca, área de transferência, energia e teclas de mídia.
+Quem quiser os números liga os cards `computador`, `processos` e `discos` na Início.
+
+Junto saíram ~400 linhas de JS órfão. **Remover markup mata o JS em silêncio**: a primeira
+linha que falha derruba o script inteiro e a tela abre em branco. A varredura da §20 vale:
+
+```bash
+node -e 'const t=require("fs").readFileSync("src/renderer/dashboard.html","utf8");
+  const m=t.slice(t.indexOf("<body>"),t.indexOf("<script>"));
+  const ids=new Set([...m.matchAll(/id="([^"]+)"/g)].map(x=>x[1]));
+  console.log([...new Set([...t.matchAll(/getElementById\("([^"]+)"\)/g)].map(x=>x[1]))]
+    .filter(u=>!ids.has(u)).join(", "));'
+```
+
+### Bloco 36 — Ajustes à direita, sem sub-navbar
+
+Com o pareamento no orbe sobrou **uma página só**, então `#rtabs` inteiro morreu — e com ele
+a faixa `rgba(255,255,255,0.5)` do tema claro e o `border-bottom` truncado que davam o aspecto
+esbranquiçado e torto. O pedido "arruma a cor feia" se resolveu removendo o elemento.
+
+### Bloco 37 — clima
+
+> 🔴 `limparCacheClima()` existia desde o começo e **ninguém chamava**. Antes de a cidade
+> existir, `climaAgora()` cacheia `dado: null`; definir a cidade não invalidava nada, e o card
+> pedia para você definir uma cidade que você acabara de definir, **por até uma hora**.
+
+Agora `config:set-all` invalida quando qualquer chave `clima*` muda. Falha vale 1 min, não
+1 h, e o motivo (`sem-cidade` / `sem-rede`) volta junto para o card dizer a coisa certa.
+
+**Junto: a notificação do Windows a cada gravação de config foi calada.** Ela disparava em
+*toda* chamada de `config:set-all` — inclusive ao arrastar um card da Início ou trocar de tema.
+
+### Bloco 38 — player
+
+O card usava **3 das 8** operações que a ponte IPC já suportava e descartava **6 dos 11**
+campos de `NowPlaying`. Agora tem capa maior, álbum, dispositivo, progresso arrastável,
+volume, aleatório e repetir com estado aceso, e avanço local de 1 s entre consultas.
+
+> Contrato divergente que fica registrado: `spotify.command` do **RPC** aceita 4 operações;
+> `spotify:command` do **IPC** aceita 8. O celular alcança seek/volume/shuffle/repeat pelos
+> métodos separados (`spotify.seek` etc.), então não é bloqueio — mas são duas superfícies com
+> o mesmo nome e contratos diferentes.
+
+### Bloco 39 — barra de tarefas
+
+`btnMin` chamava `window.close()`, que o handler de `close` transforma em `hide()`:
+**minimizar fazia a janela sumir para a bandeja** em vez de ir para a barra de tarefas. Agora
+minimiza. Fechar continua indo para a bandeja de propósito — o atalho global, o servidor do
+celular e os lembretes vivem no processo principal. Mais: `show: false` + `ready-to-show` (sem
+lampejo branco) e clique esquerdo na bandeja abrindo o dashboard.
+
+### Armadilhas novas
+
+- **`captureScreenshot` e transições precisam de janela VISÍVEL.** Com a janela oculta,
+  `getAnimations()` devolve animações com `playState: "running"` e `currentTime: 0` **para
+  sempre** — o relógio não anda porque não há quadros. Medir animação numa janela escondida dá
+  falso negativo; foi o que quase me fez "consertar" um CSS que já estava certo.
+- **Ordem importa em remoção por regex de CSS.** `/#rtabs \{[\s\S]*?\}/` casa primeiro com
+  `.theme-ely #rtabs {`. Remova as variantes de tema **antes** da regra base, ou ancore em
+  início de linha (`/\n#rtabs \{/`).
+- **Crase dentro de template literal em script de patch.** Um comentário HTML contendo
+  `` `spotify:command` `` fechou a string e quebrou o `<script>` inteiro. Escreva sem crase.
+- **`apps.list` devolve `{ key, command }`, não strings.** Passar isso para `escHtml` dá
+  `s.replace is not a function` e derruba a tela inteira.
+
+### O QUE AINDA FALTA
+
+**Da §19, nunca feito (continua válido e é a fila natural):**
+
+| bloco | o quê |
+|---|---|
+| **20** | **Ctrl+K** — paleta de comandos e busca no histórico de chat e na Caixa |
+| **21** | **Streaming** de resposta (NDJSON no Ollama, SSE na Groq; a voz espera fechar) |
+| **22** | **Automação** — modo foco, pomodoro, presets agendados e por gatilho |
+
+**Verificação humana pendente desta fase:**
+
+- **Instalar o `release/ELYSIUM-Setup-1.0.0.exe`** e fixar na barra de tarefas. Só depois de
+  instalado o atalho carrega o `AppUserModelId` certo — fixar o `electron.exe` de
+  desenvolvimento fixa o Electron, não o ELYSIUM.
+- **O APK do celular continua não instalado** (`elysium-m/dist-apk/elysium-m.apk`). Três OTAs
+  esperam nele, todos no fingerprint `066f2ab6…`.
+- Fechar um programa pela aba Programas — o diálogo de confirmação precisa de clique humano, e
+  **recusar tem que cancelar de verdade**.
+- Arrastar a barra de progresso e o volume do Spotify com música tocando.
+- Minimizar (barra de tarefas) e fechar (bandeja), e clicar no ícone da bandeja.
+
+**Dívidas conhecidas, sem urgência:**
+
+- `release/Jarvis-PC-Setup-1.0.0.exe` é do tempo do nome antigo. Instalador velho, some quando
+  quiser (`release/` é ignorado pelo git).
+- `UiLayout` no `AppConfig` virou legado inerte: os widgets que ela ordenava não existem mais.
+  Config gravado com a chave continua carregando sem erro; remover exige migração.
+- O ponto fraco medido do llama3.2 3B em **pedido composto** (12 de 18) segue sem solução, e o
+  `fallbackToGroq` não cobre — ação faltando é um JSON perfeitamente válido.
