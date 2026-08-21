@@ -115,16 +115,21 @@ const DEFAULTS: AppConfig = {
   maxRecordMs: 120000,
   voice: "pt-BR-FranciscaNeural",
   sttModel: "whisper-large-v3",
-  brainModel: "llama-3.3-70b-versatile",
-  routerModel: "llama-3.3-70b-versatile",
+  brainModel: "openai/gpt-oss-120b",
+  routerModel: "openai/gpt-oss-120b",
   visionModel: "qwen/qwen3.6-27b",
   searchModel: "groq/compound-mini",
   routerProvider: "ollama",
   chatProvider: "ollama",
   ollamaBaseUrl: "http://127.0.0.1:11434",
-  ollamaRouterModel: "llama3.2",
-  ollamaChatModel: "llama3.2",
-  ollamaKeepAlive: "60s",
+  ollamaRouterModel: "llama3.1:8b",
+  ollamaChatModel: "llama3.1:8b",
+  // 🔴 Era "60s", pensado para o llama3.2 (3B, ~2 GB), que recarregava em 2-4 s. O
+  // llama3.1:8b ocupa ~4,9 GB e **medimos 18,3 s de carregamento a frio**. Com 60 s,
+  // qualquer pausa de um minuto na conversa fazia o comando seguinte esperar 18 s sem
+  // explicação. 10 minutos cobre uma sessão de uso real; a GPU disputada continua
+  // protegida pelo `evitarGpuOcupada`, que desvia para a nuvem sem tocar na VRAM.
+  ollamaKeepAlive: "10m",
   fallbackToGroq: true,
   evitarGpuOcupada: true,
   spotifyClientId: "042904fef8cc41f0bf05b7abeda2d66f",
@@ -176,12 +181,56 @@ const DECOMMISSIONED_MODELS = new Set([
   "llama-3.2-11b-vision-preview",
   "mixtral-8x7b-32768",
   "gemma-7b-it",
+  // Aposentados em algum momento até 20/08/2026. Verificado contra `GET /v1/models`
+  // nesta conta: a família Llama sumiu inteira da Groq. Estes dois eram o **padrão**
+  // do app, então a defesa acima não protegia ninguém — o valor morto era justamente
+  // o fallback. Foi a causa do "Não entendi o que você pediu" em todo comando.
+  "llama-3.3-70b-versatile",
+  "llama-3.1-8b-instant",
+  "llama-3.1-70b-versatile",
+  "llama3-70b-8192",
+  "llama3-8b-8192",
 ]);
+
+/**
+ * Modelos locais do Ollama que saíram do ar por não estarem mais baixados.
+ *
+ * Mesma doença da lista acima, outro dono: o `llama3.2` deixou de existir na máquina e
+ * todo roteamento local passou a levar HTTP 404 do próprio Ollama. Como o app cai na
+ * Groq quando o local falha, e a Groq também estava com o modelo morto, o usuário via
+ * só o sintoma final.
+ */
+const OLLAMA_MODELS_MORTOS = new Set(["llama3.2", "llama3.2:latest", "llama3.2:3b"]);
 
 function healModel(value: string, fallback: string, key: string): string {
   if (!DECOMMISSIONED_MODELS.has(value)) return value;
   console.warn(`[config] ${key}="${value}" foi desativado pela Groq; usando "${fallback}".`);
   return fallback;
+}
+
+function healOllama(value: string, fallback: string, key: string): string {
+  if (!OLLAMA_MODELS_MORTOS.has(value)) return value;
+  console.warn(`[config] ${key}="${value}" não existe mais no Ollama; usando "${fallback}".`);
+  return fallback;
+}
+
+/**
+ * Marca um modelo como morto em tempo de execução, quando o provedor respondeu que ele
+ * não existe.
+ *
+ * 🔴 POR QUE ISSO PRECISOU EXISTIR: esta é a **terceira** vez que um id fixo no código
+ * derruba o assistente inteiro — `llama-3.3-70b-specdec`, depois `llama-3.3-70b-versatile`
+ * junto com `llama3.2`. A lista estática só protege contra os modelos que alguém já
+ * soube que morreram, e ninguém fica auditando o catálogo da Groq. Aqui o próprio 404
+ * do provedor vira a fonte da verdade: o modelo entra na lista, o `getConfig()` seguinte
+ * já devolve o padrão, e o comando seguinte funciona em vez de repetir o mesmo erro
+ * para sempre.
+ */
+export function marcarModeloMorto(provider: "groq" | "ollama", modelo: string): void {
+  const alvo = provider === "groq" ? DECOMMISSIONED_MODELS : OLLAMA_MODELS_MORTOS;
+  if (alvo.has(modelo)) return;
+  alvo.add(modelo);
+  console.warn(`[config] "${modelo}" não existe no provedor ${provider}; caindo no padrão a partir de agora.`);
 }
 
 export function getConfig(): AppConfig {
@@ -196,6 +245,8 @@ export function getConfig(): AppConfig {
     brainModel:  healModel(merged.brainModel,  DEFAULTS.brainModel,  "brainModel"),
     visionModel: healModel(merged.visionModel, DEFAULTS.visionModel, "visionModel"),
     searchModel: healModel(merged.searchModel, DEFAULTS.searchModel, "searchModel"),
+    ollamaRouterModel: healOllama(merged.ollamaRouterModel, DEFAULTS.ollamaRouterModel, "ollamaRouterModel"),
+    ollamaChatModel:   healOllama(merged.ollamaChatModel,   DEFAULTS.ollamaChatModel,   "ollamaChatModel"),
   };
 }
 

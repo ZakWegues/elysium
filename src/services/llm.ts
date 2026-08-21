@@ -1,4 +1,4 @@
-import { getApiKey, getConfig } from "../main/config";
+import { getApiKey, getConfig, marcarModeloMorto } from "../main/config";
 import { apiKeyError, networkError } from "./errors";
 
 /**
@@ -81,7 +81,15 @@ async function chamarGroq(p: ChatPedido): Promise<string> {
   }
 
   if (res.status === 401) throw apiKeyError();
-  if (!res.ok) throw new ProviderError("groq", `HTTP ${res.status} ${await corpoCurto(res)}`);
+  if (!res.ok) {
+    const corpo = await corpoCurto(res);
+    // Modelo aposentado: anota para o `getConfig()` seguinte já devolver o padrão, em
+    // vez de bater no mesmo id morto em todo comando até alguém editar o código.
+    if (res.status === 404 && /model_not_found|does not exist/i.test(corpo)) {
+      marcarModeloMorto("groq", p.model);
+    }
+    throw new ProviderError("groq", `HTTP ${res.status} ${corpo}`);
+  }
 
   const dados = await res.json() as { choices?: { message?: { content?: string } }[] };
   return dados.choices?.[0]?.message?.content ?? "";
@@ -115,7 +123,15 @@ async function chamarOllama(p: ChatPedido): Promise<string> {
     throw new ProviderError("ollama", `não consegui falar com o Ollama: ${String(e)}`);
   }
 
-  if (!res.ok) throw new ProviderError("ollama", `HTTP ${res.status} ${await corpoCurto(res)}`);
+  if (!res.ok) {
+    const corpo = await corpoCurto(res);
+    // O Ollama devolve `{"error":"model 'x' not found"}` quando o modelo não foi puxado
+    // nesta máquina. Mesmo tratamento do lado da nuvem — ver `marcarModeloMorto`.
+    if (res.status === 404 && /not found/i.test(corpo)) {
+      marcarModeloMorto("ollama", p.model);
+    }
+    throw new ProviderError("ollama", `HTTP ${res.status} ${corpo}`);
+  }
 
   const dados = await res.json() as { message?: { content?: string } };
   return dados.message?.content ?? "";

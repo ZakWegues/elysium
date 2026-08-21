@@ -5,7 +5,7 @@
   "maxRecordMs": 120000,
   "voice": "pt-BR-FranciscaNeural",
   "sttModel": "whisper-large-v3",
-  "brainModel": "llama-3.3-70b-versatile",
+  "brainModel": "openai/gpt-oss-120b",
   "chatHistoryTurns": 6,
   "chatIdleResetMs": 300000
 }

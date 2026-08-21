@@ -372,10 +372,11 @@
           <option value="ollama">Local — Ollama nesta máquina</option>
           <option value="groq">Nuvem — Groq</option>
         </select>
-        <small>Medido em 14/08/2026 com 46 casos reais: o <code>llama3.2</code> local acertou
-        93%, sem nenhum JSON inválido. O ponto fraco dele é <strong>pedido composto</strong>
-        ("fecha o Chrome e abre o VS Code"), onde acerta 12 de 18 — às vezes executa só
-        metade. Rode <code>scripts/bench-router.mjs</code> para medir de novo.</small>
+        <small>O local é o padrão porque o prompt de roteamento tem ~3,4 mil tokens e o plano
+        gratuito da Groq devolve 429 já na segunda chamada seguida. Medido em 20/08/2026, o
+        <code>llama3.1:8b</code> acertou os 5 casos difíceis, inclusive pedido composto
+        ("fecha o Chrome e abre o VS Code") — que era justamente o ponto fraco do
+        <code>llama3.2</code> anterior. Rode <code>scripts/bench-router.mjs</code> para medir de novo.</small>
       </div>
       <div class="field">
         <label for="chatProvider">Conversa (o que ele fala)</label>
@@ -387,9 +388,10 @@
       </div>
       <div class="field">
         <label for="ollamaRouterModel">Modelo local</label>
-        <input type="text" id="ollamaRouterModel" placeholder="llama3.2" spellcheck="false">
-        <small>Precisa estar baixado (<code>ollama pull llama3.2</code>). Vale para roteamento
-        e conversa.</small>
+        <input type="text" id="ollamaRouterModel" placeholder="llama3.1:8b" spellcheck="false">
+        <small>Precisa estar baixado (<code>ollama pull llama3.1:8b</code>). Vale para roteamento
+        e conversa. Ocupa ~4,9 GB e leva ~18 s para entrar na GPU a frio — por isso o tempo de
+        permanência abaixo é generoso.</small>
       </div>
       <div class="field">
         <div class="toggle-wrap">
@@ -433,18 +435,20 @@
       <div class="field">
         <label for="routerModel">Roteamento (qual ação executar)</label>
         <select id="routerModel">
-          <option value="llama-3.3-70b-versatile">Llama 3.3 70B Versatile (recomendado)</option>
-          <option value="llama-3.1-8b-instant">Llama 3.1 8B Instant (cota menor)</option>
+          <option value="openai/gpt-oss-120b">GPT-OSS 120B (recomendado)</option>
+          <option value="openai/gpt-oss-20b">GPT-OSS 20B (mais rápido, erra o formato)</option>
+          <option value="qwen/qwen3.6-27b">Qwen3.6 27B</option>
         </select>
-        <small>É este que carrega o prompt grande, a cada comando. Cuidado: no plano gratuito
-        da Groq o 8B Instant tem cota de 6 mil tokens por minuto, metade dos 12 mil do 70B —
-        trocar pelo menor para "economizar" faz o oposto.</small>
+        <small>Só entra como rede de segurança, quando o local falha. <strong>A família Llama foi
+        aposentada pela Groq</strong> — foi o que derrubou todo comando até 20/08/2026. Medido: o
+        120B acerta o formato; o 20B e o Qwen devolvem o nome da ação malformado.</small>
       </div>
       <div class="field">
         <label for="brainModel">Conversa (o que ele fala)</label>
         <select id="brainModel">
-          <option value="llama-3.3-70b-versatile">Llama 3.3 70B Versatile (melhor)</option>
-          <option value="llama-3.1-8b-instant">Llama 3.1 8B Instant (mais rápido)</option>
+          <option value="openai/gpt-oss-120b">GPT-OSS 120B (melhor)</option>
+          <option value="openai/gpt-oss-20b">GPT-OSS 20B (mais rápido)</option>
+          <option value="qwen/qwen3.6-27b">Qwen3.6 27B</option>
         </select>
         <small>Só entra quando o pedido é papo, e com um prompt curto. Vale manter o modelo bom.</small>
       </div>
@@ -554,12 +558,12 @@
       setSlider("chatHistoryTurns",cfg.chatHistoryTurns ?? 6);
       setSlider("chatIdleResetMs", cfg.chatIdleResetMs ?? 300000);
       setSelect("sttModel",   cfg.sttModel   ?? "whisper-large-v3");
-      setSelect("brainModel", cfg.brainModel ?? "llama-3.3-70b-versatile");
-      setSelect("routerModel", cfg.routerModel ?? "llama-3.3-70b-versatile");
+      setSelect("brainModel", cfg.brainModel ?? "openai/gpt-oss-120b");
+      setSelect("routerModel", cfg.routerModel ?? "openai/gpt-oss-120b");
 
       setSelect("routerProvider", cfg.routerProvider ?? "ollama");
       setSelect("chatProvider",   cfg.chatProvider   ?? "ollama");
-      document.getElementById("ollamaRouterModel").value = cfg.ollamaRouterModel ?? "llama3.2";
+      document.getElementById("ollamaRouterModel").value = cfg.ollamaRouterModel ?? "llama3.1:8b";
       document.getElementById("fallbackToGroq").checked   = cfg.fallbackToGroq !== false;
       document.getElementById("evitarGpuOcupada").checked = cfg.evitarGpuOcupada !== false;
       checarOllama();
@@ -577,7 +581,7 @@
      */
     async function checarOllama() {
       const alvo = document.getElementById("ollamaStatus");
-      const modelo = document.getElementById("ollamaRouterModel").value.trim() || "llama3.2";
+      const modelo = document.getElementById("ollamaRouterModel").value.trim() || "llama3.1:8b";
       alvo.innerHTML = "<small>verificando o Ollama…</small>";
       try {
         const r = await window.elysiumConfig.ollamaStatus(modelo);
@@ -690,10 +694,10 @@
         routerModel: document.getElementById("routerModel").value,
         routerProvider:    document.getElementById("routerProvider").value,
         chatProvider:      document.getElementById("chatProvider").value,
-        ollamaRouterModel: document.getElementById("ollamaRouterModel").value.trim() || "llama3.2",
+        ollamaRouterModel: document.getElementById("ollamaRouterModel").value.trim() || "llama3.1:8b",
         // O mesmo modelo atende roteamento e conversa: manter dois campos para o que na
         // prática é sempre o mesmo valor seria pedir para eles divergirem sem querer.
-        ollamaChatModel:   document.getElementById("ollamaRouterModel").value.trim() || "llama3.2",
+        ollamaChatModel:   document.getElementById("ollamaRouterModel").value.trim() || "llama3.1:8b",
         fallbackToGroq:    document.getElementById("fallbackToGroq").checked,
         evitarGpuOcupada:  document.getElementById("evitarGpuOcupada").checked,
         autoLaunch: document.getElementById("autoLaunchToggle").checked,
@@ -716,8 +720,8 @@
       const defaults = await window.elysiumConfig.resetDefaults();
       applyConfig({
         silenceMs: 2500, maxRecordMs: 120000, chatHistoryTurns: 6, chatIdleResetMs: 300000,
-        sttModel: "whisper-large-v3", brainModel: "llama-3.3-70b-versatile",
-        routerModel: "llama-3.3-70b-versatile",
+        sttModel: "whisper-large-v3", brainModel: "openai/gpt-oss-120b",
+        routerModel: "openai/gpt-oss-120b",
         autoLaunch: true, shortcut: "Control+Shift+J",
       });
       status.className = "ok";

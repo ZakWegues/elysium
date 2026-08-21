@@ -3367,19 +3367,20 @@ document.addEventListener("keydown", (e) => {
 const AJUSTES = [
   {
     grupo: "Cérebro",
-    nota: "Medido em 14/08/2026 com 46 casos reais: o llama3.2 local acertou 93%, sem nenhum " +
-          "JSON inválido. O ponto fraco é pedido composto (“fecha o Chrome e abre o VS Code”), " +
-          "onde acerta 12 de 18 — às vezes executa só metade.",
+    nota: "O local é o padrão porque o prompt de roteamento tem ~3,4 mil tokens e o plano " +
+          "gratuito da Groq devolve 429 já na segunda chamada seguida. Medido em 20/08/2026, o " +
+          "llama3.1:8b acertou os 5 casos difíceis, inclusive pedido composto " +
+          "(“fecha o Chrome e abre o VS Code”) — o ponto fraco do llama3.2 anterior.",
     campos: [
       { chave: "routerProvider", rotulo: "Quem decide a ação", tipo: "select", opcoes: [
         ["ollama", "Local — Ollama nesta máquina"], ["groq", "Nuvem — Groq"]] },
       { chave: "chatProvider", rotulo: "Quem escreve a resposta", tipo: "select", opcoes: [
         ["ollama", "Local — Ollama nesta máquina"], ["groq", "Nuvem — Groq"]] },
-      { chave: "ollamaRouterModel", rotulo: "Modelo local", tipo: "texto", dica: "ollama pull llama3.2" },
+      { chave: "ollamaRouterModel", rotulo: "Modelo local", tipo: "texto", dica: "ollama pull llama3.1:8b" },
       { chave: "fallbackToGroq", rotulo: "Cair na Groq se o local falhar", tipo: "bool",
         dica: "Cobre JSON quebrado e Ollama fora do ar. Não cobre pedido composto pela metade — aquilo é JSON válido." },
       { chave: "evitarGpuOcupada", rotulo: "Usar a nuvem com jogo aberto", tipo: "bool",
-        dica: "O modelo local ocupa ~2,6 GB de VRAM enquanto carregado." },
+        dica: "O llama3.1:8b ocupa ~4,9 GB de VRAM enquanto carregado, e leva ~18 s para carregar a frio." },
     ],
   },
   {
@@ -3413,10 +3414,10 @@ const AJUSTES = [
       { chave: "sttModel", rotulo: "Transcrição", tipo: "select", opcoes: [
         ["whisper-large-v3", "Whisper Large v3"], ["whisper-large-v3-turbo", "Whisper Large v3 Turbo"]] },
       { chave: "routerModel", rotulo: "Decide a ação", tipo: "select", opcoes: [
-        ["llama-3.3-70b-versatile", "Llama 3.3 70B"], ["llama-3.1-8b-instant", "Llama 3.1 8B"]],
-        dica: "No plano gratuito o 8B tem cota de 6 mil tokens/min, metade dos 12 mil do 70B — o menor gasta mais." },
+        ["openai/gpt-oss-120b", "GPT-OSS 120B"], ["openai/gpt-oss-20b", "GPT-OSS 20B"], ["qwen/qwen3.6-27b", "Qwen3.6 27B"]],
+        dica: "A família Llama foi aposentada pela Groq. Medido: só o 120B devolve o nome da ação no formato certo." },
       { chave: "brainModel", rotulo: "Escreve a resposta", tipo: "select", opcoes: [
-        ["llama-3.3-70b-versatile", "Llama 3.3 70B"], ["llama-3.1-8b-instant", "Llama 3.1 8B"]] },
+        ["openai/gpt-oss-120b", "GPT-OSS 120B"], ["openai/gpt-oss-20b", "GPT-OSS 20B"], ["qwen/qwen3.6-27b", "Qwen3.6 27B"]] },
     ],
   },
   {
