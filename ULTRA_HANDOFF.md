@@ -2775,10 +2775,70 @@ o Zak usa.
 > antiga sem reinstalar: Ajustes → Cérebro → "Modelo local" aceita texto livre. Foi o que
 > tornou o conserto de 21/08 aplicável na hora, sem esperar instalador.
 
+### Bloco 49 — o `eas init` pendente não era pendência, e o slug nunca mudou
+
+A §18 (bloco 9) e a §21 mandavam rodar `npx eas-cli init` antes do próximo `npm run update`,
+sob o argumento de que o `slug` teria mudado para `elysium-m` enquanto o `projectId` ficou no
+projeto antigo, e que o `eas update` seria recusado por divergência.
+
+**Conferido em 21/08/2026: a premissa é falsa.** O `app.json` real diz:
+
+```json
+"slug": "neuroaxis-portal",
+"updates": { "url": "https://u.expo.dev/a9c62871-2d6d-4e05-b458-1e58655449b5" },
+"extra": { "eas": { "projectId": "a9c62871-2d6d-4e05-b458-1e58655449b5" } }
+```
+
+O `slug` **nunca foi trocado** — só o `expo.name` virou ELYSIUM-M. Slug, `projectId` e
+`updates.url` sempre apontaram para o mesmo projeto, e `npx eas-cli project:info` resolve
+limpo em `@zakdwr/neuroaxis-portal`. Não havia divergência para consertar.
+
+> 🔴 **Rodar `eas init` aqui seria o erro, não a correção.** Ele re-vincula o projeto. Um
+> `projectId` novo invalida o `updates.url` que está compilado **dentro do APK instalado**,
+> e o aparelho pararia de buscar atualização — sem erro visível, só nunca mais receber OTA.
+
+**O que de fato atrapalhava:** existe um `C:\Users\ZAK\app.json` de 124 bytes, criado por um
+`eas init` rodado da pasta pessoal em 14/08/2026. Ele contém só um `projectId` órfão
+(`73a89816-81a7-4339-be67-c9b7fcd111b4`), de um projeto EAS que não corresponde a nada. Todo
+comando `eas` disparado de `C:\Users\ZAK` lê esse arquivo e responde
+*"Project already linked (ID: 73a89816…)"* seguido de *"Cannot determine which native SDK
+version your project uses because the module `expo` is not installed"* — que é o sintoma de
+estar na pasta errada, não de configuração quebrada.
+
+**Regra:** comando `eas` só roda de dentro de `elysium-m\`.
+
+### OTA publicado
+
+`npm run update` publica no canal **preview**. Em 21/08/2026, do commit `e4d4dca`:
+
+| | |
+|---|---|
+| runtime version (android) | `066f2ab6953cc9074a2ff593e64960e5b7367aaf` |
+| fingerprint de `dist-apk/elysium-m.apk` | **o mesmo** |
+
+⚠️ **O `--non-interactive` agora exige `--environment`.** O `eas-cli` mudou: sem a flag ele
+recusa com *"The `--environment` flag must be set when running in `--non-interactive` mode"*.
+O script `npm run update` do `package.json` não passa nenhuma das duas, então funciona no uso
+interativo normal; automatizar exige
+`npx eas-cli update --channel preview --message "..." --environment preview --non-interactive`.
+
+**Como saber o runtime de um APK já construído** — o manifesto guarda `file:fingerprint`, uma
+indireção, não o valor:
+
+```bash
+unzip -o -j caminho.apk "assets/fingerprint" -d /tmp && cat /tmp/fingerprint
+```
+
+Se esse valor não bater com o runtime do OTA, a atualização **não chega** ao aparelho, e o
+sintoma é o app simplesmente continuar velho.
+
 ### O que esta fase deixou pendente
 
-- **Publicar o OTA** (`npm run update "..."`) — os blocos 42 a 47 são só JavaScript e viajam
-  pelo ar. ⚠️ Rodar `npx eas-cli init` antes: o `projectId` ainda é o do slug antigo (§18).
+- ~~Publicar o OTA~~ — **feito em 21/08/2026**, canal `preview`, runtime `066f2ab6…`.
+  ⚠️ O `eas init` que a §18 pedia era desnecessário e perigoso — ver o bloco 49.
+- **Instalar `dist-apk/elysium-m.apk` no celular.** O OTA só alcança um aparelho cujo
+  fingerprint bata, e o APK de 20/08 é o que bate. Mesma chave de assinatura da build
+  anterior, então instala por cima sem perder pareamento.
 - **Instalar o `release/ELYSIUM-Setup-1.0.0.exe` gerado em 21/08/2026 às 16h06.** Enquanto
   isso não acontecer, o conserto da IA **não chega ao uso real** — ver o bloco 48. A saída
   imediata é Ajustes → Cérebro → "Modelo local" = `llama3.1:8b` na build instalada.
