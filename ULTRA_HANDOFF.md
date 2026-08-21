@@ -2730,10 +2730,58 @@ valor do elemento está na profundidade, não no movimento.
 > `resolverFamiliaEscolhida()` traduz os valores antigos e devolve `null` para lixo, que cai
 > no padrão.
 
+### 🔴 Bloco 48 — a build instalada não é a build que você testa
+
+Descoberto em 21/08/2026, ao tentar validar o conserto da IA e não achar a porta de
+depuração: **quem estava servindo a porta 4200 era `ELYSIUM\elysium baixado\ELYSIUM.exe`** —
+a build do instalador NSIS — e não a instância de desenvolvimento.
+
+Isso corrige duas coisas escritas em outros pontos deste documento:
+
+- A §18 (bloco 8) afirma *"não existe instalação NSIS nesta máquina"*. **Existe.** O Zak
+  instalou em algum momento, e a pasta `ELYSIUM\elysium baixado\` é a saída desse
+  instalador. **Não é fonte e não se edita** — o fonte continua sendo `elysium\` e
+  `elysium-m\`.
+- A §15 lista *"instalador não testado"*. Ele foi instalado e roda.
+
+**Por que isto é uma armadilha, e não uma curiosidade:**
+
+A build instalada sobe sozinha com o Windows e **pega o single-instance lock**. A partir
+daí, qualquer `electron .` lançado da pasta de desenvolvimento **encerra em silêncio** — o
+lock manda a segunda instância só mostrar o dashboard da primeira e sair. O sintoma é
+exatamente o de um app que "fecha sozinho", e foi o que aconteceu duas vezes nesta sessão.
+
+Pior: a porta 4200 continua respondendo o tempo todo, então `curl` no `/api/health` e no
+`/api/command` **passa** — só que quem responde é o código antigo. Uma correção de fonte
+pode ser dada como validada sem nunca ter rodado.
+
+**Como saber qual das duas está no ar:**
+
+```powershell
+Get-CimInstance Win32_Process -Filter "Name='ELYSIUM.exe' OR Name='electron.exe'" |
+  Where-Object { $_.CommandLine -notmatch '--type=' } |
+  Select-Object ProcessId, Name, CommandLine
+```
+
+`ELYSIUM.exe` em `elysium baixado\` = instalada. `electron.exe` em
+`elysium\node_modules\` = desenvolvimento.
+
+**Regra prática:** para testar código novo, encerre a instalada primeiro. Para entregar
+código novo ao uso real, `npm run dist` e instalar — commitar no fonte **não** muda o que
+o Zak usa.
+
+> ⚠️ **Saída rápida quando só o modelo mudou.** O `getConfig()` põe os `overrides` do
+> usuário por cima dos padrões compilados, então dá para consertar uma build instalada
+> antiga sem reinstalar: Ajustes → Cérebro → "Modelo local" aceita texto livre. Foi o que
+> tornou o conserto de 21/08 aplicável na hora, sem esperar instalador.
+
 ### O que esta fase deixou pendente
 
 - **Publicar o OTA** (`npm run update "..."`) — os blocos 42 a 47 são só JavaScript e viajam
   pelo ar. ⚠️ Rodar `npx eas-cli init` antes: o `projectId` ainda é o do slug antigo (§18).
+- **Instalar o `release/ELYSIUM-Setup-1.0.0.exe` gerado em 21/08/2026 às 16h06.** Enquanto
+  isso não acontecer, o conserto da IA **não chega ao uso real** — ver o bloco 48. A saída
+  imediata é Ajustes → Cérebro → "Modelo local" = `llama3.1:8b` na build instalada.
 - **Julgamento visual do Zak** nos itens que screenshot não resolve: os feixes de luz da
   família ELYSIUM, o canto de redimensionar e o tamanho dos cards nos dois lados.
 - **Reinstalar/atualizar o desktop** — o `release/ELYSIUM-Setup-1.0.0.exe` é anterior a esta fase.
