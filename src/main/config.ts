@@ -105,7 +105,21 @@ export interface AppConfig {
   climaLat: number | null;
   climaLon: number | null;
   /** Ordem e visibilidade dos cards da tela Início. */
-  homeCards: { ordem: string[]; ocultos: string[] };
+  /**
+   * Cards da tela Início.
+   *
+   * `fixos` e `tamanhos` são opcionais porque chegaram depois: uma configuração gravada
+   * antes deles não tem as chaves, e a ausência tem que significar "padrão de fábrica"
+   * em vez de derrubar a leitura. `tamanhos` guarda, por card, quantas colunas ele ocupa
+   * (`span`) e a altura travada em px (`alt`) — sem entrada, o card é do tamanho que o
+   * catálogo declara e cresce com o conteúdo.
+   */
+  homeCards: {
+    ordem: string[];
+    ocultos: string[];
+    fixos?: string[];
+    tamanhos?: Record<string, { span?: number; alt?: number }>;
+  };
 }
 
 const DEFAULTS: AppConfig = {

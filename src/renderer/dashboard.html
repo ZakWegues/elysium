@@ -1723,16 +1723,49 @@ body.tabs .top-btn.drawer-toggle { display: none; }
   grid-auto-flow: dense;
 }
 .home-card[data-span="2"] { grid-column: span 2; }
+.home-card[data-span="3"] { grid-column: span 3; }
 /* Numa janela estreita, duas colunas não existem e `span 2` viraria um card
    estourando a grade. */
-@media (max-width: 720px) { .home-card[data-span="2"] { grid-column: span 1; } }
+@media (max-width: 720px) {
+  .home-card[data-span="2"], .home-card[data-span="3"] { grid-column: span 1; }
+}
 
 .home-card {
   background: var(--surface); border: 1px solid var(--border);
   border-radius: var(--radius-10); padding: 13px 15px 15px;
   box-shadow: var(--shadow-card, none);
   backdrop-filter: var(--glass-blur);
+  /* Âncora do puxador do canto. */
+  position: relative;
 }
+
+/*
+  Redimensionar o card arrastando o canto, como a quina de uma janela do Windows.
+
+  A altura travada vive numa variável, e não num `height` inline, porque quem precisa da
+  medida é o CORPO do card, não a moldura: travar a moldura sem dizer ao corpo o que fazer
+  deixaria o conteúdo transbordando por cima do card seguinte. Com `--alt`, a moldura
+  ganha a altura e o corpo ganha a rolagem.
+*/
+.home-card[style*="--alt"] { height: var(--alt); display: flex; flex-direction: column; }
+.home-card[style*="--alt"] .home-card-corpo { flex: 1; min-height: 0; overflow: auto; }
+
+.home-card-resize {
+  position: absolute; right: 3px; bottom: 3px;
+  width: 15px; height: 15px; cursor: nwse-resize;
+  opacity: 0; color: var(--muted);
+  transition: opacity var(--mov-micro) var(--mov-curva);
+  /* O desenho é um cantinho de duas riscas: menos ruidoso que um ícone, e é a convenção
+     que todo mundo já reconhece de janela redimensionável. */
+  background:
+    linear-gradient(135deg, transparent 46%, currentColor 46%, currentColor 58%, transparent 58%),
+    linear-gradient(135deg, transparent 70%, currentColor 70%, currentColor 82%, transparent 82%);
+}
+.home-card:hover .home-card-resize { opacity: 0.5; }
+.home-card-resize:hover { opacity: 1 !important; color: var(--purple-bright); }
+/* Enquanto se arrasta o canto, o texto da tela inteira não pode ser selecionado — senão
+   o gesto pinta metade do dashboard de azul. */
+body.redimensionando, body.redimensionando * { user-select: none !important; cursor: nwse-resize !important; }
 .home-card.arrastando { opacity: 0.35; }
 /* Card fixo: fica no topo e não sai do lugar quando os outros são arrastados. */
 .home-card.fixo { border-color: rgba(var(--purple-rgb),0.34); }
@@ -4219,7 +4252,7 @@ const CARDS_PADRAO = ["sugestoes", "computador", "musica", "lembretes", "insight
  * `fixos` são desenhados antes de todos os outros e não saem do lugar quando você arrasta
  * o resto. Serve para o que você quer sempre no mesmo canto — clima, no caso.
  */
-let estadoCards = { ordem: CARDS_PADRAO.slice(), ocultos: [], fixos: ["clima"] };
+let estadoCards = { ordem: CARDS_PADRAO.slice(), ocultos: [], fixos: ["clima"], tamanhos: {} };
 let dadosInicio = {};
 
 function cardsVisiveis() {
@@ -4298,13 +4331,18 @@ function desenharInicio() {
   grade.innerHTML = visiveis.map(id => {
     const c = CARDS[id];
     const fixo = ehFixo(id);
-    return `<section class="home-card${fixo ? " fixo" : ""}" data-card="${id}" data-span="${c.span}" draggable="${!fixo}">
+    // Tamanho escolhido pelo usuário vence o do catálogo; sem escolha, vale o do catálogo.
+    const t = (estadoCards.tamanhos ?? {})[id] ?? {};
+    const span = t.span ?? c.span;
+    const estilo = t.alt ? ` style="--alt:${t.alt}px"` : "";
+    return `<section class="home-card${fixo ? " fixo" : ""}" data-card="${id}" data-span="${span}" draggable="${!fixo}"${estilo}>
       <header class="home-card-head">
         <span class="home-card-title">${ico(c.icone, "ico-sm")}<span>${escHtml(c.titulo)}</span></span>
         <button class="home-card-pin" data-fixar="${id}" title="${fixo ? "Soltar" : "Fixar no topo"}">${ico("pin", "ico-sm")}</button>
         ${fixo ? "" : `<span class="home-card-grip" title="Arraste para reordenar">${ico("grip", "ico-sm")}</span>`}
       </header>
       <div class="home-card-corpo">${c.render(dadosInicio)}</div>
+      <span class="home-card-resize" data-resize="${id}" title="Arraste para redimensionar. Duplo clique volta ao tamanho automático."></span>
     </section>`;
   }).join("");
 
@@ -4366,6 +4404,11 @@ function ligarArrasto() {
   if (!grade || grade.dataset.arrasto) return;
   grade.dataset.arrasto = "1";
 
+  // Aqui dentro de propósito: `ligarArrasto` é chamado dos cinco lugares que redesenham a
+  // Início e já tem a trava de "só uma vez". Ligar o canto num sexto ponto seria mais um
+  // lugar para alguém esquecer de atualizar.
+  ligarRedimensionamento();
+
   grade.addEventListener("dragstart", (e) => {
     const card = e.target.closest(".home-card");
     if (!card || card.classList.contains("fixo")) return;
@@ -4407,6 +4450,96 @@ async function salvarCards() {
   try { await window.nx.setConfig({ homeCards: estadoCards }); } catch { /* segue com o que está na tela */ }
 }
 
+// ─────────────────────────────────────────────────
+// REDIMENSIONAR CARD PELO CANTO
+// ─────────────────────────────────────────────────
+
+/**
+ * Arrastar a quina muda largura e altura do card, como numa janela do Windows.
+ *
+ * A largura anda em COLUNAS, não em pixels, porque a Início é uma grade `auto-fill`: um
+ * card com largura livre não teria como se alinhar com o vizinho, e a grade abriria
+ * buracos irregulares a cada ajuste. A altura é livre, porque nada depende dela.
+ *
+ * Usa Pointer Events com `setPointerCapture` em vez de escutar o `mousemove` do
+ * documento: com a captura, o gesto continua chegando ao puxador mesmo quando o ponteiro
+ * sai do card — que é o caso normal ao aumentar — e não é preciso montar e desmontar
+ * ouvintes globais que vazam se o `pointerup` se perder.
+ */
+function ligarRedimensionamento() {
+  const grade = gradeInicio();
+  if (!grade) return;
+
+  grade.addEventListener("pointerdown", e => {
+    const puxador = e.target.closest("[data-resize]");
+    if (!puxador) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    const id = puxador.dataset.resize;
+    const card = puxador.closest(".home-card");
+    if (!card) return;
+
+    const x0 = e.clientX, y0 = e.clientY;
+    const alturaInicial = card.getBoundingClientRect().height;
+    const spanInicial = Number(card.dataset.span) || 1;
+
+    // Largura de uma coluna, medida da grade viva: `auto-fill` decide quantas colunas
+    // cabem, então este número muda com o tamanho da janela e não pode ser constante.
+    const colunas = getComputedStyle(grade).gridTemplateColumns.split(" ").filter(Boolean);
+    const larguraColuna = parseFloat(colunas[0]) || 280;
+    const gap = parseFloat(getComputedStyle(grade).gap) || 14;
+    const maxSpan = Math.max(1, colunas.length);
+
+    puxador.setPointerCapture(e.pointerId);
+    document.body.classList.add("redimensionando");
+
+    let spanFinal = spanInicial, altFinal = Math.round(alturaInicial);
+
+    function aoMover(ev) {
+      const dx = ev.clientX - x0;
+      const dy = ev.clientY - y0;
+
+      // Meia coluna de folga antes de trocar: sem isto, tremer o pulso perto do limiar
+      // faz o card piscar entre duas larguras.
+      const passos = Math.round(dx / (larguraColuna + gap));
+      spanFinal = Math.min(maxSpan, Math.max(1, spanInicial + passos));
+      // Mínimo de 90 px: abaixo disso o cabeçalho já não cabe e o card vira uma tarja.
+      altFinal = Math.max(90, Math.round((alturaInicial + dy) / 4) * 4);
+
+      card.dataset.span = String(spanFinal);
+      card.style.setProperty("--alt", `${altFinal}px`);
+    }
+
+    function aoSoltar(ev) {
+      puxador.releasePointerCapture?.(ev.pointerId);
+      puxador.removeEventListener("pointermove", aoMover);
+      puxador.removeEventListener("pointerup", aoSoltar);
+      puxador.removeEventListener("pointercancel", aoSoltar);
+      document.body.classList.remove("redimensionando");
+
+      estadoCards.tamanhos = estadoCards.tamanhos ?? {};
+      estadoCards.tamanhos[id] = { span: spanFinal, alt: altFinal };
+      salvarCards();
+    }
+
+    puxador.addEventListener("pointermove", aoMover);
+    puxador.addEventListener("pointerup", aoSoltar);
+    puxador.addEventListener("pointercancel", aoSoltar);
+  });
+
+  // Duplo clique no canto devolve o tamanho automático. Sem esta saída, um card esticado
+  // sem querer só voltaria pelo "restaurar padrão", que zera a tela inteira.
+  grade.addEventListener("dblclick", e => {
+    const puxador = e.target.closest("[data-resize]");
+    if (!puxador) return;
+    const id = puxador.dataset.resize;
+    if (estadoCards.tamanhos) delete estadoCards.tamanhos[id];
+    salvarCards();
+    desenharInicio();
+  });
+}
+
 async function carregarCards() {
   try {
     const cfg = await window.nx.getConfig();
@@ -4424,12 +4557,18 @@ async function carregarCards() {
         // Configuração gravada antes desta versão não tem `fixos` — nasce sem nenhum,
         // em vez de reimpor o padrão de fábrica por cima de uma escolha já feita.
         fixos: (salvo.fixos ?? []).filter(id => CARDS[id]),
+        // Mesma regra para `tamanhos`, que chegou depois: card sem entrada usa o tamanho
+        // declarado no catálogo e cresce com o conteúdo, como sempre foi.
+        tamanhos: Object.fromEntries(
+          Object.entries(salvo.tamanhos ?? {}).filter(([id]) => CARDS[id])
+        ),
       };
     } else {
       estadoCards = {
         ordem: [...CARDS_PADRAO, ...Object.keys(CARDS).filter(id => !CARDS_PADRAO.includes(id))],
         ocultos: Object.keys(CARDS).filter(id => !CARDS_PADRAO.includes(id)),
         fixos: ["clima"],
+        tamanhos: {},
       };
     }
   } catch { /* fica com o padrão */ }
@@ -4519,6 +4658,9 @@ document.getElementById("view-inicio")?.addEventListener("click", async (e) => {
       ordem: [...CARDS_PADRAO, ...Object.keys(CARDS).filter(id => !CARDS_PADRAO.includes(id))],
       ocultos: Object.keys(CARDS).filter(id => !CARDS_PADRAO.includes(id)),
       fixos: ["clima"],
+      // Voltar ao padrão tem que desfazer os tamanhos tambem, senao um card esticado
+      // continuaria esticado depois de "restaurar" e o botao pareceria meio quebrado.
+      tamanhos: {},
     };
     await salvarCards();
     await atualizarInicio();
