@@ -31,7 +31,7 @@
 | 17 | [Como validar](#17-como-validar) |
 | 18 | [Plano ELYSIUM — rename, redesign, cérebro local](#18-plano-elysium--rename-redesign-cérebro-local) |
 | 19 | [Plano fase 2 — vidro, paridade e conteúdo](#19-plano-fase-2--vidro-paridade-e-conteúdo-blocos-15-a-22) |
-| 22 | [Fase 5 — a IA morta, e os seis pedidos do celular](#22-fase-5--a-ia-morta-e-os-seis-pedidos-do-celular-blocos-41-a-47) |
+| 22 | [Fase 5 — a IA morta, e os seis pedidos do celular](#22-fase-5--a-ia-morta-e-os-seis-pedidos-do-celular-blocos-41-a-50) |
 
 ---
 
@@ -179,18 +179,18 @@ pedir de novo.**
 
 ### Git
 
-| Repo | HEAD (13/08/2026) | Estado |
+| Repo | HEAD (21/08/2026) | Estado |
 |---|---|---|
-| `elysium` | `040b78c` — *docs: um documento único no lugar de cinco que já se contradiziam* | limpo, pusheado |
-| `elysium-m` | `f3750c7` — *fix: o APK de release não conseguia falar com o PC em rede nenhuma* | limpo, pusheado |
+| `elysium` | `4fc902c` — *docs: bloco 49* | limpo, pusheado |
+| `elysium-m` | `e4d4dca` — *fix: redimensionar gravava a cada quadro* | limpo, pusheado |
 
-Esses dois commits trazem: a correção do cleartext no Portal (`expo-build-properties`), o
-`expo-system-ui`, a limpeza dos cinco documentos concorrentes, e o `Iniciar ELYSIUM.vbs`
-deixando de ter caminho absoluto.
+A fase 5 inteira (§22) está nesses dois. Verificado antes de subir: `npm run build` no
+desktop, `npm run typecheck` **e** `npx expo export --platform android` no Portal — o
+typecheck sozinho não pega import quebrado em tempo de execução, o bundle pega.
 
-Verificado antes de subir: `npm run build` no desktop e `npm run typecheck` no Portal, ambos
-sem erro. Conferido também que os 52 métodos RPC e as 28 ações citados neste documento batem
-exatamente com o código, sem sobra e sem falta.
+> 🔴 **O que está commitado NÃO é o que está rodando.** O desktop em uso é o instalador
+> (`elysium baixadoELYSIUM.exe`) e o celular roda um APK anterior. Ver blocos 48 e 49 —
+> é a armadilha mais cara desta fase.
 
 ### Blocos do plano de expansão
 
@@ -1309,8 +1309,16 @@ direto no `dist/`.
 
 Ordenadas por impacto.
 
-1. **⚠️ Pareamento não validado depois da correção do cleartext.** O APK corrigido está pronto
-   e não foi instalado. É o próximo passo real — ver §4.
+> **Revisada em 21/08/2026** ao fim da fase 5 (§22). Os itens riscados foram resolvidos ou
+> deixaram de ser verdade; ficam visíveis porque a informação de que já foram problema tem
+> valor, e apagar faria a próxima sessão reinvestigar.
+
+0. **🔴 O que está commitado não é o que está rodando.** O desktop em uso é o instalador em
+   `elysium baixado`, e o celular roda um APK anterior ao fingerprint atual. Enquanto os
+   dois não forem atualizados, todo conserto da fase 5 existe só no git. **É a pendência de
+   maior impacto agora** — ver blocos 48 e 49.
+1. ~~**⚠️ Pareamento não validado depois da correção do cleartext.**~~ **Resolvido**: o APK
+   com `usesCleartextTraffic` foi instalado e pareado em 14/08 (§18, bloco 9).
 2. **🔑 A chave de assinatura não tem backup.** Perder `%USERPROFILE%\Android\` custa o caminho
    de atualização do app.
 3. **Limite de tokens da Groq** — ~4400 tokens por chamada, 12000 TPM no gratuito. Já mitigado
@@ -1321,7 +1329,11 @@ Ordenadas por impacto.
    `SendInput`/unicode e compila, mas testar exige controlar o foco da janela — o que não dá
    para fazer com segurança por automação. Pedir pro Zak abrir PC → Trackpad e digitar "ação,
    çedilha, ãõ" num campo de texto.
-6. **Instalador `.exe` (NSIS) não testado** depois de nenhuma das mudanças recentes.
+6. ~~**Instalador `.exe` (NSIS) não testado**~~ — **ele existe e roda**: é justamente a build
+   que serve a porta 4200 nesta máquina (bloco 48). Um instalador novo foi gerado em
+   21/08/2026 às 16h06 (`release/ELYSIUM-Setup-1.0.0.exe`, 75,9 MB) e **verificado por
+   dentro** — o `app.asar` contém `gpt-oss-120b`, `llama3.1:8b`, `marcarModeloMorto` e
+   `home-card-resize`. Falta instalar.
 7. **Push nunca validado em APK standalone.** Exige credenciais FCM no projeto EAS. Em Expo Go
    e emulador não funciona de jeito nenhum — o app detecta e explica.
 8. **Voz "Microsoft Daniel" (pt-BR masculina) não é usada pelo fallback SAPI**: é voz OneCore
@@ -1338,7 +1350,8 @@ Ordenadas por impacto.
 12. **Espelhamento tem teto de ~1,5 quadro/s** por limitação do `desktopCapturer`. Se um dia
     precisar de vídeo de verdade, o caminho é outro (WebRTC / captura por stream), não otimizar
     este.
-13. **Build obsoleta na fila do EAS** — vale cancelar.
+13. ~~**Build obsoleta na fila do EAS**~~ — irrelevante desde que o build virou local (§13).
+    O caminho normal não passa mais pelo EAS; só o `eas update` passa.
 14. **Checklist de validação manual do `CLAUDE.md`** ainda não confirmado ponta a ponta.
 15. **⚠️ Config corrompido derruba a inicialização em vez de cair no padrão.** Descoberto sem
     querer em 14/08/2026: um `elysium-config.json` gravado com **BOM** (é o que o
@@ -1570,6 +1583,11 @@ Descoberto ao validar: **não existe instalação NSIS nesta máquina** — nada
 `%LOCALAPPDATA%\Programs`. O app sempre subiu em modo desenvolvimento, então não há nada a
 desinstalar e o item "instalador não testado" da §15 nunca foi exercitado de verdade.
 
+> 🔴 **VENCIDO desde 21/08/2026 — ver o bloco 48 (§22).** Passou a existir instalação, em
+> `ELYSIUMelysium baixado`, e é ela que roda no dia a dia. Ela pega o single-instance
+> lock, então toda instância de desenvolvimento encerra em silêncio enquanto ela estiver de
+> pé. Quem ler só este parágrafo vai testar a build errada achando que testou a certa.
+
 **Verificado em execução (13/08/2026), não deduzido:**
 
 | verificação | resultado |
@@ -1617,12 +1635,14 @@ chave** (`ELYSIUM_*` e `NEUROAXIS_*`). Renomear no disco virou opcional; o que c
 proibido é gerar chave nova. Só o nome da config do gradle mudou
 (`neuroaxisRelease` → `elysiumRelease`), que é interno.
 
-> ⚠️ **EAS ainda apontando pro projeto antigo.** O `slug` mudou para `elysium-m`, mas
-> `extra.eas.projectId` e `updates.url` continuam em
-> `a9c62871-2d6d-4e05-b458-1e58655449b5` — de propósito, porque zerá-los sem rodar o
-> `eas init` arriscaria quebrar o build local, que é o caminho normal. **Antes do próximo
-> `npm run update`, rodar `npx eas-cli init`** para recriar o vínculo; o `eas update` pode
-> recusar por divergência de slug até lá. O build local **não** depende do EAS.
+> 🔴 **ESTE PARÁGRAFO ESTÁ ERRADO. Não rode `eas init`. Ver o bloco 49 (§22).**
+>
+> Conferido em 21/08/2026 no arquivo: o `slug` **nunca** foi trocado — continua
+> `neuroaxis-portal`, e só o `expo.name` virou ELYSIUM-M. Slug, `projectId` e `updates.url`
+> sempre apontaram para o mesmo projeto, `npx eas-cli project:info` resolve limpo, e o
+> `eas update` funciona sem nada a consertar. Rodar `eas init` aqui seria o erro: ele
+> re-vincula, e um `projectId` novo invalida o `updates.url` compilado dentro do APK já
+> instalado — o aparelho pararia de buscar atualização, sem erro visível.
 
 **Ícones:** eram o placeholder padrão do Expo (a seta azul do template). **Refeitos em
 14/08/2026** — ver a seção de ícones abaixo.
@@ -2571,10 +2591,17 @@ lampejo branco) e clique esquerdo na bandeja abrindo o dashboard.
 
 ---
 
-## 22. Fase 5 — a IA morta, e os seis pedidos do celular (blocos 41 a 47)
+## 22. Fase 5 — a IA morta, e os seis pedidos do celular (blocos 41 a 50)
 
-> **Status: concluída em 21/08/2026.** Desktop em `2bbcef1` · `c3607cb`; celular em
-> `44d916b` · `35f68ea`. **O OTA ainda não foi publicado e o APK segue não instalado.**
+> **Status: concluída em 21/08/2026.**
+>
+> | repo | commits |
+> |---|---|
+> | `elysium` | `2bbcef1` (IA) · `c3607cb` (redimensionar) · `6ade51a` (revisão) |
+> | `elysium-m` | `44d916b` (4 pedidos) · `35f68ea` (temas) · `e4d4dca` (revisão) |
+>
+> **OTA publicado** no canal `preview`. **Falta instalar** o APK no celular e o instalador
+> novo no PC — sem isso nada disto chega ao uso real. Ver blocos 48 e 49.
 
 ### 🔴 Bloco 41 — a IA parou de responder, nos dois lados
 
@@ -2831,6 +2858,65 @@ unzip -o -j caminho.apk "assets/fingerprint" -d /tmp && cat /tmp/fingerprint
 
 Se esse valor não bater com o runtime do OTA, a atualização **não chega** ao aparelho, e o
 sintoma é o app simplesmente continuar velho.
+
+### Bloco 50 — o que a revisão do diff pegou
+
+Os blocos 41 a 47 foram revisados por subagentes de revisão, um por repositório, depois de
+já estarem pushados. Quatro achados sobreviveram à verificação; três eram reais e um estava
+subdimensionado. **Nenhum foi aceito sem conferir no código.**
+
+**1. 🔴 A cura de modelo morto era inerte no caso que causou a pane.**
+
+`healModel(value, DEFAULTS[key])` troca o modelo morto pelo padrão da mesma chave. Isso
+cobre *"o usuário escolheu um modelo que morreu"* e **não cobre nada** quando o id morto
+**é** o padrão — que foi exatamente 21/08. `healModel(x, x)` devolve `x`. O
+`marcarModeloMorto` acrescentado no bloco 41 herdou o mesmo defeito: marcava o padrão como
+morto e continuava devolvendo o padrão morto.
+
+Agora cada papel tem uma **fila de candidatos** (`CANDIDATOS_GROQ`, `CANDIDATOS_OLLAMA`) e a
+cura pega o primeiro vivo. Fila inteira morta agora diz isso no log em vez de fingir que
+curou.
+
+**2. Redesenho da Início no meio de um redimensionamento matava o gesto.**
+
+A Início se redesenha sozinha por temporizador — tique do Spotify (400 ms), re-sorteio das
+bolhas (120 ms) e volta do foco da janela. Disparando durante um arrasto de quina, o
+`innerHTML` da grade era trocado, o puxador saía do DOM levando junto a captura do ponteiro,
+e o `pointerup` nunca chegava. O card voltava sozinho ao tamanho antigo **e o
+`body.redimensionando` ficava para sempre**: dashboard inteiro com cursor de resize e texto
+inselecionável, sem nada na tela explicando.
+
+`desenharInicio()` agora ignora o pedido enquanto `redimensionandoAgora` está de pé, e o
+encerramento também escuta `pointerup` e `blur` na janela como rede de segurança.
+
+**3. Parsing de `gridTemplateColumns` aceitava lixo.**
+
+Num grid renderizado o Chromium devolve o valor usado (`"284.5px 284.5px …"`), que é o que o
+código quer. Em elemento **não renderizado** devolve o declarado,
+`"repeat(auto-fill, minmax(280px, 1fr))"` — e aí contar as partes daria 3 colunas inventadas
+e o `parseFloat` da primeira daria `NaN`. Agora só entram as partes que são de fato um
+comprimento, e sem lista utilizável o teto vem da largura real da grade.
+
+> ⚠️ Este não foi medido em execução: a build instalada segurava o lock e impedia subir uma
+> instância com porta de depuração (bloco 48). O código foi robustecido de forma que o
+> resultado da medição não importa — mas fica registrado que é raciocínio, não medição.
+
+**4. Redimensionar card no celular gravava no disco a cada quadro.**
+
+A revisão apontou o efeito colateral dentro do atualizador do `setTamanhos` — atualizador do
+React tem que ser puro. O problema maior era outro: o gesto chama `redimensionar()` a cada
+movimento do dedo, então cada arrasto virava **dezenas de escritas no `AsyncStorage` por
+segundo**. Agora o gesto só mexe na tela e quem persiste é `fimDoRedimensionamento`, ao
+soltar — o mesmo desenho do desktop, onde a gravação sempre morou no `aoSoltar`. Entrou junto
+um `tamanhosRef`, porque ler `tamanhos` do fechamento durante um gesto por quadro daria o
+valor de antes de o arrasto começar.
+
+**O que a revisão descartou, com análise específica** — vale registrar para não ser
+re-investigado: a âncora de scroll dos dois chats (`jaAncorou` reseta certo por `sessionId`,
+sem corrida com o carregamento assíncrono da sessão), o `PanResponder` da alça contra a
+`ScrollView`, as closures do `gravar` (as dependências cobrem), o tique do desligamento
+(dependência e limpeza corretas), o `segundosAte()` e o teto de 86400, o layout de 48% com a
+quina absoluta, e os consumidores restantes da API antiga de tema (não sobrou nenhum).
 
 ### O que esta fase deixou pendente
 
