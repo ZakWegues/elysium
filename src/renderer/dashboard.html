@@ -4323,9 +4323,24 @@ async function carregarDadosInicio() {
 
 const gradeInicio = () => document.getElementById("home-grid");
 
+/**
+ * Verdadeiro enquanto um dedo está na quina de um card.
+ *
+ * 🔴 A Início se redesenha sozinha por vários caminhos com temporizador — o tique do
+ * Spotify (400 ms), o re-sorteio das bolhas (120 ms) e a volta do foco da janela. Se um
+ * deles disparasse no meio de um redimensionamento, o `innerHTML` da grade seria trocado,
+ * o puxador sairia do DOM levando junto a captura do ponteiro, e o `pointerup` nunca
+ * chegaria: o gesto morreria no meio e o card voltaria ao tamanho antigo sozinho.
+ */
+let redimensionandoAgora = false;
+
 function desenharInicio() {
   const grade = gradeInicio();
   if (!grade) return;
+  // Redesenhar agora arrancaria do DOM o elemento que está recebendo o gesto. Quem
+  // chamou volta a desenhar no próximo ciclo; nenhum dos chamadores é a única chance de
+  // atualizar a tela.
+  if (redimensionandoAgora) return;
   const visiveis = cardsVisiveis();
 
   grade.innerHTML = visiveis.map(id => {
@@ -4486,13 +4501,27 @@ function ligarRedimensionamento() {
 
     // Largura de uma coluna, medida da grade viva: `auto-fill` decide quantas colunas
     // cabem, então este número muda com o tamanho da janela e não pode ser constante.
-    const colunas = getComputedStyle(grade).gridTemplateColumns.split(" ").filter(Boolean);
-    const larguraColuna = parseFloat(colunas[0]) || 280;
-    const gap = parseFloat(getComputedStyle(grade).gap) || 14;
-    const maxSpan = Math.max(1, colunas.length);
+    //
+    // ⚠️ Só entram as partes que são REALMENTE um comprimento. Num grid já renderizado o
+    // Chromium devolve o valor usado ("284.5px 284.5px …"), que é o que se quer; mas em
+    // elemento não renderizado ele devolve o valor declarado
+    // ("repeat(auto-fill, minmax(280px, 1fr))"), e aí contar as partes daria 3 colunas
+    // inventadas e `parseFloat("repeat(auto-fill,")` daria NaN. Filtrar resolve os dois:
+    // sobra a lista de larguras quando existe, e nada quando não existe — caso em que o
+    // fallback assume.
+    const estilo = getComputedStyle(grade);
+    const colunas = estilo.gridTemplateColumns.split(" ")
+      .map(parseFloat)
+      .filter(Number.isFinite);
+    const larguraColuna = colunas[0] || 280;
+    const gap = parseFloat(estilo.gap) || 14;
+    // Sem lista utilizável, o teto vem da largura real da grade em vez de um chute.
+    const maxSpan = Math.max(1, colunas.length || Math.floor(grade.getBoundingClientRect().width / (larguraColuna + gap)));
 
     puxador.setPointerCapture(e.pointerId);
     document.body.classList.add("redimensionando");
+    // Trava o redesenho enquanto o dedo está na quina — ver `desenharInicio`.
+    redimensionandoAgora = true;
 
     let spanFinal = spanInicial, altFinal = Math.round(alturaInicial);
 
@@ -4512,11 +4541,14 @@ function ligarRedimensionamento() {
     }
 
     function aoSoltar(ev) {
-      puxador.releasePointerCapture?.(ev.pointerId);
+      try { puxador.releasePointerCapture?.(ev?.pointerId ?? e.pointerId); } catch { /* já solto */ }
       puxador.removeEventListener("pointermove", aoMover);
       puxador.removeEventListener("pointerup", aoSoltar);
       puxador.removeEventListener("pointercancel", aoSoltar);
+      window.removeEventListener("pointerup", aoSoltar);
+      window.removeEventListener("blur", aoSoltar);
       document.body.classList.remove("redimensionando");
+      redimensionandoAgora = false;
 
       estadoCards.tamanhos = estadoCards.tamanhos ?? {};
       estadoCards.tamanhos[id] = { span: spanFinal, alt: altFinal };
@@ -4526,6 +4558,12 @@ function ligarRedimensionamento() {
     puxador.addEventListener("pointermove", aoMover);
     puxador.addEventListener("pointerup", aoSoltar);
     puxador.addEventListener("pointercancel", aoSoltar);
+    // Rede de segurança: se o puxador sumir do DOM no meio do gesto, ou a janela perder o
+    // foco, o `pointerup` dele nunca chega — e sem isto o `body.redimensionando` ficaria
+    // para sempre, deixando o dashboard inteiro com cursor de redimensionar e texto
+    // inselecionável, sem nada na tela explicando o porquê.
+    window.addEventListener("pointerup", aoSoltar);
+    window.addEventListener("blur", aoSoltar);
   });
 
   // Duplo clique no canto devolve o tamanho automático. Sem esta saída, um card esticado

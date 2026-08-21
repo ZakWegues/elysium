@@ -216,16 +216,60 @@ const DECOMMISSIONED_MODELS = new Set([
  */
 const OLLAMA_MODELS_MORTOS = new Set(["llama3.2", "llama3.2:latest", "llama3.2:3b"]);
 
+/**
+ * 🔴 POR QUE A CURA PRECISA DE UMA LISTA, E NÃO DE UM ÚNICO PADRÃO.
+ *
+ * A primeira versão trocava o modelo morto pelo `DEFAULTS` da mesma chave. Isso resolve o
+ * caso "o usuário escolheu um modelo que morreu" e **não resolve nada** no caso que de fato
+ * derrubou o app em 21/08/2026: o id morto ERA o padrão. `healModel(x, x)` devolve `x`, e a
+ * rede de segurança apontava para o mesmo buraco.
+ *
+ * Com uma fila de candidatos, cair fora do primeiro leva ao segundo. Só quando a fila
+ * inteira morre é que não há mais o que fazer — e aí o log diz isso em vez de fingir que
+ * curou.
+ *
+ * A ordem é por qualidade medida, não por preferência: em 21/08/2026 só o `gpt-oss-120b`
+ * devolveu o nome da ação no formato certo; o `20b` e o `qwen` responderam
+ * `"open_app(bloco de notas)"`. Eles estão aqui como último recurso, porque um roteador
+ * ruim ainda é melhor que nenhum.
+ */
+const CANDIDATOS_GROQ: Record<string, string[]> = {
+  routerModel: ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "qwen/qwen3.6-27b"],
+  brainModel:  ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "qwen/qwen3.6-27b"],
+  visionModel: ["qwen/qwen3.6-27b"],
+  searchModel: ["groq/compound-mini", "groq/compound"],
+  sttModel:    ["whisper-large-v3", "whisper-large-v3-turbo"],
+};
+
+/** Mesma ideia do lado local. Vale para roteamento e conversa. */
+const CANDIDATOS_OLLAMA = ["llama3.1:8b", "llama3.2", "llama3.1", "qwen2.5:7b"];
+
+function primeiroVivo(candidatos: string[], mortos: Set<string>): string | null {
+  return candidatos.find(m => !mortos.has(m)) ?? null;
+}
+
 function healModel(value: string, fallback: string, key: string): string {
   if (!DECOMMISSIONED_MODELS.has(value)) return value;
-  console.warn(`[config] ${key}="${value}" foi desativado pela Groq; usando "${fallback}".`);
-  return fallback;
+
+  const vivo = primeiroVivo(CANDIDATOS_GROQ[key] ?? [fallback], DECOMMISSIONED_MODELS);
+  if (!vivo) {
+    console.error(`[config] ${key}="${value}" morreu e NENHUM candidato da Groq sobrou. Escolha um modelo em Ajustes → Cérebro.`);
+    return value;
+  }
+  console.warn(`[config] ${key}="${value}" foi desativado pela Groq; usando "${vivo}".`);
+  return vivo;
 }
 
 function healOllama(value: string, fallback: string, key: string): string {
   if (!OLLAMA_MODELS_MORTOS.has(value)) return value;
-  console.warn(`[config] ${key}="${value}" não existe mais no Ollama; usando "${fallback}".`);
-  return fallback;
+
+  const vivo = primeiroVivo(CANDIDATOS_OLLAMA, OLLAMA_MODELS_MORTOS);
+  if (!vivo) {
+    console.error(`[config] ${key}="${value}" não existe no Ollama e nenhum candidato sobrou. Rode: ollama pull ${fallback}`);
+    return value;
+  }
+  console.warn(`[config] ${key}="${value}" não existe mais no Ollama; usando "${vivo}".`);
+  return vivo;
 }
 
 /**
