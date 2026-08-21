@@ -31,6 +31,7 @@
 | 17 | [Como validar](#17-como-validar) |
 | 18 | [Plano ELYSIUM — rename, redesign, cérebro local](#18-plano-elysium--rename-redesign-cérebro-local) |
 | 19 | [Plano fase 2 — vidro, paridade e conteúdo](#19-plano-fase-2--vidro-paridade-e-conteúdo-blocos-15-a-22) |
+| 22 | [Fase 5 — a IA morta, e os seis pedidos do celular](#22-fase-5--a-ia-morta-e-os-seis-pedidos-do-celular-blocos-41-a-47) |
 
 ---
 
@@ -475,14 +476,18 @@ cérebro perderia o fio: depois de um "pausa" resolvido no atalho, um "continua"
 ### Os quatro em uso
 
 > ⚠️ **Desde 14/08/2026 o cérebro é local.** `routerProvider` e `chatProvider` vêm como
-> `ollama` (`llama3.2`), e os dois modelos abaixo passaram a ser **só o fallback** — ver
+> `ollama` (`llama3.1:8b` desde 21/08), e os dois modelos abaixo passaram a ser **só o fallback** — ver
 > §18. Visão, busca web e STT continuam na Groq de verdade, então a API key segue
 > obrigatória.
 
+> 🔴 **Atualizado em 21/08/2026 (§22): a família Llama INTEIRA saiu do catálogo da Groq**, e
+> com ela os dois padrões antigos (`llama-3.3-70b-versatile`). O local mudou de `llama3.2`
+> para `llama3.1:8b`, que não estava mais baixado. Os dois 404 juntos derrubaram todo comando.
+
 | campo | padrão | papel |
 |---|---|---|
-| `routerModel` | `llama-3.3-70b-versatile` | Decide **qual** ação. Hoje só entra como fallback |
-| `brainModel` | `llama-3.3-70b-versatile` | Escreve a resposta de conversa. Hoje só entra como fallback |
+| `routerModel` | `openai/gpt-oss-120b` | Decide **qual** ação. Hoje só entra como fallback |
+| `brainModel` | `openai/gpt-oss-120b` | Escreve a resposta de conversa. Hoje só entra como fallback |
 | `visionModel` | `qwen/qwen3.6-27b` | Único da conta que aceita `image_url` |
 | `searchModel` | `groq/compound-mini` | Agêntico: pesquisa sozinho e devolve a resposta |
 | `sttModel` | `whisper-large-v3` | Transcrição |
@@ -2554,5 +2559,176 @@ lampejo branco) e clique esquerdo na bandeja abrindo o dashboard.
   quiser (`release/` é ignorado pelo git).
 - `UiLayout` no `AppConfig` virou legado inerte: os widgets que ela ordenava não existem mais.
   Config gravado com a chave continua carregando sem erro; remover exige migração.
-- O ponto fraco medido do llama3.2 3B em **pedido composto** (12 de 18) segue sem solução, e o
-  `fallbackToGroq` não cobre — ação faltando é um JSON perfeitamente válido.
+- ~~O ponto fraco medido do llama3.2 3B em **pedido composto** (12 de 18)~~ — **resolvido na
+  §22**: o `llama3.1:8b` acertou os pedidos compostos na medição de 21/08/2026. A ressalva
+  geral continua valendo: ação faltando é um JSON válido, então o `fallbackToGroq` nunca vai
+  cobrir esse caso, qualquer que seja o modelo.
+
+---
+
+## 22. Fase 5 — a IA morta, e os seis pedidos do celular (blocos 41 a 47)
+
+> **Status: concluída em 21/08/2026.** Desktop em `2bbcef1` · `c3607cb`; celular em
+> `44d916b` · `35f68ea`. **O OTA ainda não foi publicado e o APK segue não instalado.**
+
+### 🔴 Bloco 41 — a IA parou de responder, nos dois lados
+
+**Sintoma:** qualquer comando, no desktop ou no celular, respondia *"Não entendi o que você
+pediu. Pode repetir?"* e nada acontecia.
+
+**Causa: os dois provedores caídos ao mesmo tempo, por motivos independentes.**
+
+| provedor | modelo padrão | resultado real, reproduzido |
+|---|---|---|
+| Groq | `llama-3.3-70b-versatile` | **HTTP 404** `model_not_found` |
+| Ollama | `llama3.2` | **HTTP 404** `model 'llama3.2' not found` |
+
+A família Llama **inteira** saiu do catálogo da Groq. Conferido em `GET /v1/models`:
+sobraram `openai/gpt-oss-120b`, `openai/gpt-oss-20b`, `qwen/qwen3.6-27b`, `groq/compound`,
+`groq/compound-mini` e os dois Whisper. E o `llama3.2` não está mais baixado nesta máquina —
+o Ollama tem `llama3.1:8b` e `gpt-oss:120b-cloud`.
+
+O local falhava, o fallback da nuvem falhava, e `decideBrain` caía em `[{action:"unknown"}]`,
+que é exatamente aquela frase.
+
+> 🔴 **Por que a defesa existente não protegeu.** O `DECOMMISSIONED_MODELS` cobre o modelo
+> escolhido pelo usuário e o troca **pelo padrão** — mas desta vez o id morto *era* o padrão.
+> A rede de segurança apontava para o mesmo buraco. Pior: o `config.json` da raiz reinjeta
+> `brainModel` por cima do `DEFAULTS` no `loadDefaults()`, então corrigir só o TypeScript
+> deixaria o modelo morto de pé.
+
+**Substitutos, escolhidos por medição com o prompt real de 11.800 chars (~3.371 tokens):**
+
+| alvo | 5 casos difíceis | latência |
+|---|---|---|
+| **Ollama `llama3.1:8b`** | **5/5**, incluindo pedido composto e `chat` × `write_text` | 207 ms – 2 s quente, **18,3 s a frio** |
+| **Groq `openai/gpt-oss-120b`** | correto | 659 ms, mas **429 na 2ª chamada seguida** |
+| Groq `gpt-oss-20b` / `qwen3.6-27b` | devolvem o nome da ação **malformado** (`"open_app(bloco de notas)"`) | — |
+
+O local segue sendo o padrão e a Groq continua só como rede de segurança — o 429 imediato
+confirma de novo o achado do bloco 13: o plano gratuito não sustenta este prompt.
+
+**O `llama3.1:8b` acerta o pedido composto que o `llama3.2` errava (12-14 de 18).** A troca é
+ganho, não remendo — e resolve a última dívida listada na §21.
+
+**`ollamaKeepAlive` subiu de `60s` para `10m`.** O `llama3.2` tinha ~2 GB e recarregava em
+2-4 s; o `llama3.1:8b` tem ~4,9 GB e mediu **18,3 s**. Com 60 s, uma pausa de um minuto na
+conversa custava 18 segundos no comando seguinte, sem explicação nenhuma na tela. A GPU
+disputada continua protegida pelo `evitarGpuOcupada`, que desvia para a nuvem sem tocar na VRAM.
+
+**Para não haver uma quarta vez:** `marcarModeloMorto(provider, modelo)` no `config.ts`, e o
+`llm.ts` chama quando o provedor responde 404. O próprio erro vira a fonte da verdade, em vez
+de depender de alguém auditar o catálogo da Groq de tempos em tempos.
+
+> **Verificado em execução, não deduzido.** Pelo servidor real, depois de reiniciar o app:
+> *"quem foi Alan Turing"* → resposta correta em 1278 ms (`chat`, sem criar arquivo);
+> *"que horas são"* → 368 ms; *"abre a calculadora"* → abriu, 2208 ms.
+
+### Bloco 42 — as conversas abriam no meio
+
+Nos dois lados do switch. O `scrollToEnd` estava num efeito disparado por `messages.length`:
+
+1. Na abertura o comprimento vai de 0 para N quando o cache chega, mas a `FlatList` ainda não
+   mediu as linhas. Como as bolhas têm alturas muito diferentes, o erro acumulado para no meio.
+2. Se o servidor devolve a mesma quantidade que já estava em cache, o comprimento **não muda**,
+   o efeito não roda de novo, e a âncora errada fica de pé.
+
+Agora a âncora escuta `onContentSizeChange` — cresceu de verdade, inclusive quando uma imagem
+termina de carregar — e só acompanha se o dedo estava a menos de 80 px do fim. O mesmo defeito
+existia no `ChatScreen`: abrir uma conversa antiga caía no meio dela.
+
+### Bloco 43 — histórico separado por lado
+
+O botão de relógio abria as Conversas da **IA** mesmo estando nos recados do PC. Os stores
+sempre foram separados (`elysium_chat_sessions` × `elysium_mailbox_cache`); era o botão que
+não sabia disso. Entrou `MailboxHistorico` — recados por dia, com busca e filtro de favoritos,
+lendo do **cache local** de propósito: quem abre o histórico quer achar algo que já viu, e isso
+tem que funcionar com o PC desligado.
+
+### Bloco 44 — agendar o desligamento pelo celular
+
+**Nenhum serviço novo.** `power.control` já aceitava `delaySeconds` (0 a 86400) e só o caminho
+da voz passava o campo. O card de Energia ganhou atalhos de 15 min / 30 min / 1 h / 2 h, escolha
+de hora livre (hora já passada vira amanhã), o aviso do que está marcado e o botão de cancelar.
+
+Quem segura o prazo é o `shutdown.exe /t`, então o agendamento sobrevive ao app fechado e ao
+celular sair de alcance.
+
+> ⚠️ `elysium_desligamento_agendado` é memória do **celular**, não do PC: o Windows não expõe
+> "há desligamento agendado?" de forma barata. Por isso o registro expira sozinho quando o
+> horário passa — senão um agendamento cancelado no próprio PC ficaria fantasma na tela.
+
+### 🔴 Bloco 45 — personalizar a Início era impossível
+
+Uma linha: **`scrollEnabled={!editando}`**. O `PanResponder` cobria o card inteiro, então a
+edição precisava matar a rolagem para os dois gestos não brigarem pelo mesmo dedo — e sem
+rolagem **não dava para chegar nos cards de baixo**. Abrir a personalização travava você nos
+primeiros dois ou três.
+
+- O arrasto passou para a **alça ☰**; a rolagem só para enquanto um arrasto está de fato em
+  curso (`arrastando`, não `editando`).
+- A ordem também muda **por botão** — arrasto exige mira, botão não. É o mesmo desenho que o
+  desktop adotou no bloco 33, pelo mesmo motivo.
+- Os chips viraram **uma linha por card** com alvos separados: antes ligar e fixar eram dois
+  toques no mesmo chip, um deles num ícone aninhado **dentro** do outro.
+
+### Bloco 46 — cards redimensionáveis, nos dois lados
+
+Arrastar a quina, como uma janela do Windows. Duplo clique (desktop) devolve o automático.
+
+| | largura | altura |
+|---|---|---|
+| **desktop** | em **colunas** (1 a N), medidas da grade viva a cada gesto | livre, mínimo 90 px |
+| **celular** | duas posições: inteiro ou metade | livre, mínimo 72 px |
+
+**A largura não é livre em nenhum dos dois, e isso é decisão, não limitação.** No desktop a
+Início é uma grade `auto-fill`: card de largura livre não alinha com o vizinho e a grade abre
+buracos irregulares a cada ajuste. No celular, larguras arbitrárias nunca casam com o card ao
+lado. Duas (ou N) posições encaixam sempre.
+
+> ⚠️ **A altura travada vira a variável `--alt`, não um `height` inline.** Quem precisa da
+> medida é o **corpo** do card, não a moldura: travar só a moldura deixa o conteúdo
+> transbordando por cima do card seguinte. Com a variável, a moldura ganha altura e o corpo
+> ganha `overflow: auto`. No celular o equivalente é `overflow: 'hidden'` no envelope.
+
+O desktop usa **Pointer Events com `setPointerCapture`**, não `mousemove` no documento: com a
+captura o gesto continua chegando ao puxador quando o ponteiro sai do card — que é o caso
+normal ao aumentar — e não sobra ouvinte global para vazar se o `pointerup` se perder.
+
+`homeCards.tamanhos` é opcional na leitura, como `fixos` já era.
+
+> **Verificado no renderer vivo** (`scripts/eval-no-dashboard.mjs`): arrastar 400 px na
+> horizontal e 120 na vertical levou o card `computador` de span 1 / 168 px para span 2 /
+> 288 px, gravado em disco; o duplo clique devolveu span 1 / automático e limpou o registro.
+
+### Bloco 47 — as duas famílias de tema no celular
+
+O app tinha as seis combinações certas, mas as apresentava como "três cores + interruptor de
+claro/escuro". O nome escondia a escolha real: `lg` e `ely` não são o mesmo desenho com o
+brilho trocado.
+
+| cor | família `lg` | família `ely` |
+|---|---|---|
+| crepusculo | **Vidro Líquido** | **Crepúsculo** |
+| mare | **Vidro — Maré** | **Éter** |
+| elisio | **Vidro — Âmbar** | **Campos Elísios** |
+
+Nenhuma cor inventada — conferido hex a hex contra o `THEMES` do `dashboard.html`: as seis
+batem em `primary`, `accent` e `background`. A família ELYSIUM ganhou os **feixes de luz**,
+o elemento que o desktop tinha e o mobile não (contrapartida do `#ely-shafts`). Ficam parados,
+ao contrário do desktop: animar dois gradientes em tela cheia custa quadro no telefone, e o
+valor do elemento está na profundidade, não no movimento.
+
+> 🔴 **A chave `elysium_color_scheme` NÃO foi renomeada, de propósito.** O que ela guarda não
+> mudou de significado — `light` sempre foi o vidro e `dark` sempre foi a noite. Renomear só
+> criaria a chance de um aparelho atualizado por OTA acordar sem preferência.
+> `resolverFamiliaEscolhida()` traduz os valores antigos e devolve `null` para lixo, que cai
+> no padrão.
+
+### O que esta fase deixou pendente
+
+- **Publicar o OTA** (`npm run update "..."`) — os blocos 42 a 47 são só JavaScript e viajam
+  pelo ar. ⚠️ Rodar `npx eas-cli init` antes: o `projectId` ainda é o do slug antigo (§18).
+- **Julgamento visual do Zak** nos itens que screenshot não resolve: os feixes de luz da
+  família ELYSIUM, o canto de redimensionar e o tamanho dos cards nos dois lados.
+- **Reinstalar/atualizar o desktop** — o `release/ELYSIUM-Setup-1.0.0.exe` é anterior a esta fase.
