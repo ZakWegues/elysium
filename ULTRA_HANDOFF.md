@@ -604,6 +604,11 @@ limite.
 
 ## 9. Superfície RPC — os 52 métodos
 
+> ⚠️ **São 59, não 52, desde 21/08/2026** — conferido em `GET /api/rpc` contra o app
+> rodando. Os `presets.*` do bloco 29 e os que vieram depois nunca foram somados aqui. O
+> título e a tabela abaixo ficam com o número antigo até alguém recontar item a item; o
+> valor confiável é o que a rota de descoberta devolve.
+
 **Por que existe:** até o bloco 1, a única porta de comando do mobile era `POST /api/command`,
 que joga o texto no LLM. Isso é ótimo para voz e péssimo para botão — a tela de presets
 literalmente montava frases em português ("liste meus presets") para executar ação. RPC é
