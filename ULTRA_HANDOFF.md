@@ -2931,3 +2931,22 @@ quina absoluta, e os consumidores restantes da API antiga de tema (não sobrou n
 - **Julgamento visual do Zak** nos itens que screenshot não resolve: os feixes de luz da
   família ELYSIUM, o canto de redimensionar e o tamanho dos cards nos dois lados.
 - **Reinstalar/atualizar o desktop** — o `release/ELYSIUM-Setup-1.0.0.exe` é anterior a esta fase.
+
+
+---
+
+## 23. Fase 6 — o movimento saiu da thread de JS (bloco 51)
+
+### Bloco 51 — Reanimated e gesture-handler, com a proibição do bloco 24 revogada
+
+O bloco 24 barrou as duas por serem nativas — mudam o fingerprint e obrigam a APK novo, e tudo precisava viajar por OTA. Com o APK novo já obrigatório o motivo caiu: entraram `reanimated` 4.5.1, `worklets` 0.10.1 e `gesture-handler` 2.32.0 (o plugin de Babel vem no `babel-preset-expo`).
+
+**A escala do bloco 24 não mudou** (120/220/140 ms, mola 380 só no popover); mudou onde ela roda. O `motion.ts` ganhou a camada de worklet (`tempo`, `mola`, `LAYOUT`, `ENTRA`, `SAI`, `reduzirUI`) e mantém a de `Animated` do core para o que ainda não foi migrado.
+
+🔴 **As 7 chamadas de `animarProximoLayout()` nunca rodaram** — `LayoutAnimation` é no-op na Nova Arquitetura (§14). Viraram `layout={LAYOUT}` na própria view.
+
+**TabBar:** indicador contínuo com arrasto — o dedo leva o polegar, as abas acendem por proximidade, o destino sai do mais próximo com projeção de velocidade (0,12 s) e as pontas resistem a 35%. Migrados junto os dois `PanResponder` da Início, o Drawer, o Popover e a transição de tela. No redimensionamento a altura virou shared value: o React só sabe ao soltar, que é onde a gravação já morava (§22, bloco 50, item 4).
+
+⚠️ **Medição não foi feita: `adb devices` vazio nesta máquina.** Por análise, o travão ao ROLAR a Início não é a thread de JS — são 8 `BlurView` empilhadas (6 cards + header + TabBar) recapturando o mesmo `blurTarget` por quadro. Migrar animação não conserta isso; o primeiro corte a medir é vidro chapado nos cards.
+
+**Fingerprint novo: `93fe52f5…`** (era `066f2ab6…`). O OTA do canal `preview` não alcança mais o aparelho — instalar `dist-apk/elysium-m.apk` por cabo.
