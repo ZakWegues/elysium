@@ -51,6 +51,7 @@ contextBridge.exposeInMainWorld("nx", {
                                                     ipcRenderer.invoke("chat-sessions:save", sessionId, messages),
   chatSessionsFavorite: (id: string)             => ipcRenderer.invoke("chat-sessions:favorite", id),
   chatSessionsDelete:   (id: string)             => ipcRenderer.invoke("chat-sessions:delete", id),
+  chatSessionsRename:   (id: string, t: string)  => ipcRenderer.invoke("chat-sessions:rename", id, t),
 
   // ── Presets ────────────────────────────────────────────────────────────────
   getPresets:      ()                           => ipcRenderer.invoke("presets:get"),

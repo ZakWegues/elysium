@@ -111,18 +111,72 @@ export interface NewMailboxItemInput {
   sessionId?: string | null;
 }
 
+/** Id apagado aqui que o celular ainda não confirmou ter apagado também. */
+export interface MailboxTombstone { id: string; at: number; }
+
 type MailboxStoreShape = {
   messages: MailboxMessageStored[];
   sessions: MailboxSession[];
   activeSessionId: string | null;
+  /**
+   * 🔴 LÁPIDES DO LADO PC. Chave nova dentro do mesmo arquivo — o nome do store não muda.
+   *
+   * Sem ela o ciclo era: o PC apaga → o celular sincroniza → o passo de
+   * `mailbox.sessions.save` reempurra a conversa que ele ainda tem →
+   * `mergeMailboxSession` recria → o `list` devolve ela viva. Na tela do PC isso aparece
+   * como "sumiu e voltou". O §11 exige lápide nos DOIS sentidos; só existia a do celular.
+   */
+  deleted: MailboxTombstone[];
 };
 
 // 🔴 O NOME DO STORE NAO MUDA. `mailbox.json` ja existe em disco e no migrateUserData;
 // renomear acordaria o aparelho atualizado sem dados. Chave NOVA dentro dele e seguro.
 const store = new Store<MailboxStoreShape>({
   name: "mailbox",
-  defaults: { messages: [], sessions: [], activeSessionId: null },
+  defaults: { messages: [], sessions: [], activeSessionId: null, deleted: [] },
 });
+
+/**
+ * Teto e validade das lápides. Um celular que nunca mais sincroniza não pode fazer este
+ * registro crescer para sempre; 180 dias é muito mais que a janela real de um aparelho
+ * fora do ar.
+ */
+const MAX_TOMBSTONES = 200;
+const TOMBSTONE_TTL_MS = 180 * 24 * 60 * 60 * 1000;
+
+function lerLapides(): MailboxTombstone[] {
+  const corte = Date.now() - TOMBSTONE_TTL_MS;
+  return (store.get("deleted") ?? []).filter(t => t.at > corte).slice(-MAX_TOMBSTONES);
+}
+
+function gravarLapide(id: string): void {
+  const atuais = lerLapides().filter(t => t.id !== id);
+  atuais.push({ id, at: Date.now() });
+  store.set("deleted", atuais.slice(-MAX_TOMBSTONES));
+}
+
+/** Uma conversa criada de novo com o mesmo id deixa de estar apagada. */
+function tirarLapide(id: string): void {
+  store.set("deleted", lerLapides().filter(t => t.id !== id));
+}
+
+function temLapide(id: string): boolean {
+  return lerLapides().some(t => t.id === id);
+}
+
+/** Ids apagados no PC que o celular ainda precisa aplicar. Vai junto no `list`. */
+export function listDeletedMailboxSessionIds(): string[] {
+  return lerLapides().map(t => t.id);
+}
+
+/** Chamado pelo `mailbox.sessions.ackDeleted`, depois que o celular apagou a cópia dele. */
+export function clearDeletedMailboxSessions(ids: string[]): number {
+  const alvo = new Set(ids);
+  const antes = lerLapides();
+  const depois = antes.filter(t => !alvo.has(t.id));
+  store.set("deleted", depois);
+  return antes.length - depois.length;
+}
 
 /** Favoritar e o que tira uma conversa desta contagem. Mesma regra do lado da IA. */
 const MAX_NON_FAVORITE_SESSIONS = 5;
@@ -285,14 +339,21 @@ export function deriveMailboxTitle(texto: string | null | undefined): string {
 /**
  * Cria a conversa de migração e carimba nela tudo que existia antes das sessões.
  *
- * Barata e idempotente: sai na primeira linha assim que existe ao menos uma sessão e
- * nenhuma mensagem órfã. Pode ser chamada de qualquer entrada pública sem medo.
+ * Barata e idempotente: sai na primeira linha quando não há mensagem órfã. Pode ser
+ * chamada de qualquer entrada pública sem medo.
+ *
+ * 🔴 O GATILHO É A MENSAGEM ÓRFÃ, NUNCA "a lista de conversas está vazia".
+ *
+ * Enquanto o teste era `sessions.length > 0 && orfas.length === 0`, apagar a última
+ * conversa deixava a lista vazia e a leitura seguinte recriava "Recados" na hora — a
+ * linha sumia e voltava, e não havia como apagar a última conversa. Lista vazia é um
+ * estado legítimo: o próximo recado cria a conversa dele pelo `resolverSessao`.
  */
 function garantirSessoes(): void {
   const sessions = store.get("sessions") ?? [];
   const messages = store.get("messages");
   const orfas = messages.filter(m => !m.sessionId);
-  if (sessions.length > 0 && orfas.length === 0) return;
+  if (orfas.length === 0) return;
 
   let base = sessions.find(s => s.id === SESSAO_INICIAL);
   if (!base) {
@@ -350,6 +411,8 @@ function tocarSessao(id: string, quando: number, texto: string | null): void {
 
 function criarSessaoInterna(title?: string): MailboxSession {
   const agora = Date.now();
+  // Ids têm sufixo aleatório, então colidir com um apagado é improvável — mas criar de
+  // propósito é o oposto de apagar, e a lápide não pode sobreviver a isso.
   const nova: MailboxSession = {
     id: newMailboxSessionId(),
     title: (title ?? "").trim() || "Novos recados",
@@ -359,6 +422,7 @@ function criarSessaoInterna(title?: string): MailboxSession {
   };
   const sessions = store.get("sessions");
   sessions.push(nova);
+  tirarLapide(nova.id);
   store.set("sessions", sessions);
   store.set("activeSessionId", nova.id);
   podarSessoes();
@@ -451,6 +515,11 @@ export function toggleMailboxSessionFavorite(id: string): boolean | null {
 
 export function getActiveMailboxSessionId(): string {
   garantirSessoes();
+  // 🔴 Ler qual conversa está ativa não pode CRIAR conversa. Com a lista legitimamente
+  // vazia (o usuário apagou todas), o `resolverSessao` fazia nascer uma "Novos recados"
+  // sozinha na volta do dashboard — a conversa apagada parecia voltar com outro nome.
+  // Vazio é a resposta honesta; quem lê trata como "o PC decide", que é o que já fazia.
+  if (store.get("sessions").length === 0) return "";
   return resolverSessao(null);
 }
 
@@ -464,6 +533,9 @@ export function setActiveMailboxSession(id: string): boolean {
 /** 🔴 DESTRUTIVO. Apaga a conversa, as mensagens dela e os anexos em disco. */
 export function deleteMailboxSession(id: string): boolean {
   const sessions = lerSessoes();
+  // A lápide entra mesmo quando a conversa já não está aqui: o celular pode ter uma cópia
+  // que o PC perdeu na poda, e sem o registro ela voltaria no próximo `save`.
+  gravarLapide(id);
   if (!sessions.some(s => s.id === id)) return false;
 
   const messages = store.get("messages");
@@ -492,7 +564,13 @@ export function deleteMailboxMessage(id: string): boolean {
  * — o PC é a autoridade. O `createdAt` guardado é preservado: o celular pode não saber
  * quando a conversa nasceu.
  */
-export function mergeMailboxSession(incoming: MailboxSession): MailboxSessionMeta {
+export function mergeMailboxSession(incoming: MailboxSession): MailboxSessionMeta | null {
+  // 🔴 LÁPIDE ANTES DE TUDO. O celular empurra todas as conversas que ele tem, inclusive
+  // as que o PC acabou de apagar — ele só descobre a exclusão no `list` do passo
+  // seguinte. Sem esta recusa o `save` ressuscitaria a conversa um passo antes de o
+  // celular saber que ela morreu.
+  if (temLapide(incoming.id)) return null;
+
   const sessions = lerSessoes();
   const existente = sessions.find(s => s.id === incoming.id);
 

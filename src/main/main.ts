@@ -18,7 +18,7 @@ import { sendPush } from "../services/push";
 import {
   listSessions as listChatSessions, getSession as getChatSession,
   upsertMessages as upsertChatMessages, toggleFavorite as toggleChatFavorite,
-  deleteSession as deleteChatSession, StoredMessage,
+  deleteSession as deleteChatSession, renameSession as renameChatSession, StoredMessage,
 } from "../services/chatSessionsStore";
 import {
   isConnected as isSpotifyConnected, beginLogin as beginSpotifyLogin,
@@ -534,6 +534,8 @@ ipcMain.handle("chat-sessions:save",     (_e, sessionId: string | null, messages
   upsertChatMessages(sessionId, messages));
 ipcMain.handle("chat-sessions:favorite", (_e, id: string) => toggleChatFavorite(id));
 ipcMain.handle("chat-sessions:delete",   (_e, id: string) => deleteChatSession(id));
+// Renomear existe nos dois lados do switch: o lado da Caixa já tinha, o da IA não.
+ipcMain.handle("chat-sessions:rename",   (_e, id: string, title: string) => renameChatSession(id, title));
 
 ipcMain.handle("presets:get", () => getAllPresets());
 

@@ -50,12 +50,16 @@ import * as spotify from "./spotify";
 import {
   listSessions as listChatSessions, getSession as getChatSession,
   mergeSession as mergeChatSession, toggleFavorite as toggleChatFavorite,
-  deleteSession as deleteChatSession, ChatSession,
+  deleteSession as deleteChatSession, renameSession as renameChatSession,
+  listDeletedIds as listDeletedChatIds, clearDeleted as clearDeletedChats,
+  ChatSession,
 } from "./chatSessionsStore";
 import {
+  clearDeletedMailboxSessions,
   createMailboxSession,
   deleteMailboxMessage,
   deleteMailboxSession,
+  listDeletedMailboxSessionIds,
   listMailboxSessions,
   MailboxSession,
   mergeMailboxSession,
@@ -64,6 +68,15 @@ import {
   toggleMailboxSessionFavorite,
 } from "./mailboxStore";
 
+
+/** Lista de ids para os `ackDeleted`: aceita só strings, e no máximo um lote razoável. */
+function requireIdList(params: Record<string, unknown>, key: string): string[] {
+  const raw = params[key];
+  if (!Array.isArray(raw)) throw new RpcError(400, `param "${key}" deve ser uma lista de ids`);
+  if (raw.length > 500) throw new RpcError(400, `param "${key}" tem itens demais (máx 500)`);
+  const ids = raw.filter((x): x is string => typeof x === "string" && x.length > 0);
+  return ids;
+}
 
 /** Erro com status HTTP embutido, para o servidor traduzir direto na resposta. */
 export class RpcError extends Error {
@@ -438,8 +451,23 @@ const METHODS: Record<string, MethodDef> = {
   // O PC é a autoridade: o app manda o que mudou e depois adota a lista devolvida
   // por `chat.list`. Sem um lado mandando, cada um devolveria ao outro o que ele
   // acabou de podar.
+  // 🔴 `deleted` VAI JUNTO DA LISTA, e não numa chamada própria. O celular precisa das
+  // duas metades no mesmo instante: o que existe e o que deixou de existir. Em duas
+  // chamadas haveria uma janela em que ele adotaria a lista sem saber das exclusões.
+  // Um app antigo simplesmente ignora o campo — o contrato continua compatível.
   "chat.list": {
-    handler: async () => ({ sessions: listChatSessions() }),
+    handler: async () => ({ sessions: listChatSessions(), deleted: listDeletedChatIds() }),
+  },
+  // O celular confirma que apagou a cópia dele. Só aqui a lápide do PC sai: limpar antes
+  // deixaria a exclusão sem registro num aparelho que ainda tem a conversa, e o próximo
+  // `chat.save` a ressuscitaria.
+  "chat.ackDeleted": {
+    handler: async (params) => ({ cleared: clearDeletedChats(requireIdList(params, "ids")) }),
+  },
+  "chat.rename": {
+    handler: async (params) => ({
+      session: renameChatSession(requireString(params, "id"), requireString(params, "title")),
+    }),
   },
   "chat.get": {
     handler: async (params) => ({ session: getChatSession(requireString(params, "id")) }),
@@ -482,7 +510,15 @@ const METHODS: Record<string, MethodDef> = {
   // aqui as MENSAGENS ja moram no PC (elas chegam pelo POST /api/mailbox/messages);
   // o que sincroniza e so a metade de metadados das conversas.
   "mailbox.sessions.list": {
-    handler: async () => ({ sessions: listMailboxSessions() }),
+    handler: async () => ({
+      sessions: listMailboxSessions(),
+      deleted: listDeletedMailboxSessionIds(),
+    }),
+  },
+  "mailbox.sessions.ackDeleted": {
+    handler: async (params) => ({
+      cleared: clearDeletedMailboxSessions(requireIdList(params, "ids")),
+    }),
   },
   "mailbox.sessions.create": {
     handler: async (params) => ({ session: createMailboxSession(optionalString(params, "title")) }),

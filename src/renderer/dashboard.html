@@ -3173,6 +3173,17 @@ async function loadChatConversations() {
       loadConversations();
     });
 
+    // Renomear existe nos dois lados do switch, com o mesmo ícone e a mesma edição no
+    // lugar. Era o único verbo que só a Caixa tinha.
+    const ren = document.createElement("button");
+    ren.className = "conv-act";
+    ren.innerHTML = ico("edit", "ico-sm");
+    ren.title = "Renomear";
+    ren.addEventListener("click", (e) => {
+      e.stopPropagation();
+      renomearNaLista(title, s, window.nx.chatSessionsRename);
+    });
+
     const del = document.createElement("button");
     del.className = "conv-act del";
     del.innerHTML = ico("x", "ico-sm");
@@ -3184,7 +3195,7 @@ async function loadChatConversations() {
       loadConversations();
     });
 
-    item.append(body, star, del);
+    item.append(body, ren, star, del);
     convList.appendChild(item);
   }
 }
@@ -3323,7 +3334,7 @@ async function loadMailboxSessions() {
  * popover animando por `display` + `allow-discrete` a caixa nativa aparece no meio da
  * transição. Um input no lugar do título resolve os dois.
  */
-function renomearNaLista(tituloEl, sessao) {
+function renomearNaLista(tituloEl, sessao, renomear = window.nx.mailboxSessionsRename) {
   const input = document.createElement("input");
   input.className = "conv-rename";
   input.value = sessao.title;
@@ -3333,7 +3344,7 @@ function renomearNaLista(tituloEl, sessao) {
     const novo = input.value.trim();
     input.replaceWith(tituloEl);
     if (!novo || novo === sessao.title) return;
-    await window.nx.mailboxSessionsRename(sessao.id, novo);
+    await renomear(sessao.id, novo);
     loadConversations();
   }
 
