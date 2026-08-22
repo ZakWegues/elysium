@@ -2954,3 +2954,10 @@ O bloco 24 barrou as duas por serem nativas — mudam o fingerprint e obrigam a 
 🔴 **Valor padrão em parâmetro de worklet não existe na thread de UI.** `tempo(para, ms = MOV.base, easing = SUAVE_UI)` matava o app com `ReferenceError: Property 'SUAVE_UI' doesn't exist` ao soltar o dedo na barra e ao arrastar card. O plugin do Babel monta o closure a partir do que o **corpo** referencia; a assinatura fica de fora. Mesmo identificador no corpo funciona — a regra é a posição. Corrigido resolvendo os padrões no corpo, com literais e o `Easing` do próprio Reanimated. `PROJECAO`, `MAX_INDICE`, resistência e mola também saíram de dentro dos worklets; duas conferências de tipo amarram os literais à escala. Verificação: os closures gerados pelo Babel foram lidos um a um — nenhum worklet referencia mais constante de módulo.
 
 Publicado por OTA (canal `preview`, runtime `93fe52f5…`, grupo `d0a31164…`) — o APK instalado já tinha o `expo-channel-name` no manifesto, então não precisou rebuildar.
+
+**O que este bloco deixa como regra, em quatro linhas:**
+
+1. 🔴 **`build:local` não injeta `expo-channel-name`** — quem injeta é o EAS, a partir do `channel` do `eas.json`, e a build local não passa por lá. Sem o header o servidor de update responde "sem atualização" **em silêncio**, e foi por isso que o APK gerado aqui nunca atualizava. Corrigido com `updates.requestHeaders` no `app.json`, que entra no `AndroidManifest` do prebuild (`UPDATES_CONFIGURATION_REQUEST_HEADERS_KEY`). Confirmar ali sempre que um APK local não pegar OTA.
+2. **`LayoutAnimation` é no-op na Nova Arquitetura** — as 7 animações da Início e do PresetsPopover nunca rodaram, apesar de o código estar lá. Substituto: `layout` / `entering` / `exiting` na própria view.
+3. **Worklet não enxerga escopo de módulo**, e valor padrão de parâmetro nem sequer é varrido pelo plugin. Constante usada em worklet vive DENTRO dele ou entra como argumento — `tempo()` lia `SUAVE_UI` do módulo e derrubava o app ao soltar o gesto.
+4. **A Início monta 8 `BlurView` sobre 14 manchas + 3 gradientes** — suspeita dominante do engasgo ao rolar, **ainda não medida** (nenhum aparelho no `adb` desta máquina).
