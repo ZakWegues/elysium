@@ -636,7 +636,8 @@ determinístico, validado e whitelistado.
 
 ### Confirmação de destrutivos
 
-Os **3 métodos destrutivos** (`system.killProcess`, `apps.close`, `power.control`) exigem:
+Os **5 métodos destrutivos** (`system.killProcess`, `apps.close`, `power.control`,
+`mailbox.sessions.delete`, `mailbox.messages.delete`) exigem:
 
 ```
 X-Elysium-Confirm: 1
@@ -935,10 +936,28 @@ de apagar.
 - **Conflito:** vence quem tem `updatedAt` maior, decidido no PC (`mergeSession`). Para um
   usuário com dois aparelhos isso cobre o caso real, sem relógios vetoriais. O `createdAt`
   guardado é preservado — o celular pode não saber quando a conversa nasceu.
-- **Exclusões usam lápides.** Apagar no celular registra o id em `neuroaxis_chat_deleted`; a
-  sincronização manda os `chat.delete` **antes** dos `chat.save` e só então limpa o registro.
-  Sem isso a conversa apagada voltaria do PC na sincronização seguinte, como se o botão não
-  funcionasse.
+- **Exclusões usam lápides, nos DOIS sentidos.** Apagar no celular registra o id em
+  `elysium_chat_deleted` (`elysium_mailbox_deleted` do lado da Caixa); a sincronização manda
+  os `chat.delete` **antes** dos `chat.save` e só então limpa o registro. Sem isso a conversa
+  apagada voltaria do PC na sincronização seguinte, como se o botão não funcionasse.
+
+  🔴 **O sentido PC → celular faltava até 22/08/2026, e era o bug do "some da tela e volta".**
+  O PC apagava de verdade — o disco confirmava —, mas o celular ainda tinha a cópia e o passo
+  de `save` a reempurrava um passo ANTES de descobrir a exclusão no `list`; o `merge`
+  recriava, e a lista devolvida trazia a conversa viva. Agora o PC também guarda lápide
+  (chave `deleted` em `chat-sessions.json` e `mailbox.json`, com teto de 200 e validade de
+  180 dias), o `merge` **recusa** qualquer id com lápide, o `chat.list` /
+  `mailbox.sessions.list` devolvem `deleted: string[]` junto da lista, e a lápide do PC só sai
+  no `chat.ackDeleted` / `mailbox.sessions.ackDeleted` — depois que o celular confirma ter
+  apagado a cópia dele. As duas metades vão na MESMA resposta de propósito: em duas chamadas
+  haveria uma janela em que o celular adotaria a lista sem saber das exclusões.
+
+- **Lista vazia é um estado legítimo.** O `garantirSessoes` da Caixa recriava a conversa
+  `mailbox-inicial` sempre que a lista ficava vazia, então apagar a última conversa fazia
+  "Recados" renascer na leitura seguinte — não havia como apagar a última. O gatilho da
+  migração passou a ser a **mensagem órfã**, nunca "a lista está vazia". Pelo mesmo motivo
+  `getActiveMailboxSessionId` devolve `""` em vez de criar uma conversa: ler qual está ativa
+  não pode escrever.
 - **Ids têm sufixo aleatório** nos dois lados: só o carimbo de tempo colidiria se PC e celular
   criassem uma conversa no mesmo milissegundo, e o merge trataria as duas como a mesma.
 - **Offline:** a cópia local é a fonte da tela. Sem rede tudo funciona; alterações e exclusões
