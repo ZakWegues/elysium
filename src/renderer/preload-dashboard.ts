@@ -72,8 +72,18 @@ contextBridge.exposeInMainWorld("nx", {
   regenerateToken: ()                           => ipcRenderer.invoke("pairing:regenerate-token"),
 
   // ── Mailbox self-chat (PC ↔ celular) ─────────────────────────────────────────
-  getMailboxThread:     ()                          => ipcRenderer.invoke("mailbox:get-thread"),
-  mailboxSend:          (text: string)              => ipcRenderer.send("mailbox:send", text),
+  getMailboxThread:     (sessionId?: string | null)  => ipcRenderer.invoke("mailbox:get-thread", sessionId ?? null),
+  mailboxSend:          (text: string, sessionId?: string | null) => ipcRenderer.send("mailbox:send", text, sessionId ?? null),
+
+  // Conversas da Caixa (lado PC do switch) — o par do bloco chatSessions* acima.
+  mailboxSessionsList:     ()                        => ipcRenderer.invoke("mailbox:sessions-list"),
+  mailboxSessionsCreate:   (title?: string)          => ipcRenderer.invoke("mailbox:sessions-create", title),
+  mailboxSessionsRename:   (id: string, t: string)   => ipcRenderer.invoke("mailbox:sessions-rename", id, t),
+  mailboxSessionsFavorite: (id: string)              => ipcRenderer.invoke("mailbox:sessions-favorite", id),
+  mailboxSessionsDelete:   (id: string)              => ipcRenderer.invoke("mailbox:sessions-delete", id),
+  mailboxSessionsOpen:     (id: string)              => ipcRenderer.invoke("mailbox:sessions-open", id),
+  mailboxSessionsActive:   ()                        => ipcRenderer.invoke("mailbox:sessions-active"),
+  mailboxMessageDelete:    (id: string)              => ipcRenderer.invoke("mailbox:message-delete", id),
   onMailboxMessage:     (cb: (m: unknown) => void)  => { ipcRenderer.on("mailbox:new-message", (_e, m) => cb(m)); },
   mailboxCopyImage:     (attachmentPath: string)                       => ipcRenderer.invoke("mailbox:copy-image", attachmentPath),
   mailboxSaveAs:        (attachmentPath: string, suggestedName: string) => ipcRenderer.invoke("mailbox:save-as", attachmentPath, suggestedName),

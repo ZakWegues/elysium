@@ -7,9 +7,23 @@ import { EventEmitter } from "node:events";
 
 /**
  * Async mailbox / self-chat thread between desktop and ELYSIUM-M (mobile).
- * Single ordered thread, each message tagged with its origin (`from`).
  * Metadata (JSON) lives in electron-store; attachment bytes live on disk under
  * userData/mailbox-attachments — never inside the electron-store JSON blob.
+ *
+ * ## Conversas separadas (antes era UMA thread infinita)
+ *
+ * O lado da IA sempre teve sessões nomeadas, salváveis e apagáveis; o lado PC era uma
+ * thread contínua que só crescia. Era por isso que ela nunca "abria onde parou" de forma
+ * confiável: não havia onde parar, só um fim cada vez mais longe.
+ *
+ * Agora cada recado pertence a uma `sessionId`, e as sessões seguem exatamente a mesma
+ * semântica do `chatSessionsStore.ts`: título derivado, favorito tira da poda, teto de 5
+ * não-favoritadas, merge por `updatedAt` maior, e o PC é a autoridade.
+ *
+ * 🔴 A MIGRAÇÃO NASCE FAVORITADA. Todo recado que já existia vai para uma sessão
+ * "Recados" marcada `favorite: true`. Sem isso, a primeira poda apagaria o histórico
+ * inteiro do usuário no primeiro uso da feature — a retenção não sabe que aquela sessão
+ * é a única que existia.
  */
 
 export type MailboxKind = "link" | "note" | "file";
@@ -40,6 +54,22 @@ interface MailboxMessageStored {
   attachment: MailboxAttachmentStored | null;
   createdAt: number;
   readAt: number | null;
+  /** Opcional só no disco antigo: a migração preenche todas na primeira leitura. */
+  sessionId?: string;
+}
+
+/** Uma conversa do lado PC. Mesmo formato da sessão do lado da IA, de propósito. */
+export interface MailboxSession {
+  id: string;
+  title: string;
+  createdAt: number;
+  updatedAt: number;
+  favorite: boolean;
+}
+
+/** O que a lista devolve: a sessão mais quantas mensagens ela tem. */
+export interface MailboxSessionMeta extends MailboxSession {
+  count: number;
 }
 
 export interface MailboxMessageMeta {
@@ -50,6 +80,7 @@ export interface MailboxMessageMeta {
   attachment: MailboxAttachmentMeta | null;
   createdAt: number;
   readAt: number | null;
+  sessionId: string;
 }
 
 /** Só pro processo desktop (IPC) — inclui o path absoluto do anexo em disco. Nunca exponha isso por HTTP (mobile não precisa e não deve saber o filesystem local). */
@@ -61,6 +92,7 @@ export interface MailboxMessageMetaDesktop {
   attachment: (MailboxAttachmentMeta & { filePath: string }) | null;
   createdAt: number;
   readAt: number | null;
+  sessionId: string;
 }
 
 export interface MailboxMessageContent {
@@ -75,14 +107,28 @@ export interface NewMailboxItemInput {
   kind: MailboxKind;
   text?: string | null;
   attachment?: { name: string; mimeType: string; base64: string } | null;
+  /** Sem isso, o recado cai na conversa aberta agora. */
+  sessionId?: string | null;
 }
 
-type MailboxStoreShape = { messages: MailboxMessageStored[] };
+type MailboxStoreShape = {
+  messages: MailboxMessageStored[];
+  sessions: MailboxSession[];
+  activeSessionId: string | null;
+};
 
+// 🔴 O NOME DO STORE NAO MUDA. `mailbox.json` ja existe em disco e no migrateUserData;
+// renomear acordaria o aparelho atualizado sem dados. Chave NOVA dentro dele e seguro.
 const store = new Store<MailboxStoreShape>({
   name: "mailbox",
-  defaults: { messages: [] },
+  defaults: { messages: [], sessions: [], activeSessionId: null },
 });
+
+/** Favoritar e o que tira uma conversa desta contagem. Mesma regra do lado da IA. */
+const MAX_NON_FAVORITE_SESSIONS = 5;
+
+/** Id da conversa que recebe tudo que existia antes das sessoes. */
+const SESSAO_INICIAL = "mailbox-inicial";
 
 /** Mesma regra usada no app mobile: sem esquema, começa com http(s):// → link; senão nota. */
 export function inferKind(content: string): MailboxKind {
@@ -129,6 +175,7 @@ function toMeta(item: MailboxMessageStored): MailboxMessageMeta {
     id: item.id, from: item.from, kind: item.kind, text: item.text,
     attachment: toAttachmentMeta(item.attachment),
     createdAt: item.createdAt, readAt: item.readAt,
+    sessionId: item.sessionId ?? SESSAO_INICIAL,
   };
 }
 
@@ -139,35 +186,47 @@ function toDesktopMeta(item: MailboxMessageStored): MailboxMessageMetaDesktop {
       ? { name: item.attachment.name, mimeType: item.attachment.mimeType, sizeBytes: item.attachment.sizeBytes, filePath: item.attachment.filePath }
       : null,
     createdAt: item.createdAt, readAt: item.readAt,
+    sessionId: item.sessionId ?? SESSAO_INICIAL,
   };
 }
 
-/** Adiciona mensagem à thread. `from:"mobile"` é criada pelo endpoint HTTP; `from:"pc"` é chamada direto pelo processo desktop (voz/chat/self-chat). */
-export function addMessage(from: MailboxSender, input: NewMailboxItemInput): { id: string; createdAt: number } {
+/** Adiciona mensagem à conversa. `from:"mobile"` vem do endpoint HTTP; `from:"pc"` é chamada direto pelo processo desktop (voz/chat/self-chat). */
+export function addMessage(from: MailboxSender, input: NewMailboxItemInput): { id: string; createdAt: number; sessionId: string } {
+  garantirSessoes();
   const id = crypto.randomUUID();
   const createdAt = Date.now();
   const attachment = input.attachment ? saveAttachment(id, input.attachment) : null;
+  const sessionId = resolverSessao(input.sessionId ?? null);
   const item: MailboxMessageStored = {
     id, from, kind: input.kind,
     text: input.text?.trim() || null,
-    attachment, createdAt, readAt: null,
+    attachment, createdAt, readAt: null, sessionId,
   };
   const items = store.get("messages");
   items.push(item);
   store.set("messages", items);
+  tocarSessao(sessionId, createdAt, item.text);
   // Emite a variante desktop (com filePath) — este evento só é consumido dentro do
   // processo principal (main.ts encaminha pro renderer via IPC), nunca sai por HTTP.
   mailboxEvents.emit("new-message", toDesktopMeta(item));
-  return { id, createdAt };
+  return { id, createdAt, sessionId };
 }
 
-export function listMessages(): MailboxMessageMeta[] {
-  return store.get("messages").map(toMeta);
+export function listMessages(sessionId?: string | null): MailboxMessageMeta[] {
+  garantirSessoes();
+  const todas = store.get("messages");
+  // Sem filtro devolve a thread inteira, como sempre devolveu. É isso que mantém um app
+  // antigo (que não conhece sessão) funcionando contra um PC já atualizado.
+  const filtradas = sessionId ? todas.filter(m => (m.sessionId ?? SESSAO_INICIAL) === sessionId) : todas;
+  return filtradas.map(toMeta);
 }
 
 /** Mesma thread, mas com filePath do anexo — só pra consumo interno do processo desktop (IPC), nunca por HTTP. */
-export function listMessagesForDesktop(): MailboxMessageMetaDesktop[] {
-  return store.get("messages").map(toDesktopMeta);
+export function listMessagesForDesktop(sessionId?: string | null): MailboxMessageMetaDesktop[] {
+  garantirSessoes();
+  const todas = store.get("messages");
+  const filtradas = sessionId ? todas.filter(m => (m.sessionId ?? SESSAO_INICIAL) === sessionId) : todas;
+  return filtradas.map(toDesktopMeta);
 }
 
 export function getMessageContent(id: string): MailboxMessageContent | undefined {
@@ -200,4 +259,262 @@ export function checkAndMarkUnseenFromMobile(): MailboxMessageMeta[] {
   for (const i of pending) i.readAt = now;
   store.set("messages", items);
   return pending.map(toMeta);
+}
+
+// ── Conversas do lado PC ──────────────────────────────────────────────────────
+//
+// O desenho inteiro é o do `chatSessionsStore.ts`, de propósito. O usuário aprende a
+// regra uma vez (favoritar tira da poda, apagar apaga mesmo, o PC manda) e ela vale nos
+// dois lados do switch. Divergir aqui seria pior que não ter a feature.
+
+/**
+ * Sufixo aleatório: só o carimbo de tempo colidiria se PC e celular criassem uma
+ * conversa no mesmo milissegundo, e o merge trataria as duas como a mesma.
+ */
+export function newMailboxSessionId(): string {
+  return `mbox-${Date.now()}-${crypto.randomBytes(3).toString("hex")}`;
+}
+
+/** Primeira linha do primeiro recado, truncada — mesmo critério do lado da IA. */
+export function deriveMailboxTitle(texto: string | null | undefined): string {
+  const t = (texto ?? "").trim();
+  if (!t) return "Novos recados";
+  return t.length > 40 ? `${t.slice(0, 40)}...` : t;
+}
+
+/**
+ * Cria a conversa de migração e carimba nela tudo que existia antes das sessões.
+ *
+ * Barata e idempotente: sai na primeira linha assim que existe ao menos uma sessão e
+ * nenhuma mensagem órfã. Pode ser chamada de qualquer entrada pública sem medo.
+ */
+function garantirSessoes(): void {
+  const sessions = store.get("sessions") ?? [];
+  const messages = store.get("messages");
+  const orfas = messages.filter(m => !m.sessionId);
+  if (sessions.length > 0 && orfas.length === 0) return;
+
+  let base = sessions.find(s => s.id === SESSAO_INICIAL);
+  if (!base) {
+    const nascimento = messages.length > 0 ? messages[0].createdAt : Date.now();
+    base = {
+      id: SESSAO_INICIAL,
+      title: "Recados",
+      createdAt: nascimento,
+      updatedAt: nascimento,
+      // 🔴 Favoritada de saída: é a única conversa que existe no momento da migração, e
+      // uma poda que a alcançasse apagaria o histórico inteiro do usuário de uma vez.
+      favorite: true,
+    };
+    sessions.push(base);
+  }
+
+  if (orfas.length > 0) {
+    for (const m of orfas) m.sessionId = SESSAO_INICIAL;
+    base.updatedAt = Math.max(base.updatedAt, ...orfas.map(m => m.createdAt));
+    store.set("messages", messages);
+  }
+  store.set("sessions", sessions);
+}
+
+function lerSessoes(): MailboxSession[] {
+  garantirSessoes();
+  return store.get("sessions");
+}
+
+/** Qual conversa recebe um recado que não disse a qual pertence. */
+function resolverSessao(pedida: string | null): string {
+  const sessions = store.get("sessions");
+  if (pedida && sessions.some(s => s.id === pedida)) return pedida;
+
+  const ativa = store.get("activeSessionId");
+  if (ativa && sessions.some(s => s.id === ativa)) return ativa;
+
+  // Sem ativa válida, cai na mais recente. Criar uma nova aqui faria cada recado sem
+  // sessão nascer sozinho numa conversa própria, que é o oposto do que se pediu.
+  const recente = sessions.slice().sort((a, b) => b.updatedAt - a.updatedAt)[0];
+  if (recente) return recente.id;
+
+  return criarSessaoInterna("Novos recados").id;
+}
+
+/** Sobe o `updatedAt` e, se a conversa ainda não tem nome próprio, dá título a ela. */
+function tocarSessao(id: string, quando: number, texto: string | null): void {
+  const sessions = store.get("sessions");
+  const s = sessions.find(x => x.id === id);
+  if (!s) return;
+  s.updatedAt = Math.max(s.updatedAt, quando);
+  if (!s.title || s.title === "Novos recados") s.title = deriveMailboxTitle(texto);
+  store.set("sessions", sessions);
+}
+
+function criarSessaoInterna(title?: string): MailboxSession {
+  const agora = Date.now();
+  const nova: MailboxSession = {
+    id: newMailboxSessionId(),
+    title: (title ?? "").trim() || "Novos recados",
+    createdAt: agora,
+    updatedAt: agora,
+    favorite: false,
+  };
+  const sessions = store.get("sessions");
+  sessions.push(nova);
+  store.set("sessions", sessions);
+  store.set("activeSessionId", nova.id);
+  podarSessoes();
+  return nova;
+}
+
+/** Apaga do disco o anexo de uma mensagem. Nunca lança: anexo já sumido não é erro. */
+function apagarAnexo(item: MailboxMessageStored): void {
+  if (!item.attachment?.filePath) return;
+  try { fs.rmSync(item.attachment.filePath, { force: true }); }
+  catch (e) { console.error("[mailbox] falha ao apagar anexo:", e); }
+}
+
+/**
+ * Retenção: favoritas ilimitadas, das demais só as 5 mais recentes.
+ *
+ * 🔴 Apagar a conversa apaga as mensagens dela E os anexos em disco. Sem isso o
+ * `mailbox-attachments` acumularia arquivo que nenhuma mensagem referencia — o JSON
+ * encolheria e a pasta só cresceria.
+ */
+function podarSessoes(): void {
+  const sessions = store.get("sessions");
+  const sobrando = sessions
+    .filter(s => !s.favorite)
+    .sort((a, b) => b.updatedAt - a.updatedAt)
+    .slice(MAX_NON_FAVORITE_SESSIONS);
+  if (sobrando.length === 0) return;
+
+  const mortas = new Set(sobrando.map(s => s.id));
+  const messages = store.get("messages");
+  for (const m of messages) {
+    if (mortas.has(m.sessionId ?? SESSAO_INICIAL)) apagarAnexo(m);
+  }
+  store.set("messages", messages.filter(m => !mortas.has(m.sessionId ?? SESSAO_INICIAL)));
+  store.set("sessions", sessions.filter(s => !mortas.has(s.id)));
+
+  const ativa = store.get("activeSessionId");
+  if (ativa && mortas.has(ativa)) store.set("activeSessionId", null);
+}
+
+/** Mais recentes primeiro, com a contagem de recados de cada uma. */
+export function listMailboxSessions(): MailboxSessionMeta[] {
+  const sessions = lerSessoes();
+  const messages = store.get("messages");
+  const contagem = new Map<string, number>();
+  for (const m of messages) {
+    const sid = m.sessionId ?? SESSAO_INICIAL;
+    contagem.set(sid, (contagem.get(sid) ?? 0) + 1);
+  }
+  return sessions
+    .slice()
+    .sort((a, b) => b.updatedAt - a.updatedAt)
+    .map(s => ({ ...s, count: contagem.get(s.id) ?? 0 }));
+}
+
+export function getMailboxSession(id: string): MailboxSessionMeta | null {
+  return listMailboxSessions().find(s => s.id === id) ?? null;
+}
+
+export function createMailboxSession(title?: string): MailboxSessionMeta {
+  garantirSessoes();
+  return { ...criarSessaoInterna(title), count: 0 };
+}
+
+export function renameMailboxSession(id: string, title: string): MailboxSessionMeta | null {
+  const sessions = lerSessoes();
+  const s = sessions.find(x => x.id === id);
+  if (!s) return null;
+  const limpo = title.trim().slice(0, 60);
+  if (!limpo) return getMailboxSession(id);
+  s.title = limpo;
+  // Renomear NÃO sobe o `updatedAt`: ele é o critério de conflito da sincronização e a
+  // ordem da lista. Trocar o nome não é atividade nova na conversa.
+  store.set("sessions", sessions);
+  return getMailboxSession(id);
+}
+
+/** Devolve o novo estado, ou null quando a conversa não existe mais. */
+export function toggleMailboxSessionFavorite(id: string): boolean | null {
+  const sessions = lerSessoes();
+  const s = sessions.find(x => x.id === id);
+  if (!s) return null;
+  s.favorite = !s.favorite;
+  store.set("sessions", sessions);
+  // Desfavoritar pode empurrar a conversa para fora do teto. Podar aqui evita que ela
+  // suma só no próximo recado, o que pareceria aleatório.
+  if (!s.favorite) podarSessoes();
+  return s.favorite;
+}
+
+export function getActiveMailboxSessionId(): string {
+  garantirSessoes();
+  return resolverSessao(null);
+}
+
+export function setActiveMailboxSession(id: string): boolean {
+  const sessions = lerSessoes();
+  if (!sessions.some(s => s.id === id)) return false;
+  store.set("activeSessionId", id);
+  return true;
+}
+
+/** 🔴 DESTRUTIVO. Apaga a conversa, as mensagens dela e os anexos em disco. */
+export function deleteMailboxSession(id: string): boolean {
+  const sessions = lerSessoes();
+  if (!sessions.some(s => s.id === id)) return false;
+
+  const messages = store.get("messages");
+  for (const m of messages) {
+    if ((m.sessionId ?? SESSAO_INICIAL) === id) apagarAnexo(m);
+  }
+  store.set("messages", messages.filter(m => (m.sessionId ?? SESSAO_INICIAL) !== id));
+  store.set("sessions", sessions.filter(s => s.id !== id));
+  if (store.get("activeSessionId") === id) store.set("activeSessionId", null);
+  return true;
+}
+
+/** 🔴 DESTRUTIVO. Apaga um recado só — o DELETE que faltava no contrato (§16 C15). */
+export function deleteMailboxMessage(id: string): boolean {
+  garantirSessoes();
+  const messages = store.get("messages");
+  const alvo = messages.find(m => m.id === id);
+  if (!alvo) return false;
+  apagarAnexo(alvo);
+  store.set("messages", messages.filter(m => m.id !== id));
+  return true;
+}
+
+/**
+ * Aplica uma conversa vinda do celular. Vence quem tem `updatedAt` maior, decidido aqui
+ * — o PC é a autoridade. O `createdAt` guardado é preservado: o celular pode não saber
+ * quando a conversa nasceu.
+ */
+export function mergeMailboxSession(incoming: MailboxSession): MailboxSessionMeta {
+  const sessions = lerSessoes();
+  const existente = sessions.find(s => s.id === incoming.id);
+
+  if (existente) {
+    if (existente.updatedAt < incoming.updatedAt) {
+      existente.title = incoming.title || existente.title;
+      existente.updatedAt = incoming.updatedAt;
+      existente.favorite = !!incoming.favorite;
+      store.set("sessions", sessions);
+      if (!existente.favorite) podarSessoes();
+    }
+    return getMailboxSession(incoming.id) ?? { ...existente, count: 0 };
+  }
+
+  sessions.push({
+    id: incoming.id,
+    title: incoming.title || "Novos recados",
+    createdAt: incoming.createdAt || Date.now(),
+    updatedAt: incoming.updatedAt || Date.now(),
+    favorite: !!incoming.favorite,
+  });
+  store.set("sessions", sessions);
+  podarSessoes();
+  return getMailboxSession(incoming.id) ?? { ...incoming, count: 0 };
 }

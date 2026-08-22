@@ -45,7 +45,12 @@ import type { BrainAction } from "../services/brain";
 import { mediaControl } from "../actions/mediaControl";
 import { logAnomaly, getAnomalyHistory, getInsights } from "../services/telemetryLog";
 import { getAllPresets } from "../services/presetsStore";
-import { checkAndMarkUnseenFromMobile, addMessage, listMessagesForDesktop, inferKind, mailboxEvents, isKnownAttachmentPath } from "../services/mailboxStore";
+import {
+  checkAndMarkUnseenFromMobile, addMessage, listMessagesForDesktop, inferKind, mailboxEvents,
+  isKnownAttachmentPath, listMailboxSessions, createMailboxSession, renameMailboxSession,
+  toggleMailboxSessionFavorite, deleteMailboxSession, deleteMailboxMessage,
+  getActiveMailboxSessionId, setActiveMailboxSession,
+} from "../services/mailboxStore";
 
 // ── windows ───────────────────────────────────────────────────────────────────
 
@@ -534,14 +539,27 @@ ipcMain.handle("presets:get", () => getAllPresets());
 
 // ── mailbox self-chat (PC ↔ celular) ────────────────────────────────────────
 
-ipcMain.handle("mailbox:get-thread", () => listMessagesForDesktop());
+// Sem `sessionId` devolve a thread inteira — e o que os chamadores antigos esperam.
+ipcMain.handle("mailbox:get-thread", (_e, sessionId?: string | null) => listMessagesForDesktop(sessionId ?? null));
 
-ipcMain.on("mailbox:send", (_event, text: string) => {
+ipcMain.on("mailbox:send", (_event, text: string, sessionId?: string | null) => {
   const trimmed = (text ?? "").trim();
   if (!trimmed) return;
-  const { id } = addMessage("pc", { kind: inferKind(trimmed), text: trimmed, attachment: null });
+  const { id } = addMessage("pc", { kind: inferKind(trimmed), text: trimmed, attachment: null, sessionId: sessionId ?? null });
   broadcastMailboxEvent("toMobile", id);
 });
+
+// ── conversas da Caixa ──────────────────────────────────────────────────────
+// Mesmo conjunto de acoes das conversas da IA logo acima. Apagar aqui e destrutivo de
+// verdade: leva as mensagens e os anexos em disco junto.
+ipcMain.handle("mailbox:sessions-list",     ()                            => listMailboxSessions());
+ipcMain.handle("mailbox:sessions-create",   (_e, title?: string)          => createMailboxSession(title));
+ipcMain.handle("mailbox:sessions-rename",   (_e, id: string, t: string)   => renameMailboxSession(id, t));
+ipcMain.handle("mailbox:sessions-favorite", (_e, id: string)              => toggleMailboxSessionFavorite(id));
+ipcMain.handle("mailbox:sessions-delete",   (_e, id: string)              => deleteMailboxSession(id));
+ipcMain.handle("mailbox:sessions-open",     (_e, id: string)              => setActiveMailboxSession(id));
+ipcMain.handle("mailbox:sessions-active",   ()                            => getActiveMailboxSessionId());
+ipcMain.handle("mailbox:message-delete",    (_e, id: string)              => deleteMailboxMessage(id));
 
 ipcMain.handle("mailbox:copy-image", async (_event, attachmentPath: string) => {
   if (!isKnownAttachmentPath(attachmentPath)) throw new Error("Caminho de anexo inválido.");

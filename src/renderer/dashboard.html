@@ -20,6 +20,25 @@
      Quem mantém isto em dia é o applyTheme(), a partir do hex da paleta. */
   --purple-rgb: 123,94,167;
   --cyan-rgb:   78,205,196;
+  /* ── ESCADA DE VIDRO ──────────────────────────────────────
+     Direção HyperOS / One UI, não iOS: alfa ALTO + desfoque ALTO. O painel não mostra
+     as formas do fundo, mostra COR e luz difusa — e o texto lê perfeitamente por cima.
+     A rota iOS (alfa baixo, desfoque médio) foi testada no celular e deixou painel
+     ilegível; a correção está registrada no bloco 53 do ULTRA_HANDOFF.
+
+     A tinta NUNCA é branco puro: `--glass-ink` sai da paleta do tema (applyTheme). Foi
+     branco puro com desfoque baixo que produziu o aspecto "leitoso" reclamado.
+
+     Quatro degraus, os mesmos já validados no celular:
+       card 0,34 · barra 0,52 · gaveta 0,86 · painel 0,92 */
+  --glass-ink:    16,20,34;
+  --vidro-card:   rgba(var(--glass-ink), 0.34);
+  --vidro-barra:  rgba(var(--glass-ink), 0.52);
+  --vidro-gaveta: rgba(var(--glass-ink), 0.86);
+  --vidro-painel: rgba(var(--glass-ink), 0.92);
+  --blur-barra:  blur(22px) saturate(150%);
+  --blur-gaveta: blur(34px) saturate(165%);
+  --blur-painel: blur(44px) saturate(180%);
   --red:       #e05252;
   --green:     #3ecf8e;
   --yellow:    #f0c040;
@@ -81,16 +100,16 @@ body.theme-ely {
 
 /* Superfícies: no lugar do preenchimento opaco da base, vidro sobre a noite. */
 .theme-ely #topbar {
-  background: rgba(255,255,255,0.045);
-  backdrop-filter: var(--glass-blur);
+  background: var(--vidro-barra);
+  backdrop-filter: var(--blur-barra);
   border-bottom-color: var(--border);
 }
 .theme-ely #drawer-left,
 .theme-ely #drawer-right,
 .theme-ely #input-bar,
 .theme-ely .modal-box {
-  background: rgba(255,255,255,0.05);
-  backdrop-filter: var(--glass-blur);
+  background: var(--vidro-gaveta);
+  backdrop-filter: var(--blur-gaveta);
   box-shadow: var(--shadow-float);
 }
 .theme-ely .log-card,
@@ -142,11 +161,15 @@ body.theme-ely {
 }
 .ely-shaft-1 { left: 6%;  animation: ely-shaft-1 44s ease-in-out infinite alternate; }
 .ely-shaft-2 { right: 2%; animation: ely-shaft-2 58s ease-in-out infinite alternate; }
+.ely-shaft-3 { left: 44%; width: 26%; opacity: 0.04; animation: ely-shaft-3 71s ease-in-out infinite alternate; }
 @keyframes ely-shaft-1 { from { transform: skewX(-14deg) translateX(0); }    to { transform: skewX(-14deg) translateX(70px); } }
 @keyframes ely-shaft-2 { from { transform: skewX(-14deg) translateX(0); }    to { transform: skewX(-14deg) translateX(-90px); } }
+@keyframes ely-shaft-3 { from { transform: skewX(-14deg) translateX(40px); } to { transform: skewX(-14deg) translateX(-40px); } }
 
 @media (prefers-reduced-motion: reduce) {
-  :root:not([data-movimento="sempre"]) .ely-shaft { animation: none !important; }
+  :root:not([data-movimento="sempre"]) .ely-shaft,
+  :root:not([data-movimento="sempre"]) .bg-traco,
+  :root:not([data-movimento="sempre"]) #bg-poeira i { animation: none !important; }
 }
 
 
@@ -222,12 +245,32 @@ body.theme-ely {
    Substitui o `border-bottom` que apagava num destino e acendia noutro. O
    traço percorre a distância, e é esse percurso que diz de onde você veio. */
 #viewtabs { position: relative; }
+/* O DESENHO mudou; o MOVIMENTO nao. O elemento continua sendo 1px de largura levado por
+   translateX + scaleX, exatamente como antes — e por isso continua sendo so transform.
+
+   O problema de desenhar uma pilula direto neste elemento e que o raio de borda e
+   calculado ANTES do transform: num box de 1px de largura, `border-radius: 999px` e
+   grampeado para 0,5px e o scaleX depois estica esse 0,5px em dezenas de pixels. A
+   pilula viraria uma lente pontuda. Por isso o desenho vive num ::after que tem a
+   largura REAL da aba (--w) e se contra-escala por 1/--w: o raio e calculado no box
+   certo, e a escala do pai devolve o tamanho. O --w e a unica coisa nova no JS, e ele
+   nao participa da animacao. */
 #vtab-thumb {
-  position: absolute; bottom: 0; left: 0; height: 2px;
-  background: var(--purple); border-radius: 2px 2px 0 0;
+  position: absolute; top: 5px; bottom: 5px; left: 0;
   width: 1px; transform: translateX(0) scaleX(0); transform-origin: left center;
   transition: transform var(--mov-base) var(--mov-suave);
   pointer-events: none;
+}
+#vtab-thumb::after {
+  content: ""; position: absolute; top: 0; bottom: 0; left: 0;
+  width: calc(var(--w, 1) * 1px);
+  transform: scaleX(calc(1 / var(--w, 1)));
+  transform-origin: left center;
+  border-radius: 999px;
+  background: var(--vidro-card);
+  border: 1px solid rgba(var(--purple-rgb), 0.30);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 2px 10px rgba(0,0,0,0.22);
+  backdrop-filter: blur(12px) saturate(150%);
 }
 
 /* ── Micro-interações ─────────────────────────────────────
@@ -409,13 +452,25 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
    direita a caixa de recados que aparece no celular — que antes era uma aba inteira
    repetindo o que este switch já fazia. */
 #chat-mode-tabs {
-  display: flex; justify-content: center; padding: 10px 16px 2px;
+  /* Faixa propria entre a barra de abas e a area dos paineis. Absoluta no topo do
+     #layout, FORA do contexto dos paineis que se sobrepoem (inset:0). O #center recua o
+     proprio topo pela mesma altura — sem isso o fim do chat cai para fora da janela. */
+  position: absolute; top: 0; left: 0; right: 0; z-index: 40;
+  display: none; align-items: center; justify-content: center;
+  height: 52px; padding: 0 16px;
+  /* Degrau BARRA da escada de vidro (0,52), nao o de painel: faixa nao e caixa. */
+  background: var(--vidro-barra);
+  backdrop-filter: var(--blur-barra);
+  border-bottom: 1px solid var(--border);
 }
+#layout[data-view="chat"] #chat-mode-tabs { display: flex; }
 .chat-switch {
   position: relative; display: flex; padding: 3px;
   width: 232px;
-  background: rgba(var(--purple-rgb),0.08);
+  background: var(--vidro-card);
+  backdrop-filter: blur(14px) saturate(150%);
   border: 1px solid var(--border); border-radius: var(--radius-20);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.07);
 }
 /* O polegar é um irmão posicionado atrás dos dois botões: assim o texto ativo não
    precisa de fundo próprio e a troca é um único translate. */
@@ -427,7 +482,7 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
   width: calc(50% - 3px);
   border-radius: var(--radius-20);
   background: rgba(var(--purple-rgb),0.30);
-  box-shadow: var(--shadow-card, none);
+  box-shadow: var(--shadow-card, none), inset 0 1px 0 rgba(255,255,255,0.16);
   transition: transform 320ms cubic-bezier(0.3, 0.9, 0.25, 1);
   pointer-events: none;
 }
@@ -736,6 +791,14 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
 .conv-act.del:hover { color: var(--red); }
 #conv-hint  { font-size: 10px; color: var(--dim); line-height: 1.5; margin-top: 10px; }
 #conv-empty { font-size: 11px; color: var(--muted); text-align: center; padding: 18px 6px; }
+/* Renomear no lugar do titulo. `prompt()` seria modal do processo inteiro e apareceria
+   no meio da transicao do popover. */
+.conv-rename {
+  width: 100%; font-family: inherit; font-size: 12px; font-weight: 600;
+  color: var(--text); background: rgba(0,0,0,0.24);
+  border: 1px solid var(--purple); border-radius: var(--radius-6);
+  padding: 2px 6px; outline: none;
+}
 
 /* ── Mini-player do Spotify ────────────────────────────────────────────────── */
 .sp-card {
@@ -1053,7 +1116,50 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
 }
 @keyframes lg-drift-1 { from { transform: translate(0,0) scale(1); } to { transform: translate(60px,40px) scale(1.08); } }
 @keyframes lg-drift-2 { from { transform: translate(0,0) scale(1); } to { transform: translate(-50px,-70px) scale(1.05); } }
+.lg-blob-4 { /* mancha pequena, alto a esquerda — quebra a simetria dos tres cantos */
+  width: 300px; height: 300px; top: 8%; left: 14%;
+  background: var(--blob-2, #b8ecf3); opacity: 0.26;
+  animation: lg-drift-4 38s ease-in-out infinite alternate;
+}
+.lg-blob-5 { /* mancha pequena, baixo a direita */
+  width: 340px; height: 340px; bottom: 6%; right: 18%;
+  background: var(--blob-1, #cbb9ff); opacity: 0.22;
+  animation: lg-drift-5 46s ease-in-out infinite alternate;
+}
 @keyframes lg-drift-3 { from { transform: translate(0,0) scale(1); } to { transform: translate(-40px,50px) scale(0.94); } }
+@keyframes lg-drift-4 { from { transform: translate(0,0) scale(1); } to { transform: translate(70px,-30px) scale(1.12); } }
+@keyframes lg-drift-5 { from { transform: translate(0,0) scale(1); } to { transform: translate(-60px,-45px) scale(1.06); } }
+
+/* ── Tracos finos ─────────────────────────────────────────
+   Linhas de 1px inclinadas, quase invisiveis. Servem de referencia: e por elas passando
+   por tras que se percebe que o painel e translucido e nao cinza. */
+#bg-tracos { position: fixed; inset: -10%; z-index: -1; display: none; pointer-events: none; overflow: hidden; }
+.theme-rich #bg-tracos { display: block; }
+.bg-traco {
+  position: absolute; top: -20%; height: 140%; width: 1px;
+  background: linear-gradient(180deg, transparent, rgba(var(--purple-rgb),0.55), transparent);
+  opacity: 0.16; will-change: transform;
+}
+.bg-traco-1 { left: 22%; animation: bg-traco-1 68s ease-in-out infinite alternate; }
+.bg-traco-2 { left: 54%; animation: bg-traco-2 84s ease-in-out infinite alternate;
+  background: linear-gradient(180deg, transparent, rgba(var(--cyan-rgb),0.55), transparent); }
+.bg-traco-3 { left: 81%; animation: bg-traco-3 76s ease-in-out infinite alternate; }
+@keyframes bg-traco-1 { from { transform: skewX(-9deg) translateX(-40px); } to { transform: skewX(-9deg) translateX(60px); } }
+@keyframes bg-traco-2 { from { transform: skewX(7deg)  translateX(50px); }  to { transform: skewX(7deg)  translateX(-70px); } }
+@keyframes bg-traco-3 { from { transform: skewX(-5deg) translateX(30px); }  to { transform: skewX(-5deg) translateX(-50px); } }
+
+/* ── Poeira ───────────────────────────────────────────────
+   Oito pontos de 2px. Posicao, duracao e alfa vem de estilo inline no markup: oito
+   regras CSS quase iguais so para mudar dois numeros nao se le nem se mantem. */
+#bg-poeira { position: fixed; inset: 0; z-index: -1; display: none; pointer-events: none; overflow: hidden; }
+.theme-rich #bg-poeira { display: block; }
+#bg-poeira i {
+  position: absolute; width: 2px; height: 2px; border-radius: 50%;
+  background: var(--purple-bright); opacity: var(--a, 0.22);
+  filter: blur(0.4px); will-change: transform;
+  animation: bg-poeira var(--d, 48s) ease-in-out infinite alternate;
+}
+@keyframes bg-poeira { from { transform: translate(0,0); } to { transform: translate(26px,-34px); } }
 
 /* ── MOVIMENTO — vale para toda família "caprichada" (.theme-rich) ────────
    Estas regras são só transform, transition e @keyframes: não têm cor nenhuma. Por isso
@@ -1071,6 +1177,13 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
   transition: transform var(--mov-micro) var(--mov-curva), background var(--mov-micro) var(--mov-curva),
               box-shadow var(--mov-micro) var(--mov-curva), border-color var(--mov-micro) var(--mov-curva);
 }
+/* Hover levanta 1px. A regra do bloco 24 era "sem overshoot no hover", nao "sem
+   movimento nenhum": 1px de subida em 120ms e resposta, nao bounce. */
+.theme-rich .top-btn:hover, .theme-rich .send-btn:hover, .theme-rich .mic-btn:hover,
+.theme-rich .media-btn:hover, .theme-rich .save-btn:hover, .theme-rich .sort-btn:hover,
+.theme-rich #conv-btn:hover, .theme-rich #preset-btn:hover, .theme-rich .widget-order-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
 .theme-rich .top-btn:active, .theme-rich .send-btn:active, .theme-rich .mic-btn:active,
 .theme-rich .chat-tab-btn:active, .theme-rich .rtab-btn:active, .theme-rich .media-btn:active,
 .theme-rich .widget-order-btn:active, .theme-rich #stop-btn:active, .theme-rich #proc-modal-close:active,
@@ -1085,18 +1198,22 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
 .theme-rich .preset-card:hover, .theme-rich .theme-swatch:hover { transform: translateY(-2px); }
 .theme-rich .preset-card:active, .theme-rich .theme-swatch:active { transform: scale(0.98); transition-duration: 0.1s; }
 .theme-rich .quick-pill {
-  transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1), background 0.2s;
+  transition: transform var(--mov-micro) var(--mov-curva), background var(--mov-micro) var(--mov-curva);
 }
 .theme-rich .quick-pill:hover  { transform: translateY(-1px); }
 .theme-rich .quick-pill:active { transform: scale(0.94); transition-duration: 0.1s; }
 
-.theme-rich #drawer-left, .theme-rich #drawer-right { transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1); }
+/* Abertura de gaveta na escada do bloco 24: 220ms, curva suave, sem mola. 400ms com
+   overshoot passava dos 300ms e era o unico lugar fora do popover com bounce. */
+.theme-rich #drawer-left, .theme-rich #drawer-right {
+  transition: transform var(--mov-base) var(--mov-suave), opacity var(--mov-base) var(--mov-suave);
+}
 
-.theme-rich .modal-box { animation: lg-modal-in 0.4s cubic-bezier(0.34,1.56,0.64,1); }
-@keyframes lg-modal-in { from { opacity: 0; transform: scale(0.92) translateY(12px); } to { opacity: 1; transform: none; } }
+.theme-rich .modal-box { animation: lg-modal-in var(--mov-base) var(--mov-suave); }
+@keyframes lg-modal-in { from { opacity: 0; transform: scale(0.96) translateY(10px); } to { opacity: 1; transform: none; } }
 
-.theme-rich .bubble { animation: lg-bubble-in 0.3s cubic-bezier(0.34,1.56,0.64,1); }
-@keyframes lg-bubble-in { from { opacity: 0; transform: scale(0.9) translateY(8px); } to { opacity: 1; transform: none; } }
+.theme-rich .bubble { animation: lg-bubble-in var(--mov-base) var(--mov-suave); }
+@keyframes lg-bubble-in { from { opacity: 0; transform: scale(0.96) translateY(8px); } to { opacity: 1; transform: none; } }
 
 .theme-rich .send-btn, .theme-rich .save-btn, .theme-rich #open-config-btn { position: relative; overflow: hidden; }
 .theme-rich .send-btn::after, .theme-rich .save-btn::after, .theme-rich #open-config-btn::after {
@@ -1118,14 +1235,14 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
 
 /* ── LIQUID GLASS: chrome (barras/gavetas/modal) ─────────── */
 .theme-lg #topbar {
-  background: rgba(255,255,255,0.7);
-  backdrop-filter: blur(24px) saturate(180%);
+  background: var(--vidro-barra);
+  backdrop-filter: var(--blur-barra);
   border-bottom-color: var(--border);
 }
 .theme-lg .logo-text { color: var(--text); }
 .theme-lg #drawer-left, .theme-lg #drawer-right {
-  background: rgba(255,255,255,0.72);
-  backdrop-filter: blur(28px) saturate(180%);
+  background: var(--vidro-gaveta);
+  backdrop-filter: var(--blur-gaveta);
   box-shadow: 0 8px 40px rgba(17,17,26,0.1);
 }
 .theme-lg #drawer-left  { border-right-color: var(--border); }
@@ -1133,8 +1250,8 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
 .theme-lg #drawer-backdrop { background: rgba(17,17,26,0.18); }
 .theme-lg #proc-modal { background: rgba(17,17,26,0.28); backdrop-filter: blur(14px) saturate(140%); }
 .theme-lg .modal-box {
-  background: rgba(255,255,255,0.9);
-  backdrop-filter: blur(30px) saturate(180%);
+  background: var(--vidro-gaveta);
+  backdrop-filter: var(--blur-gaveta);
   border-color: var(--border);
   box-shadow: var(--shadow-float);
 }
@@ -1197,15 +1314,17 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
 .theme-lg #status-badge.processing { background: rgba(var(--cyan-rgb),0.16); border-color: transparent; color: var(--cyan-dark); }
 .theme-lg #status-badge.speaking   { background: rgba(23,178,106,0.14); border-color: transparent; color: #0f8a52; }
 .theme-lg #status-badge.error      { background: rgba(229,72,77,0.13); border-color: transparent; color: var(--red); }
+/* Os dois lados do switch sao SEM fundo proprio: quem pinta o lado ativo e o polegar
+   atras deles. Antes cada botao tinha a sua placa branca, e com o polegar por baixo o
+   controle mostrava tres retangulos empilhados no lugar de um. */
 .theme-lg .chat-tab-btn {
-  background: rgba(255,255,255,0.8); backdrop-filter: var(--glass-blur);
-  border-color: transparent; color: var(--muted); box-shadow: var(--shadow-card);
+  background: none; border-color: transparent; color: var(--muted); box-shadow: none;
 }
 .theme-lg .chat-tab-btn:hover  { color: var(--text); border-color: transparent; }
-.theme-lg .chat-tab-btn.active { background: var(--purple-bright); border-color: transparent; color: #fff; box-shadow: 0 4px 14px rgba(var(--purple-rgb),0.28); }
+.theme-lg .chat-tab-btn.active { background: none; border-color: transparent; color: var(--purple); }
 .theme-lg #input-bar {
-  background: rgba(255,255,255,0.72);
-  backdrop-filter: blur(24px) saturate(180%);
+  background: var(--vidro-gaveta);
+  backdrop-filter: var(--blur-gaveta);
   border-top-color: var(--border);
 }
 .theme-lg #cmd-input, .theme-lg #shortcut-input, .theme-lg #apikey-input, .theme-lg #proc-search {
@@ -1288,7 +1407,9 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
   transition: color 0.2s, background 0.2s;
 }
 .vtab:hover { color: var(--text); background: rgba(var(--purple-rgb), 0.06); }
-.vtab.active { color: var(--purple-bright); border-bottom-color: var(--purple); }
+/* O traco embaixo saiu: quem marca a aba ativa agora e a pilula de vidro do #vtab-thumb.
+   Dois indicadores ao mesmo tempo era o que deixava a barra pesada. */
+.vtab.active { color: var(--purple-bright); }
 .vtab-ico { font-size: 14px; line-height: 1; }
 /* Abaixo de ~880px de largura os rótulos saem e ficam só os ícones, em vez de a barra
    quebrar em duas linhas ou cortar destino. */
@@ -1336,6 +1457,9 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
 #layout[data-view] > #drawer-right {
   position: absolute; inset: 0; min-width: 0;
 }
+/* A faixa do switch come 52px do topo, e so na aba Chat. Acrescentar a faixa sem mexer
+   no inset empurraria o fim da conversa para fora da janela. */
+#layout[data-view="chat"] > #center { top: 52px; }
 #layout[data-view="inicio"]  #view-inicio  { display: block; opacity: 1; transform: none; }
 #layout[data-view="chat"]    #center       { display: flex;  opacity: 1; transform: none; }
 #layout[data-view="programas"] #view-programas { display: grid; opacity: 1; transform: none; }
@@ -1441,14 +1565,15 @@ body.tabs .top-btn.drawer-toggle { display: none; }
 #conv-pop { transform-origin: top left; }
 #conv-pop::before { left: 14px; right: auto; }
 #conv-btn {
-  position: absolute; left: 16px; top: 10px;
+  position: absolute; left: 16px; top: 10px; /* (52 - 32) / 2 */
   width: 32px; height: 32px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
   background: none; border: 1px solid var(--border); color: var(--muted); cursor: pointer;
-  transition: background var(--mov-micro) var(--mov-curva), color var(--mov-micro) var(--mov-curva);
+  transition: background var(--mov-micro) var(--mov-curva), color var(--mov-micro) var(--mov-curva),
+              transform var(--mov-micro) var(--mov-curva);
 }
 #conv-btn:hover { background: rgba(var(--purple-rgb),0.16); color: var(--purple-bright); }
-#chat-mode-tabs { position: relative; }
+/* `position` da faixa esta no bloco dela, la em cima. Aqui so o que e do popover. */
 
 /* ── ABA PROGRAMAS ────────────────────────────────────────
    Duas colunas: o que se abre e fecha à esquerda, o que se aciona à direita. Sem
@@ -1498,13 +1623,17 @@ body.tabs .top-btn.drawer-toggle { display: none; }
    MOVIMENTO. Mola aqui é a assinatura do formato; mola em tudo seria o "bounce em todo
    hover" que denuncia interface gerada. */
 #preset-btn {
-  position: absolute; top: 12px; right: 16px; z-index: 60;
+  /* Mora dentro da faixa do switch, alinhado com o botao de conversas do outro canto.
+     (52 - 36) / 2 = 8. */
+  position: absolute; top: 8px; right: 16px; z-index: 60;
   width: 36px; height: 36px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
-  background: var(--surface); border: 1px solid var(--border);
+  /* Era `var(--surface)` — hex OPACO nos temas ELYSIUM. O backdrop-filter abaixo nao
+     tinha efeito nenhum: outro vidro que so parecia vidro. */
+  background: var(--vidro-barra); border: 1px solid var(--border);
   color: var(--purple-bright); cursor: pointer;
   box-shadow: var(--shadow-card, 0 2px 10px rgba(0,0,0,0.3));
-  backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--blur-barra);
   transition: background var(--mov-micro) var(--mov-curva), transform var(--mov-micro) var(--mov-curva);
 }
 /* Só no Chat: na Início aquele canto é do botão "Personalizar", e na aba PC a bolinha
@@ -1518,10 +1647,15 @@ body.tabs .top-btn.drawer-toggle { display: none; }
 #preset-pop, .pop {
   position: fixed; z-index: 300;
   width: 296px;
-  padding: 12px; border-radius: var(--radius-10);
-  background: var(--surface2); border: 1px solid var(--border2);
+  padding: 12px; border-radius: 22px;
+  /* 🔴 ANTES ISTO SÓ PARECIA VIDRO. O `backdrop-filter` estava declarado, mas o fundo era
+     `var(--surface2)` — hex OPACO nos três temas ELYSIUM (#0e1220, #110d26, #0c101c).
+     Desfoque atrás de superfície opaca não desfoca nada visível: a declaração ficava lá,
+     sem efeito, e ninguém percebia. É o mesmo defeito que o GlassModal do celular teve
+     dentro do Modal do RN. Agora a tinta vem da escada (--vidro-painel), que é rgba. */
+  background: var(--vidro-painel); border: 1px solid var(--border2);
   box-shadow: var(--shadow-float, 0 12px 40px rgba(0,0,0,0.5));
-  backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--blur-painel);
   transform-origin: top right;
   /* Fechado. `display` entra na transição com `allow-discrete`, então ele espera a
      saída terminar antes de voltar a `none` — é isso que torna a saída visível. */
@@ -1554,9 +1688,36 @@ body.tabs .top-btn.drawer-toggle { display: none; }
 #preset-pop::before, .pop::before {
   content: ""; position: absolute; top: -6px; right: 13px;
   width: 11px; height: 11px; transform: rotate(45deg);
-  background: var(--surface2);
+  /* Mesma tinta do painel. Com `--surface2` a careta ficava opaca sobre um corpo
+     translúcido — dois tons diferentes na mesma caixa. */
+  background: var(--vidro-painel);
+  backdrop-filter: var(--blur-painel);
   border-left: 1px solid var(--border2); border-top: 1px solid var(--border2);
 }
+/* Dentro de um popover de vidro, card com fundo próprio vira placa opaca sobre vidro —
+   duas superfícies competindo. O card some e fica só a moldura. Vem DEPOIS das regras de
+   família (.theme-lg / .theme-ely) de propósito: na mesma especificidade a última vence, e
+   é o id + a classe .pop que ganham das duas. */
+.pop #pairing-card,
+.pop #remote-card {
+  background: transparent;
+  box-shadow: none;
+  border-color: var(--border);
+  backdrop-filter: none;
+}
+
+/* 🔴 EXCEÇÃO DELIBERADA AO VIDRO: o quadrado do QR é CHAPADO.
+   QR sobre fundo translúcido com blobs derivando por baixo perde contraste em movimento e
+   a câmera do celular pode simplesmente parar de ler. A moldura é de vidro; o código, não.
+   `isolation: isolate` impede que qualquer backdrop-filter de ancestral atravesse. */
+#pairing-qr {
+  background: #fff !important;
+  backdrop-filter: none !important;
+  isolation: isolate;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.35);
+  image-rendering: pixelated;
+}
+
 #preset-pop-titulo, .pop-titulo { font-size: 11.5px; font-weight: 600; color: var(--muted); margin-bottom: 10px; padding: 0 2px; }
 
 .pop-lista { display: flex; flex-direction: column; gap: 5px; }
@@ -1976,6 +2137,7 @@ body.redimensionando, body.redimensionando * { user-select: none !important; cur
   <symbol id="i-chevron-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 14.5 12 8.5l6 6"/></symbol>
   <symbol id="i-chevron-down" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9.5 12 15.5l6-6"/></symbol>
   <symbol id="i-star" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3 6.4 20.2l1.1-6.2L3 9.6l6.2-.9z"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z"/></symbol>
   <symbol id="i-zap" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 2 4 13.5h7L10.5 22 20 10.5h-7z"/></symbol>
   <symbol id="i-bulb" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 18h5M10 21.5h4"/><path d="M12 2.5a6.5 6.5 0 0 1 3.8 11.8c-.5.4-.8 1-.8 1.6v.1H9v-.1c0-.6-.3-1.2-.8-1.6A6.5 6.5 0 0 1 12 2.5z"/></symbol>
   <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.5 9.5 17.5 19.5 6.5"/></symbol>
@@ -1999,11 +2161,34 @@ body.redimensionando, body.redimensionando * { user-select: none !important; cur
   <div class="lg-blob lg-blob-1"></div>
   <div class="lg-blob lg-blob-2"></div>
   <div class="lg-blob lg-blob-3"></div>
+  <div class="lg-blob lg-blob-4"></div>
+  <div class="lg-blob lg-blob-5"></div>
+</div>
+
+<!-- Tracos finos e poeira. Sem nada para revelar por tras, translucidez vira cinza
+     chapado: o vidro so parece vidro quando tem o que atravessar. Tudo em opacidade
+     baixissima e deriva lenta, para o fundo nunca competir com a leitura. -->
+<div id="bg-tracos">
+  <i class="bg-traco bg-traco-1"></i>
+  <i class="bg-traco bg-traco-2"></i>
+  <i class="bg-traco bg-traco-3"></i>
+</div>
+
+<div id="bg-poeira">
+  <i style="left:12%; top:22%; --d:38s; --a:0.30"></i>
+  <i style="left:28%; top:71%; --d:52s; --a:0.22"></i>
+  <i style="left:41%; top:14%; --d:44s; --a:0.26"></i>
+  <i style="left:57%; top:58%; --d:61s; --a:0.18"></i>
+  <i style="left:66%; top:31%; --d:47s; --a:0.28"></i>
+  <i style="left:78%; top:79%; --d:56s; --a:0.20"></i>
+  <i style="left:86%; top:44%; --d:41s; --a:0.24"></i>
+  <i style="left:94%; top:66%; --d:64s; --a:0.16"></i>
 </div>
 
 <div id="ely-shafts">
   <div class="ely-shaft ely-shaft-1"></div>
   <div class="ely-shaft ely-shaft-2"></div>
+  <div class="ely-shaft ely-shaft-3"></div>
 </div>
 
 <!-- TOPBAR -->
@@ -2067,18 +2252,29 @@ body.redimensionando, body.redimensionando * { user-select: none !important; cur
        quiser os números liga os cards na tela Início. -->
   <div id="view-programas"></div>
 
+  <!-- FAIXA DO SWITCH IA <-> CELULAR.
+       Saiu de dentro do #center e virou faixa propria, entre a barra de abas e a area dos
+       paineis. Ela NAO pode morar dentro do container absoluto dos paineis: eles se
+       sobrepoem com inset:0 e a faixa sumiria por baixo, ou cobriria o conteudo. Fica
+       fora, absoluta no topo do #layout, e o #center recua o proprio topo para dar o
+       espaco dela (senao o fim do chat cai fora da janela).
+
+       O polegar continua sem medicao nenhuma: dois lados de largura igual, width:50% em
+       CSS e translateX comandado pelo data-modo. Era a medicao de offsetWidth num
+       elemento em display:none que fazia o switch nascer invisivel em toda sessao. -->
+  <div id="chat-mode-tabs">
+    <button id="conv-btn" title="Conversas salvas" aria-haspopup="dialog" aria-expanded="false">
+      <svg class="ico ico-sm" aria-hidden="true"><use href="#i-clock"/></svg>
+    </button>
+    <div class="chat-switch" data-modo="ai" role="tablist" aria-label="Com quem você está falando">
+      <span id="chat-switch-thumb"></span>
+      <button class="chat-tab-btn active" id="chat-tab-ai" role="tab" aria-selected="true" title="Conversar com a IA"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-cpu"/></svg><span>IA</span></button>
+      <button class="chat-tab-btn" id="chat-tab-self" role="tab" aria-selected="false" title="Recados que aparecem no seu celular"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-smartphone"/></svg><span>Celular</span><span class="chat-tab-dot"></span></button>
+    </div>
+  </div>
+
   <!-- CENTER -->
   <div id="center">
-    <div id="chat-mode-tabs">
-      <button id="conv-btn" title="Conversas salvas" aria-haspopup="dialog" aria-expanded="false">
-        <svg class="ico ico-sm" aria-hidden="true"><use href="#i-clock"/></svg>
-      </button>
-      <div class="chat-switch" data-modo="ai" role="tablist" aria-label="Com quem você está falando">
-        <span id="chat-switch-thumb"></span>
-        <button class="chat-tab-btn active" id="chat-tab-ai" role="tab" aria-selected="true" title="Conversar com a IA"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-cpu"/></svg><span>IA</span></button>
-        <button class="chat-tab-btn" id="chat-tab-self" role="tab" aria-selected="false" title="Recados que aparecem no seu celular"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-smartphone"/></svg><span>Celular</span><span class="chat-tab-dot"></span></button>
-      </div>
-    </div>
     <div id="timeline" role="log" aria-live="polite"></div>
     <div id="timeline-self" class="hidden" role="log" aria-live="polite"></div>
 
@@ -2476,7 +2672,12 @@ function renderSelfTimeline() {
 
 async function loadSelfThread() {
   try {
-    const { items } = await window.nx.getMailboxThread();
+    // Sem sessao escolhida, pergunta ao PC qual e a ativa. A thread inteira nao serve
+    // mais: era justamente ela, infinita, que fazia a rolagem abrir no meio.
+    if (!mailboxSessionId) {
+      try { mailboxSessionId = await window.nx.mailboxSessionsActive(); } catch { /* PC sem sessao ainda */ }
+    }
+    const items = await window.nx.getMailboxThread(mailboxSessionId);
     selfMessages = items || [];
     selfLoaded = true;
     renderSelfTimeline();
@@ -2530,6 +2731,8 @@ function switchChatMode(mode) {
     document.getElementById("chat-tab-self")?.classList.remove("tem-novidade");
     if (!selfLoaded) loadSelfThread();
   }
+  // O popover e compartilhado: trocar de lado troca o que ele lista.
+  if (convPop?.classList.contains("aberto")) loadConversations();
   // O polegar segue este atributo, por CSS. Sem medir, sem JS de posição.
   document.querySelector(".chat-switch")?.setAttribute("data-modo", mode);
   document.getElementById("center")?.classList.toggle("modo-self", mode === "self");
@@ -2540,8 +2743,15 @@ chatTabAi.addEventListener("click", () => switchChatMode("ai"));
 chatTabSelf.addEventListener("click", () => switchChatMode("self"));
 
 window.nx.onMailboxMessage((msg) => {
+  // Recado de outra conversa nao entra na thread aberta. Sem esta guarda, abrir uma
+  // conversa antiga e receber um recado novo misturaria as duas na tela.
+  if (mailboxSessionId && msg?.sessionId && msg.sessionId !== mailboxSessionId) {
+    if (convPop?.classList.contains("aberto")) loadConversations();
+    return;
+  }
   selfMessages.push(msg);
   if (chatMode === "self") renderSelfTimeline();
+  if (convPop?.classList.contains("aberto")) loadConversations();
 });
 
 // ─────────────────────────────────────────────────
@@ -2563,13 +2773,13 @@ window.nx.onMailboxMessage((msg) => {
  * das duas.
  */
 const THEMES = {
-  ely:         { name: "Campos Elísios", family: "ely", purple: "#d9b168", purpleBright: "#f2d49b", cyan: "#9fd8cf", cyanDark: "#6fb3a9", bg: "#0a0c14", surface: "#131726", surface2: "#0e1220", blobs: ["#8a6a2e", "#2f5d57", "#4a3f6b"], shaft: "#d9b168" },
-  "ely-dusk":  { name: "Crepúsculo",     family: "ely", purple: "#f0a850", purpleBright: "#ffc47a", cyan: "#e07a9b", cyanDark: "#b85e7c", bg: "#0b0818", surface: "#171232", surface2: "#110d26", blobs: ["#7a4520", "#6b2f47", "#3b2a6b"], shaft: "#f0a850" },
-  "ely-ether": { name: "Éter",           family: "ely", purple: "#a8c4d8", purpleBright: "#d3e4f0", cyan: "#7fd4c8", cyanDark: "#4fa89c", bg: "#080b12", surface: "#111624", surface2: "#0c101c", blobs: ["#33506b", "#2b5f59", "#3a4560"], shaft: "#a8c4d8" },
+  ely:         { name: "Campos Elísios", family: "ely", purple: "#d9b168", purpleBright: "#f2d49b", cyan: "#9fd8cf", cyanDark: "#6fb3a9", bg: "#0a0c14", surface: "#131726", surface2: "#0e1220", glassInk: "16,21,36", blobs: ["#8a6a2e", "#2f5d57", "#4a3f6b"], shaft: "#d9b168" },
+  "ely-dusk":  { name: "Crepúsculo",     family: "ely", purple: "#f0a850", purpleBright: "#ffc47a", cyan: "#e07a9b", cyanDark: "#b85e7c", bg: "#0b0818", surface: "#171232", surface2: "#110d26", glassInk: "26,18,48", blobs: ["#7a4520", "#6b2f47", "#3b2a6b"], shaft: "#f0a850" },
+  "ely-ether": { name: "Éter",           family: "ely", purple: "#a8c4d8", purpleBright: "#d3e4f0", cyan: "#7fd4c8", cyanDark: "#4fa89c", bg: "#080b12", surface: "#111624", surface2: "#0c101c", glassInk: "15,21,34", blobs: ["#33506b", "#2b5f59", "#3a4560"], shaft: "#a8c4d8" },
 
-  lg:          { name: "Vidro Líquido", family: "lg", purple: "#6d4aff", purpleBright: "#7c5cff", cyan: "#22b8cf", cyanDark: "#0e9bb3", bg: "#f2f1f7", surface: "rgba(255,255,255,0.78)", surface2: "rgba(255,255,255,0.6)", blobs: ["#cbb9ff", "#b8ecf3", "#ded7ff"] },
-  "lg-tide":   { name: "Vidro — Maré",  family: "lg", purple: "#1e7fd4", purpleBright: "#3d97e6", cyan: "#17b8a6", cyanDark: "#0e9384", bg: "#eef4f9", surface: "rgba(255,255,255,0.78)", surface2: "rgba(255,255,255,0.6)", blobs: ["#b6d8f7", "#b3ecdf", "#cfe6f5"] },
-  "lg-amber":  { name: "Vidro — Âmbar", family: "lg", purple: "#c2602c", purpleBright: "#dd7a41", cyan: "#c9971f", cyanDark: "#a67c12", bg: "#f8f3ec", surface: "rgba(255,255,255,0.78)", surface2: "rgba(255,255,255,0.6)", blobs: ["#f7d4b3", "#f2e2b0", "#f6e3d2"] },
+  lg:          { name: "Vidro Líquido", family: "lg", purple: "#6d4aff", purpleBright: "#7c5cff", cyan: "#22b8cf", cyanDark: "#0e9bb3", bg: "#f2f1f7", surface: "rgba(255,255,255,0.78)", surface2: "rgba(255,255,255,0.6)", glassInk: "243,241,252", blobs: ["#cbb9ff", "#b8ecf3", "#ded7ff"] },
+  "lg-tide":   { name: "Vidro — Maré",  family: "lg", purple: "#1e7fd4", purpleBright: "#3d97e6", cyan: "#17b8a6", cyanDark: "#0e9384", bg: "#eef4f9", surface: "rgba(255,255,255,0.78)", surface2: "rgba(255,255,255,0.6)", glassInk: "237,244,251", blobs: ["#b6d8f7", "#b3ecdf", "#cfe6f5"] },
+  "lg-amber":  { name: "Vidro — Âmbar", family: "lg", purple: "#c2602c", purpleBright: "#dd7a41", cyan: "#c9971f", cyanDark: "#a67c12", bg: "#f8f3ec", surface: "rgba(255,255,255,0.78)", surface2: "rgba(255,255,255,0.6)", glassInk: "251,245,236", blobs: ["#f7d4b3", "#f2e2b0", "#f6e3d2"] },
 };
 
 /** Todas as famílias existentes, para limpar a classe anterior sem adivinhação. */
@@ -2634,6 +2844,11 @@ function applyTheme(id) {
   root.setProperty("--bg", p.bg);
   root.setProperty("--surface", p.surface);
   root.setProperty("--surface2", p.surface2);
+  // A tinta do vidro sai da PALETA do tema, nunca de branco puro: branco puro com
+  // desfoque baixo foi o que produziu o aspecto leitoso. Tema sem tinta propria volta
+  // ao padrao do :root em vez de herdar a do tema anterior.
+  if (p.glassInk) root.setProperty("--glass-ink", p.glassInk);
+  else root.removeProperty("--glass-ink");
 
   const purpleRgb = hexToRgbList(p.purple);
   const cyanRgb   = hexToRgbList(p.cyan);
@@ -2903,7 +3118,17 @@ function relativeTime(ts) {
   return `${Math.round(hours / 24)}d atrás`;
 }
 
-async function loadConversations() {
+/**
+ * O popover e UM so, e o que ele lista depende do lado do switch. Manter duas listas,
+ * dois popovers e duas telas de historico seria a mesma feature em dois lugares.
+ */
+function loadConversations() {
+  const titulo = document.querySelector("#conv-pop .pop-titulo");
+  if (titulo) titulo.textContent = chatMode === "self" ? "Conversas da Caixa" : "Conversas salvas";
+  return chatMode === "self" ? loadMailboxSessions() : loadChatConversations();
+}
+
+async function loadChatConversations() {
   let sessions = [];
   try { sessions = await window.nx.chatSessionsList(); }
   catch (e) { console.error("[conversas] falha ao listar:", e); }
@@ -2996,9 +3221,162 @@ function startNewConversation() {
 }
 
 document.getElementById("conv-new-btn").addEventListener("click", () => {
+  if (chatMode === "self") { startNewMailboxSession(); return; }
   startNewConversation();
   showToast("Nova conversa");
 });
+
+
+// ─────────────────────────────────────────────────
+// CONVERSAS DA CAIXA (lado PC do switch)
+// ─────────────────────────────────────────────────
+//
+// 🔴 O MESMO POPOVER SERVE OS DOIS LADOS. O botão de relógio já mora na faixa do switch;
+// o que ele lista depende do `chatMode`. Uma segunda lista, com um segundo popover e uma
+// segunda tela de histórico, seria a mesma feature mantida em dois lugares — foi o que o
+// bloco 43 evitou no celular e vale igual aqui.
+//
+// A diferença real entre os dois lados é onde o conteúdo mora: a conversa da IA é gravada
+// pelo renderer, e a da Caixa já está no `mailboxStore` (ela chega pelo servidor da 4200).
+// Por isso aqui só se troca de sessão e se recarrega a thread — não há o que "salvar".
+let mailboxSessionId = null;
+
+async function loadMailboxSessions() {
+  let sessions = [];
+  try { sessions = await window.nx.mailboxSessionsList(); }
+  catch (e) { console.error("[caixa] falha ao listar conversas:", e); }
+
+  convList.replaceChildren();
+
+  if (sessions.length === 0) {
+    const empty = document.createElement("div");
+    empty.id = "conv-empty";
+    empty.textContent = "Nenhuma conversa de recados ainda.";
+    convList.appendChild(empty);
+    return;
+  }
+
+  for (const s of sessions) {
+    const item = document.createElement("div");
+    item.className = "conv-item" + (s.id === mailboxSessionId ? " conv-active" : "");
+
+    const body = document.createElement("div");
+    body.className = "conv-body";
+
+    const title = document.createElement("div");
+    title.className = "conv-title";
+    // textContent, nunca innerHTML: o título é o que o usuário digitou (ou renomeou).
+    title.textContent = s.title;
+
+    const meta = document.createElement("div");
+    meta.className = "conv-meta";
+    meta.textContent = `${s.count} recado${s.count === 1 ? "" : "s"} · ${relativeTime(s.updatedAt)}`;
+
+    body.append(title, meta);
+    body.addEventListener("click", () => openMailboxSession(s.id));
+
+    const ren = document.createElement("button");
+    ren.className = "conv-act";
+    ren.innerHTML = ico("edit", "ico-sm");
+    ren.title = "Renomear";
+    ren.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      renomearNaLista(title, s);
+    });
+
+    const star = document.createElement("button");
+    star.className = "conv-act" + (s.favorite ? " on" : "");
+    star.innerHTML = ico("star", "ico-sm");
+    star.title = s.favorite ? "Desfavoritar" : "Favoritar (nunca é apagada sozinha)";
+    star.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      await window.nx.mailboxSessionsFavorite(s.id);
+      loadConversations();
+    });
+
+    const del = document.createElement("button");
+    del.className = "conv-act del";
+    del.innerHTML = ico("x", "ico-sm");
+    del.title = "Apagar (leva os recados e os anexos junto)";
+    del.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      // Apagar aqui não tem desfazer e ainda remove arquivo do disco. Uma pergunta antes
+      // é o equivalente local à confirmação biométrica que o celular paga no RPC.
+      if (!confirm(`Apagar "${s.title}"?\n\nOs recados e os anexos dela somem do disco.`)) return;
+      await window.nx.mailboxSessionsDelete(s.id);
+      if (s.id === mailboxSessionId) {
+        mailboxSessionId = null;
+        await loadSelfThread();
+      }
+      loadConversations();
+    });
+
+    item.append(body, ren, star, del);
+    convList.appendChild(item);
+  }
+}
+
+/**
+ * Renomeia no lugar, sem `prompt()`.
+ *
+ * O `prompt()` do Chromium é modal do processo inteiro: ele congela o renderer, e com o
+ * popover animando por `display` + `allow-discrete` a caixa nativa aparece no meio da
+ * transição. Um input no lugar do título resolve os dois.
+ */
+function renomearNaLista(tituloEl, sessao) {
+  const input = document.createElement("input");
+  input.className = "conv-rename";
+  input.value = sessao.title;
+  input.maxLength = 60;
+
+  async function confirmar() {
+    const novo = input.value.trim();
+    input.replaceWith(tituloEl);
+    if (!novo || novo === sessao.title) return;
+    await window.nx.mailboxSessionsRename(sessao.id, novo);
+    loadConversations();
+  }
+
+  input.addEventListener("keydown", (e) => {
+    e.stopPropagation();
+    if (e.key === "Enter") confirmar();
+    if (e.key === "Escape") input.replaceWith(tituloEl);
+  });
+  input.addEventListener("click", (e) => e.stopPropagation());
+  input.addEventListener("blur", confirmar);
+
+  tituloEl.replaceWith(input);
+  input.focus();
+  input.select();
+}
+
+async function openMailboxSession(id) {
+  try {
+    await window.nx.mailboxSessionsOpen(id);
+  } catch (e) {
+    console.error("[caixa] falha ao abrir conversa:", e);
+    return;
+  }
+  mailboxSessionId = id;
+  if (chatMode !== "self") switchChatMode("self");
+  await loadSelfThread();
+  loadConversations();
+  showToast("Conversa aberta");
+}
+
+async function startNewMailboxSession() {
+  try {
+    const nova = await window.nx.mailboxSessionsCreate();
+    mailboxSessionId = nova?.id ?? null;
+  } catch (e) {
+    console.error("[caixa] falha ao criar conversa:", e);
+    return;
+  }
+  if (chatMode !== "self") switchChatMode("self");
+  await loadSelfThread();
+  loadConversations();
+  showToast("Nova conversa de recados");
+}
 
 // O mini-player do Spotify saiu da gaveta: virou o card "Tocando" da tela Início, que
 // fala com os mesmos canais `nx.spotify*`. Manter os dois seria manter duas telas em par.
@@ -3334,6 +3712,9 @@ function moverPolegar() {
   if (!ativa || !thumb) return;
   thumb.style.transform = `translateX(${ativa.offsetLeft}px) scaleX(${ativa.offsetWidth})`;
   thumb.style.width = "1px";
+  // Largura real da aba, so para o ::after desfazer a distorcao do scaleX no raio da
+  // pilula. Nao entra na transicao: quem anima continua sendo o transform acima.
+  thumb.style.setProperty("--w", ativa.offsetWidth);
 }
 // A largura do rótulo muda quando a fonte termina de carregar, e a barra pode mudar de
 // tamanho sem a janela mudar (o rótulo some abaixo de 880px). Um `resize` de janela não

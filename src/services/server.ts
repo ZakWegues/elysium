@@ -16,7 +16,7 @@
  * Métodos RPC marcados `destructive` exigem o header X-Elysium-Confirm: 1.
  *
  *   POST /api/mailbox/messages               → mobile posts a message, { id, createdAt } (from:"mobile")
- *   GET  /api/mailbox/messages               → full thread (both from:"pc" and from:"mobile"), metadata only
+ *   GET  /api/mailbox/messages[?sessionId=]  → thread, metadata only; sem sessionId devolve tudo
  *   GET  /api/mailbox/messages/:id/content   → full content (base64 attachment included)
  *   POST /api/mailbox/messages/:id/ack       → mobile confirms it read a from:"pc" message
  *
@@ -383,7 +383,7 @@ function makeHandler(
       let body: string;
       try { body = await readBody(req); } catch { sendJson(res, 413, { error: "Body too large" }); return; }
       let parsed: {
-        kind?: string; text?: string;
+        kind?: string; text?: string; sessionId?: string;
         attachment?: { name?: string; mimeType?: string; base64?: string };
       } | null;
       try { parsed = JSON.parse(body); } catch { parsed = null; }
@@ -419,10 +419,15 @@ function makeHandler(
       }
 
       try {
-        const { id, createdAt } = addMessage("mobile", { kind: kind as MailboxKind, text: text || null, attachment });
-        broadcastMailboxEvent("toDesktop", id);
+        // `sessionId` ausente cai na conversa aberta no PC. E o que mantem um app antigo,
+        // que nao conhece sessao, mandando recado para um PC ja atualizado.
+        const sessionId = typeof parsed.sessionId === "string" && parsed.sessionId.trim()
+          ? parsed.sessionId.trim()
+          : null;
+        const criada = addMessage("mobile", { kind: kind as MailboxKind, text: text || null, attachment, sessionId });
+        broadcastMailboxEvent("toDesktop", criada.id);
         res.writeHead(201, { "Content-Type": "application/json; charset=utf-8" });
-        res.end(JSON.stringify({ id, createdAt }));
+        res.end(JSON.stringify(criada));
       } catch (e) {
         if (e instanceof AttachmentTooLargeError) {
           res.writeHead(413, { "Content-Type": "application/json; charset=utf-8" });
@@ -435,10 +440,13 @@ function makeHandler(
       return;
     }
 
-    // GET /api/mailbox/messages — thread completa (from:"pc" e from:"mobile"), só metadados
+    // GET /api/mailbox/messages[?sessionId=] — só metadados. Sem o parâmetro devolve a
+    // thread inteira, exatamente como antes: é o que mantém compatível o app que ainda
+    // não sabe que existem conversas separadas.
     if (req.method === "GET" && url === "/api/mailbox/messages") {
+      const sessionId = new URL(req.url ?? "", "http://127.0.0.1").searchParams.get("sessionId");
       res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
-      res.end(JSON.stringify({ items: listMessages() }));
+      res.end(JSON.stringify({ items: listMessages(sessionId) }));
       return;
     }
 

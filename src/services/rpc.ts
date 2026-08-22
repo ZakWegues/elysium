@@ -52,6 +52,18 @@ import {
   mergeSession as mergeChatSession, toggleFavorite as toggleChatFavorite,
   deleteSession as deleteChatSession, ChatSession,
 } from "./chatSessionsStore";
+import {
+  createMailboxSession,
+  deleteMailboxMessage,
+  deleteMailboxSession,
+  listMailboxSessions,
+  MailboxSession,
+  mergeMailboxSession,
+  renameMailboxSession,
+  setActiveMailboxSession,
+  toggleMailboxSessionFavorite,
+} from "./mailboxStore";
+
 
 /** Erro com status HTTP embutido, para o servidor traduzir direto na resposta. */
 export class RpcError extends Error {
@@ -462,6 +474,63 @@ const METHODS: Record<string, MethodDef> = {
     handler: async (params) => ({ deleted: deleteChatSession(requireString(params, "id")) }),
   },
 
+
+  // — conversas do lado PC (a Caixa) —
+  //
+  // Mesmo desenho das conversas da IA logo acima: o celular empurra o que mudou, o PC
+  // aplica a retencao e devolve a lista, o celular adota o resultado. O que muda e que
+  // aqui as MENSAGENS ja moram no PC (elas chegam pelo POST /api/mailbox/messages);
+  // o que sincroniza e so a metade de metadados das conversas.
+  "mailbox.sessions.list": {
+    handler: async () => ({ sessions: listMailboxSessions() }),
+  },
+  "mailbox.sessions.create": {
+    handler: async (params) => ({ session: createMailboxSession(optionalString(params, "title")) }),
+  },
+  "mailbox.sessions.rename": {
+    handler: async (params) => ({
+      session: renameMailboxSession(requireString(params, "id"), requireString(params, "title")),
+    }),
+  },
+  "mailbox.sessions.favorite": {
+    handler: async (params) => ({ favorite: toggleMailboxSessionFavorite(requireString(params, "id")) }),
+  },
+  "mailbox.sessions.open": {
+    handler: async (params) => ({ ok: setActiveMailboxSession(requireString(params, "id")) }),
+  },
+  "mailbox.sessions.save": {
+    handler: async (params) => {
+      const raw = params["session"];
+      if (!raw || typeof raw !== "object") {
+        throw new RpcError(400, 'param "session" e obrigatorio e deve ser um objeto');
+      }
+      const s = raw as Partial<MailboxSession>;
+      if (typeof s.id !== "string" || !s.id) throw new RpcError(400, "session.id e obrigatorio");
+      if (s.title !== undefined && typeof s.title !== "string") {
+        throw new RpcError(400, "session.title deve ser uma string");
+      }
+      return {
+        session: mergeMailboxSession({
+          id: s.id,
+          title: typeof s.title === "string" ? s.title.slice(0, 60) : "",
+          createdAt: typeof s.createdAt === "number" ? s.createdAt : Date.now(),
+          updatedAt: typeof s.updatedAt === "number" ? s.updatedAt : Date.now(),
+          favorite: !!s.favorite,
+        }),
+      };
+    },
+  },
+  // 🔴 DESTRUTIVOS. Apagar conversa leva junto os recados e os anexos em disco, e nao
+  // tem desfazer — entra na mesma trava dos outros destrutivos (header X-Elysium-Confirm,
+  // biometria validada no celular). O §16 registrava a falta deste DELETE como C15.
+  "mailbox.sessions.delete": {
+    destructive: true,
+    handler: async (params) => ({ deleted: deleteMailboxSession(requireString(params, "id")) }),
+  },
+  "mailbox.messages.delete": {
+    destructive: true,
+    handler: async (params) => ({ deleted: deleteMailboxMessage(requireString(params, "id")) }),
+  },
   // — memória de longo prazo —
   "memory.list": {
     handler: async () => ({ facts: listFacts() }),
