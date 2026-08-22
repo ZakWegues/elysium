@@ -2961,3 +2961,23 @@ Publicado por OTA (canal `preview`, runtime `93fe52f5…`, grupo `d0a31164…`) 
 2. **`LayoutAnimation` é no-op na Nova Arquitetura** — as 7 animações da Início e do PresetsPopover nunca rodaram, apesar de o código estar lá. Substituto: `layout` / `entering` / `exiting` na própria view.
 3. **Worklet não enxerga escopo de módulo**, e valor padrão de parâmetro nem sequer é varrido pelo plugin. Constante usada em worklet vive DENTRO dele ou entra como argumento — `tempo()` lia `SUAVE_UI` do módulo e derrubava o app ao soltar o gesto.
 4. **A Início monta 8 `BlurView` sobre 14 manchas + 3 gradientes** — suspeita dominante do engasgo ao rolar, **ainda não medida** (nenhum aparelho no `adb` desta máquina).
+
+### Bloco 52 — vidro translúcido de verdade, e Ajustes fora da barra
+
+**Alfa do branco caiu em TODOS os temas** (`glassSurface` 0,18→0,10 e 0,10→0,06; `glassSurfaceStrong` 0,34→0,20 e 0,16→0,11; `glassBorder` 0,55→0,38 e 0,20→0,14; `glassSheen` 0,55→0,30 e 0,11→0,07). 🔴 **Transparência e borrão são alavancas OPOSTAS:** "leitoso" é alfa de branco alto, não raio de blur, e alfa alto com blur alto só deixa o borrão mais claro. Por isso o raio caiu junto — `ScreenHeader` 60→26, `TabBar` 65→28, `Card` 45→22, popover 70→20.
+
+**Blur REAL só no `ScreenHeader`, na `TabBar`, na gaveta, no popover e nos botões redondos do composer.** `GlassFill` ganhou `blur` (padrão `true`) e `tintColor`; `Card` ganhou `blur`, **padrão `false`** — as 6 `BlurView` da Início viraram tinta chapada, que é o corte que o achado do P4 pedia.
+
+**A gaveta é a exceção declarada:** token novo `glassSheet` (0,46 no vidro, 0,16 na noite) e raio 85. Card e popover querem revelar o fundo; a gaveta quer esconder a tela de trás sem apagá-la.
+
+🔴 **`GlassModal` e `Popover` deixaram de ser `Modal` do RN.** Dentro de `Modal` o Android abre janela nativa própria e nenhuma `BlurView` amostra o app de trás (§14) — a gaveta estava com desfoque ZERO, que é a origem da queixa "quase transparente demais". Agora são camadas absolutas dentro da árvore (`zIndex` 30 e 20), com `BackHandler` no lugar do `onRequestClose`. Auditado: existe **uma** `BlurView` no app inteiro (em `GlassFill`) e ela sempre recebe `blurTarget`.
+
+**Ajustes saiu da navegação inferior** (bloco 36 do desktop): a barra ficou com Início, Chat e PC, o acionador virou engrenagem de vidro no canto superior direito de todo `ScreenHeader` (contexto `AjustesProvider`, `semAjustes` nas telas empilhadas), e `Screen` perdeu `'settings'` junto com toda a maquinaria de "aba que não é aba".
+
+**Chat:** os dois cantos do topo são círculos de vidro irmãos (`GlassCircle`) — histórico à esquerda, presets à direita — e os botões do composer viram vidro de verdade **nos dois lados do switch**, sobre barra de tinta chapada.
+
+**Fundo:** 4 manchas (2 novas no meio da tela, onde ficam os cards), 2 traços diagonais finos e 15 partículas — **todos estáticos**, com posições em constante de módulo. Mais elementos, menos movimento: o bloco 47 já mediu que gradiente animado em tela cheia custa quadro. Os feixes da família ELYSIUM continuam parados.
+
+**Temas conferidos hex a hex contra o `THEMES` do `dashboard.html`:** as 6 combinações batem; só a ORDEM das cores estava invertida (agora Vidro Líquido, Maré, Âmbar, como no desktop). `elysium_color_scheme` não foi renomeada. Auditoria do escuro (§19 bloco 15): nada inverte cor — as duas famílias trocam de paleta, e a única cor fixa que restava (`middle` do gradiente) é neutra de propósito.
+
+Validado com `npm run typecheck` e `npx expo export --platform android`. Tudo JS: vai por `npm run update` (canal `preview`).
