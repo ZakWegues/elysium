@@ -2950,3 +2950,7 @@ O bloco 24 barrou as duas por serem nativas — mudam o fingerprint e obrigam a 
 ⚠️ **Medição não foi feita: `adb devices` vazio nesta máquina.** Por análise, o travão ao ROLAR a Início não é a thread de JS — são 8 `BlurView` empilhadas (6 cards + header + TabBar) recapturando o mesmo `blurTarget` por quadro. Migrar animação não conserta isso; o primeiro corte a medir é vidro chapado nos cards.
 
 **Fingerprint novo: `93fe52f5…`** (era `066f2ab6…`). O OTA do canal `preview` não alcança mais o aparelho — instalar `dist-apk/elysium-m.apk` por cabo.
+
+🔴 **Valor padrão em parâmetro de worklet não existe na thread de UI.** `tempo(para, ms = MOV.base, easing = SUAVE_UI)` matava o app com `ReferenceError: Property 'SUAVE_UI' doesn't exist` ao soltar o dedo na barra e ao arrastar card. O plugin do Babel monta o closure a partir do que o **corpo** referencia; a assinatura fica de fora. Mesmo identificador no corpo funciona — a regra é a posição. Corrigido resolvendo os padrões no corpo, com literais e o `Easing` do próprio Reanimated. `PROJECAO`, `MAX_INDICE`, resistência e mola também saíram de dentro dos worklets; duas conferências de tipo amarram os literais à escala. Verificação: os closures gerados pelo Babel foram lidos um a um — nenhum worklet referencia mais constante de módulo.
+
+Publicado por OTA (canal `preview`, runtime `93fe52f5…`, grupo `d0a31164…`) — o APK instalado já tinha o `expo-channel-name` no manifesto, então não precisou rebuildar.
