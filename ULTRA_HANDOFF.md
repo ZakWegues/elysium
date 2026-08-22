@@ -2981,3 +2981,15 @@ Publicado por OTA (canal `preview`, runtime `93fe52f5…`, grupo `d0a31164…`) 
 **Temas conferidos hex a hex contra o `THEMES` do `dashboard.html`:** as 6 combinações batem; só a ORDEM das cores estava invertida (agora Vidro Líquido, Maré, Âmbar, como no desktop). `elysium_color_scheme` não foi renomeada. Auditoria do escuro (§19 bloco 15): nada inverte cor — as duas famílias trocam de paleta, e a única cor fixa que restava (`middle` do gradiente) é neutra de propósito.
 
 Validado com `npm run typecheck` e `npx expo export --platform android`. Tudo JS: vai por `npm run update` (canal `preview`).
+
+### Bloco 53 — correção de rota: painel HyperOS/One UI, não iOS
+
+**A direção do bloco 52 estava meio certa e meio errada.** Baixar o alfa serve para *card* sobre fundo; para *painel com texto* ele deixa o conteúdo ilegível. O alvo passou a ser o painel do One UI: **alfa ALTO com raio ALTO**, mostrando cor e luz difusa em vez das formas do fundo. Isso NÃO é o "leitoso" de antes — leitoso era alfa alto de **branco puro** com raio baixo.
+
+🔴 **A tinta do vidro agora vem da PALETA, não do branco.** `palettes.ts` ganhou `misturar()`/`comAlfa()` e monta as quatro tintas por face: base = branco + 10% da primária no Vidro, `surface` + 14% da primária na noite. Escada de alfa conforme a superfície precise ser LIDA: card 0,34/0,26 → barra 0,52/0,42 → gaveta 0,86/0,88 → painel 0,92/0,90 (`glassPanel`, token novo). Raios: popover e gaveta 100, cabeçalho/TabBar/botões 45, cards seguem sem desfoque (custo por quadro do achado do P4).
+
+**Composer:** o botão de **anexar** passou a existir nos dois lados do switch, à esquerda junto da câmera. No lado da IA ele manda pelo caminho da `mailbox` — `sendCommand` leva texto e devolve texto, anexo não tem onde chegar por ali — e a bolha diz para onde o arquivo foi. Os quatro botões da IA caíram para 40 px.
+
+🔴 **`GlassModal` e `Popover` estavam dentro de `Modal` do RN, com desfoque ZERO no Android.** Janela nativa separada não amostra o app de trás (§14), e a lib não reclama: o vidro simplesmente não desfoca. Era a causa real do "quase transparente demais" da gaveta. Ao tirar o `Modal` vem junto uma armadilha fácil de esquecer — **o botão físico de voltar era dele** (`onRequestClose`). Sem substituto, voltar com painel aberto SAI DO APP. Os dois têm `BackHandler` próprio agora; confira isto em qualquer sobreposição nova.
+
+🔴 **`packageJson:scripts` É FONTE DE FINGERPRINT.** O `npm run update` tem um `--message` sem valor e falha; corrigir o script mudou o runtime de `93fe52f5…` para `3aa6da32…`, ou seja, **o OTA deixaria de alcançar o APK instalado por causa de uma linha de script**. A correção foi revertida e o OTA republicado no runtime certo. O comando que funciona, até o próximo APK: `npx eas-cli update --channel preview --environment preview --message "..."` (o `--environment` virou obrigatório em modo não interativo). Arrumar o script só junto de um rebuild.
