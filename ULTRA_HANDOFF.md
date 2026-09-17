@@ -3303,3 +3303,26 @@ pedaço (`sending && !escrevendoId`).
 
 Validado: `tsc` nos dois, `npx expo export`, e o stream pelo WS medido de fora. **Não
 testado no aparelho** (sem `adb`).
+
+### Bloco 60 — a busca do celular (a lupa da Início) ✅
+
+O Ctrl+K do desktop (bloco 58) no telefone, onde ele vale ainda mais: digitar um comando
+inteiro é lento e a voz nem sempre cabe. Uma **lupa de vidro no cabeçalho da Início** abre
+um `GlassModal` com campo (`autoFocus`, Enter executa o primeiro) e a mesma lista por
+grupos — Ir para · Ações · Presets · Abrir programa · Lembretes · Memória · Conversas ·
+Perguntar. `src/screens/BuscaPanel.tsx`.
+
+Mesma pontuação do desktop (substring, depois subsequência com teto de distância), mesmo
+agrupamento do catálogo por comando, apelidos entram na busca. Diferenças que são do
+celular: os destrutivos passam pela **biometria** (`confirmDestructive`) e as conversas
+vêm do **cache local** (`listSessions`), para a busca funcionar com o PC desligado.
+
+**"Perguntar ao ELYSIUM"** precisou de um caminho novo: `App.perguntaPendente` →
+`ChatHub` → `ChatScreen`, que envia ao montar e limpa ANTES de enviar (se o envio falhar
+e o componente remontar, a pergunta não pode disparar de novo sozinha). `HomeScreen`
+ganhou `onOpenConversation` e `onPerguntar`.
+
+⚠️ **Para o julgamento visual do Zak:** o `GlassModal` da busca (e os dos painéis da aba
+PC, bloco 56) vive dentro da tela, não no `App` — a camada absoluta cobre o conteúdo mas
+**não a TabBar**, que fica visível por baixo da gaveta. Se incomodar, o caminho é subir os
+dois modais para o `App.tsx`, como o de Ajustes já faz.
