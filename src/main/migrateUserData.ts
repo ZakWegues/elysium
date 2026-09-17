@@ -122,12 +122,44 @@ function migrar(): void {
   console.log(`[migrate] perfil migrado de "${dirAntigo}" para "${dirNovo}". A pasta antiga foi mantida.`);
 }
 
+/**
+ * Pendência 15 da §15: um store gravado com BOM (é o que `Set-Content -Encoding utf8` do
+ * PowerShell 5.1 faz) estourava o `JSON.parse` do electron-store e **o app não abria** —
+ * sem janela, sem notificação, sem nada dizendo o motivo. `clearInvalidConfig` do
+ * electron-store não serve: ele apaga o arquivo, e no `elysium-config.json` isso é a API
+ * key e o token do servidor (todos os pareamentos). Tirar os três bytes e regravar é a
+ * correção que não perde nada. Roda antes de qualquer `new Store()`, como a migração.
+ */
+function sanearBom(): void {
+  const dir = app.getPath("userData");
+  if (!fs.existsSync(dir)) return;
+  for (const nome of fs.readdirSync(dir)) {
+    if (!nome.endsWith(".json")) continue;
+    const arquivo = path.join(dir, nome);
+    let bruto: Buffer;
+    try { bruto = fs.readFileSync(arquivo); } catch { continue; }
+    if (bruto.length < 3 || bruto[0] !== 0xef || bruto[1] !== 0xbb || bruto[2] !== 0xbf) continue;
+    try {
+      JSON.parse(bruto.subarray(3).toString("utf8"));
+      fs.writeFileSync(arquivo, bruto.subarray(3));
+      console.warn(`[migrate] "${nome}" estava com BOM; regravado sem ele.`);
+    } catch {
+      console.error(`[migrate] "${nome}" tem BOM e ainda assim não é JSON válido; deixado como está.`);
+    }
+  }
+}
+
 // Falhar aqui não pode impedir o app de abrir: um perfil vazio é ruim, um app que não
 // abre é pior — e sem abrir o usuário não tem nem como pedir ajuda.
 try {
   migrar();
 } catch (e) {
   console.error("[migrate] falhou; o app segue com o perfil novo, vazio:", e);
+}
+try {
+  sanearBom();
+} catch (e) {
+  console.error("[migrate] saneamento de BOM falhou; seguindo:", e);
 }
 
 // A limpeza da entrada de início automático antiga mora em `autoLaunch.ts`: é assunto de

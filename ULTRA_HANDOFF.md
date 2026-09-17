@@ -3369,3 +3369,13 @@ sozinha na primeira abertura.
 **Como ver o log da instância de desenvolvimento:** `Start-Process … -RedirectStandardOutput
 … -RedirectStandardError …` no PowerShell. Sem isso o `console.error` do main vai para
 lugar nenhum, e foi assim que o `voiceLocale` apareceu.
+
+### Bloco 63 — config com BOM não derruba mais o app ✅
+
+**Pendência 15 da §15.** `sanearBom()` em `migrateUserData.ts` (roda antes de qualquer
+`new Store()`, como a migração): para cada `*.json` do `userData` que comece com
+`EF BB BF`, confere que o resto é JSON válido e regrava sem os três bytes. Não usa o
+`clearInvalidConfig` do electron-store de propósito — ele **apaga** o arquivo, e no
+`elysium-config.json` isso é a API key e o token do servidor. Verificado em execução com
+um `teste-bom.json` plantado: `[migrate] "teste-bom.json" estava com BOM; regravado sem
+ele.`
