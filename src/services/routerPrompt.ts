@@ -96,6 +96,7 @@ Exemplos — cobrem os casos AMBÍGUOS. Para o resto, siga as regras acima.
 "manda esse link pro celular: https://exemplo.com" → {"actions":[{"action":"send_to_mobile","content":"https://exemplo.com","kind":"link"}]}
 "desliga o computador em 10 minutos" → {"actions":[{"action":"power_control","operation":"shutdown","delay_seconds":600}]}
 "lembra que meu projeto principal é o ELYSIUM" → {"actions":[{"action":"remember","fact":"O projeto principal do usuário é o ELYSIUM"}]}
+"moro em sp, guaianazes" → {"actions":[{"action":"remember","fact":"O usuário mora em Guaianazes, São Paulo"}]}
 "esquece que eu moro em Curitiba" → {"actions":[{"action":"forget","query":"mora em Curitiba"}]}
 "me lembra daqui a 25 minutos de alongar" → {"actions":[{"action":"create_reminder","text":"alongar","due_at":"<agora + 25 min em ISO>"}]}
 "toda segunda às 8 me lembra da reunião" → {"actions":[{"action":"create_reminder","text":"reunião","due_at":"<próxima segunda 08:00 em ISO>","weekly":true}]}

@@ -31,12 +31,12 @@ import { state } from "./state";
 import { notify } from "./notify";
 import { createTray, refreshTray, updateLastCommand, buildIcon as iconePadrao } from "./tray";
 import { transcribe } from "../services/stt";
-import { decideBrain, clearHistory } from "../services/brain";
-import { trackUsage, getTopHistory } from "../services/history";
+import { clearHistory } from "../services/brain";
+import { getTopHistory } from "../services/history";
 import { registrarPergunta, bolhasDoChat } from "../services/perguntas";
 import { synthesize, cancelSpeak } from "../services/tts";
 import { ElysiumError } from "../services/errors";
-import { processCommand, resolveAction } from "../services/command";
+import { processCommand, executarComando } from "../services/command";
 import { startServer, setActiveToken, broadcastMailboxEvent } from "../services/server";
 import { ollamaDisponivel } from "../services/llm";
 import { registerRpcBridge } from "./rpcBridge";
@@ -300,23 +300,13 @@ ipcMain.on("audio-data", async (_event, buffer: Buffer) => {
 
     dashWin?.webContents.send("voice:transcript", text);
 
-    const actions = await decideBrain(text);
+    const { reply: combined } = await executarComando(text, (actions) => {
+      const label = getActionsLabel(actions);
+      dashWin?.webContents.send("voice:action-label", label);
+      dashWin?.webContents.send("dash:action-log", { icon: "settings", text: label, ok: true });
+    });
     if (currentToken !== token) return;
-
-    const label = getActionsLabel(actions);
-    dashWin?.webContents.send("voice:action-label", label);
-    dashWin?.webContents.send("dash:action-log", { icon: "settings", text: label, ok: true });
-
-    const replies: string[] = [];
-    for (const action of actions) {
-      // resolveAction, não routeAction: conversa precisa da segunda etapa que escreve
-      // a resposta. Ver o comentário em services/command.ts.
-      const reply = await resolveAction(action, text);
-      trackUsage(text, action);
-      replies.push(reply);
-    }
     updateLastCommand(text);
-    const combined = replies.filter(Boolean).join(" ");
     notify("ELYSIUM", combined);
 
     dashWin?.webContents.send("voice:reply", combined);
@@ -366,21 +356,12 @@ ipcMain.on("chat:send", async (_event, text: string) => {
   state.set("processing");
   try {
     registrarPergunta(text);
-    const actions = await decideBrain(text);
-    const label = getActionsLabel(actions);
-    dashWin?.webContents.send("voice:action-label", label);
-    dashWin?.webContents.send("dash:action-log", { icon: "settings", text: label, ok: true });
-
-    const replies: string[] = [];
-    for (const action of actions) {
-      // resolveAction, não routeAction: conversa precisa da segunda etapa que escreve
-      // a resposta. Ver o comentário em services/command.ts.
-      const reply = await resolveAction(action, text);
-      trackUsage(text, action);
-      replies.push(reply);
-    }
+    const { reply: combined } = await executarComando(text, (actions) => {
+      const label = getActionsLabel(actions);
+      dashWin?.webContents.send("voice:action-label", label);
+      dashWin?.webContents.send("dash:action-log", { icon: "settings", text: label, ok: true });
+    });
     updateLastCommand(text);
-    const combined = replies.filter(Boolean).join(" ");
     notify("ELYSIUM", combined);
     dashWin?.webContents.send("chat:reply", combined);
     state.set("speaking");

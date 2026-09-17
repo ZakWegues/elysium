@@ -65,12 +65,14 @@ function buildSystemPrompt(): string {
  * roda no modelo bom com um prompt curto. Juntas numa chamada só, pagávamos o modelo
  * caro pelo prompt gigante de roteamento em todo pedido.
  */
-const CHAT_SYSTEM_PROMPT = `Você é o ELYSIUM, assistente pessoal do usuário, falando em português do Brasil.
+const CHAT_SYSTEM_PROMPT = `Você é o ELYSIUM, o assistente pessoal do Zak, falando em português do Brasil.
 
+Fale como um parceiro inteligente e direto — solto, com personalidade, sem tom de robô ou de manual.
 Sua resposta vai ser LIDA EM VOZ ALTA. Portanto:
-- Responda em 1 a 3 frases, direto ao ponto.
-- Nada de markdown, listas, títulos ou emoji — só texto corrido natural.
-- Nada de "como assistente de IA" ou avisos desnecessários.
+- Responda em 1 a 3 frases, direto ao ponto. Se o assunto pedir mais, resuma e ofereça continuar.
+- Nada de markdown, listas, títulos, asteriscos ou emoji — só texto corrido natural.
+- Nunca diga "como modelo de linguagem", "como assistente" ou "eu sou uma IA"; nunca peça desculpas de forma mecânica.
+- Use o histórico e a memória: continue o assunto de onde parou, não repita o que já disse.
 - Se não souber, diga que não sabe em uma frase.`;
 
 let history: Message[] = [];
@@ -170,6 +172,21 @@ function interpretarAcoes(content: string): BrainAction[] | null {
 }
 
 /**
+ * Guarda no histórico o que o assistente de fato respondeu.
+ *
+ * Até setembro de 2026 o histórico só recebia o RESUMO da ação ("Abri o app: Chrome") e,
+ * para conversa, o campo `reply` do roteador — que ficou vazio quando a resposta passou a
+ * ser escrita na segunda etapa. Resultado: o modelo nunca via a própria resposta, e "e
+ * ele?" depois de "quem foi Alan Turing" perdia o fio. Quem chama é o `executarComando`,
+ * uma vez por pedido, com o texto final.
+ */
+export function recordAssistantReply(text: string): void {
+  history.push({ role: "assistant", content: text });
+  const maxMsgs = getConfig().chatHistoryTurns * 2;
+  if (history.length > maxMsgs) history = history.slice(history.length - maxMsgs);
+}
+
+/**
  * Decide qual provedor atende o roteamento agora.
  *
  * Com jogo aberto, o local é pulado mesmo estando configurado: carregar ~2,6 GB na GPU
@@ -198,9 +215,18 @@ export async function decideBrain(text: string): Promise<BrainAction[]> {
   const maxMsgs = cfg.chatHistoryTurns * 2;
   if (history.length > maxMsgs) history = history.slice(history.length - maxMsgs);
 
+  // O histórico entra como bloco de texto no system, não como turnos de chat. Em modo
+  // JSON o modelo local tende a responder ao ÚLTIMO turno do assistente do histórico em
+  // vez de classificar o pedido novo; como contexto colado, ele lê e não imita.
+  const routerContext = history.slice(0, -1)
+    .map(m => (m.role === "user" ? `Usuário: ${m.content}` : `ELYSIUM: ${m.content}`))
+    .join("\n");
+  let finalPrompt = buildSystemPrompt();
+  if (routerContext) finalPrompt += "\n\n[CONTEXTO DA CONVERSA RECENTE]\n" + routerContext;
+
   const messages: ChatMessage[] = [
-    { role: "system", content: buildSystemPrompt() },
-    ...history.map(m => ({ role: m.role, content: m.content })),
+    { role: "system", content: finalPrompt },
+    { role: "user", content: text },
   ];
 
   const { provider, motivo } = await provedorDoRoteador(cfg);
@@ -242,11 +268,9 @@ export async function decideBrain(text: string): Promise<BrainAction[]> {
     actions = [{ action: "unknown" }];
   }
 
-  const summaries = actions.map(a =>
-    a.action === "chat" ? (a as { action: "chat"; reply: string }).reply : actionSummary(a)
-  );
-  history.push({ role: "assistant", content: summaries.join(" | ") });
-
+  // Nada vai pro histórico aqui: a resposta de verdade entra pelo `recordAssistantReply`,
+  // depois que os executores rodarem. Empurrar o resumo agora e a resposta depois deixava
+  // dois turnos de assistente seguidos para um pedido só.
   return actions;
 }
 
@@ -261,12 +285,16 @@ export async function composeChatReply(userText: string): Promise<string | null>
   const cfg = getConfig();
 
   // O mesmo histórico do roteador, para o modelo entender "e ele?" depois de uma
-  // pergunta anterior. Sem o bloco de ações: aqui ele só conversa.
+  // pergunta anterior. Sem o bloco de ações: aqui ele só conversa. O pedido atual já é o
+  // último turno do histórico — `decideBrain` o empurrou antes de chegar aqui.
   const recent = history.slice(-cfg.chatHistoryTurns * 2);
+  const ultimo = recent[recent.length - 1];
   const messages: ChatMessage[] = [
     { role: "system", content: CHAT_SYSTEM_PROMPT + buildMemoryBlock() },
     ...recent.map(m => ({ role: m.role, content: m.content })),
-    { role: "user", content: userText },
+    // Rede de segurança: se alguém chamar a composição sem passar pelo roteador, o
+    // pedido não estaria no histórico e o modelo responderia ao turno anterior.
+    ...(ultimo?.role === "user" && ultimo.content === userText ? [] : [{ role: "user" as const, content: userText }]),
   ];
 
   const tentar = async (provider: Provider): Promise<string | null> => {

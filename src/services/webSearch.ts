@@ -48,7 +48,12 @@ export async function searchWeb(query: string): Promise<string> {
   }
 
   if (res.status === 401) throw apiKeyError();
-  if (!res.ok) throw networkError(`Busca HTTP ${res.status} ${await safeText(res)}`);
+  if (!res.ok) {
+    if (res.status === 429) {
+      return "Minha ferramenta de pesquisa atingiu o limite de consultas por minuto. Aguarde um pouquinho e pergunte de novo!";
+    }
+    throw networkError(`Busca HTTP ${res.status} ${await safeText(res)}`);
+  }
 
   const data = await res.json() as {
     choices?: { message?: { content?: string; executed_tools?: { type: string }[] } }[];
@@ -70,3 +75,4 @@ export async function searchWeb(query: string): Promise<string> {
 async function safeText(res: Response): Promise<string> {
   try { return (await res.text()).slice(0, 300); } catch { return ""; }
 }
+

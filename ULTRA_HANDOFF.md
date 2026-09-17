@@ -4,7 +4,7 @@
 > `CONTRATO_RPC.md` e o `CONTEXTO_NEUROAXIS.md`. Se alguma coisa aqui divergir de outro
 > arquivo do repositório, **este aqui vale**.
 >
-> Última atualização: **13/08/2026**.
+> Última atualização: **17/09/2026**.
 
 ---
 
@@ -32,6 +32,8 @@
 | 18 | [Plano ELYSIUM — rename, redesign, cérebro local](#18-plano-elysium--rename-redesign-cérebro-local) |
 | 19 | [Plano fase 2 — vidro, paridade e conteúdo](#19-plano-fase-2--vidro-paridade-e-conteúdo-blocos-15-a-22) |
 | 22 | [Fase 5 — a IA morta, e os seis pedidos do celular](#22-fase-5--a-ia-morta-e-os-seis-pedidos-do-celular-blocos-41-a-50) |
+| 23 | [Fase 6 — o movimento saiu da thread de JS](#23-fase-6--o-movimento-saiu-da-thread-de-js-bloco-51) |
+| 24 | [Fase 7 — depois do Antigravity](#24-fase-7--depois-do-antigravity-triagem-e-o-polimento-dos-dois-lados-blocos-55) |
 
 ---
 
@@ -3032,3 +3034,74 @@ Validado com `npm run typecheck` e `npx expo export --platform android`. Tudo JS
 **Celular:** `mailboxSync.ts` é cópia deliberada do `chatSync.ts` — lápides primeiro (`elysium_mailbox_deleted`), depois os `save`, depois adota a lista do PC. Chaves novas (`elysium_mailbox_sessions`, `_deleted`, `_active`); nenhuma antiga renomeada. As conversas ficam **dentro do `MailboxHistorico`** (bloco 43), não numa segunda tela. Criar conversa **espera a sincronização** antes de abrir: se o primeiro recado sair antes de o PC conhecer o id, o servidor não acha a sessão e joga a mensagem na conversa ativa dele. Segurar um recado abre favoritar/apagar.
 
 🔴 **A âncora do bloco 42 ainda abria no meio, e conversa curta só mascarava.** O primeiro `onContentSizeChange` não é a lista inteira: a `FlatList` mede a janela inicial (~10 linhas), dispara o evento com a altura DELAS, e o `scrollToEnd` daquele instante vai para o fim de 10 linhas. Depois disso a decisão passava a depender do `onScroll`, que chega com o `contentSize` do quadro anterior — mais linhas montaram, `faltando` vem grande, `coladoNoFim` vira false e a âncora desiste parada no meio. **Correção: posição não decide nada enquanto o dedo não tocou.** Só `onScrollBeginDrag` solta a âncora, e voltar a menos de 8px do fim a prende de novo. Log de diagnóstico sob `__DEV__`.
+
+
+---
+
+## 24. Fase 7 — depois do Antigravity: triagem, e o polimento dos dois lados (blocos 55+)
+
+> **Contexto.** Entre 11 e 16/09/2026 o Zak testou o **Google Antigravity** (Gemini) nos
+> dois repositórios. Veredito dele em 17/09: *"não deu muito certo, foi melhor quando eu
+> usava o Claude"*. Nada do que o Antigravity fez foi commitado — ficou como diff solto nos
+> dois repos, com um apêndice de handoff em mojibake ("eact-native-reanimated", "pp.json").
+> Esta fase começa pela triagem desse diff e segue com o que o Zak pediu em 17/09:
+> *"quero os dois apps 100% funcionais e perfeitinhos, mais bonitos, funcionais, sempre
+> levando em conta UI e UX"*.
+>
+> **Backup integral do que o Antigravity deixou:** `ELYSIUM/_antigravity-backup/`
+> (`elysium.diff`, `elysium-m.diff`, `CockpitScreen.tsx`, `widgets/`, `splash.*`, `fix.js`
+> e os 20 scripts de patch que estavam soltos na raiz `ELYSIUM/`). Fora do git de
+> propósito: é lixo com valor de consulta, não fonte.
+
+### Bloco 55 — triagem do diff do Antigravity ✅
+
+**Regra usada:** manter só o que corrige um problema real E respeita as decisões deste
+documento. Cada item abaixo foi lido no diff, não deduzido do resumo dele.
+
+**Mantido (mobile):**
+
+| o quê | por quê |
+|---|---|
+| `UnauthorizedError` em `pairing.ts` + estado `unauthorized` no `useConnection.ts` | Resolve a **pendência 4 da §15**: `probe()` tratava 401 como PC fora do ar. Agora 401 para o polling e o `App.tsx` abre um Alert "Pareamento inválido → Ler QR". A faixa de conexão mostra ícone de chave, não de Wi-Fi |
+| `stream.ts` lendo o áudio com `new File(uri).bytes()` (API v2 do `expo-file-system`) | Tira o roundtrip base64 da API legada |
+| `GlassCircle` com `pulsando` (mic pulsa enquanto grava), `SwitchModo` e `BolhaEntrando` em Reanimated, `ConversationsScreen` com `layout={LAYOUT}` | Continuação natural do bloco 51 |
+| `PairingScreen` tratando 401 no QR | Mas o `catch` conferia `AuthError` (classe do `api.ts`) e a sonda lança `UnauthorizedError` — nunca casaria. Corrigido |
+
+**Mantido (desktop):**
+
+| o quê | por quê |
+|---|---|
+| `recordAssistantReply()` no `brain.ts` | 🔴 **Bug antigo de verdade.** O histórico do cérebro só recebia o RESUMO da ação e, para conversa, o `reply` do roteador — vazio desde as duas etapas (§6). O modelo nunca via a própria resposta; "e ele?" depois de "quem foi Alan Turing" perdia o fio |
+| Histórico como bloco de texto no system do roteador, e só o pedido atual como turno `user` | Em modo JSON o modelo local tendia a responder ao último turno do histórico em vez de classificar o novo |
+| `webSearch.ts` devolvendo frase amigável no 429 | Antes virava exceção genérica |
+| Exemplo "moro em sp, guaianazes" no `routerPrompt.ts` | Inofensivo |
+| Prompt de conversa com personalidade | **Reescrito**: o do Antigravity tirou o teto "1 a 3 frases" e o TTS leria parágrafos. Ficou solto e direto, mas curto |
+
+**Descartado, com o motivo (para não voltar):**
+
+| o quê | problema |
+|---|---|
+| `HomeScreen.tsx`, `SettingsScreen.tsx` | **150 ocorrências de mojibake**, inclusive em strings visíveis (`Alert('SessÃ£o expirada')`, "O PC vai desligar Ã s…"). Arquivo regravado em encoding errado, com BOM. Restaurados do HEAD |
+| `AppBackground.tsx` | Fundo do tema (manchas, feixes, traços, partículas, tudo ligado à paleta e à família) substituído por 4 "bolhas de sabão" com cor hardcoded e `#0f131a` fixo — a família Vidro (clara) ganhava meio escuro. 4 loops `Animated` infinitos na thread de JS, `setTimeout` sem cleanup. Contradiz o bloco 47/52 |
+| `palettes.ts` | Alfa da gaveta 0,86→0,45 e do painel 0,90→0,60, `glassSheen` zerado. O bloco 53 mediu que painel com texto precisa alfa ALTO |
+| `GlassModal.tsx` | `if (!visible) return null` desmonta a árvore inteira: o `exiting` do Reanimated nunca roda, a gaveta some sem animação |
+| `TabBar.tsx` + `CockpitScreen.tsx` | Aba "Cockpit" repetindo o MonitorDrawer e a Início, com cores hardcoded fora do vidro, "Status Túnel" deduzido de `endpoints.length > 1` (falso) e "Revogar Acesso" sem biometria |
+| `src/widgets/` + `react-native-android-widget` | 5 widgets com **dado fixo no código** ("CPU 12% · RAM 44% · Conectado & Seguro"). Dependência nativa → fingerprint novo. Ideia boa (C19 da §16), execução fake |
+| `App.tsx` | `import * as Notifications` estático (quebra Expo Go, §14), `shouldShowAlert` descontinuado silenciado com `as`, notificação local a cada poll da Caixa duplicando o push que o PC já manda, "Modo Orbital" gravando chave que ninguém lia |
+| `app.json`, `package.json` (os dois) | Regravados pelo `ConvertTo-Json` do PowerShell (17 espaços de indentação). `splash` legado (SDK 57 quer o plugin). `versionCode` 1→5 sem nada por trás |
+| `assets/icon.png`, `android-icon-foreground.png` | Trocados pela MESMA imagem de 1,5 MB — ignora a zona segura de 66% e o gerador `gerar-icone.mjs` |
+| `scripts/build-local.ps1` | 🔴 **Pulava o `prebuild` se `android/` existisse.** Os plugins de assinatura e memória do Gradle só rodam no prebuild — APK sairia assinado com debug sem erro nenhum (§13) |
+| `dashboard.html` | Aba **Programas removida** (abertos/fechar, catálogo, clipboard, energia, mídia — bloco 35) e trocada por "Cérebro" (textarea em `localStorage` que **o main nunca lê**) e "Cockpit" (repete cards da Início) |
+| `config.html`, `recorder.html` | `#bg-manchas` sem CSS nenhum; toggle "Modo Orbital (Bolhas Levamitando)" com "f�sico" no texto |
+
+**Junto com a triagem — `executarComando()` em `command.ts`:**
+
+🔴 O `main.ts` tinha o pipeline de comando **copiado inline** nos dois handlers (voz e chat
+do dashboard), chamando `decideBrain` direto. Consequência que ninguém tinha notado: **o
+`fastRoute` só valia para o celular.** "Pausa" dito ao microfone pagava uma chamada de
+modelo que o mesmo "pausa" mandado pelo app não pagava. Agora `executarComando(text,
+onActions)` é o único pipeline (fastRoute → cérebro → executores → `recordAssistantReply`
+→ `trackUsage`), `processCommand` é só a casca que devolve a string para o servidor, e o
+`main.ts` ficou com o que é dele: janela, bandeja, voz, rótulo na tela.
+
+Validado: `tsc --noEmit` limpo nos dois repositórios.
