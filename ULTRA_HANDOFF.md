@@ -3252,3 +3252,54 @@ dois). O convite do chat vazio cita o `Ctrl+K`.
 
 Verificado no renderer vivo: "calc" → calculadora; "desl" → Desligar / Cancelar
 desligamento; "notas" → bloco de notas; "oi tudo bem" → só "Perguntar ao ELYSIUM".
+
+### Bloco 59 — resposta em pedaços, nos dois lados ✅
+
+O bloco 21 da §19. A conversa passa a aparecer **palavra a palavra** enquanto o modelo
+escreve; a voz continua esperando a resposta fechar (a fila do `tts.ts` não foi tocada).
+
+**`llm.ts`:** `ChatPedido.onToken?`. Presente → `stream: true` nos dois provedores e o
+retorno continua sendo o texto inteiro, então quem não liga para pedaços não muda nada.
+Dois parsers, uma interface: **NDJSON** no Ollama (`message.content` por linha) e **SSE**
+na Groq (`data: {...}` com `choices[0].delta.content`, `[DONE]` no fim), os dois lidos por
+`lerLinhas()`.
+
+🔴 **Dois timeouts, e o motivo.** `AbortSignal.timeout` cobre cabeçalhos E corpo — sem
+stream é o que se quer, com stream mataria uma resposta longa no meio por ser longa.
+Então `sinalDeConexao()` dá o `AbortSignal.timeout` de sempre sem stream, e com stream um
+`AbortController` que só vale até os cabeçalhos (`liberar()` depois do `fetch`); o corpo
+fica com o **timeout de inatividade** do `lerLinhas` (recomeça a cada byte). Cancelar o
+leitor aborta a conexão — o modelo local para de gerar em vez de terminar para ninguém.
+
+**`brain.ts`:** `composeChatReply(userText, onToken?)`. Se o provedor cair DEPOIS de
+começar a responder, o fallback **não recomeça**: o cliente veria a resposta do primeiro
+seguida da do segundo. O `parcial` acumulado vira a resposta.
+
+**`command.ts`:** `executarComando(text, { onActions, onToken })` (era posicional) e
+`processCommandStream(text, onToken)` para o servidor. Só a ação `chat` emite pedaços.
+
+**Desktop:** canal `chat:chunk` (preload `onChatChunk`). O primeiro pedaço cria uma
+`.bubble.assistant.escrevendo` com cursor piscando; os seguintes só trocam o `textContent`
+(sem markdown, para não fechar um asterisco pela metade a cada quadro); o `chat:reply`
+final substitui pela versão renderizada e grava na conversa — **a bolha é a mesma**, nada
+pula. Erro no meio remove a bolha em curso. `onReply` e `onChatReply` viraram um
+`finalizarResposta` só. Medido no renderer vivo: bolha em 70 → 149 → 217 → 288 caracteres
+a cada 400 ms, depois final renderizado.
+
+**Servidor:** `startServer(token, processCommand, port, processStream?)`. No WebSocket os
+pedaços viajam como `{type:"chunk", text}` antes do `{type:"reply"}` final, que continua
+trazendo a resposta inteira — **app antigo que não conhece `chunk` ignora e segue lendo o
+reply**. O `POST /api/command` não muda. Medido com cliente cru: 1º pedaço em 692 ms, 56
+pedaços, reply em 1,8 s.
+
+**Celular:** `stream.ts` ganhou `sendText(text, onChunk)` pelo mesmo WS da voz,
+`onTranscript` (a transcrição chega ANTES do primeiro pedaço, então a bolha "me" entra na
+ordem certa) e **timeout de inatividade de 45 s** no lugar dos 20 s totais — o 8b recarrega
+em ~18 s a frio e depois escreve por vários segundos; o teto fixo matava resposta boa. O
+`onChunk` recebe o texto **acumulado**, não o pedaço: a bolha só troca o texto.
+`ChatScreen.handleSend` vai pelo WS primeiro (5 s para abrir) e cai no HTTP de sempre se
+ele não abrir — a fila offline continua funcionando. `BolhaPensando` some no primeiro
+pedaço (`sending && !escrevendoId`).
+
+Validado: `tsc` nos dois, `npx expo export`, e o stream pelo WS medido de fora. **Não
+testado no aparelho** (sem `adb`).

@@ -42,6 +42,15 @@ export interface ChatPedido {
   /** Pede JSON estrito. O roteador usa; a conversa não. */
   json?: boolean;
   timeoutMs?: number;
+  /**
+   * Recebe cada pedaço de texto conforme o modelo escreve. Presente → a chamada é feita
+   * em modo stream (NDJSON no Ollama, SSE na Groq) e o retorno continua sendo o texto
+   * inteiro, então quem não liga para pedaços não muda nada.
+   *
+   * Com stream o timeout vira INATIVIDADE (tempo sem chegar pedaço), não total: uma
+   * resposta longa não pode ser morta por ser longa, e um modelo travado ainda é pego.
+   */
+  onToken?: (token: string) => void;
 }
 
 /** Erro de provedor com a causa legível, para quem chama decidir se cai no fallback. */
@@ -50,6 +59,23 @@ export class ProviderError extends Error {
     super(message);
     this.name = "ProviderError";
   }
+}
+
+/**
+ * O sinal de timeout da CONEXÃO.
+ *
+ * Sem stream, `AbortSignal.timeout` cobre tudo — cabeçalhos e corpo — e é o que se quer.
+ * Com stream ele mataria uma resposta longa no meio, porque continua contando enquanto o
+ * corpo chega; aí o sinal só vale até os cabeçalhos (`liberar()` depois do `fetch`) e o
+ * corpo fica com o timeout de inatividade do `lerLinhas`.
+ */
+function sinalDeConexao(p: ChatPedido): { signal: AbortSignal; liberar: () => void } {
+  const padrao = p.provider === "ollama" ? 60_000 : 30_000;
+  const ms = p.timeoutMs ?? padrao;
+  if (!p.onToken) return { signal: AbortSignal.timeout(ms), liberar: () => {} };
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(new Error(`sem resposta em ${ms} ms`)), ms);
+  return { signal: ctrl.signal, liberar: () => clearTimeout(timer) };
 }
 
 /** Endereço base do Ollama sem o sufixo `/v1`, que só serve ao endpoint compatível. */
@@ -63,6 +89,7 @@ async function chamarGroq(p: ChatPedido): Promise<string> {
   if (!apiKey) throw apiKeyError();
 
   let res: Response;
+  const conexao = sinalDeConexao(p);
   try {
     res = await fetch(GROQ_URL, {
       method: "POST",
@@ -73,11 +100,14 @@ async function chamarGroq(p: ChatPedido): Promise<string> {
         temperature: p.temperature,
         max_tokens: p.maxTokens,
         ...(p.json ? { response_format: { type: "json_object" } } : {}),
+        ...(p.onToken ? { stream: true } : {}),
       }),
-      signal: AbortSignal.timeout(p.timeoutMs ?? 30_000),
+      signal: conexao.signal,
     });
   } catch (e) {
     throw networkError(String(e));
+  } finally {
+    conexao.liberar();
   }
 
   if (res.status === 401) throw apiKeyError();
@@ -91,6 +121,19 @@ async function chamarGroq(p: ChatPedido): Promise<string> {
     throw new ProviderError("groq", `HTTP ${res.status} ${corpo}`);
   }
 
+  if (p.onToken) {
+    // SSE: linhas "data: {...}" separadas por linha em branco, terminando em "data: [DONE]".
+    return lerLinhas(res, p.timeoutMs ?? 30_000, (linha) => {
+      if (!linha.startsWith("data:")) return null;
+      const bruto = linha.slice(5).trim();
+      if (!bruto || bruto === "[DONE]") return null;
+      try {
+        const j = JSON.parse(bruto) as { choices?: { delta?: { content?: string } }[] };
+        return j.choices?.[0]?.delta?.content ?? null;
+      } catch { return null; }
+    }, p.onToken);
+  }
+
   const dados = await res.json() as { choices?: { message?: { content?: string } }[] };
   return dados.choices?.[0]?.message?.content ?? "";
 }
@@ -99,6 +142,7 @@ async function chamarOllama(p: ChatPedido): Promise<string> {
   const cfg = getConfig();
 
   let res: Response;
+  const conexao = sinalDeConexao(p);
   try {
     res = await fetch(`${baseOllama()}/api/chat`, {
       method: "POST",
@@ -106,7 +150,7 @@ async function chamarOllama(p: ChatPedido): Promise<string> {
       body: JSON.stringify({
         model: p.model,
         messages: p.messages,
-        stream: false,
+        stream: Boolean(p.onToken),
         ...(p.json ? { format: "json" } : {}),
         // Descarrega da VRAM sozinho depois deste tempo sem uso. Ver o cabeçalho.
         keep_alive: cfg.ollamaKeepAlive || "60s",
@@ -117,10 +161,12 @@ async function chamarOllama(p: ChatPedido): Promise<string> {
       }),
       // Mais folgado que o da nuvem de propósito: a primeira chamada depois de o modelo
       // sair da VRAM paga o recarregamento, que nesta máquina leva alguns segundos.
-      signal: AbortSignal.timeout(p.timeoutMs ?? 60_000),
+      signal: conexao.signal,
     });
   } catch (e) {
     throw new ProviderError("ollama", `não consegui falar com o Ollama: ${String(e)}`);
+  } finally {
+    conexao.liberar();
   }
 
   if (!res.ok) {
@@ -133,8 +179,64 @@ async function chamarOllama(p: ChatPedido): Promise<string> {
     throw new ProviderError("ollama", `HTTP ${res.status} ${corpo}`);
   }
 
+  if (p.onToken) {
+    // NDJSON: um objeto por linha, `message.content` com o pedaço, `done: true` no fim.
+    return lerLinhas(res, p.timeoutMs ?? 60_000, (linha) => {
+      try {
+        const j = JSON.parse(linha) as { message?: { content?: string }; done?: boolean };
+        return j.message?.content ?? null;
+      } catch { return null; }
+    }, p.onToken);
+  }
+
   const dados = await res.json() as { message?: { content?: string } };
   return dados.message?.content ?? "";
+}
+
+/**
+ * Lê o corpo linha a linha, entrega cada pedaço a `onToken` e devolve o texto inteiro.
+ *
+ * O timeout é de inatividade: o cronômetro recomeça a cada byte que chega. Cancelar o
+ * leitor aborta a conexão — o modelo local para de gerar, em vez de terminar a resposta
+ * para ninguém e segurar a GPU.
+ */
+async function lerLinhas(
+  res: Response,
+  inatividadeMs: number,
+  extrair: (linha: string) => string | null,
+  onToken: (token: string) => void,
+): Promise<string> {
+  const reader = res.body?.getReader();
+  if (!reader) return "";
+  const decoder = new TextDecoder();
+  let texto = "", resto = "";
+
+  let timer: NodeJS.Timeout | undefined;
+  const rearmar = () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => { reader.cancel("inatividade").catch(() => {}); }, inatividadeMs);
+  };
+  rearmar();
+
+  try {
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      rearmar();
+      resto += decoder.decode(value, { stream: true });
+      const linhas = resto.split(/\r?\n/);
+      resto = linhas.pop() ?? "";
+      for (const linha of linhas) {
+        const pedaco = extrair(linha.trim());
+        if (pedaco) { texto += pedaco; onToken(pedaco); }
+      }
+    }
+    const ultimo = extrair(resto.trim());
+    if (ultimo) { texto += ultimo; onToken(ultimo); }
+  } finally {
+    clearTimeout(timer);
+  }
+  return texto;
 }
 
 export async function callChat(p: ChatPedido): Promise<string> {

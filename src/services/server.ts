@@ -486,8 +486,12 @@ function makeHandler(
 
 // ── WebSocket upgrade handler ─────────────────────────────────────────────────
 
+/** Um pedido com os pedaços da resposta no caminho. Ver `processCommandStream`. */
+type ComandoComStream = (text: string, onToken: (token: string) => void) => Promise<string>;
+
 function handleUpgrade(
   processCommand: (text: string) => Promise<string>,
+  processStream: ComandoComStream | undefined,
   req: http.IncomingMessage,
   socket: Socket,
   head: Buffer,
@@ -559,11 +563,19 @@ function handleUpgrade(
     }
   }
 
+  // Os pedaços viajam como `{type:"chunk", text}` antes do `{type:"reply"}` final, que
+  // continua trazendo a resposta inteira. App antigo que não conhece "chunk" ignora e
+  // segue lendo o reply — o contrato não quebra.
+  const executar = (texto: string): Promise<string> =>
+    processStream
+      ? processStream(texto, (token) => sendToClient(client, JSON.stringify({ type: "chunk", text: token })))
+      : processCommand(texto);
+
   function handleTextFrame(text: string): void {
     try {
       const msg = JSON.parse(text) as { type?: string; text?: string };
       if (msg.type === "command" && msg.text) {
-        processCommand(msg.text)
+        executar(msg.text)
           .then(reply => sendToClient(client, JSON.stringify({ type: "reply", reply })))
           .catch(err  => {
             console.error("[WS] falha ao processar comando de texto:", err);
@@ -585,7 +597,7 @@ function handleUpgrade(
         return;
       }
       sendToClient(client, JSON.stringify({ type: "transcript", text }));
-      const reply = await processCommand(text);
+      const reply = await executar(text);
       sendToClient(client, JSON.stringify({ type: "reply", reply }));
     } catch (e) {
       console.error("[WS] falha ao processar áudio (transcrição ou comando):", e);
@@ -610,13 +622,14 @@ export function startServer(
   token: string,
   processCommand: (text: string) => Promise<string>,
   port = 4200,
+  processStream?: ComandoComStream,
 ): void {
   activeToken = token;
   const server = http.createServer(makeHandler(processCommand));
 
   server.on("upgrade", (req, socket, head) => {
     if (req.url?.startsWith("/api/stream")) {
-      handleUpgrade(processCommand, req, socket as Socket, head);
+      handleUpgrade(processCommand, processStream, req, socket as Socket, head);
     } else {
       (socket as Socket).destroy();
     }

@@ -281,7 +281,11 @@ export async function decideBrain(text: string): Promise<BrainAction[]> {
  * conversa que quebra é bem menos grave que uma ação que não acontece, então isto
  * nunca lança.
  */
-export async function composeChatReply(userText: string): Promise<string | null> {
+export async function composeChatReply(
+  userText: string,
+  /** Pedaços da resposta conforme saem do modelo — o streaming do bloco 59. */
+  onToken?: (token: string) => void,
+): Promise<string | null> {
   const cfg = getConfig();
 
   // O mesmo histórico do roteador, para o modelo entender "e ele?" depois de uma
@@ -297,10 +301,18 @@ export async function composeChatReply(userText: string): Promise<string | null>
     ...(ultimo?.role === "user" && ultimo.content === userText ? [] : [{ role: "user" as const, content: userText }]),
   ];
 
+  // O que já subiu para a tela em pedaços. Se o provedor cair DEPOIS de começar a
+  // responder, o fallback não pode recomeçar do zero — o cliente veria a resposta do
+  // primeiro seguida da do segundo. Nesse caso o parcial é a resposta.
+  let parcial = "";
   const tentar = async (provider: Provider): Promise<string | null> => {
     if (provider === "groq" && !getApiKey()) return null;
     const model = provider === "ollama" ? cfg.ollamaChatModel : cfg.brainModel;
-    const texto = await callChat({ provider, model, messages, temperature: 0.6, maxTokens: 300, timeoutMs: 30_000 });
+    parcial = "";
+    const texto = await callChat({
+      provider, model, messages, temperature: 0.6, maxTokens: 300, timeoutMs: 30_000,
+      onToken: onToken ? (t) => { parcial += t; onToken(t); } : undefined,
+    });
     return texto.trim() || null;
   };
 
@@ -311,6 +323,7 @@ export async function composeChatReply(userText: string): Promise<string | null>
     if (reply) return reply;
   } catch (e) {
     console.error(`[brain] resposta de conversa falhou no provedor "${primeiro}":`, e);
+    if (parcial.trim()) return parcial.trim();
   }
 
   if (primeiro === "ollama" && cfg.fallbackToGroq) {

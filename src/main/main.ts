@@ -36,7 +36,7 @@ import { getTopHistory } from "../services/history";
 import { registrarPergunta, bolhasDoChat } from "../services/perguntas";
 import { synthesize, cancelSpeak } from "../services/tts";
 import { ElysiumError } from "../services/errors";
-import { processCommand, executarComando } from "../services/command";
+import { processCommand, processCommandStream, executarComando } from "../services/command";
 import { startServer, setActiveToken, broadcastMailboxEvent } from "../services/server";
 import { ollamaDisponivel } from "../services/llm";
 import { registerRpcBridge } from "./rpcBridge";
@@ -285,12 +285,12 @@ async function startListening(): Promise<void> {
 }
 
 ipcMain.on("audio-data", async (_event, buffer: Buffer) => {
-  const token = ++currentToken;
+  const meuToken = ++currentToken;
   state.set("processing");
   try {
     const audio = new Uint8Array(buffer);
     const text  = await transcribe(audio);
-    if (currentToken !== token) return;
+    if (currentToken !== meuToken) return;
 
     if (!text) {
       notify("ELYSIUM", "Não entendi o áudio. Tente novamente.");
@@ -300,12 +300,16 @@ ipcMain.on("audio-data", async (_event, buffer: Buffer) => {
 
     dashWin?.webContents.send("voice:transcript", text);
 
-    const { reply: combined } = await executarComando(text, (actions) => {
-      const label = getActionsLabel(actions);
-      dashWin?.webContents.send("voice:action-label", label);
-      dashWin?.webContents.send("dash:action-log", { icon: "settings", text: label, ok: true });
+    const { reply: combined } = await executarComando(text, {
+      onActions: (actions) => {
+        const label = getActionsLabel(actions);
+        dashWin?.webContents.send("voice:action-label", label);
+        dashWin?.webContents.send("dash:action-log", { icon: "settings", text: label, ok: true });
+      },
+      // A voz espera a resposta fechar (§19, bloco 21); só a tela recebe os pedaços.
+      onToken: (token) => { if (currentToken === meuToken) dashWin?.webContents.send("chat:chunk", token); },
     });
-    if (currentToken !== token) return;
+    if (currentToken !== meuToken) return;
     updateLastCommand(text);
     notify("ELYSIUM", combined);
 
@@ -313,14 +317,14 @@ ipcMain.on("audio-data", async (_event, buffer: Buffer) => {
     state.set("speaking");
     await speak(combined);
   } catch (err) {
-    if (currentToken !== token) return;
+    if (currentToken !== meuToken) return;
     const msg = err instanceof ElysiumError ? err.spoken : "Tive um problema, mas já voltei ao normal.";
     if (err instanceof ElysiumError) notify("ELYSIUM — Erro", err.message);
     dashWin?.webContents.send("voice:error", msg);
     state.set("speaking");
     try { await speak(msg); } catch { /* ignore */ }
   } finally {
-    if (currentToken === token) state.set("idle");
+    if (currentToken === meuToken) state.set("idle");
   }
 });
 
@@ -360,16 +364,20 @@ ipcMain.on("chat:send", async (_event, text: string) => {
   // O token é o que impede o handler interrompido de devolver o estado a "ocioso" no
   // meio do pedido novo: `interruptAll` avança o contador, e só o dono do valor atual
   // encerra o ciclo.
-  const token = ++currentToken;
+  const meuToken = ++currentToken;
   state.set("processing");
   try {
     registrarPergunta(text);
-    const { reply: combined } = await executarComando(text, (actions) => {
-      const label = getActionsLabel(actions);
-      dashWin?.webContents.send("voice:action-label", label);
-      dashWin?.webContents.send("dash:action-log", { icon: "settings", text: label, ok: true });
+    const { reply: combined } = await executarComando(text, {
+      onActions: (actions) => {
+        const label = getActionsLabel(actions);
+        dashWin?.webContents.send("voice:action-label", label);
+        dashWin?.webContents.send("dash:action-log", { icon: "settings", text: label, ok: true });
+      },
+      // A voz espera a resposta fechar (§19, bloco 21); só a tela recebe os pedaços.
+      onToken: (token) => { if (currentToken === meuToken) dashWin?.webContents.send("chat:chunk", token); },
     });
-    if (currentToken !== token) return;
+    if (currentToken !== meuToken) return;
     updateLastCommand(text);
     // Notificação nativa só quando a janela não está à vista: quem digitou no dashboard e
     // está olhando para ele não precisa de um balão do Windows repetindo a resposta.
@@ -378,12 +386,12 @@ ipcMain.on("chat:send", async (_event, text: string) => {
     state.set("speaking");
     await speak(combined);
   } catch (err) {
-    if (currentToken !== token) return;
+    if (currentToken !== meuToken) return;
     const msg = err instanceof ElysiumError ? err.spoken : "Tive um problema, mas já voltei ao normal.";
     if (err instanceof ElysiumError) notify("ELYSIUM — Erro", err.message);
     dashWin?.webContents.send("chat:error", msg);
   } finally {
-    if (currentToken === token) state.set("idle");
+    if (currentToken === meuToken) state.set("idle");
   }
 });
 
@@ -677,7 +685,7 @@ app.on("ready", async () => {
 
   const serverToken = getOrCreateServerToken();
   const cfg = getConfig();
-  startServer(serverToken, processCommand, cfg.serverPort ?? 4200);
+  startServer(serverToken, processCommand, cfg.serverPort ?? 4200, processCommandStream);
 
   const unseenFromMobile = checkAndMarkUnseenFromMobile();
   if (unseenFromMobile.length > 0) {

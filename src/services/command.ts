@@ -23,9 +23,16 @@ export type ResultadoComando = {
  * `onActions` roda assim que as ações estão decididas e antes de executar: é o que o
  * dashboard usa para mostrar o rótulo "Abrindo o Chrome…" enquanto o executor trabalha.
  */
+export type GanchosComando = {
+  /** Ações decididas, antes de executar — para o rótulo "Abrindo o Chrome…". */
+  onActions?: (actions: BrainAction[]) => void;
+  /** Pedaço de resposta de conversa, conforme o modelo escreve. Só o `chat` emite. */
+  onToken?: (token: string) => void;
+};
+
 export async function executarComando(
   text: string,
-  onActions?: (actions: BrainAction[]) => void,
+  ganchos: GanchosComando = {},
 ): Promise<ResultadoComando> {
   // Comandos fechados ("pausa", "volume 40") não precisam de modelo nenhum. Além de
   // instantâneo, isso preserva a cota de tokens por minuto da Groq para os pedidos
@@ -33,11 +40,11 @@ export async function executarComando(
   const shortcut = fastRoute(text);
   const actions = shortcut ?? await decideBrain(text);
   if (shortcut) noteFastRouted(text, shortcut);
-  onActions?.(actions);
+  ganchos.onActions?.(actions);
 
   const replies: string[] = [];
   for (const action of actions) {
-    replies.push(await resolveAction(action, text));
+    replies.push(await resolveAction(action, text, ganchos.onToken));
     trackUsage(text, action);
   }
 
@@ -50,9 +57,14 @@ export async function executarComando(
   return { actions, reply, atalho: shortcut !== null };
 }
 
-/** Só a resposta. É o contrato do `POST /api/command` e do WebSocket do celular. */
+/** Só a resposta. É o contrato do `POST /api/command`. */
 export async function processCommand(text: string): Promise<string> {
   return (await executarComando(text)).reply;
+}
+
+/** A resposta com os pedaços no caminho — o que o WebSocket do celular usa. */
+export async function processCommandStream(text: string, onToken: (token: string) => void): Promise<string> {
+  return (await executarComando(text, { onToken })).reply;
 }
 
 /**
@@ -65,10 +77,14 @@ export async function processCommand(text: string): Promise<string> {
  * conversa, e o assistente fica mudo — foi exatamente o que aconteceu com o dashboard
  * quando as duas etapas foram criadas e só este arquivo foi atualizado.
  */
-export async function resolveAction(action: BrainAction, userText: string): Promise<string> {
+export async function resolveAction(
+  action: BrainAction,
+  userText: string,
+  onToken?: (token: string) => void,
+): Promise<string> {
   if (action.action !== "chat") return routeAction(action);
 
-  const composed = await composeChatReply(userText);
+  const composed = await composeChatReply(userText, onToken);
   if (composed) return composed;
 
   // A composição falhou (rede, cota). Se o roteador tiver mandado algum texto, ele

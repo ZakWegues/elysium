@@ -550,6 +550,14 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
 #timeline::-webkit-scrollbar, #timeline-self::-webkit-scrollbar { width: 4px; }
 #timeline::-webkit-scrollbar-thumb, #timeline-self::-webkit-scrollbar-thumb { background: var(--border); border-radius: var(--radius-4); }
 #timeline-self.hidden, #timeline.hidden { display: none; }
+/* Cursor no fim da bolha que ainda está sendo escrita — é o que diz "ainda vem mais". */
+.bubble.escrevendo::after {
+  content: ""; display: inline-block; width: 2px; height: 0.95em; margin-left: 3px;
+  vertical-align: -0.15em; background: currentColor; opacity: 0.7;
+  animation: cursor-pisca 0.9s steps(1) infinite;
+}
+@keyframes cursor-pisca { 50% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .bubble.escrevendo::after { animation: none; } }
 
 /* Estado vazio do chat. A tela abria com um selo de 11px no topo e 500px de nada até a
    barra de escrita — parecia carregamento que não terminou. O convite fica no CENTRO
@@ -3153,22 +3161,52 @@ window.nx.onActionLabel((label) => {
   waveStatus.textContent = label;
 });
 
-window.nx.onReply((text) => {
-  addBubble("assistant", renderMarkdown(text), true);
-  recordMessage("reply", text);
+// ── Resposta em pedaços ─────────────────────────
+// O primeiro pedaço cria a bolha; os seguintes só acrescentam texto (sem markdown, para
+// não fechar um asterisco pela metade a cada quadro). O reply final substitui o conteúdo
+// pela versão renderizada e grava na conversa — a bolha é a mesma, então nada pula.
+let bolhaEmCurso = null;
+let textoEmCurso = "";
+
+window.nx.onChatChunk((pedaco) => {
+  if (!bolhaEmCurso) {
+    const wasBottom = isAtBottom();
+    document.getElementById("chat-vazio")?.remove();
+    bolhaEmCurso = document.createElement("div");
+    bolhaEmCurso.className = "bubble assistant escrevendo";
+    timeline.appendChild(bolhaEmCurso);
+    if (wasBottom) scrollToBottom();
+  }
+  const wasBottom = isAtBottom();
+  textoEmCurso += pedaco;
+  bolhaEmCurso.textContent = textoEmCurso;
+  if (wasBottom) scrollToBottom();
 });
 
+function finalizarResposta(text) {
+  if (bolhaEmCurso) {
+    bolhaEmCurso.classList.remove("escrevendo");
+    bolhaEmCurso.innerHTML = renderMarkdown(text);
+    bolhaEmCurso = null;
+    textoEmCurso = "";
+  } else {
+    addBubble("assistant", renderMarkdown(text), true);
+  }
+  recordMessage("reply", text);
+}
+
+window.nx.onReply(finalizarResposta);
+
 window.nx.onError((msg) => {
+  if (bolhaEmCurso) { bolhaEmCurso.remove(); bolhaEmCurso = null; textoEmCurso = ""; }
   addBubble("error", msg);
   recordMessage("error", msg);
 });
 
-window.nx.onChatReply((text) => {
-  addBubble("assistant", renderMarkdown(text), true);
-  recordMessage("reply", text);
-});
+window.nx.onChatReply(finalizarResposta);
 
 window.nx.onChatError((msg) => {
+  if (bolhaEmCurso) { bolhaEmCurso.remove(); bolhaEmCurso = null; textoEmCurso = ""; }
   addBubble("error", msg);
   recordMessage("error", msg);
 });

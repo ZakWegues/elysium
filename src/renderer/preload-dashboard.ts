@@ -21,6 +21,8 @@ contextBridge.exposeInMainWorld("nx", {
   chatSend:        (text: string)               => ipcRenderer.send("chat:send", text),
   chatClear:       ()                           => ipcRenderer.send("chat:clear"),
   onChatReply:     (cb: (r: string)    => void) => { ipcRenderer.on("chat:reply",         (_e, r) => cb(r)); },
+  /** Pedaço da resposta conforme o modelo escreve. O reply final continua vindo inteiro. */
+  onChatChunk:     (cb: (t: string)    => void) => { ipcRenderer.on("chat:chunk",         (_e, t) => cb(t)); },
   onChatError:     (cb: (m: string)    => void) => { ipcRenderer.on("chat:error",         (_e, m) => cb(m)); },
   onChatBusy:      (cb: ()             => void) => { ipcRenderer.on("chat:busy",          ()       => cb()); },
   getHistory:      ()                           => ipcRenderer.invoke("history:get"),
