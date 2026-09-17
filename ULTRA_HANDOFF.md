@@ -3217,3 +3217,38 @@ pendurado e `document.visibilityState` dizia `hidden` com o dashboard visível. 
 Desktop) faz o compositor parar de produzir quadros. `--disable-features=
 CalculateNativeWinOcclusion` na instância de desenvolvimento resolve. E a **porta 9222
 estava ocupada pelo Chrome** do Zak — usar 9333 (`ELYSIUM_DEBUG_PORT`).
+
+### Bloco 58 — Ctrl+K: a paleta de comandos do desktop ✅
+
+O bloco 20 da §19, três fases depois. `Ctrl+K` **local** (o global segue `Ctrl+Shift+J`)
+abre um painel de vidro no centro-alto com um campo e uma lista. O índice é montado ao
+abrir, do que o app já tem:
+
+| grupo | fonte | executa |
+|---|---|---|
+| Ir para | as abas + "Nova conversa" | `switchView` / `switchChatMode` / `startNewConversation` |
+| Ações | print, bloquear, suspender, reiniciar, desligar, cancelar, tocar/pausar, faixas, mudo, vol±, mandar clipboard pro celular, personalizar a Início | RPC pela ponte (destrutivos passam pelo diálogo do `rpcBridge`) |
+| Abrir programa | `apps.list` agrupado por comando (bloco 57) | `apps.open` — a busca aceita qualquer apelido ("calc" → calculadora) |
+| Presets | `presets.list` | `presets.run` |
+| Lembretes | `reminders.list` (não disparados) | `reminders.cancel` |
+| Memória | `memory.list` | `memory.remove` |
+| Conversas | `chatSessionsList()` (30 mais recentes) | `openConversation` |
+| Perguntar | o que você digitou, se nada casou | `chatSend` — o ÚNICO item que passa pelo modelo |
+
+Sem consulta mostra só navegação e ações (o catálogo inteiro seria uma parede de 40
+programas). Cada fonte falha por conta própria: PC ocupado não segura a paleta.
+
+**Busca:** substring com acentos dobrados primeiro; subsequência depois ("lmbr" acha
+"lembrete"). 🔴 A subsequência tem **teto de distância** (`ultimo − primeiro ≤ 2·len+1`):
+sem ele "calc" casava com "prin**c**ip**al** projeto de Isa**ac**" e a paleta devolvia
+lixo de memória para qualquer consulta de quatro letras. Realce do trecho casado em
+`<mark>`, grupos na ordem nav → ação → preset → app → lembrete → memória → conversa.
+
+**Teclado:** ↑↓ navega, ↵ executa, Esc fecha, mouse acompanha. O ouvinte de `Ctrl+K` é na
+captura para vencer o Escape dos popovers e o Enter do campo de comando.
+
+Entraram no sprite `i-grid` e `edit` no `ICONES_SPRITE` (o `ico()` caía no `zap` para os
+dois). O convite do chat vazio cita o `Ctrl+K`.
+
+Verificado no renderer vivo: "calc" → calculadora; "desl" → Desligar / Cancelar
+desligamento; "notas" → bloco de notas; "oi tudo bem" → só "Perguntar ao ELYSIUM".
