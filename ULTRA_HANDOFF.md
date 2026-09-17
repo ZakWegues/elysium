@@ -3151,3 +3151,69 @@ três pontos subindo em sequência (Reanimated, `withDelay` de 160 ms entre eles
 Validado: `tsc --noEmit` e `npx expo export --platform android` limpos. **Julgamento
 visual do Zak pendente** (sem aparelho no `adb` desta máquina): tamanho dos azulejos,
 espaçamento da faixa de mídia, intensidade da háptica.
+
+### Bloco 57 — desktop olhado de verdade: aba, Programas, chat vazio, e falar por cima ✅
+
+Primeira vez que o dashboard foi **capturado em execução nesta fase** (dev instance com
+`--remote-debugging-port=9333 --disable-features=CalculateNativeWinOcclusion`; ver a
+armadilha nova no fim). Cinco defeitos apareceram na primeira captura:
+
+1. 🔴 **A aba ativa mostrava uma pílula VAZIA.** O `#vtab-thumb` é o último filho da
+   barra e é absoluto: pintava por cima do botão e a pílula de vidro do bloco 54 cobria o
+   rótulo. "Início" sumia exatamente quando você estava nela. `.vtab { z-index: 1 }` e
+   `#vtab-thumb { z-index: 0 }`.
+2. 🔴 **A aba Programas abria EM BRANCO por 2 a 5 s.** `carregarProgramas` esperava
+   `apps.list` (instantâneo) e `system.processes` (PowerShell) num `Promise.all` antes de
+   desenhar qualquer coisa. Agora desenha em duas fases: catálogo e área de transferência
+   na hora, "Abertos agora" com um ícone girando até a lista chegar.
+3. 🔴 **"Abertos agora" quase sempre dizia "nenhum".** Duas causas somadas:
+   `system.processes` é o **top-15 por CPU** (um Chrome parado fica fora e o `MsMpEng`
+   entra), e os nomes vêm com sufixo de instância (`chrome#2`) que o `normalizarApp`
+   não tirava. Entrou o RPC **`apps.running`** (`getRunningApps()` em `systemInfo.ts`:
+   `Get-Process` com `MainWindowHandle`, ou seja, **processos com janela** — o que
+   "aberto" significa para quem olha a tela) e o cruzamento com o catálogo passou a
+   considerar também o executável do comando ("bloco de notas" ↔ `notepad`).
+4. **O catálogo mostrava 3 pílulas para a calculadora** (`calc`, `calculadora`,
+   `calculator`) e 2 para o 7-Zip. São apelidos para o Whisper (§5), não programas.
+   `agruparCatalogo()` agrupa por comando e mostra o apelido mais descritivo; a busca
+   continua achando por qualquer apelido, e o `title` da pílula lista todos.
+5. 🔴 **"Tirar print" não tirava print.** Chamava `screen.capture`, que devolve o quadro
+   do espelho em base64 — e o botão jogava a imagem fora. Entrou o RPC
+   **`screen.screenshot`**, que chama o executor `screenshot()` (PNG na Área de Trabalho,
+   abre ao terminar), e os dois botões (aba Programas e card Atalhos da Início) passaram a
+   usá-lo, com o retorno no toast.
+
+**Também na aba Programas:** Energia ganhou Reiniciar, Desligar (vermelhos, com a
+confirmação do `rpcBridge`) e Cancelar desligamento; Mídia ganhou mudo / vol− / vol+ por
+`volume.set`. **`Bloquear` e `Suspender` deixaram de ser vermelhos**: vermelho é para o
+que perde trabalho, e esses dois não perdem.
+
+**Chat vazio.** Abria com um selo de 11 px no topo e ~500 px de nada até a barra de
+escrita — parecia carregamento que não terminou. Agora `#chat-vazio` no centro
+(`margin:auto` no flex de coluna): marca, "Boa noite, Zak.", e o atalho gravado num
+`<kbd>`. Some na primeira mensagem de verdade (`addBubble` com classe ≠ `system`).
+
+**Dois log-cards iguais por comando.** `onActionLabel` e `onActionLog` chamavam `addLog`
+para o mesmo rótulo. O primeiro só alimenta a zona de voz agora.
+
+**Escrever por cima da fala interrompe a fala.** `chat:send` recusava com "Aguarde o
+assistente terminar…" enquanto o TTS lia a resposta anterior — e o modelo local gosta de
+um parágrafo. Agora, em `speaking`, o handler chama `interruptAll()` e segue; `processing`
+e `listening` continuam bloqueando. 🔴 O handler ganhou o mesmo **token** do `audio-data`:
+sem ele, o handler interrompido devolvia o estado a "ocioso" no meio do pedido novo.
+Verificado no renderer vivo: curiosidade longa → "que horas são" no meio da fala → "São
+19:47." e o selo volta a "Ocioso".
+
+**Notificação nativa só com a janela fora de vista.** Quem digita no dashboard e está
+olhando para ele não precisa de um balão do Windows repetindo a resposta.
+
+**Celular acompanhou o contrato** (regra da §2): `apps.running` e `screen.screenshot`
+nos tipos do `rpc.ts`; o painel Programas ganhou "Abertos agora" com fechar por chip, e
+a barra do espelho um botão **Print**.
+
+**Armadilha nova — a janela "oculta" que está na tela.** `Page.captureScreenshot` ficava
+pendurado e `document.visibilityState` dizia `hidden` com o dashboard visível. É o
+**rastreio de oclusão do Chromium no Windows**: outra janela por cima (o próprio Claude
+Desktop) faz o compositor parar de produzir quadros. `--disable-features=
+CalculateNativeWinOcclusion` na instância de desenvolvimento resolve. E a **porta 9222
+estava ocupada pelo Chrome** do Zak — usar 9333 (`ELYSIUM_DEBUG_PORT`).

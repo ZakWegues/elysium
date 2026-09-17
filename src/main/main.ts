@@ -347,12 +347,20 @@ ipcMain.on("voice:start", () => {
 // ── chat IPC ──────────────────────────────────────────────────────────────────
 
 ipcMain.on("chat:send", async (_event, text: string) => {
-  if (!state.is("idle")) { dashWin?.webContents.send("chat:busy"); return; }
+  // Escrever por cima da fala interrompe a fala: quem já leu a resposta na tela não quer
+  // esperar o TTS terminar um parágrafo para mandar a pergunta seguinte. Só gravação e
+  // processamento continuam bloqueando — aí há um pedido em andamento de verdade.
+  if (state.is("speaking")) interruptAll();
+  else if (!state.is("idle")) { dashWin?.webContents.send("chat:busy"); return; }
   if (!hasApiKey()) {
     dashWin?.webContents.send("chat:error", "API key não configurada.");
     openConfigWindow();
     return;
   }
+  // O token é o que impede o handler interrompido de devolver o estado a "ocioso" no
+  // meio do pedido novo: `interruptAll` avança o contador, e só o dono do valor atual
+  // encerra o ciclo.
+  const token = ++currentToken;
   state.set("processing");
   try {
     registrarPergunta(text);
@@ -361,17 +369,21 @@ ipcMain.on("chat:send", async (_event, text: string) => {
       dashWin?.webContents.send("voice:action-label", label);
       dashWin?.webContents.send("dash:action-log", { icon: "settings", text: label, ok: true });
     });
+    if (currentToken !== token) return;
     updateLastCommand(text);
-    notify("ELYSIUM", combined);
+    // Notificação nativa só quando a janela não está à vista: quem digitou no dashboard e
+    // está olhando para ele não precisa de um balão do Windows repetindo a resposta.
+    if (!dashWin?.isVisible() || !dashWin.isFocused()) notify("ELYSIUM", combined);
     dashWin?.webContents.send("chat:reply", combined);
     state.set("speaking");
     await speak(combined);
   } catch (err) {
+    if (currentToken !== token) return;
     const msg = err instanceof ElysiumError ? err.spoken : "Tive um problema, mas já voltei ao normal.";
     if (err instanceof ElysiumError) notify("ELYSIUM — Erro", err.message);
     dashWin?.webContents.send("chat:error", msg);
   } finally {
-    state.set("idle");
+    if (currentToken === token) state.set("idle");
   }
 });
 

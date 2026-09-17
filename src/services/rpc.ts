@@ -25,7 +25,7 @@ function hostnameOf(): string {
   try { return os.hostname(); } catch { return "PC"; }
 }
 import {
-  getDashboardTelemetry, getTopProcesses, getDiskDetails, killProcess,
+  getDashboardTelemetry, getTopProcesses, getDiskDetails, killProcess, getRunningApps,
 } from "../actions/systemInfo";
 import { openApp } from "../actions/openApp";
 import { closeApp } from "../actions/closeApp";
@@ -33,6 +33,7 @@ import { powerControl, PowerOperation } from "../actions/powerControl";
 import { mediaControl, MediaOperation } from "../actions/mediaControl";
 import { volumeControl } from "../actions/volumeControl";
 import { captureScreen, listScreens } from "./screenCapture";
+import { screenshot } from "../actions/screenshot";
 import { inputHost, MouseButton } from "./inputHost";
 import { addFact, listFacts, removeFactById } from "./memoryStore";
 import { cancelReminder, createReminder, listAll, ReminderKind } from "./scheduler";
@@ -211,6 +212,11 @@ const METHODS: Record<string, MethodDef> = {
   "apps.list": {
     handler: async () => ({ apps: listApps() }),
   },
+  // Processos COM JANELA — o que "aberto" quer dizer para quem olha a tela. Diferente de
+  // `system.processes`, que é o top-15 por CPU e deixava o Chrome ocioso de fora.
+  "apps.running": {
+    handler: async () => ({ apps: await getRunningApps() }),
+  },
   "apps.open": {
     handler: async (params) => {
       const name = requireString(params, "name");
@@ -273,6 +279,12 @@ const METHODS: Record<string, MethodDef> = {
       maxWidth: optionalInt(params, "maxWidth"),
       quality:  optionalInt(params, "quality"),
     }),
+  },
+  // `screen.capture` devolve o quadro e não guarda nada — é o espelho. Este salva um PNG
+  // na Área de Trabalho e abre, que é o que "tirar um print" significa para quem pede.
+  // O botão da aba Programas chamava `screen.capture` e jogava a imagem fora.
+  "screen.screenshot": {
+    handler: async (params) => ({ ok: true, message: await screenshot(optionalString(params, "filename")) }),
   },
 
   // — entrada remota (mouse e teclado) —

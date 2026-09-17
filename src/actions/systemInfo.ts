@@ -187,6 +187,43 @@ export async function getTopProcesses(): Promise<ProcessEntry[]> {
   } catch { return []; }
 }
 
+// ── Programas com janela ─────────────────────────────────────────────────────
+
+export interface RunningApp {
+  /** Nome do executável sem `.exe` e sem o sufixo `#N` dos contadores de desempenho. */
+  name:  string;
+  pid:   number;
+  title: string;
+}
+
+/**
+ * O que está "aberto" no sentido em que uma pessoa usa a palavra: processo com janela
+ * principal. `getTopProcesses` não serve para isso — devolve os 15 que mais consomem CPU,
+ * e um Chrome ocioso fica de fora enquanto o `MsMpEng` entra. Era por isso que "Abertos
+ * agora" no dashboard quase sempre dizia "nenhum" com meia dúzia de programas na tela.
+ */
+const RUNNING_APPS_SCRIPT = `
+try {
+  $out = Get-Process -ErrorAction SilentlyContinue |
+    Where-Object { $_.MainWindowHandle -ne 0 -and $_.MainWindowTitle } |
+    ForEach-Object { @{ name=$_.ProcessName; pid=[int]$_.Id; title=[string]$_.MainWindowTitle } }
+  ConvertTo-Json -Compress -InputObject @($out)
+} catch {
+  "[]"
+}
+`;
+
+export async function getRunningApps(): Promise<RunningApp[]> {
+  const raw = await runPs(RUNNING_APPS_SCRIPT);
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((p): p is RunningApp => p && typeof p.name === "string" && typeof p.pid === "number")
+      .map(p => ({ ...p, name: p.name.replace(/#\d+$/, ""), title: String(p.title ?? "").slice(0, 120) }));
+  } catch { return []; }
+}
+
 // ── Disk Details ──────────────────────────────────────────────────────────────
 
 export interface DiskEntry {
