@@ -3322,7 +3322,9 @@ vêm do **cache local** (`listSessions`), para a busca funcionar com o PC deslig
 e o componente remontar, a pergunta não pode disparar de novo sozinha). `HomeScreen`
 ganhou `onOpenConversation` e `onPerguntar`.
 
-⚠️ **Para o julgamento visual do Zak:** o `GlassModal` da busca (e os dos painéis da aba
-PC, bloco 56) vive dentro da tela, não no `App` — a camada absoluta cobre o conteúdo mas
-**não a TabBar**, que fica visível por baixo da gaveta. Se incomodar, o caminho é subir os
-dois modais para o `App.tsx`, como o de Ajustes já faz.
+**A gaveta esconde a TabBar.** O `GlassModal` da busca (e os dos painéis da aba PC,
+bloco 56) vive dentro da tela, não no `App`: a camada absoluta cobre o conteúdo mas não
+tinha como cobrir a barra, que ficava visível e clicável por baixo do véu. Entrou o
+`SobreposicaoContext` (`mais()`/`menos()` no `GlassModal` enquanto `visible`) e o `App`
+tira a TabBar com qualquer gaveta de pé — a tela cresce até o rodapé e o véu cobre tudo.
+Mesmo mecanismo que o teclado já usava.
