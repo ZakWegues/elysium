@@ -181,10 +181,14 @@ pedir de novo.**
 
 ### Git
 
-| Repo | HEAD (21/08/2026) | Estado |
+| Repo | HEAD (17/09/2026) | Estado |
 |---|---|---|
-| `elysium` | `4fc902c` — *docs: bloco 49* | limpo, pusheado |
-| `elysium-m` | `e4d4dca` — *fix: redimensionar gravava a cada quadro* | limpo, pusheado |
+| `elysium` | fase 7 completa (blocos 55–63, §24) | limpo, pusheado |
+| `elysium-m` | fase 7 completa (blocos 55–61, §24) | limpo, pusheado |
+
+> **Versão 1.1.0 nos dois lados** (celular `versionCode` 10). Instalador em
+> `elysium/release/ELYSIUM-Setup-1.1.0.exe`, APK em `elysium-m/dist-apk/elysium-m.apk` —
+> os dois gerados em 17/09/2026 ao fim da fase 7. Ver §24 para o que mudou.
 
 A fase 5 inteira (§22) está nesses dois. Verificado antes de subir: `npm run build` no
 desktop, `npm run typecheck` **e** `npx expo export --platform android` no Portal — o
@@ -1334,7 +1338,9 @@ Ordenadas por impacto.
 > deixaram de ser verdade; ficam visíveis porque a informação de que já foram problema tem
 > valor, e apagar faria a próxima sessão reinvestigar.
 
-0. **🔴 O que está commitado não é o que está rodando.** O desktop em uso é o instalador em
+0. ~~**🔴 O que está commitado não é o que está rodando.**~~ **Regerado em 17/09/2026** (fase
+   7): `release/ELYSIUM-Setup-1.1.0.exe` e `dist-apk/elysium-m.apk` (versionCode 10). Falta
+   só o Zak instalar os dois. O texto original fica como histórico: o desktop em uso é o instalador em
    `elysium baixado`, e o celular roda um APK anterior ao fingerprint atual. Enquanto os
    dois não forem atualizados, todo conserto da fase 5 existe só no git. **É a pendência de
    maior impacto agora** — ver blocos 48 e 49.
@@ -1344,7 +1350,9 @@ Ordenadas por impacto.
    de atualização do app.
 3. **Limite de tokens da Groq** — ~4400 tokens por chamada, 12000 TPM no gratuito. Já mitigado
    pelo `fastRoute`; ver §7 para as saídas restantes.
-4. **`probe()` não distingue 401 de PC inalcançável.** Custou cerca de uma hora de investigação
+4. ~~**`probe()` não distingue 401 de PC inalcançável.**~~ **Resolvido no bloco 55** (§24):
+   401 vira `UnauthorizedError` → estado `unauthorized` → alerta "Pareamento inválido". O
+   texto original: custou cerca de uma hora de investigação
    em 11/08. Distinguir os dois casos no `pairing.ts` é barato.
 5. **`input.type` com acentuação nunca validado em execução.** O código foi corrigido para
    `SendInput`/unicode e compila, mas testar exige controlar o foco da janela — o que não dá
@@ -1363,9 +1371,11 @@ Ordenadas por impacto.
    aplicada: ponte de registro (precisa de Admin) ou reescrever o fallback para
    `Windows.Media.SpeechSynthesis` (WinRT, não precisa de Admin, mas o interop async via
    PowerShell é frágil).
-9. **`msedge-tts` (voz neural) falha com "Connect Error"** nesta máquina/rede — cai sempre no
+9. ~~**`msedge-tts` (voz neural) falha com "Connect Error"**~~ **Resolvido no bloco 62**
+   (§24): era a versão 1.3.4 contra o endpoint novo do Edge; a 2.0.7 fala. Original: nesta máquina/rede — cai sempre no
    fallback SAPI.
-10. **`tts.ts` ignora `cfg.voice`** — a voz está fixa em `pt-BR-AntonioNeural` no código.
+10. ~~**`tts.ts` ignora `cfg.voice`**~~ **Resolvido no bloco 62**: lê a chave, seletor em
+    Ajustes → Voz, padrão Antonio (o que sempre tocou).
 11. **Quirk do `sleep`**: com hibernação habilitada, `SetSuspendState` hiberna em vez de
     suspender. Resolve com `powercfg /hibernate off` uma vez.
 12. **Espelhamento tem teto de ~1,5 quadro/s** por limitação do `desktopCapturer`. Se um dia
@@ -1374,7 +1384,9 @@ Ordenadas por impacto.
 13. ~~**Build obsoleta na fila do EAS**~~ — irrelevante desde que o build virou local (§13).
     O caminho normal não passa mais pelo EAS; só o `eas update` passa.
 14. **Checklist de validação manual do `CLAUDE.md`** ainda não confirmado ponta a ponta.
-15. **⚠️ Config corrompido derruba a inicialização em vez de cair no padrão.** Descoberto sem
+15. ~~**⚠️ Config corrompido derruba a inicialização em vez de cair no padrão.**~~ **Resolvido
+    no bloco 63**: `sanearBom()` regrava sem os três bytes antes de qualquer store abrir.
+    Original: descoberto sem
     querer em 14/08/2026: um `elysium-config.json` gravado com **BOM** (é o que o
     `Set-Content -Encoding utf8` do PowerShell 5.1 faz) fez `JSON.parse` estourar e **o app
     não abriu** — sem janela, sem notificação, sem nada que dissesse o motivo. Contraria o
@@ -1410,7 +1422,7 @@ Do plano de expansão, não implementadas. Nenhuma está começada.
 | # | feature | nota |
 |---|---|---|
 | C1 | Agente multi-passo real (teto de 4 iterações) | Depende de um 2º passe de síntese estável |
-| C2 | Respostas em streaming (SSE da Groq → dashboard e celular) | Ganho grande de percepção de velocidade |
+| ~~C2~~ | ~~Respostas em streaming~~ | ✅ **Bloco 59** — NDJSON e SSE, dashboard e celular |
 | C3 | Wake word local (Porcupine / openWakeWord) | Roadmap original; escuta contínua |
 | C4 | Interromper a fala falando por cima (barge-in) | Depende de C3 |
 | C5 | Google Calendar (device flow) | Roadmap original; OAuth liberado pelo Zak |
@@ -1432,11 +1444,11 @@ Do plano de expansão, não implementadas. Nenhuma está começada.
 | # | feature | nota |
 |---|---|---|
 | C13 | Multi-PC (parear vários, alternar) | `Pairing[]` em vez de um só |
-| C14 | Busca no histórico de chat e na Caixa | Dados já estão locais |
-| C15 | Apagar, fixar e marcar não-lida na Caixa | Falta `DELETE` no contrato do mailbox |
-| C16 | Onboarding com exemplos de comando | Reduz "não sei o que pedir" |
-| C17 | Chips de sugestão no chat | Mesma dor de C16 |
-| C18 | Háptica e som de feedback | Polimento |
+| ~~C14~~ | ~~Busca no histórico de chat e na Caixa~~ | ✅ **Bloco 60** — a lupa da Início busca conversas, programas, presets, lembretes, memória e ações. A Caixa ainda não |
+| ~~C15~~ | ~~Apagar, fixar e marcar não-lida na Caixa~~ | ✅ Bloco 54 — apagar; fixar = favoritar |
+| ~~C16~~ | ~~Onboarding com exemplos de comando~~ | ✅ **Bloco 61** — três telas depois do pareamento |
+| ~~C17~~ | ~~Chips de sugestão no chat~~ | ✅ Bloco 34 (desktop) e `chat.starters` (celular) |
+| ~~C18~~ | ~~Háptica e som de feedback~~ | ✅ **Bloco 56** — háptica (`expo-haptics`). Som, não |
 | C19 | Widget de tela inicial Android | Exige código nativo |
 
 ### Desktop
@@ -1444,7 +1456,7 @@ Do plano de expansão, não implementadas. Nenhuma está começada.
 | # | feature | nota |
 |---|---|---|
 | C20 | Desfazer última ação | Precisa de log de ações reversíveis |
-| C21 | Paleta de comandos no dashboard (Ctrl+K) | |
+| ~~C21~~ | ~~Paleta de comandos no dashboard (Ctrl+K)~~ | ✅ **Bloco 58** |
 | C22 | Push-to-talk segurando o atalho global | Alternativa ao VAD de silêncio |
 | C23 | Screenshot com escolha de monitor/região | Multi-monitor hoje pega só o primário |
 | C24 | Modo offline com whisper.cpp local | Roadmap original; pesado |
