@@ -3328,3 +3328,19 @@ tinha como cobrir a barra, que ficava visível e clicável por baixo do véu. En
 `SobreposicaoContext` (`mais()`/`menos()` no `GlassModal` enquanto `visible`) e o `App`
 tira a TabBar com qualquer gaveta de pé — a tela cresce até o rodapé e o véu cobre tudo.
 Mesmo mecanismo que o teclado já usava.
+
+### Bloco 61 — boas-vindas e a saudação da Início ✅
+
+**Onboarding (C16 da §16).** Três telas depois do primeiro pareamento, uma vez: *Fale com
+o PC* (mic) · *Controle de longe* (monitor) · *Fora de casa também* (wifi, com o lembrete
+de ativar as notificações). `src/screens/OnboardingScreen.tsx`: camada absoluta por cima
+de tudo (`zIndex` 40), páginas por `ScrollView` com `pagingEnabled`, pontos que esticam,
+"Pular" sempre à vista. A marca (`elysium_onboarding_v1`) é gravada ao terminar OU ao
+pular — quem pulou não quer ver de novo. ⚠️ **O Zak vai ver uma vez** ao atualizar,
+porque a chave não existia; é o preço de não ter uma "versão anterior" para comparar.
+
+**Saudação na Início.** O título do cabeçalho virou "Boa noite, Zak" (mesma função do
+desktop, bloco 33) e a primeira linha do corpo diz o estado numa frase: "PC online · 2
+lembretes pendentes · 15° lá fora". O texto "PC online" saiu do cabeçalho — com o título
+maior não sobrava largura — e ficou só o ponto colorido ao lado da lupa e do ajuste dos
+cards.
