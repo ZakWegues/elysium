@@ -3399,7 +3399,7 @@ ele.`
 | artefato | onde | como instalar |
 |---|---|---|
 | Desktop **1.1.0** | `elysium/release/ELYSIUM-Setup-1.1.0.exe` (75,6 MB) | Rodar. Instala por cima da versão em `elysium baixado`; o `app.asar` foi conferido por dentro (`abrirPaleta`, `screen.screenshot`, `sanearBom`, `chat:chunk`, `voiceLocale`) |
-| Celular **1.1.0**, `versionCode` 10 | `elysium-m/dist-apk/elysium-m.apk` (114 MB) | `adb install -r` ou copiar pro celular. Mesma chave de assinatura — instala por cima sem perder pareamento. **Fingerprint novo** (entrou `expo-haptics`): o OTA do canal `preview` não alcança o APK antigo; este APK já traz tudo |
+| Celular **1.1.0**, `versionCode` 10 | `elysium-m/dist-apk/elysium-m.apk` (114 MB) | `adb install -r` ou copiar pro celular. Mesma chave de assinatura — instala por cima sem perder pareamento. **Fingerprint novo `2ca67726…`** (entrou `expo-haptics`): o OTA do canal `preview` não alcança o APK antigo; este APK já traz tudo. Conferido por dentro: `versionCode=10`, `usesCleartextTraffic=true`, assinado com `CN=NeuroAxis Portal` (a chave própria) |
 
 ⚠️ O `versionCode` pulou de 1 para **10** de propósito: o Antigravity gerou APKs com 2 e 5
 e não se sabe qual está no aparelho. Um número menor que o instalado é recusado pelo
