@@ -3105,3 +3105,49 @@ onActions)` é o único pipeline (fastRoute → cérebro → executores → `rec
 `main.ts` ficou com o que é dele: janela, bandeja, voz, rótulo na tela.
 
 Validado: `tsc --noEmit` limpo nos dois repositórios.
+
+### Bloco 56 — a aba PC em painéis, teclas de mídia à vista, e o toque que responde ✅
+
+**Aba PC.** Era o espelho mais **oito `Drawer` recolhíveis em coluna**: oito cabeçalhos
+iguais, e chegar em "Energia" exigia rolar por todos os outros fechados. Virou:
+
+1. espelho (intocado);
+2. **faixa de mídia sempre visível** — anterior · tocar · pausar · próxima | mudo · vol− ·
+   vol+ — em `GlassCircle` de 38 px sobre um card. É a ação mais frequente de um controle
+   remoto e não merecia gaveta. Usa `media.control` e `volume.set` com `up`/`down`/`mute`,
+   que o servidor já aceitava (`rpc.ts:729`) e o app nunca usava;
+3. linha-herói do trackpad, com ícone em bloco;
+4. **grade 2 × 4 de azulejos** (Lembretes · Memória · Monitor · Processos · Programas ·
+   Energia · Transferência · Spotify), cada um com ícone, título e um resumo de uma linha.
+   Entram escalonados em 30 ms (`FadeInDown.delay`), 240 ms no último — dentro do teto.
+
+Tocar um azulejo abre **um único `GlassModal`** com o painel escolhido por id. O corpo monta
+ao abrir e desmonta ao fechar, então cada painel carrega os dados dele só sob demanda —
+exatamente o que as gavetas faziam, sem o custo de oito cabeçalhos. O `Drawer.tsx` ficou
+sem uso e **foi apagado**.
+
+Nos painéis, o que mudou além da moldura: **busca por nome** em Processos e Programas
+(a lista de processos passa de 50 linhas); estado vazio com ícone (`Vazio`) em vez de uma
+linha cinza; Desligar e Reiniciar em `errorSoft`, Bloquear e Suspender em `primarySoft` —
+a cor diz o risco antes do texto; ponto verde "Ao vivo · a cada 5 s" no Monitor.
+
+**Háptica — `src/lib/haptica.ts`** (`expo-haptics`, dependência nativa; o APK novo já
+era obrigatório desde o bloco 51). Escala curta como a de movimento: `leve` para toque
+em item, `medio` para ação que mexe no PC, `aviso` antes de destrutivo, `sucesso`/`erro`
+ao fechar uma ação demorada, `tique` na troca de aba. Nunca lança. Está na TabBar, nos
+azulejos, nas teclas de mídia, no início/fim da gravação de voz e nos painéis.
+
+**`Toque` — `src/components/ui/Toque.tsx`.** Um `Pressable` que encolhe 3 % ao apertar
+(120 ms, thread de UI) e dispara a háptica. Sem isso um card de vidro parece imagem — o
+dedo aperta e nada acontece até a próxima tela abrir. É a assinatura única de "recebi" do
+app; escala e tempo iguais em todo lugar, como o bloco 24 manda.
+
+**Chat: "digitando…" no lugar do spinner.** O `ActivityIndicator` com "Pensando..." ficava
+solto no rodapé, fora da conversa. Agora é `BolhaPensando`: bolha do lado da resposta com
+três pontos subindo em sequência (Reanimated, `withDelay` de 160 ms entre eles). Depois de
+**6 s** a bolha diz "acordando o cérebro…" — o `llama3.1:8b` recarrega em ~18 s a frio
+(bloco 41), e sem uma palavra na tela esse intervalo parece travamento.
+
+Validado: `tsc --noEmit` e `npx expo export --platform android` limpos. **Julgamento
+visual do Zak pendente** (sem aparelho no `adb` desta máquina): tamanho dos azulejos,
+espaçamento da faixa de mídia, intensidade da háptica.
