@@ -33,7 +33,7 @@
 | 19 | [Plano fase 2 — vidro, paridade e conteúdo](#19-plano-fase-2--vidro-paridade-e-conteúdo-blocos-15-a-22) |
 | 22 | [Fase 5 — a IA morta, e os seis pedidos do celular](#22-fase-5--a-ia-morta-e-os-seis-pedidos-do-celular-blocos-41-a-50) |
 | 23 | [Fase 6 — o movimento saiu da thread de JS](#23-fase-6--o-movimento-saiu-da-thread-de-js-bloco-51) |
-| 24 | [Fase 7 — depois do Antigravity](#24-fase-7--depois-do-antigravity-triagem-e-o-polimento-dos-dois-lados-blocos-55) |
+| 24 | [Fase 7 — depois do Antigravity: triagem e polimento](#24-fase-7--depois-do-antigravity-triagem-e-o-polimento-dos-dois-lados-blocos-55) |
 
 ---
 
@@ -3391,3 +3391,52 @@ lugar nenhum, e foi assim que o `voiceLocale` apareceu.
 `elysium-config.json` isso é a API key e o token do servidor. Verificado em execução com
 um `teste-bom.json` plantado: `[migrate] "teste-bom.json" estava com BOM; regravado sem
 ele.`
+
+### Fim da fase 7 — o que foi entregue, e o que só o Zak consegue validar
+
+**Gerado em 17/09/2026:**
+
+| artefato | onde | como instalar |
+|---|---|---|
+| Desktop **1.1.0** | `elysium/release/ELYSIUM-Setup-1.1.0.exe` (75,6 MB) | Rodar. Instala por cima da versão em `elysium baixado`; o `app.asar` foi conferido por dentro (`abrirPaleta`, `screen.screenshot`, `sanearBom`, `chat:chunk`, `voiceLocale`) |
+| Celular **1.1.0**, `versionCode` 10 | `elysium-m/dist-apk/elysium-m.apk` (114 MB) | `adb install -r` ou copiar pro celular. Mesma chave de assinatura — instala por cima sem perder pareamento. **Fingerprint novo** (entrou `expo-haptics`): o OTA do canal `preview` não alcança o APK antigo; este APK já traz tudo |
+
+⚠️ O `versionCode` pulou de 1 para **10** de propósito: o Antigravity gerou APKs com 2 e 5
+e não se sabe qual está no aparelho. Um número menor que o instalado é recusado pelo
+Android ("downgrade").
+
+**Verificado nesta fase sem o Zak:** `tsc` nos dois repos a cada bloco; `expo export`;
+build do desktop com captura de tela das 4 abas, da paleta e do tema claro; pipeline de
+comando no renderer vivo (fastRoute "que horas são", conversa com contexto "e onde ele
+nasceu?", digitar por cima da fala); streaming medido no dashboard (bolha crescendo) e
+pelo WebSocket com cliente cru (1º pedaço em 692 ms); voz neural em duas falas seguidas
+sem fallback; BOM saneado com arquivo plantado.
+
+**Só o Zak consegue (sem aparelho no `adb`):**
+
+- [ ] Instalar os dois e parear se pedir (não deve pedir: token não mudou).
+- [ ] Celular: aba PC — os 8 azulejos, a faixa de mídia, abrir cada painel e voltar com o
+      botão físico; a TabBar tem que sumir com a gaveta aberta.
+- [ ] Celular: lupa da Início — "calc" abre calculadora, "desl" oferece desligar (biometria).
+- [ ] Celular: chat — a resposta aparece palavra a palavra; "acordando o cérebro…" só
+      depois de 6 s parado; mic vibra ao começar a gravar.
+- [ ] Celular: as três telas de boas-vindas aparecem UMA vez; "Pular" funciona.
+- [ ] Celular: intensidade da háptica (se incomodar, `haptica.ts` é o único lugar).
+- [ ] Desktop: Ctrl+K de qualquer aba; Programas → "Abertos agora" lista o que está na tela.
+- [ ] Desktop: a voz é a neural (Antonio) — se soar robótica, ver o log com
+      `-RedirectStandardError` (bloco 62).
+- [ ] Desktop: Ajustes → Voz → trocar para Francisca e ouvir.
+
+**Ideias que ficaram para a próxima fase** (§16 continua valendo para o resto):
+
+- Busca na Caixa (recados) — a lupa ainda não indexa `mailbox`.
+- Subir os `GlassModal` da aba PC e da busca para o `App.tsx` se a saída animada da
+  gaveta com a TabBar reaparecendo incomodar.
+- Skeletons de vidro nos cards da Início no primeiro carregamento (hoje "Esperando o PC…").
+- Widget Android de verdade (C19): a lib `react-native-android-widget` que o Antigravity
+  tentou serve, mas o `widgetTaskHandler` precisa ler telemetria por RPC — casar com um
+  rebuild do APK.
+- Bloco 22 da §19 (automação: modo foco, pomodoro, presets agendados) — o último grande
+  item do plano original que segue sem código.
+- `HomeScreen.tsx` tem 1.300 linhas: cada card num arquivo, antes da próxima rodada de
+  cards.
