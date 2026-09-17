@@ -5672,16 +5672,17 @@ async function montarIndicePaleta() {
     { grupo: "nav", icone: "settings", texto: "Ajustes", executar: () => switchView("ajustes") },
     { grupo: "nav", icone: "edit", texto: "Nova conversa", executar: () => { switchView("chat"); switchChatMode("ai"); startNewConversation(); } },
 
-    { grupo: "acao", icone: "monitor", texto: "Tirar print", sub: "PNG na Área de Trabalho", executar: rpcToast("screen.screenshot") },
-    { grupo: "acao", icone: "x", texto: "Bloquear a tela", executar: rpcToast("power.control", { operation: "lock" }) },
-    { grupo: "acao", icone: "minus", texto: "Suspender o PC", executar: rpcToast("power.control", { operation: "sleep" }) },
-    { grupo: "acao", icone: "refresh", texto: "Reiniciar o PC", perigo: true, sub: "pede confirmação", executar: rpcToast("power.control", { operation: "restart" }) },
-    { grupo: "acao", icone: "x", texto: "Desligar o PC", perigo: true, sub: "pede confirmação", executar: rpcToast("power.control", { operation: "shutdown" }) },
+    // `chaves` são sinônimos que a busca também aceita — inglês e o jeito falado.
+    { grupo: "acao", icone: "monitor", texto: "Tirar print", sub: "PNG na Área de Trabalho", chaves: ["screenshot", "captura de tela"], executar: rpcToast("screen.screenshot") },
+    { grupo: "acao", icone: "x", texto: "Bloquear a tela", chaves: ["lock", "travar"], executar: rpcToast("power.control", { operation: "lock" }) },
+    { grupo: "acao", icone: "minus", texto: "Suspender o PC", chaves: ["sleep", "dormir"], executar: rpcToast("power.control", { operation: "sleep" }) },
+    { grupo: "acao", icone: "refresh", texto: "Reiniciar o PC", perigo: true, sub: "pede confirmação", chaves: ["restart", "reboot"], executar: rpcToast("power.control", { operation: "restart" }) },
+    { grupo: "acao", icone: "x", texto: "Desligar o PC", perigo: true, sub: "pede confirmação", chaves: ["shutdown"], executar: rpcToast("power.control", { operation: "shutdown" }) },
     { grupo: "acao", icone: "check", texto: "Cancelar desligamento agendado", executar: rpcToast("power.control", { operation: "cancel" }) },
     { grupo: "acao", icone: "play", texto: "Tocar / pausar", executar: () => window.nx.mediaControl("play") },
     { grupo: "acao", icone: "skip-forward", texto: "Próxima faixa", executar: () => window.nx.mediaControl("skip") },
     { grupo: "acao", icone: "skip-back", texto: "Faixa anterior", executar: () => window.nx.mediaControl("previous") },
-    { grupo: "acao", icone: "volume-x", texto: "Mudo", executar: rpcToast("volume.set", { level: "mute" }, "Mudo.") },
+    { grupo: "acao", icone: "volume-x", texto: "Mudo", chaves: ["volume mudo", "silenciar", "mute"], executar: rpcToast("volume.set", { level: "mute" }, "Mudo.") },
     { grupo: "acao", icone: "volume", texto: "Aumentar o volume", executar: rpcToast("volume.set", { level: "up" }, "Volume +") },
     { grupo: "acao", icone: "volume-1", texto: "Diminuir o volume", executar: rpcToast("volume.set", { level: "down" }, "Volume −") },
     { grupo: "acao", icone: "clipboard", texto: "Mandar a área de transferência pro celular", executar: async () => {
