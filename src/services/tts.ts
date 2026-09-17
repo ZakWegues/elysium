@@ -3,6 +3,7 @@ import * as os from "node:os";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { spawn, ChildProcess } from "node:child_process";
+import { getConfig } from "../main/config";
 
 const VOICE = "pt-BR-AntonioNeural";
 const TTS_TIMEOUT_MS = 30_000;
@@ -111,9 +112,17 @@ export async function synthesize(text: string): Promise<void> {
       try {
         if (!_tts) _tts = new MsEdgeTTS();
 
-        // Use MP3 — only format reliably supported by msedge-tts v1.3.4
-        await _tts.setMetadata(VOICE, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3);
-        const audioStream = _tts.toStream(clean, PROSODY);
+        // 🔴 msedge-tts 1.3.4 dava "Connect Error" em toda chamada nesta máquina (pendência
+        // 9 da §15) e a voz vivia no fallback SAPI, robótica. O endpoint do Edge mudou o
+        // handshake; a 2.x acompanha. Na 2.x o `toStream` devolve { audioStream,
+        // metadataStream } em vez do stream direto.
+        // Pendência 10 da §15: a chave `voice` existia no config e nunca era lida.
+        const voz = getConfig().voice?.trim() || VOICE;
+        // O `{}` é obrigatório: a 2.0.7 declara o terceiro parâmetro como opcional e lê
+        // `metadataOptions.voiceLocale` sem conferir a partir da SEGUNDA chamada na mesma
+        // instância — a primeira fala saía neural e todas as seguintes caíam no SAPI.
+        await _tts.setMetadata(voz, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3, {});
+        const { audioStream } = _tts.toStream(clean, PROSODY);
 
         const chunks: Buffer[] = [];
         audioStream.on("data", (c: Buffer) => { if (!settled) chunks.push(c); });

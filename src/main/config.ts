@@ -127,7 +127,10 @@ const DEFAULTS: AppConfig = {
   autoLaunch: true,
   silenceMs: 2500,
   maxRecordMs: 120000,
-  voice: "pt-BR-FranciscaNeural",
+  // Antonio é o que sempre tocou: o `tts.ts` ignorava esta chave e fixava a voz dele.
+  // Manter o padrão igual ao comportamento antigo é o que evita a voz mudar sozinha na
+  // primeira abertura depois de a chave passar a valer.
+  voice: "pt-BR-AntonioNeural",
   sttModel: "whisper-large-v3",
   brainModel: "openai/gpt-oss-120b",
   routerModel: "openai/gpt-oss-120b",

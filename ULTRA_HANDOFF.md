@@ -3344,3 +3344,28 @@ desktop, bloco 33) e a primeira linha do corpo diz o estado numa frase: "PC onli
 lembretes pendentes · 15° lá fora". O texto "PC online" saiu do cabeçalho — com o título
 maior não sobrava largura — e ficou só o ponto colorido ao lado da lupa e do ajuste dos
 cards.
+
+### Bloco 62 — a voz neural voltou, e a voz virou escolha ✅
+
+**Pendência 9 da §15 resolvida.** O `msedge-tts` 1.3.4 dava `Connect Error: [object
+Object]` em TODA chamada — o endpoint do Edge mudou o handshake — e a voz vivia no
+fallback SAPI, robótica, desde antes de agosto. Testado num projeto de rascunho: a 2.0.7
+sintetiza (17,8 kB de MP3 para "Olá, teste de voz neural."). Atualizado; na 2.x o
+`toStream` devolve `{ audioStream, metadataStream }` em vez do stream direto.
+
+🔴 **Armadilha da 2.0.7:** `setMetadata(voz, formato, metadataOptions?)` declara o
+terceiro parâmetro opcional e lê `metadataOptions.voiceLocale` sem conferir a partir da
+**segunda** chamada na mesma instância. Sintoma: a primeira fala saía neural, todas as
+seguintes caíam no SAPI com `Cannot read properties of undefined (reading 'voiceLocale')`.
+Passar `{}` resolve. Verificado com duas falas seguidas e zero "fallback offline" no log.
+
+**Pendência 10 resolvida.** A chave `voice` do config existia e o `tts.ts` fixava
+`pt-BR-AntonioNeural`. Agora ele lê `getConfig().voice`, e Ajustes → Voz ganhou o seletor:
+Antonio (masculina), Francisca, Thalita, Macerio (multilíngue). O padrão — `DEFAULTS` e o
+`config.json` da raiz, que reinjeta por cima — passou de Francisca para **Antonio**, que é
+o que sempre tocou: honrar a chave sem mudar o padrão foi o que evitou a voz trocar
+sozinha na primeira abertura.
+
+**Como ver o log da instância de desenvolvimento:** `Start-Process … -RedirectStandardOutput
+… -RedirectStandardError …` no PowerShell. Sem isso o `console.error` do main vai para
+lugar nenhum, e foi assim que o `voiceLocale` apareceu.

@@ -3,7 +3,7 @@
   "autoLaunch": false,
   "silenceMs": 2500,
   "maxRecordMs": 120000,
-  "voice": "pt-BR-FranciscaNeural",
+  "voice": "pt-BR-AntonioNeural",
   "sttModel": "whisper-large-v3",
   "brainModel": "openai/gpt-oss-120b",
   "chatHistoryTurns": 6,

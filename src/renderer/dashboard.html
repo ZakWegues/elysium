@@ -4009,7 +4009,13 @@ const AJUSTES = [
   },
   {
     grupo: "Voz",
+    nota: "Vozes neurais do Edge, pela internet. Sem rede o ELYSIUM cai na voz do Windows.",
     campos: [
+      { chave: "voice", rotulo: "Voz", tipo: "select", opcoes: [
+        ["pt-BR-AntonioNeural", "Antonio — masculina"],
+        ["pt-BR-FranciscaNeural", "Francisca — feminina"],
+        ["pt-BR-ThalitaNeural", "Thalita — feminina, mais jovem"],
+        ["pt-BR-MacerioMultilingualNeural", "Macerio — masculina, multilíngue"]] },
       { chave: "silenceMs", rotulo: "Silêncio para parar", tipo: "faixa", min: 500, max: 5000, passo: 100, unidade: "ms" },
       { chave: "maxRecordMs", rotulo: "Gravação máxima", tipo: "faixa", min: 10000, max: 300000, passo: 5000, unidade: "ms" },
     ],
