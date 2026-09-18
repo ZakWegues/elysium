@@ -156,6 +156,7 @@ o mesmo capricho visual do app mobile — a referência estética é o Portal, n
 ### Regras vigentes
 
 1. **Commit e push a cada bloco concluído, sem perguntar.** Vale para os dois repositórios.
+   **Antes do commit, `npm run check` verde** (tsc + vitest; no celular também `expo export`) — desde o bloco 77.
    Fechou bloco com build passando → sobe. *(Esta regra substituiu uma anterior, de nunca
    commitar por conta própria.)*
 2. **Manter este `ULTRA_HANDOFF.md` atualizado** ao fim de cada bloco — **nas duas cópias**
@@ -4110,3 +4111,28 @@ regras; captura das 5 abas idêntica ao antes. De quebra: `let salva` no boot �
 era o **Zak minimizando**, porque está usando o PC. `scratchpad/mostrar.ps1` restaura sem
 foco e manda a janela para x=-2400; com `CalculateNativeWinOcclusion` desligado, fora da
 tela ainda captura. Anotado na memória de depuração.
+
+### Bloco 77 — testes onde há lógica pura ✅
+
+`vitest` 3 nos dois repos (a 5 exige `@types/node` 22+; o desktop está em 20). Pasta
+`tests/` fora do `include` do tsconfig do desktop — o build não compila testes. **45 testes,
+todos verdes, 1,4 s + 1,0 s.**
+
+| repo | arquivo | o que prova |
+|---|---|---|
+| desktop | `fastRoute.test.ts` (9) | cada padrão, clima com 6 formas, lembretes de hoje, volume grampeado, **e o que NÃO pode casar** (composto, "memória" sozinha, vazio) |
+| desktop | `rotinas.test.ts` (11) | normalização de hora/dias, `proximoDisparo` (hoje, amanhã, pula fim de semana, pausada), fila (confirmar, histórico, **poda nunca descarta pendente**), executar com falha virando texto |
+| desktop | `clima.test.ts` (5) | parse da Open-Meteo com fixture real de 18/09 (próximas 6 h a partir da hora cheia, amanhã, ícones), cache de 1 h, sem cidade não consulta, **a frase falada exata** da ação `weather` |
+| desktop | `brain.test.ts` (3) | `interpretarAcoes` (agora exportada): `null` vs `unknown`, ação inventada descartada |
+| celular | `busca.test.ts` (7) | pontuação e ordenação — `pontuar`/`dobrar`/`ordenarPorConsulta` **saíram da `BuscaPanel` para `src/lib/busca.ts`** |
+| celular | `links-e-temas.test.ts` (6) | deep links dos widgets, `elysium://share`, chave antiga de família, temas aposentados, alfas da noite ≥ 0,6 / dia ≤ 0,35 (bloco 70) |
+| celular | `notificacoes.test.ts` (4) | **nunca mostrar duas vezes**, lembrete espelhado não vira segunda notificação, interruptor desligado não busca, espelho cancela o que sumiu e ignora o que passou |
+
+Dublês em `tests/setup.ts`: `electron-store` em memória e `electron` mínimo (desktop);
+AsyncStorage em memória, `expo-linking.parse`, `react-native` (Platform/Appearance/AppState),
+`expo-constants`, `expo-secure-store` (celular). `expo-notifications` e o RPC são mockados
+por teste.
+
+**Scripts:** `npm test` (= `vitest run`) e `npm run check` nos dois — no desktop `tsc` +
+testes; no celular `tsc` + testes + `expo export`. **A regra 1 da §3 ganha um passo: `npm run
+check` verde antes de commitar.**

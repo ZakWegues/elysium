@@ -10,7 +10,9 @@
     "build": "npm run clean && tsc && node scripts/copy-assets.mjs",
     "start": "npm run build && electron .",
     "dev": "npm run build && electron . --dev",
-    "dist": "npm run build && electron-builder --win nsis"
+    "dist": "npm run build && electron-builder --win nsis",
+    "test": "vitest run",
+    "check": "tsc --noEmit -p . && vitest run"
   },
   "build": {
     "appId": "com.zak.elysium",
@@ -57,6 +59,7 @@
     "@types/qrcode": "^1.5.6",
     "electron": "^31.7.7",
     "electron-builder": "^24.13.3",
-    "typescript": "^5.5.4"
+    "typescript": "^5.5.4",
+    "vitest": "^3.2.7"
   }
 }

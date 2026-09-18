@@ -154,7 +154,7 @@ const ACOES_VALIDAS = new Set<string>([
  * sendo resposta legítima do modelo ("não entendi"), enquanto `null` significa "este
  * provedor não entregou nada utilizável, vale tentar o outro".
  */
-function interpretarAcoes(content: string): BrainAction[] | null {
+export function interpretarAcoes(content: string): BrainAction[] | null {
   let parsed: Record<string, unknown>;
   try {
     parsed = JSON.parse(content) as Record<string, unknown>;
