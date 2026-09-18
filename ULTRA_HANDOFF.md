@@ -20,7 +20,7 @@
 | 6 | [O cérebro — ações, prompt e as duas etapas](#6-o-cérebro--ações-prompt-e-as-duas-etapas) |
 | 7 | [Modelos da Groq](#7-modelos-da-groq) |
 | 8 | [Servidor da porta 4200](#8-servidor-da-porta-4200) |
-| 9 | [Superfície RPC — os 52 métodos](#9-superfície-rpc--os-52-métodos) |
+| 9 | [Superfície RPC — os 60 métodos](#9-superfície-rpc--os-52-métodos) |
 | 10 | [Portal — arquitetura e mapa de arquivos](#10-portal--arquitetura-e-mapa-de-arquivos) |
 | 11 | [Contratos entre os dois lados](#11-contratos-entre-os-dois-lados) |
 | 12 | [Rede e acesso de fora de casa](#12-rede-e-acesso-de-fora-de-casa) |
@@ -182,14 +182,16 @@ pedir de novo.**
 
 ### Git
 
-| Repo | HEAD (17/09/2026) | Estado |
+| Repo | HEAD (18/09/2026) | Estado |
 |---|---|---|
-| `elysium` | fase 7 completa (blocos 55–63, §24) | limpo, pusheado |
-| `elysium-m` | fase 7 completa (blocos 55–61, §24) | limpo, pusheado |
+| `elysium` | fase 8 completa (blocos 64–69 + 75, §25) | limpo, pusheado |
+| `elysium-m` | fase 8 completa (blocos 70–75, §25) | limpo, pusheado |
 
-> **Versão 1.1.0 nos dois lados** (celular `versionCode` 10). Instalador em
-> `elysium/release/ELYSIUM-Setup-1.1.0.exe`, APK em `elysium-m/dist-apk/elysium-m.apk` —
-> os dois gerados em 17/09/2026 ao fim da fase 7. Ver §24 para o que mudou.
+> **Versão 1.2.0 nos dois lados** (celular `versionCode` 11). Instalador em
+> `elysium/release/ELYSIUM-Setup-1.2.0.exe`, APK em `elysium-m/dist-apk/elysium-m.apk` —
+> os dois gerados em 18/09/2026 ao fim da fase 8. Ver §25 para o que mudou. **O APK tem
+> módulos nativos novos** (background-task, task-manager, android-widget): OTA não alcança
+> o anterior, tem que instalar o APK.
 
 A fase 5 inteira (§22) está nesses dois. Verificado antes de subir: `npm run build` no
 desktop, `npm run typecheck` **e** `npx expo export --platform android` no Portal — o
@@ -725,6 +727,22 @@ regra. `shutdown.exe /a` devolve 1116 quando não há nada agendado; tratado com
 | `reminders.list` | — | `{reminders:[{id, text, dueAt, kind, weekday?, createdAt, firedAt?}]}` |
 | `reminders.create` | `{text, dueAt: epoch ms, kind?: once\|weekly}` | `{reminder}` |
 | `reminders.cancel` | `{id}` | `{cancelled}` |
+
+**Rotinas e entregas** (bloco 68, `src/services/rotinas.ts`)
+
+| método | params | retorno |
+|---|---|---|
+| `rotinas.list` | — | `{rotinas:[{id, nome, texto, hora "HH:MM", dias[0-6], entregar["pc"\|"celular"], falar, ativa, criadaEm, ultimaExecucao?, ultimoResultado?, proxima: epoch\|null}]}` |
+| `rotinas.save` | `{id?, nome, texto, hora, dias?, entregar?, falar?, ativa?}` | `{rotina}` — sem `id` cria |
+| `rotinas.delete` | `{id}` | `{deleted}` |
+| `rotinas.toggle` | `{id, ativa?}` | `{rotina}` — sem `ativa` inverte |
+| `rotinas.run` | `{id}` | `{resultado}` — executa agora pelo pipeline de comando |
+| `notify.pending` | — | `{entregas:[{id, tipo rotina\|lembrete\|aviso, titulo, corpo, em, ref?}]}` — o que o celular ainda não confirmou |
+| `notify.history` | — | `{entregas}` — as 40 últimas, com `entregueEm?` |
+| `notify.ack` | `{ids: string[]}` | `{acked}` |
+
+O WebSocket também manda `{type:"notify", ...entrega}` a quem estiver conectado na hora
+da execução (`broadcastNotify` em `server.ts`).
 
 **Push**
 
@@ -1436,7 +1454,7 @@ Do plano de expansão, não implementadas. Nenhuma está começada.
 |---|---|---|
 | C8 | Gravar e resumir reunião | Captura de loopback WASAPI é a parte difícil |
 | C9 | Modo foco — bloqueia apps/sites por N minutos | Watcher de processo |
-| C10 | Pomodoro com voz e push | Trivial depois do scheduler |
+| C10 | ~~Pomodoro com voz e push~~ | **Feito no bloco 67**: card Timer da Início, o aviso é um lembrete real |
 | C11 | Presets agendados e por gatilho (boot, horário, Wi-Fi) | Reusa o scheduler |
 | C12 | Watchers ("avisa quando esse download acabar") | Reusa scheduler + push |
 
@@ -1450,7 +1468,7 @@ Do plano de expansão, não implementadas. Nenhuma está começada.
 | ~~C16~~ | ~~Onboarding com exemplos de comando~~ | ✅ **Bloco 61** — três telas depois do pareamento |
 | ~~C17~~ | ~~Chips de sugestão no chat~~ | ✅ Bloco 34 (desktop) e `chat.starters` (celular) |
 | ~~C18~~ | ~~Háptica e som de feedback~~ | ✅ **Bloco 56** — háptica (`expo-haptics`). Som, não |
-| C19 | Widget de tela inicial Android | Exige código nativo |
+| C19 | ~~Widget de tela inicial Android~~ | **Feito no bloco 73**: Busca, Ações e Estado |
 
 ### Desktop
 
@@ -3434,10 +3452,10 @@ sem fallback; BOM saneado com arquivo plantado.
 - Subir os `GlassModal` da aba PC e da busca para o `App.tsx` se a saída animada da
   gaveta com a TabBar reaparecendo incomodar.
 - Skeletons de vidro nos cards da Início no primeiro carregamento (hoje "Esperando o PC…").
-- Widget Android de verdade (C19): a lib `react-native-android-widget` que o Antigravity
+- ~~Widget Android de verdade (C19)~~ (feito, bloco 73): a lib `react-native-android-widget` que o Antigravity
   tentou serve, mas o `widgetTaskHandler` precisa ler telemetria por RPC — casar com um
   rebuild do APK.
-- Bloco 22 da §19 (automação: modo foco, pomodoro, presets agendados) — o último grande
+- ~~Bloco 22 da §19~~ (feito, blocos 67/68: timer, rotinas com presets agendados) — era o último grande
   item do plano original que segue sem código.
 - `HomeScreen.tsx` tem 1.300 linhas: cada card num arquivo, antes da próxima rodada de
   cards.
@@ -3771,3 +3789,74 @@ ELYSIUM-M), Busca abrindo a lupa com o app fechado, Ações bloqueando o PC, Est
 números. Se o Estado ficar em "fora de alcance" com o PC ligado, é a rede (widget roda
 sem o scanner de endereços do app; usa o `activeIp` gravado). `expo export` OK; o APK é
 quem valida o plugin nativo.
+
+### Bloco 74 — celular: movimento afinado ✅
+
+Pequeno, de propósito: `ENTRA` (entrada de item de lista, usado pelos cards da Início)
+passou de `FadeIn` para `FadeInDown` com 8 px — o mesmo `mov-entra` do desktop; a troca
+de tela (`TelaAnimada`) ganhou escala 0,985 → 1 junto com o deslocamento; os cartões da
+aba Rotinas entram escalonados (30 ms cada). A escala 120/220/140 ms continua a única.
+
+### Bloco 75 — instalador 1.2.0 e APK versionCode 11 ✅
+
+**Gerados em 18/09/2026:**
+
+| artefato | onde | como instalar |
+|---|---|---|
+| Desktop **1.2.0** | `elysium/release/ELYSIUM-Setup-1.2.0.exe` (79,3 MB) | Rodar. O `app.asar` foi conferido por dentro (`iniciarRotinas`, `climaFalado`, `notify.pending`, `uptime_sec`, `app:version`, `abrirGaveta`, `carregarRotinas`, `bg-aurora`, `nav-busca`) |
+| Celular **1.2.0**, `versionCode` 11 | `elysium-m/dist-apk/elysium-m.apk` (114,6 MB) | `adb install -r` ou copiar pro celular. Mesma chave (`CN=NeuroAxis Portal`); instala por cima sem perder o pareamento. Conferido por dentro: `versionCode=11`, receivers `widget.Busca/Acoes/Estado`, assinado `CN=NeuroAxis Portal` (SHA-256 `3b49374d…`). **Fingerprint novo** (três módulos nativos: `expo-background-task`, `expo-task-manager`, `react-native-android-widget`) — OTA não alcança o APK anterior |
+
+### Fim da fase 8 — o que foi entregue, e o que só o Zak consegue validar
+
+Os dez pedidos de 18/09, um a um:
+
+| # | pedido | onde ficou |
+|---|---|---|
+| 1 | Início cheia | bloco 67 — relógio, clima com 6 horas, 7 cards novos (13 na ordem de fábrica) |
+| 2 | Ajustes em gavetas | bloco 65 — hub de 10 azulejos + gaveta |
+| 3 | lupa na barra | bloco 64 — `#nav-busca`, sempre à vista, abre a paleta |
+| 4 | Programas útil / tudo do mobile | bloco 66 — aba PC com vitais, mídia e 8 painéis |
+| 5 | temas do celular | bloco 70 — ELYSIUM blur ≤ 10, Vidro Líquido com aresta e lente |
+| 6 | animações + mais abas/funções | blocos 69 e 74; abas novas: Rotinas nos dois lados |
+| 7 | widgets Android | bloco 73 — Busca, Ações, Estado |
+| 8 | notificações de tarefas automatizadas | blocos 68 (rotinas + fila) e 72 (notificações locais, segundo plano, lembretes espelhados) |
+| 9 | fundo vivo | blocos 69 (PC) e 71 (celular) |
+| 10 | sugestões minhas | ação `weather` (o cérebro não sabia o clima), card Timer com lembrete real, notas rápidas, seção Sobre, `clima.ts` com sensação/vento/umidade/amanhã |
+
+**Verificado nesta fase sem o Zak:** `tsc` nos dois repos a cada bloco; `expo export` três
+vezes; desktop em execução com captura de tela de cada mudança (nav, hub e gaveta de
+Ajustes nos dois temas, aba PC, painéis de processos/lembretes/programas, Início inteira
+em dois temas, aba Rotinas e formulário); criar/rodar rotina de ponta a ponta com a
+resposta real do clima e a entrega na fila; timer criando e cancelando lembrete; notas
+gravando na config; fundo em movimento medido entre duas capturas.
+
+**Só o Zak consegue (sem aparelho no `adb`):**
+
+- [ ] Instalar os dois (o desktop **não está rodando agora**; o instalador sobe).
+- [ ] Celular: os temas — ELYSIUM sem "zoado" (blur quase zero), Vidro Líquido com
+      aresta/lente. Se o Vidro parecer leitoso demais, baixar `lente` de 0,22 em
+      `GlassSurface.tsx`; se a noite parecer chapada demais, `BLUR_TETO_NOITE` 10 → 16.
+- [ ] Celular: o fundo em movimento sem engasgar a rolagem da Início (suspeito nº 1 se
+      engasgar: a aurora de 1400 px em `AppBackground.tsx`).
+- [ ] Celular: aba Rotinas → interruptor "Avisar neste celular" liga e o Android pede a
+      permissão; criar "Estado do PC" para daqui a 5 min, fechar o app, esperar até 20 min
+      na mesma rede → notificação chega.
+- [ ] Celular: lembrete criado no PC toca no celular com o Wi-Fi desligado (espelho local).
+- [ ] Celular: widgets — toque longo na tela inicial → ELYSIUM-M → os três; Busca abre a
+      lupa com o app fechado; Ações → Bloquear bloqueia o PC; Estado mostra CPU/RAM.
+- [ ] Desktop: lupa da barra (clicar e digitar direto), Ajustes → cada azulejo, PC → cada
+      painel, Rotinas → criar e "rodar agora", Início → timer e notas.
+- [ ] Desktop: dizer "como está o tempo" — resposta falada com o clima real.
+
+**Ideias que ficaram** (§16 continua valendo para o resto):
+
+- Rotinas com condição ("se o PC estiver ligado às 23h, desliga") — o serviço já tem o
+  lugar (`executarRotina`), falta a gramática.
+- Widget de Rotinas (próxima rotina e último resultado) e widget de Clima — a lib já está
+  no APK, é só mais duas árvores em `widgets.tsx`.
+- Push pela Expo de verdade (FCM no projeto EAS): o código já manda; com credencial,
+  a fila vira só o fallback.
+- Volume com leitura real no desktop (`volume.set` numérico é por SendKeys; sem getter
+  não há slider honesto).
+- `dashboard.html` passou de 7.000 linhas: separar CSS e JS em arquivos próprios antes da
+  próxima fase grande.
