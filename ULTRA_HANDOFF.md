@@ -3742,3 +3742,32 @@ fechado ~20 min com uma rotina "Estado do PC" marcada para daqui a 5 min, mesma 
 lembrete tocar com o Wi-Fi desligado (espelho local); nenhuma duplicata com o app aberto.
 Dependências nativas novas → **APK novo obrigatório** (fingerprint muda; OTA não alcança).
 `expo export` OK (3,4 MB).
+
+### Bloco 73 — widgets do Android ✅ (código; validação só no aparelho)
+
+Pedido 7, com `react-native-android-widget` 0.22.1 (C19 da §16 — a mesma lib que o
+Antigravity tentou; o que faltava era o handler ler o PC por RPC e o deep link ter destino).
+Widget do Android não é React Native: é uma árvore de `FlexWidget`/`TextWidget` desenhada
+num bitmap, sem estado. Três widgets, declarados no plugin em `app.json`:
+
+| widget | célula | o quê |
+|---|---|---|
+| **Busca** | 4×1 | pílula "Buscar ou comandar…" → `elysium://busca` (abre a lupa da Início) e botão "Chat" → `elysium://chat` |
+| **Ações** | 4×1 | Bloquear · Print · Play · Mudo, por RPC **sem abrir o app** (`WIDGET_CLICK` → `executarAcao` no handler); o resultado aparece embaixo por 6 s |
+| **Estado** | 2×2 | PC ligado/fora de alcance, CPU, RAM, "ligado há"; atualiza a cada 30 min pelo Android (`updatePeriodMillis`) e toda vez que o app volta ao primeiro plano (`atualizarWidgetEstado`); toque → `elysium://pc` |
+
+Arquivos: `src/widgets/widgets.tsx` (as três árvores), `handler.tsx`
+(`registerWidgetTaskHandler`, importado no `index.ts` antes do App — o Android pode
+acordar o processo só para redesenhar), `tema.ts` (paleta lida do `AsyncStorage` com as
+mesmas chaves do `ThemeProvider`, para o widget ter a cara do tema). `src/lib/deepLinks.ts`
+(`useDeepLinks`: `busca|chat|pc|rotinas`, tratando URL inicial e evento); `HomeScreen`
+ganhou `pedidoBusca` (contador que abre a `BuscaPanel`).
+
+Decisão: o "Bloquear" do widget vai com `confirmed: true` (sem biometria) — bloquear é
+proteção, não risco. Print/play/mudo não são destrutivos.
+
+⚠️ **Só o Zak valida:** adicionar os três na tela inicial (toque longo → widgets →
+ELYSIUM-M), Busca abrindo a lupa com o app fechado, Ações bloqueando o PC, Estado com
+números. Se o Estado ficar em "fora de alcance" com o PC ligado, é a rede (widget roda
+sem o scanner de endereços do app; usa o `activeIp` gravado). `expo export` OK; o APK é
+quem valida o plugin nativo.
