@@ -35,6 +35,7 @@
 | 23 | [Fase 6 — o movimento saiu da thread de JS](#23-fase-6--o-movimento-saiu-da-thread-de-js-bloco-51) |
 | 24 | [Fase 7 — depois do Antigravity: triagem e polimento](#24-fase-7--depois-do-antigravity-triagem-e-o-polimento-dos-dois-lados-blocos-55) |
 | 25 | [Fase 8 — Início cheia, Ajustes em gavetas, temas do celular e rotinas](#25-fase-8--a-início-cheia-ajustes-em-gavetas-temas-do-celular-e-rotinas-blocos-64) |
+| 26 | [O plano do que falta — fases 9, 10 e 11](#26-o-plano-do-que-falta--fases-9-10-e-11-blocos-76) |
 
 ---
 
@@ -3860,3 +3861,216 @@ gravando na config; fundo em movimento medido entre duas capturas.
   não há slider honesto).
 - `dashboard.html` passou de 7.000 linhas: separar CSS e JS em arquivos próprios antes da
   próxima fase grande.
+
+---
+
+## 26. O plano do que falta — fases 9, 10 e 11 (blocos 76+)
+
+> **Contexto.** Em 18/09/2026 o Zak instalou 1.2.0 + APK vc11 e deu o veredito: *"tá tudo
+> funcional agora"*. Pediu o plano de **tudo que falta, na minha opinião**. Este é ele. A
+> ordem é a que eu executaria: primeiro o que muda o produto (o cérebro), depois o que impede
+> o produto de quebrar (estrutura e testes), depois a experiência diária, depois o que só faz
+> sentido com o resto de pé. Cada item já diz onde vive no código e como se prova.
+>
+> **Critério de ordenação:** valor para o uso diário do Zak ÷ risco de regressão. Nada aqui é
+> "bonito de ter" sem um cenário concreto de uso; o que era só ideia ficou no §16.
+
+### Visão geral
+
+| fase | tema | blocos | o que muda para quem usa |
+|---|---|---|---|
+| **9** | o cérebro com ferramentas + a base que aguenta | 76–83 | "fecha tudo menos o VS Code" funciona; rotinas com condição; nada quebra em silêncio |
+| **10** | a experiência diária | 84–93 | chat do desktop de verdade; voz melhor nos dois lados; volume real; widgets novos |
+| **11** | fora de casa e para sempre | 94–99 | push real; auto-update; backup; diagnóstico; segurança revisada |
+
+---
+
+### Fase 9 — o cérebro com ferramentas, e a base que aguenta (blocos 76–83)
+
+#### Bloco 76 — `dashboard.html` em arquivos (dívida que trava todo o resto)
+São 7.400 linhas num arquivo: CSS, markup e JS. Cada bloco novo hoje é um `edit` cego, e
+foi assim que três scripts de patch falharam pela metade na fase 8. Sem bundler, sem build
+novo: `<link>` e `<script>` na ordem certa.
+
+- `src/renderer/dashboard/` com `base.css`, `temas.css`, `inicio.css`, `pc.css`,
+  `rotinas.css`, `ajustes.css`, `chat.css`, `paleta.css`; e `js/` com `nucleo.js` (estado,
+  helpers, ícones), `temas.js`, `chat.js`, `inicio.js`, `pc.js`, `rotinas.js`, `ajustes.js`,
+  `paleta.js`, `gaveta.js`. `dashboard.html` fica com o markup e as tags.
+- `copy-assets.mjs` copia a pasta. A ordem dos scripts substitui o hoisting que o arquivo
+  único dava de graça — **é o único risco**: função usada antes de definida. Lista de
+  dependências entre módulos no topo de cada arquivo.
+- Prova: `scripts/shot.mjs` nas 5 abas + paleta + gaveta, comparado pixel a pixel com
+  capturas de antes (`crop.mjs` já existe no scratchpad — vira `scripts/diff-shot.mjs`).
+
+#### Bloco 77 — testes onde há lógica pura
+Zero testes automatizados hoje; `bench-router.mjs` tem 2 casos. `vitest` nos dois repos:
+- desktop: `fastRoute` (cada padrão, e os falsos positivos que NÃO podem casar), `rotinas`
+  (`proximoDisparo` com dias/hora/virada de semana, poda da fila, `ultimaExecucao`),
+  `clima` (parse da Open-Meteo com fixture, `climaFalado`), `agruparCatalogo`,
+  `parseRouterJson` do `brain.ts`, `sanearBom`.
+- celular: `destinoDaUrl`, `parseSharedUrl`, `resolverFamiliaEscolhida`, o scoring da
+  `BuscaPanel` (extrair `pontuar` para `lib/busca.ts`), `notificacoes` (dedupe por id,
+  espelho de lembretes — com `expo-notifications` mockado).
+- `npm run check` = `tsc` + `vitest` (+ `expo export` no celular). Vira o passo antes de
+  todo commit da regra 1 da §3.
+
+#### Bloco 78 — tool-use: o cérebro chama os RPC como ferramentas ★ o salto
+Hoje `decideBrain` devolve UMA lista fechada de ações sem olhar o estado do PC — por isso
+"como está o tempo" virou "não tenho acesso" até o bloco 68 costurar `weather` à mão, e por
+isso "fecha o que estiver aberto que não seja o VS Code" é impossível. A superfície RPC tem
+60 métodos determinísticos e validados: **são ferramentas prontas.**
+
+- `rpc.ts`: `descreverFerramentas()` gera do `METHODS` a lista no formato OpenAI/Ollama
+  (`name`, `description`, `parameters` JSON Schema). As descrições entram no próprio
+  `MethodDef` (`descricao`, `params`), uma linha por método — a §9 do handoff é a fonte.
+- `llm.ts`: `chatComFerramentas(pedido)` — Ollama (`/api/chat` com `tools`, llama3.1:8b
+  suporta) e Groq (`tools` + `tool_choice:"auto"`, gpt-oss suporta). Laço: até 4 chamadas
+  por turno; cada resultado volta como mensagem `tool`; a última resposta em texto é a
+  fala. Streaming continua valendo para a resposta final (`onToken`).
+- `brain.ts`: `decideBrain` passa a ser o **fallback** (Ollama sem tools, JSON quebrado);
+  a rota principal é o laço de ferramentas. `fastRoute` continua na frente: barato e certo.
+- **Segurança, sem exceção:** métodos `destructive` exigem confirmação como hoje — no
+  desktop, o diálogo do `rpcBridge`; no celular, biometria. O modelo pode *pedir*
+  `power.control`, não executar. `input.*` (mouse/teclado) fica **fora** da lista de
+  ferramentas: nada de modelo mexendo no mouse. Teto de 4 chamadas e 30 s por turno.
+- Prova: `bench-cases.json` ganha 15 casos compostos e condicionais ("se o Chrome estiver
+  aberto, fecha", "quanto de RAM e quem está usando", "abre o Spotify e toca lo-fi") — a
+  bancada mede acerto antes/depois nos dois provedores.
+
+#### Bloco 79 — rotinas com gatilho e condição
+O `rotinas.ts` só sabe hora + dias. Com o bloco 78, a condição pode ser em português.
+- `gatilho`: `{tipo:"hora"}` (o de hoje) | `{tipo:"evento", nome}` com eventos que o
+  main já emite ou passa a emitir: `celular.conectou` (WS), `pc.ocioso` (X min sem
+  input — `powerMonitor` do Electron), `pc.voltou` (resume), `app.abriu`/`app.fechou`
+  (diff do `apps.running` a cada tique), `cpu.alta`/`ram.alta` (do `startMonitor`,
+  sustentado por N min).
+- `condicao?: string` — texto que o cérebro avalia com ferramentas ("se estiver chovendo
+  amanhã", "se o Spotify estiver aberto") e devolve sim/não antes de executar.
+- Aba Rotinas nos dois lados ganha o seletor de gatilho e o campo de condição; card da
+  Início mostra "quando o celular conectar".
+- Prova: forjar `dash:telemetria` com RAM 95% por 5 tiques e ver a rotina disparar uma
+  vez só; `pc.ocioso` com `powerMonitor.getSystemIdleTime` simulado.
+
+#### Bloco 80 — memória que o cérebro usa, e histórico que não estoura
+- `memory.list/add/remove` viram ferramentas (bloco 78): "lembra que meu carro é um
+  Civic" deixa de ser padrão de regex e vira decisão do modelo em contexto.
+- **Resumo do histórico**: quando a conversa passa de `chatHistoryTurns`, os turnos
+  velhos viram um parágrafo de resumo (uma chamada barata ao modelo) em vez de serem
+  cortados — o "e onde ele nasceu?" continua funcionando 20 turnos depois.
+- Prova: conversa de 30 turnos com referência ao 1º; `tsc`; teste do compactador.
+
+#### Bloco 81 — `HomeScreen.tsx` em arquivos
+1.300 linhas. `src/screens/inicio/` com um card por arquivo e o `catalogo.ts` que a
+`BuscaPanel` e a Início compartilham. Sem mudança visual — prova é `expo export` + o
+Zak abrir a Início e não notar nada.
+
+#### Bloco 82 — o roteador local mais forte (medição, não fé)
+`llama3.1:8b` acertou 5/5 nos casos difíceis do bloco 20/08. Com tools o custo do prompt
+muda. Rodar a bancada com `qwen2.5:7b` e `llama3.2:3b` (mais rápido no boot a frio) e
+gravar na §7 qual fica. Só troca o padrão se ganhar nos 15 casos novos **e** no tempo.
+
+#### Bloco 83 — fechamento da fase 9
+Instalador + APK, checklist, §26 atualizado. Como sempre.
+
+---
+
+### Fase 10 — a experiência diária (blocos 84–93)
+
+#### Bloco 84 — o chat do desktop, de verdade
+É a aba menos tocada desde o bloco 18. O que falta para ser o lugar onde se conversa:
+- **Markdown nas bolhas** — negrito, listas, código com botão copiar. Sem biblioteca (a
+  regra do dashboard): um renderizador mínimo de ~80 linhas, com `escHtml` antes.
+- **Anexos**: arrastar imagem para a janela → `vision.ask`; arrastar `.txt/.md` → vai no
+  prompt. O `mailbox` já sabe guardar anexo.
+- **Conversas como coluna** (recolhível), não popover; busca dentro da conversa (Ctrl+F).
+- **Regenerar** a última resposta e **editar** a última pergunta.
+- Prova: captura das bolhas com código e lista; arrastar um PNG e receber a descrição.
+
+#### Bloco 85 — voz do PC no celular
+O celular fala com `expo-speech` (voz do Android, pior que a Antonio neural). O PC já
+sintetiza MP3: endpoint `GET /api/tts?text=` (token, 24 kHz) e o app toca com `expo-audio`.
+Cache das 20 últimas falas no PC. Prova: mesma frase nos dois, soar igual.
+
+#### Bloco 86 — volume real no desktop
+`volume.set` numérico é 50 `SendKeys`. Sem getter, não há slider honesto (aba PC e card
+"Tocando" sofrem). PowerShell `Add-Type` com a interface `IAudioEndpointVolume` (CoreAudio)
+dá get/set direto. Novo `volume.get`; slider no PC e no celular. Prova: setar 37, ler 37.
+
+#### Bloco 87 — janelas no painel PC
+`window_management` existe como ação de voz e não tem tela. Painel "Janelas" na aba PC
+(desktop e celular): a lista do `apps.running` (que já tem `title`) com focar / minimizar
+/ fechar / "só esta" (minimiza as outras). RPC `window.control`. Prova: focar o Chrome
+pela lista.
+
+#### Bloco 88 — wake word ("Elysium, …") — spike de 1 dia, depois decide
+O único item "fora de escopo" original que ainda vale. Opções, medidas antes de escolher:
+(a) **Porcupine** (Picovoice, SDK Node, chave gratuita pessoal, palavra treinada no site) —
+menor CPU, precisa de chave; (b) **openWakeWord** via ONNX Runtime no Node — sem chave,
+modelos genéricos ("hey Jarvis"), CPU ~2%; (c) VAD + Whisper local só quando há fala —
+mais pesado, sem palavra fixa. O spike mede CPU em repouso e falsos positivos em 1 h de
+música. Entra em `recorder.html` como fonte de disparo ao lado do atalho.
+
+#### Bloco 89 — mão livre no celular
+Toque no mic → grava → responde → **volta a ouvir** até dizer "chega" ou 20 s de silêncio.
+VAD no aparelho (`expo-audio` com medição de nível, o mesmo do bloco 5 do desktop). Junto
+com o bloco 85, vira conversa de verdade no celular.
+
+#### Bloco 90 — widgets de Clima e de Rotinas
+Duas árvores a mais em `widgets.tsx`: Clima (temperatura, ícone, próximas 3 h — do
+`weather.now`) e Rotinas (próxima rotina + último resultado). `updatePeriodMillis` 30 min
++ atualização ao voltar ao app, como o Estado.
+
+#### Bloco 91 — Ajustes do celular à altura do desktop
+Hub de azulejos como o do bloco 65: Aparência, Notificações (canal, som, "só rotinas"),
+Sincronização (o que espelha), Pareamento, Sobre (versão, fingerprint, último sync,
+diagnóstico). Hoje é uma lista corrida.
+
+#### Bloco 92 — sobras da fase 7
+Busca na Caixa (recados); skeletons de vidro na Início no 1º carregamento; subir os
+`GlassModal` da aba PC e da busca para o `App.tsx` (saída animada com a TabBar
+reaparecendo).
+
+#### Bloco 93 — fechamento da fase 10
+
+---
+
+### Fase 11 — fora de casa e para sempre (blocos 94–99)
+
+#### Bloco 94 — push de verdade (precisa do Zak)
+O código manda pela Expo desde a fase 3; nunca funcionou por falta de credencial FCM.
+Passos do Zak: projeto no Firebase → `google-services.json` na raiz do `elysium-m` →
+`eas credentials` → FCM V1 service account. Depois: a fila e o segundo plano viram
+fallback; notificação chega no 4G em segundos. Prova: rotina com o celular no 4G.
+
+#### Bloco 95 — auto-update do desktop e "há versão nova" no celular
+`electron-updater` com releases no GitHub (`ZakWegues/elysium`): o app avisa e instala
+sozinho, `release/` deixa de ser o canal. No celular, `GET` no release mais novo de
+`elysium-m` → banner "1.3.0 disponível" → baixa o APK. Prova: publicar 1.2.1 e ver os
+dois avisarem.
+
+#### Bloco 96 — exportar e importar tudo
+Memória, rotinas, presets, lembretes, conversas, notas, configuração (sem chaves) → um
+`.json` em Ajustes → Sistema; importar no PC novo. É o seguro contra formatar o PC.
+
+#### Bloco 97 — diagnóstico
+Log estruturado no `userData` (rotativo, 7 dias, sem a API key nunca); botão "Copiar
+diagnóstico" em Sobre nos dois lados (versão, endpoints, último erro, últimas 50 linhas).
+Metade das sessões deste handoff começou reconstruindo o que o log diria.
+
+#### Bloco 98 — revisão de segurança da fase 9
+Tool-use é superfície nova: revisar que nenhum método destrutivo passa sem confirmação,
+que `input.*` está fora, que o `X-Elysium-Confirm` do celular não vaza para o laço de
+ferramentas, e que rotinas com condição não conseguem executar `power.control` sem a
+rotina ter sido criada pelo dono. Token: rotação com aviso, e lista de aparelhos pareados
+com "esquecer este".
+
+#### Bloco 99 — fechamento
+
+---
+
+### O que eu NÃO faria (e por quê)
+- **Outros provedores de IA** — cancelado na §16, continua cancelado.
+- **iOS** — sem Mac e sem conta; o código não impede, o custo não compensa hoje.
+- **Relay em nuvem próprio** — o túnel resolve fora de casa; o push (bloco 94) resolve o
+  resto. Um relay é um servidor para manter para sempre.
+- **Mais abas** — cinco no desktop e quatro no celular é o teto antes de virar menu.
