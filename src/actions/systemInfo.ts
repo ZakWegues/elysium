@@ -262,11 +262,19 @@ export interface DashboardTelemetry extends SystemTelemetry {
   cpu_temp:  number | null;
   disks:     DiskEntry[];
   processes: ProcessEntry[];
+  /** Segundos desde o último boot — a aba PC mostra "ligado há 3 h". */
+  uptime_sec: number;
+  /** RAM total e em uso, em GB; o percentual sozinho não diz quanto sobra. */
+  ram_total_gb: number;
+  ram_used_gb:  number;
 }
 
 const DASH_TELEMETRY_SCRIPT = `
 $mem    = Get-CimInstance Win32_OperatingSystem
 $ramPct = [math]::Round(($mem.TotalVisibleMemorySize - $mem.FreePhysicalMemory) / $mem.TotalVisibleMemorySize * 100, 1)
+$ramTot = [math]::Round($mem.TotalVisibleMemorySize / 1MB, 1)
+$ramUsd = [math]::Round(($mem.TotalVisibleMemorySize - $mem.FreePhysicalMemory) / 1MB, 1)
+$uptime = [int]((Get-Date) - $mem.LastBootUpTime).TotalSeconds
 $cpu    = [int](Get-WmiObject Win32_Processor | Measure-Object LoadPercentage -Average).Average
 $bat    = Get-WmiObject Win32_Battery
 $batPct     = if ($bat) { [int]$bat.EstimatedChargeRemaining } else { -1 }
@@ -306,7 +314,7 @@ if ($procs.Count -eq 0) {
 
 @{
   cpu=$cpu; ram=$ramPct; battery=$batPct; charging=$charging; temp=$tempC
-  disks=$disks; processes=$procs
+  disks=$disks; processes=$procs; uptime=$uptime; ramTotal=$ramTot; ramUsed=$ramUsd
 } | ConvertTo-Json -Compress -Depth 4
 `;
 
@@ -316,11 +324,13 @@ export async function getDashboardTelemetry(): Promise<DashboardTelemetry> {
     timestamp: Date.now(), cpu_pct: 0, ram_pct: 0,
     battery_pct: null, battery_charging: false,
     cpu_temp: null, disks: [], processes: [],
+    uptime_sec: 0, ram_total_gb: 0, ram_used_gb: 0,
   };
   try {
     const p = JSON.parse(raw) as {
       cpu: number; ram: number; battery: number; charging: boolean;
       temp: number | null; disks: DiskEntry[]; processes: ProcessEntry[];
+      uptime?: number; ramTotal?: number; ramUsed?: number;
     };
     return {
       timestamp:        Date.now(),
@@ -331,6 +341,9 @@ export async function getDashboardTelemetry(): Promise<DashboardTelemetry> {
       cpu_temp:         p.temp     ?? null,
       disks:            Array.isArray(p.disks)     ? p.disks     : [],
       processes:        Array.isArray(p.processes) ? p.processes : [],
+      uptime_sec:       p.uptime   ?? 0,
+      ram_total_gb:     p.ramTotal ?? 0,
+      ram_used_gb:      p.ramUsed  ?? 0,
     };
   } catch { return fallback; }
 }

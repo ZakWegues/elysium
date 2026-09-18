@@ -3528,3 +3528,30 @@ seção **Sobre** (versão via IPC novo `app:version`, porta, endereços, caminh
 atalhos); campos de formulário brancos no tema claro (o `select` de Animações era um bloco
 cinza-chumbo). Verificado: abrir/fechar cada gaveta, QR presente na gaveta e de volta no
 popover, tema ELYSIUM e Vidro.
+
+### Bloco 66 — Programas vira PC, com os painéis do celular ✅
+
+A aba `programas` virou `pc` (`#view-pc`; a aba salva em `localStorage` com o nome antigo é
+traduzida). É a terceira encarnação: nasceu "PC" com gráficos inúteis (bloco 35 tirou),
+virou "Programas", e agora é "PC" com **o que o celular tem** (pedido 4):
+
+| faixa | o quê |
+|---|---|
+| **Sinais vitais** (4 azulejos, sempre à vista) | CPU com faísca (SVG dos últimos 40 pulsos de `dash:telemetry`, guardados mesmo fora da aba), RAM com "8,6 de 15,9 GB", disco C com barra, "ligado há 29 min" |
+| **Mídia e volume** (faixa sempre à vista) | capa/faixa do Spotify se houver, teclas de mídia do sistema, mudo/−/+ e presets 25/50/75/100 (`volume.set` numérico; não há leitura de volume, por isso chips e não slider) |
+| **Grade de 8 painéis** → gaveta | Programas (abertos + abrir com busca), Processos (top 15 por CPU ou RAM, filtro, encerrar), Energia (6 ações + "desligar daqui a 15/30/60/120 min" via `delaySeconds`), Área de transferência (ler, escrever no PC, mandar pro celular, limpar), Lembretes (lista, cancelar, criar com data/hora/semanal), Memória (fatos, esquecer, guardar), Presets (rodar, apagar), Rede e celular (IPs por interface com "túnel", porta, abrir o QR, mandar "oi") |
+
+`system.telemetry` ganhou `uptime_sec`, `ram_total_gb`, `ram_used_gb` (mesmo script
+PowerShell, três linhas a mais). Cada painel é um objeto em `PAINEIS_PC` com
+`render(filtro)`, `clique(e)`, `input(e)`, `submit(e)` e `resumo()`; os ouvintes são
+delegados em `#gaveta-corpo` e roteados pelo `painelPcAberto`.
+
+**A gaveta virou genérica** (`abrirGaveta({titulo, icone, nos?, html?, aoAbrir?, aoFechar?,
+classe?})` / `fecharGaveta()`), filha do `#layout`, e Ajustes passou a ser cliente dela
+(`abrirSecao` só move os `nos`). Armadilha que apareceu: abrir um painel com outro aberto
+roda o `aoFechar` do anterior **depois** de o novo id ter sido gravado — por isso
+`painelPcAberto` é gravado depois do `abrirGaveta` e o `aoFechar` só zera se ainda for o
+dono. `%` de CPU de processo vem somado por núcleo (121%) e é mostrado com teto de 100.
+
+Verificado no app: os 4 vitais com valores reais, faísca crescendo, os 8 painéis
+renderizando, criar e cancelar lembrete pelo formulário, filtro de processos.

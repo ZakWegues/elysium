@@ -228,7 +228,7 @@ body.theme-ely {
    navegação, onde o que importa é ver o indicador percorrer o caminho. */
 #layout > #view-inicio,
 #layout > #center,
-#layout > #view-programas,
+#layout > #view-pc,
 #layout > #drawer-right {
   transition: opacity var(--mov-base) var(--mov-suave),
               transform var(--mov-base) var(--mov-suave),
@@ -237,7 +237,7 @@ body.theme-ely {
 @starting-style {
   #layout[data-view="inicio"]    #view-inicio,
   #layout[data-view="chat"]      #center,
-  #layout[data-view="programas"] #view-programas,
+  #layout[data-view="pc"] #view-pc,
   #layout[data-view="ajustes"]   #drawer-right { opacity: 0; transform: translateY(10px); }
 }
 
@@ -1351,7 +1351,8 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
    claro virava um bloco cinza-chumbo (o select de Animações era o mais feio). */
 .theme-lg #cmd-input, .theme-lg #shortcut-input, .theme-lg #apikey-input, .theme-lg #proc-search,
 .theme-lg .cfg-controle input[type="text"], .theme-lg .cfg-controle input[type="password"],
-.theme-lg .cfg-controle select, .theme-lg #clima-busca, .theme-lg #prog-busca, .theme-lg .campo-claro {
+.theme-lg .cfg-controle select, .theme-lg #clima-busca, .theme-lg .gp-busca, .theme-lg .gp-texto,
+.theme-lg .gp-form input, .theme-lg .gp-form select, .theme-lg .lembrete-novo input, .theme-lg .clip-caixa {
   background: rgba(255,255,255,0.9); border-color: var(--border); color: var(--text);
   box-shadow: inset 0 1px 2px rgba(17,17,26,0.04);
 }
@@ -1472,7 +1473,7 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
 #layout[data-view] #drawer-right,
 #layout[data-view] #center,
 #layout[data-view] #view-inicio,
-#layout[data-view] #view-programas { display: none; opacity: 0; transform: translateY(-6px); }
+#layout[data-view] #view-pc { display: none; opacity: 0; transform: translateY(-6px); }
 
 /* Os painéis se SOBREPÕEM, não dividem espaço.
    Enquanto a troca acontece, o que sai e o que entra estão os dois visíveis por ~220ms —
@@ -1481,7 +1482,7 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
    simplesmente atravessa o outro, que é o que se quer ver. */
 #layout[data-view] > #view-inicio,
 #layout[data-view] > #center,
-#layout[data-view] > #view-programas,
+#layout[data-view] > #view-pc,
 #layout[data-view] > #drawer-right {
   position: absolute; inset: 0; min-width: 0;
 }
@@ -1490,7 +1491,7 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
 #layout[data-view="chat"] > #center { top: 52px; }
 #layout[data-view="inicio"]  #view-inicio  { display: block; opacity: 1; transform: none; }
 #layout[data-view="chat"]    #center       { display: flex;  opacity: 1; transform: none; }
-#layout[data-view="programas"] #view-programas { display: grid; opacity: 1; transform: none; }
+#layout[data-view="pc"] #view-pc { display: block; opacity: 1; transform: none; }
 #layout[data-view="ajustes"] #drawer-right { display: flex;  opacity: 1; transform: none; }
 
 
@@ -1553,15 +1554,15 @@ body.tabs .top-btn.drawer-toggle { display: none; }
 .aj-azulejo-resumo { display: block; font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .aj-azulejo > .ico:last-child { color: var(--muted); flex-shrink: 0; opacity: 0.6; }
 
-#aj-veu {
+#gaveta-veu {
   position: absolute; inset: 0; z-index: 60;
   background: rgba(0,0,0,0.30);
   display: none; opacity: 0;
   transition: opacity var(--mov-base) linear, display var(--mov-base) allow-discrete;
 }
-#aj-veu.aberto { display: block; opacity: 1; }
-@starting-style { #aj-veu.aberto { opacity: 0; } }
-#aj-gaveta {
+#gaveta-veu.aberto { display: block; opacity: 1; }
+@starting-style { #gaveta-veu.aberto { opacity: 0; } }
+#gaveta {
   position: absolute; top: 0; right: 0; bottom: 0;
   width: min(520px, 92%);
   display: flex; flex-direction: column;
@@ -1571,38 +1572,38 @@ body.tabs .top-btn.drawer-toggle { display: none; }
   transform: translateX(0);
   transition: transform var(--mov-base) var(--mov-suave);
 }
-@starting-style { #aj-veu.aberto #aj-gaveta { transform: translateX(40px); } }
-#aj-veu:not(.aberto) #aj-gaveta { transform: translateX(40px); }
-.aj-gaveta-topo {
+@starting-style { #gaveta-veu.aberto #gaveta { transform: translateX(40px); } }
+#gaveta-veu:not(.aberto) #gaveta { transform: translateX(40px); }
+.gaveta-topo {
   display: flex; align-items: center; gap: 11px;
   padding: 16px 18px 12px; border-bottom: 1px solid var(--border);
 }
-.aj-gaveta-ico {
+.gaveta-ico {
   width: 32px; height: 32px; border-radius: 10px;
   display: flex; align-items: center; justify-content: center;
   background: rgba(var(--purple-rgb),0.16); color: var(--purple-bright);
 }
-.aj-gaveta-topo h3 { flex: 1; font-size: 15px; font-weight: 700; color: var(--text); }
-#aj-fechar {
+.gaveta-topo h3 { flex: 1; font-size: 15px; font-weight: 700; color: var(--text); }
+#gaveta-fechar {
   width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--border);
   background: none; color: var(--muted); cursor: pointer;
   display: flex; align-items: center; justify-content: center;
 }
-#aj-fechar:hover { background: rgba(var(--purple-rgb),0.16); color: var(--text); }
-#aj-corpo { flex: 1; overflow-y: auto; padding: 8px 18px 22px; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
-#aj-corpo::-webkit-scrollbar { width: 4px; }
-#aj-corpo::-webkit-scrollbar-thumb { background: var(--border); border-radius: var(--radius-4); }
+#gaveta-fechar:hover { background: rgba(var(--purple-rgb),0.16); color: var(--text); }
+#gaveta-corpo { flex: 1; overflow-y: auto; padding: 8px 18px 22px; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+#gaveta-corpo::-webkit-scrollbar { width: 4px; }
+#gaveta-corpo::-webkit-scrollbar-thumb { background: var(--border); border-radius: var(--radius-4); }
 /* Dentro da gaveta a grade rótulo/controle vira uma coluna: 520px não comportam as duas. */
-#aj-corpo .cfg-row { grid-template-columns: 1fr; gap: 8px; }
-#aj-corpo .cfg-grupo { margin-bottom: 8px; }
-#aj-corpo .cfg-grupo h3 { display: none; }
-#aj-corpo .cfg-controle input[type="text"], #aj-corpo .cfg-controle input[type="password"],
-#aj-corpo .cfg-controle select, #aj-corpo .cfg-faixa, #aj-corpo #clima-resultados { max-width: none; }
+#gaveta-corpo .cfg-row { grid-template-columns: 1fr; gap: 8px; }
+#gaveta-corpo .cfg-grupo { margin-bottom: 8px; }
+#gaveta-corpo .cfg-grupo h3 { display: none; }
+#gaveta-corpo .cfg-controle input[type="text"], #gaveta-corpo .cfg-controle input[type="password"],
+#gaveta-corpo .cfg-controle select, #gaveta-corpo .cfg-faixa, #gaveta-corpo #clima-resultados { max-width: none; }
 /* O pareamento, quando entra na gaveta, ganha espaço para o QR. */
-#aj-corpo #pairing-card { max-width: none; }
-#aj-corpo #pairing-qr { width: 200px; height: 200px; }
-/* O véu é filho direto do #drawer-right, que já é absoluto e ocupa a aba inteira. */
-#layout[data-view="ajustes"] #drawer-right { position: absolute; }
+#gaveta-corpo #pairing-card { max-width: none; }
+#gaveta-corpo #pairing-qr { width: 200px; height: 200px; }
+/* O véu é filho direto do #layout: cobre qualquer aba, abaixo da barra de navegação. */
+#gaveta-veu { z-index: 350; }
 
 /* Amostras de tema, agora em cartões: um retângulo com a cor de fundo do tema e as duas
    cores de destaque por cima, agrupados por família. Um nome ao lado de duas bolinhas
@@ -1716,58 +1717,139 @@ body.tabs .top-btn.drawer-toggle { display: none; }
 #conv-btn:hover { background: rgba(var(--purple-rgb),0.16); color: var(--purple-bright); }
 /* `position` da faixa esta no bloco dela, la em cima. Aqui so o que e do popover. */
 
-/* ── ABA PROGRAMAS ────────────────────────────────────────
-   Duas colunas: o que se abre e fecha à esquerda, o que se aciona à direita. Sem
-   gráfico, porque gráfico aqui não leva a lugar nenhum. */
-#view-programas {
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 20px; align-content: start;
-  overflow-y: auto; padding: 20px 24px 28px;
+/* ── ABA PC ───────────────────────────────────────────────
+   Sinais vitais no topo (quatro azulejos com faísca), mídia e volume sempre à vista, e a
+   grade de painéis. Cada painel abre na gaveta genérica — a mesma de Ajustes. */
+#view-pc {
+  overflow-y: auto; padding: 18px 24px 28px;
   scrollbar-width: thin; scrollbar-color: var(--border) transparent;
 }
-#view-programas::-webkit-scrollbar { width: 4px; }
-#view-programas::-webkit-scrollbar-thumb { background: var(--border); border-radius: var(--radius-4); }
-.prog-col { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
-.prog-secao { display: flex; flex-direction: column; gap: 9px; }
-.prog-secao h3 {
-  font-size: 12px; font-weight: 600; color: var(--muted);
-  padding-bottom: 7px; border-bottom: 1px solid var(--border);
+#view-pc::-webkit-scrollbar { width: 4px; }
+#view-pc::-webkit-scrollbar-thumb { background: var(--border); border-radius: var(--radius-4); }
+.pc-topo { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
+.pc-topo h2 { font-size: 21px; font-weight: 700; color: var(--text); margin-bottom: 3px; }
+.pc-topo p { font-size: 12px; color: var(--muted); }
+#pc-reler {
+  display: flex; align-items: center; gap: 6px; flex-shrink: 0;
+  padding: 7px 13px; border-radius: var(--radius-20);
+  background: rgba(var(--purple-rgb),0.10); border: 1px solid var(--border);
+  color: var(--purple-bright); font-family: inherit; font-size: 11.5px; font-weight: 600; cursor: pointer;
 }
-#prog-busca {
-  padding: 8px 11px; border-radius: var(--radius-7); max-width: 300px;
+#pc-reler:hover { background: rgba(var(--purple-rgb),0.20); }
+#pc-reler.girando .ico { animation: prog-gira 1.1s linear infinite; }
+
+.pc-vitais { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; margin-bottom: 14px; }
+.vital {
+  position: relative; overflow: hidden; min-height: 92px;
+  padding: 12px 14px; border-radius: var(--radius-10);
+  background: var(--surface); border: 1px solid var(--border);
+  box-shadow: var(--shadow-card, none); backdrop-filter: var(--glass-blur);
+}
+.vital-rotulo { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; color: var(--muted); }
+.vital-valor { font-size: 24px; font-weight: 700; color: var(--text); margin-top: 4px; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.vital-valor small { font-size: 12px; font-weight: 600; color: var(--muted); margin-left: 4px; }
+.vital-sub { font-size: 10.5px; color: var(--muted); margin-top: 4px; }
+.vital-faisca { position: absolute; right: 0; bottom: 0; width: 55%; height: 44px; opacity: 0.9; pointer-events: none; }
+.vital-faisca path.area { fill: rgba(var(--purple-rgb),0.16); }
+.vital-faisca path.linha { fill: none; stroke: var(--purple-bright); stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; }
+.vital .home-bar { margin-top: 8px; }
+.vital.quente .vital-valor { color: var(--red); }
+
+.pc-midia {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  padding: 12px 16px; margin-bottom: 18px; border-radius: var(--radius-10);
+  background: var(--surface); border: 1px solid var(--border);
+  box-shadow: var(--shadow-card, none); backdrop-filter: var(--glass-blur);
+}
+.pc-midia .mus-ctrl { gap: 8px; }
+.pc-midia-agora { flex: 1; min-width: 160px; display: flex; align-items: center; gap: 10px; min-height: 34px; }
+.pc-midia-agora img { width: 34px; height: 34px; border-radius: 8px; object-fit: cover; }
+.pc-midia-agora .faixa { font-size: 12.5px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pc-midia-agora .artista { font-size: 10.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pc-midia-agora .vazio { font-size: 11.5px; color: var(--muted); }
+.pc-vol { display: flex; align-items: center; gap: 8px; min-width: 200px; color: var(--muted); }
+.pc-vol input[type="range"] { flex: 1; min-width: 0; accent-color: var(--purple); cursor: pointer; }
+.pc-vol span { font-size: 10.5px; min-width: 28px; text-align: right; font-variant-numeric: tabular-nums; }
+.pc-vol button { width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--border); background: none; color: var(--muted); cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.pc-vol button:hover { background: rgba(var(--purple-rgb),0.16); color: var(--text); }
+
+.pc-grade { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+.pc-grade .aj-azulejo-ico { background: rgba(var(--cyan-rgb),0.14); color: var(--cyan); }
+.aj-azulejo .pontinho { width: 7px; height: 7px; border-radius: 50%; background: var(--green); flex-shrink: 0; margin-right: 2px; }
+
+/* Conteúdo dos painéis dentro da gaveta. */
+.gaveta-pc .gp-secao { margin-bottom: 18px; }
+.gaveta-pc .gp-secao h4 { font-size: 11px; font-weight: 600; color: var(--muted); margin: 6px 0 8px; text-transform: uppercase; letter-spacing: 0.02em; }
+.gaveta-pc .gp-busca, .gaveta-pc .gp-texto {
+  width: 100%; padding: 9px 12px; border-radius: var(--radius-7); margin-bottom: 10px;
   background: rgba(0,0,0,0.2); border: 1px solid var(--border);
   color: var(--text); font-family: inherit; font-size: 12px; outline: none;
 }
-#prog-busca:focus { border-color: var(--purple); }
-
-.prog-abertos { display: flex; flex-wrap: wrap; gap: 7px; }
-.prog-aberto {
-  display: flex; align-items: center; gap: 4px;
-  padding: 6px 6px 6px 13px; border-radius: var(--radius-20);
-  background: rgba(var(--purple-rgb),0.12); border: 1px solid var(--border);
-  font-size: 11.5px; color: var(--text);
+.gaveta-pc .gp-busca:focus, .gaveta-pc .gp-texto:focus { border-color: var(--purple); }
+.gaveta-pc .gp-texto { min-height: 84px; resize: vertical; line-height: 1.5; }
+.gaveta-pc .pilulas { gap: 7px; }
+.gaveta-pc .pilula { padding: 7px 13px; font-size: 11.5px; }
+.gp-lista { display: flex; flex-direction: column; gap: 4px; }
+.gp-linha {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px; border-radius: var(--radius-8);
+  background: rgba(var(--purple-rgb),0.06); border: 1px solid transparent;
+  font-size: 12px; color: var(--text);
 }
-.prog-aberto button {
-  width: 20px; height: 20px; border-radius: 50%; border: none;
+.gp-linha:hover { border-color: var(--border); }
+.gp-linha .ico { color: var(--muted); flex-shrink: 0; }
+.gp-linha .gp-nome { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.gp-linha .gp-meta { font-size: 10.5px; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.gp-linha .gp-num { font-size: 11.5px; font-weight: 600; color: var(--purple-bright); min-width: 54px; text-align: right; font-variant-numeric: tabular-nums; }
+.gp-linha button {
+  width: 26px; height: 26px; border-radius: 50%; border: none; flex-shrink: 0;
   background: none; color: var(--muted); cursor: pointer;
   display: flex; align-items: center; justify-content: center;
 }
-.prog-aberto button:hover { background: rgba(224,82,82,0.2); color: var(--red); }
-#view-programas .pilulas { max-height: 46vh; overflow-y: auto; }
-#prog-busca { max-width: 360px; }
-.prog-secao h3 { display: flex; align-items: center; gap: 8px; }
-.prog-reler {
-  margin-left: auto; width: 22px; height: 22px; border-radius: 50%; border: none;
-  background: none; color: var(--muted); cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
+.gp-linha button:hover { background: rgba(224,82,82,0.18); color: var(--red); }
+.gp-linha button.ok:hover { background: rgba(var(--purple-rgb),0.2); color: var(--purple-bright); }
+.gp-form { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.gp-form input[type="text"] { flex-basis: 100%; }
+.gp-form input, .gp-form select {
+  padding: 8px 10px; border-radius: var(--radius-6);
+  background: rgba(0,0,0,0.18); border: 1px solid var(--border);
+  color: var(--text); font-family: inherit; font-size: 11.5px; outline: none;
 }
-.prog-reler:hover { background: rgba(var(--purple-rgb),0.14); color: var(--text); }
-/* O ícone gira enquanto o PC lista os processos — é o único sinal de que a aba não
-   está vazia por defeito, e some sozinho quando a lista chega. */
+.gp-form input[type="text"] { flex: 1; min-width: 0; }
+.gp-form input:focus, .gp-form select:focus { border-color: var(--purple); }
+.gp-form input[type="time"], .gp-form input[type="date"] { color-scheme: dark; }
+.theme-lg .gp-form input[type="time"], .theme-lg .gp-form input[type="date"], .theme-lg .lembrete-novo input[type="time"] { color-scheme: light; }
+.gp-form button {
+  padding: 0 12px; border-radius: var(--radius-6); border: 1px solid var(--border);
+  background: rgba(var(--purple-rgb),0.16); color: var(--purple-bright); cursor: pointer;
+  display: flex; align-items: center; gap: 5px; font-family: inherit; font-size: 11.5px; font-weight: 600;
+}
+.gp-form button:hover { background: rgba(var(--purple-rgb),0.26); }
+.gp-grade-botoes { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+.gp-grade-botoes button {
+  display: flex; align-items: center; gap: 9px; text-align: left;
+  padding: 12px 13px; border-radius: var(--radius-8);
+  background: rgba(var(--purple-rgb),0.09); border: 1px solid var(--border);
+  color: var(--text); font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+}
+.gp-grade-botoes button:hover { background: rgba(var(--purple-rgb),0.20); }
+.gp-grade-botoes button .ico { color: var(--purple-bright); }
+.gp-grade-botoes button.danger { background: rgba(224,82,82,0.10); }
+.gp-grade-botoes button.danger .ico { color: var(--red); }
+.gp-grade-botoes button.danger:hover { background: rgba(224,82,82,0.2); }
+.gp-grade-botoes button small { display: block; font-weight: 400; color: var(--muted); font-size: 10.5px; margin-top: 1px; }
+.gp-nota { font-size: 11px; color: var(--muted); line-height: 1.5; margin-top: 8px; }
+.gp-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 10px; }
+.gp-chips button { padding: 5px 10px; border-radius: var(--radius-20); border: 1px solid var(--border); background: rgba(var(--purple-rgb),0.08); color: var(--text); font-family: inherit; font-size: 11px; cursor: pointer; }
+.gp-chips button:hover, .gp-chips button.aceso { background: rgba(var(--purple-rgb),0.22); color: var(--purple-bright); }
+.gp-info { display: grid; grid-template-columns: 1fr; gap: 6px; }
+.gp-info div { display: flex; justify-content: space-between; gap: 12px; padding: 8px 10px; border-radius: var(--radius-7); background: rgba(var(--purple-rgb),0.06); font-size: 12px; }
+.gp-info div span:first-child { color: var(--muted); }
+.gp-info code { font-family: var(--mono); font-size: 11px; color: var(--cyan-dark, var(--cyan)); }
 .prog-procurando { display: flex; align-items: center; gap: 7px; font-style: normal; }
 .prog-procurando .ico { animation: prog-gira 1.1s linear infinite; }
 @keyframes prog-gira { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .prog-procurando .ico { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .prog-procurando .ico, #pc-reler.girando .ico { animation: none; } }
 .mus-sep { width: 1px; height: 22px; background: var(--border); margin: 0 4px; }
 
 /* ── PRESETS: bolinha e popover ───────────────────────────
@@ -2487,7 +2569,7 @@ body.redimensionando, body.redimensionando * { user-select: none !important; cur
 <nav id="viewtabs" role="tablist" aria-label="Seções">
   <button class="vtab active" data-view="inicio"  role="tab" aria-selected="true"><span class="vtab-ico"><svg class="ico" aria-hidden="true"><use href="#i-home"/></svg></span><span class="vtab-label">Início</span><span class="vtab-dot"></span></button>
   <button class="vtab"        data-view="chat"    role="tab" aria-selected="false"><span class="vtab-ico"><svg class="ico" aria-hidden="true"><use href="#i-message-circle"/></svg></span><span class="vtab-label">Chat</span><span class="vtab-dot"></span></button>
-  <button class="vtab"        data-view="programas" role="tab" aria-selected="false"><span class="vtab-ico"><svg class="ico" aria-hidden="true"><use href="#i-monitor"/></svg></span><span class="vtab-label">Programas</span><span class="vtab-dot"></span></button>
+  <button class="vtab"        data-view="pc" role="tab" aria-selected="false"><span class="vtab-ico"><svg class="ico" aria-hidden="true"><use href="#i-monitor"/></svg></span><span class="vtab-label">PC</span><span class="vtab-dot"></span></button>
   <!-- A lupa do Ctrl+K, sempre à vista. Não é um campo de verdade: clicar (ou começar a
        digitar com ela focada) abre a paleta, que já tem o índice e o teclado prontos. Um
        segundo campo com busca própria seria a mesma paleta escrita duas vezes. -->
@@ -2533,11 +2615,21 @@ body.redimensionando, body.redimensionando * { user-select: none !important; cur
 
   <div id="drawer-backdrop"></div>
 
-  <!-- ABA PROGRAMAS — ver o bloco JS "ABA PROGRAMAS".
-       Aqui ficava a gaveta de sistema, com dois gráficos de linha, a estabilidade de 24 h,
-       cards de disco e a tabela de processos. Saiu inteira: nada ali era acionável. Quem
-       quiser os números liga os cards na tela Início. -->
-  <div id="view-programas"></div>
+  <!-- ABA PC — ver o bloco JS "ABA PC". Os mesmos painéis da aba PC do celular (bloco
+       56), menos espelho e trackpad, que não fazem sentido no próprio PC: sinais vitais no
+       topo, mídia e volume sempre à vista, e uma grade de azulejos que abrem na gaveta. -->
+  <div id="view-pc">
+    <header class="pc-topo">
+      <div>
+        <h2>Este PC</h2>
+        <p id="pc-sub">Lendo…</p>
+      </div>
+      <button id="pc-reler" title="Ler de novo"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-refresh"/></svg><span>Atualizar</span></button>
+    </header>
+    <section class="pc-vitais" id="pc-vitais"></section>
+    <section class="pc-midia" id="pc-midia"></section>
+    <div class="pc-grade mov-lista" id="pc-grade"></div>
+  </div>
 
   <!-- FAIXA DO SWITCH IA <-> CELULAR.
        Saiu de dentro do #center e virou faixa propria, entre a barra de abas e a area dos
@@ -2673,18 +2765,22 @@ body.redimensionando, body.redimensionando * { user-select: none !important; cur
       </div><!-- /tab-config -->
 
     </div><!-- /rtab-panels -->
-
-        <div id="aj-veu">
-          <aside id="aj-gaveta" role="dialog" aria-modal="true" aria-labelledby="aj-titulo">
-            <header class="aj-gaveta-topo">
-              <span class="aj-gaveta-ico" id="aj-ico"></span>
-              <h3 id="aj-titulo"></h3>
-              <button id="aj-fechar" title="Fechar (Esc)"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-x"/></svg></button>
-            </header>
-            <div id="aj-corpo"></div>
-          </aside>
-        </div>
   </div><!-- /drawer-right -->
+
+  <!-- A GAVETA. Uma só para o app inteiro: Ajustes põe as seções dele aqui dentro, a aba PC
+       põe os painéis dela. Filha do #layout (relativo, overflow hidden) — o véu cobre a área
+       abaixo das abas, e a barra de abas continua clicável para trocar de tela com ela aberta
+       (switchView fecha a gaveta antes). -->
+  <div id="gaveta-veu">
+    <aside id="gaveta" role="dialog" aria-modal="true" aria-labelledby="gaveta-titulo">
+      <header class="gaveta-topo">
+        <span class="gaveta-ico" id="gaveta-ico"></span>
+        <h3 id="gaveta-titulo"></h3>
+        <button id="gaveta-fechar" title="Fechar (Esc)"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-x"/></svg></button>
+      </header>
+      <div id="gaveta-corpo"></div>
+    </aside>
+  </div>
 
 </div><!-- /layout -->
 
@@ -4137,7 +4233,8 @@ new ResizeObserver(moverPolegar).observe(document.getElementById("viewtabs"));
  * volta a ser vista deslizando.
  */
 function switchView(view) {
-  if (view !== "ajustes" && typeof fecharSecao === "function") fecharSecao();
+  // Trocar de aba com a gaveta aberta devolve o que estava nela (o QR ao popover, etc.).
+  if (typeof fecharGaveta === "function") fecharGaveta();
   layoutEl.setAttribute("data-view", view);
   vtabs.forEach(b => {
     const ativa = b.dataset.view === view;
@@ -4153,11 +4250,10 @@ function switchView(view) {
   // A Caixa deixou de ser aba: virou o lado direito do switch, dentro do Chat.
 
   if (view === "chat") { requestAnimationFrame(moverPolegar); carregarBolhasChat(); }
-  if (view === "programas") carregarProgramas();
+  if (view === "pc") carregarPc();
   if (view === "inicio") atualizarInicio().then(ligarArrasto);
   // Os canvas nascem dentro de um painel oculto, e elemento em `display:none` mede zero.
   // Só ao entrar na aba dá para saber a largura real.
-  if (view === "pc") requestAnimationFrame(redesenharGraficos);
 }
 
 vtabs.forEach(b => b.addEventListener("click", () => switchView(b.dataset.view)));
@@ -4297,6 +4393,54 @@ const SECOES_AJUSTES = [
 let cfgAtual = {};
 let secaoAberta = null;      // { def, movidos: [{ no, pai, proximo }] }
 
+// ── A gaveta genérica ─────────────────────────────
+//
+// Um painel só, reaproveitado por Ajustes (que MOVE seções para dentro) e pela aba PC
+// (que desenha HTML). `nos` são movidos e devolvidos ao fechar; `html` é descartado.
+// `aoFechar` existe para quem precisa desligar um temporizador de atualização.
+let gavetaAtual = null;      // { movidos, aoFechar }
+
+function abrirGaveta({ titulo, icone = "grid", nos = [], html = "", aoAbrir, aoFechar, classe = "" }) {
+  if (gavetaAtual) fecharGaveta(true);
+  const corpo = document.getElementById("gaveta-corpo");
+  corpo.innerHTML = html;
+  corpo.className = classe;
+  const movidos = [];
+  for (const sel of nos) {
+    document.querySelectorAll(sel).forEach(no => {
+      movidos.push({ no, pai: no.parentNode, proximo: no.nextSibling });
+      corpo.appendChild(no);
+    });
+  }
+  gavetaAtual = { movidos, aoFechar };
+  document.getElementById("gaveta-titulo").textContent = titulo;
+  document.getElementById("gaveta-ico").innerHTML = ico(icone, "ico-sm");
+  document.getElementById("gaveta-veu").classList.add("aberto");
+  corpo.scrollTop = 0;
+  aoAbrir?.(corpo);
+  corpo.querySelector("input[type='text'], input[type='search'], select, button")?.focus?.({ preventScroll: true });
+}
+
+/** Devolve cada nó movido exatamente de onde saiu (mesmo pai, mesma posição). */
+function fecharGaveta(silencioso = false) {
+  if (!gavetaAtual) return;
+  const g = gavetaAtual;
+  gavetaAtual = null;
+  for (const m of g.movidos) m.pai.insertBefore(m.no, m.proximo);
+  g.aoFechar?.();
+  if (!silencioso) {
+    document.getElementById("gaveta-veu").classList.remove("aberto");
+    // O HTML desenhado some só depois da saída animada, senão a gaveta fecha vazia.
+    setTimeout(() => { if (!gavetaAtual) document.getElementById("gaveta-corpo").innerHTML = ""; }, 260);
+  }
+}
+
+document.getElementById("gaveta-fechar")?.addEventListener("click", () => fecharGaveta());
+document.getElementById("gaveta-veu")?.addEventListener("click", (e) => { if (e.target.id === "gaveta-veu") fecharGaveta(); });
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && gavetaAtual) { e.stopPropagation(); fecharGaveta(); }
+}, true);
+
 function desenharHub() {
   const hub = document.getElementById("aj-hub");
   if (!hub) return;
@@ -4315,42 +4459,21 @@ function desenharHub() {
 function abrirSecao(id) {
   const def = SECOES_AJUSTES.find(s => s.id === id);
   if (!def) return;
-  if (secaoAberta) fecharSecao(true);
-  const corpo = document.getElementById("aj-corpo");
-  const movidos = [];
-  for (const sel of def.nos) {
-    document.querySelectorAll(sel).forEach(no => {
-      movidos.push({ no, pai: no.parentNode, proximo: no.nextSibling });
-      corpo.appendChild(no);
-    });
-  }
-  secaoAberta = { def, movidos };
-  document.getElementById("aj-titulo").textContent = def.titulo;
-  document.getElementById("aj-ico").innerHTML = ico(def.icone, "ico-sm");
-  document.getElementById("aj-veu").classList.add("aberto");
-  corpo.scrollTop = 0;
-  def.aoAbrir?.();
-  corpo.querySelector("input, select, button")?.focus?.({ preventScroll: true });
+  secaoAberta = def;
+  abrirGaveta({
+    titulo: def.titulo, icone: def.icone, nos: def.nos, classe: "gaveta-ajustes",
+    aoAbrir: () => def.aoAbrir?.(),
+    // O resumo do azulejo muda com o que foi mexido lá dentro.
+    aoFechar: () => { secaoAberta = null; desenharHub(); },
+  });
 }
 
-/** Devolve cada nó exatamente de onde saiu (mesmo pai, mesma posição). */
-function fecharSecao(silencioso = false) {
-  if (!secaoAberta) return;
-  for (const m of secaoAberta.movidos) m.pai.insertBefore(m.no, m.proximo);
-  secaoAberta = null;
-  if (!silencioso) document.getElementById("aj-veu").classList.remove("aberto");
-  desenharHub();
-}
+function fecharSecao() { if (secaoAberta) fecharGaveta(); }
 
 document.getElementById("aj-hub")?.addEventListener("click", (e) => {
   const az = e.target.closest("[data-secao-id]");
   if (az) abrirSecao(az.dataset.secaoId);
 });
-document.getElementById("aj-fechar")?.addEventListener("click", () => fecharSecao());
-document.getElementById("aj-veu")?.addEventListener("click", (e) => { if (e.target.id === "aj-veu") fecharSecao(); });
-document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && secaoAberta) { e.stopPropagation(); fecharSecao(); }
-}, true);
 
 /** A seção "Sobre": o que se pergunta quando algo dá errado, num lugar só. */
 async function desenharSobre() {
@@ -4413,7 +4536,7 @@ function desenharAjustes(cfg) {
  * Grava campo a campo, no `change`. Não há botão "Salvar" de propósito: com botão, sair da
  * tela perde o que foi mexido — e esta tela agora é uma aba, de onde se sai o tempo todo.
  */
-document.getElementById("drawer-right")?.addEventListener("change", async (e) => {
+document.addEventListener("change", async (e) => {
   const el = e.target.closest("[data-cfg]");
   if (!el) return;
   const chave = el.dataset.cfg;
@@ -4429,7 +4552,7 @@ document.getElementById("drawer-right")?.addEventListener("change", async (e) =>
 
 // O número ao lado do controle acompanha o arrasto; a gravação só acontece no `change`,
 // que dispara ao soltar — senão seriam dezenas de escritas em disco por arrasto.
-document.getElementById("drawer-right")?.addEventListener("input", (e) => {
+document.addEventListener("input", (e) => {
   const el = e.target.closest('input[type="range"][data-cfg]');
   if (!el) return;
   const campo = AJUSTES.flatMap(g => g.campos).find(c => c.chave === el.dataset.cfg);
@@ -4698,42 +4821,34 @@ window.addEventListener("resize", () => { if (presetPop?.classList.contains("abe
 
 
 // ─────────────────────────────────────────────────
-// ABA PROGRAMAS
+// ABA PC
 // ─────────────────────────────────────────────────
 //
-// Era a aba "PC": dois gráficos de linha, uma faixa de estabilidade de 24 h, cards de disco
-// e uma tabela de processos. Bonito de olhar e inútil de usar — nada ali era acionável, e
-// quem quer os números liga os cards `computador`, `processos` e `discos` na tela Início.
-//
-// Agora é só o que se FAZ com o PC: o que está aberto (e fechar), o que dá para abrir, a
-// área de transferência e energia. Tudo por RPC que já existia; nenhum método novo.
+// Terceira encarnação desta aba. Nasceu "PC" com gráficos que não levavam a lugar nenhum,
+// virou "Programas" (só o que se faz com o PC) e agora volta a ser "PC" com o que o Zak
+// pediu no bloco 66: "coloque tudo o que tem no mobile no desktop". São os painéis da aba
+// PC do celular (bloco 56) — Programas, Processos, Energia, Transferência, Lembretes,
+// Memória, Monitor — menos espelho e trackpad, que não fazem sentido no próprio PC, e mais
+// Presets e Rede. Sinais vitais e mídia ficam sempre à vista; o resto abre na gaveta
+// genérica, a mesma de Ajustes.
 
-const progEl = () => document.getElementById("view-programas");
+const pcEl = () => document.getElementById("view-pc");
 
 /**
  * Catálogo agrupado por COMANDO, não por nome falado.
  *
  * O `apps.json` tem ~75 chaves para ~40 programas: "calc", "calculadora" e "calculator"
  * apontam para o mesmo `calc.exe`, porque o Whisper varia (§5). Isso é ótimo para a voz e
- * péssimo para uma grade de botões — a tela mostrava três pílulas para a calculadora e
- * duas para o 7-Zip. Cada entrada aqui é um programa: `nome` é o apelido mais descritivo
- * (o mais longo; empate vai pro que tem acento, que é o escrito em português), `apelidos`
- * são todos, para a busca continuar achando "calc".
+ * péssimo para uma grade de botões. Cada entrada aqui é um programa: `nome` é o apelido
+ * mais descritivo (o mais longo; empate vai pro que tem acento), `apelidos` são todos.
  */
-let progCatalogo = [];      // [{ nome, apelidos: string[] }]
-let progAbertos = null;     // null = ainda não perguntou ao PC; [] = perguntou, nada aberto
-let progFiltro = "";
-let progCarregando = false;
+let progCatalogo = [];      // [{ nome, apelidos: string[], chaves: string[] }]
+let progAbertos = null;     // null = ainda não perguntou; [] = perguntou, nada aberto
 
-/**
- * `apps.list` é o catálogo dos programas conhecidos; `system.processes` é o que está
- * rodando, com nome de executável. Só o cruzamento dá uma lista que faz sentido mostrar
- * como "abertos": processo solto sem entrada no catálogo não teria como ser reaberto
- * depois, e o catálogo inteiro não diz o que está de pé agora.
- */
 // O `#2` é o sufixo de instância dos contadores de desempenho ("chrome#2"): sem tirar,
 // "chrome" nunca casava com o Chrome aberto.
 const normalizarApp = (x) => String(x).toLowerCase().replace(/#\d+$/, "").replace(/\.exe$/, "").replace(/[^a-z0-9]/g, "");
+const semSufixo = (x) => String(x).replace(/#\d+$/, "");
 
 function agruparCatalogo(apps) {
   const porComando = new Map();
@@ -4748,217 +4863,561 @@ function agruparCatalogo(apps) {
   return [...porComando.entries()].map(([comando, apelidos]) => {
     const nome = apelidos.slice().sort((a, b) =>
       (b.length - a.length) || (Number(temAcento(b)) - Number(temAcento(a))) || a.localeCompare(b))[0];
-    // O executável do comando ("C:\\...\\Code.exe" → "code") também conta para casar com o
-    // processo: "bloco de notas" nunca bateria com "notepad" só pelos apelidos.
     const exe = String(comando).split(/[\\/]/).pop().split(/\s+/)[0].replace(/\.exe$/i, "");
     return { nome, apelidos, chaves: [...apelidos, exe].map(normalizarApp) };
   }).sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
 }
 
-/**
- * Duas fases de propósito. `apps.list` é instantâneo (lê um JSON); `system.processes`
- * dispara um PowerShell e leva de 2 a 5 s. Esperar os dois antes de desenhar deixava a
- * aba em BRANCO por esse tempo inteiro — parecia quebrada. Agora o catálogo e a área de
- * transferência aparecem já, e "Abertos agora" mostra que está procurando.
- */
-async function carregarProgramas() {
-  if (progCarregando) return;
-  progCarregando = true;
-  try {
-    if (progCatalogo.length === 0) {
-      try {
-        const ra = await window.nx.rpc("apps.list");
-        progCatalogo = agruparCatalogo(ra.result?.apps ?? []);
-      } catch { progCatalogo = []; }
-    }
-    await desenharProgramas();
-
-    try {
-      // `apps.running` = processos com janela. Antes era `system.processes`, o top-15 por
-      // CPU: um Chrome parado ficava de fora e a lista dizia "nenhum" com a tela cheia.
-      const rp = await window.nx.rpc("apps.running");
-      const rodando = new Set((rp.result?.apps ?? []).map(p => normalizarApp(p.name)));
-      progAbertos = progCatalogo
-        .filter(p => p.chaves.some(k => rodando.has(k)))
-        .map(p => p.nome);
-    } catch {
-      progAbertos = [];
-    }
-    await desenharProgramas();
-  } finally {
-    progCarregando = false;
-  }
+async function garantirCatalogo() {
+  if (progCatalogo.length) return progCatalogo;
+  try { progCatalogo = agruparCatalogo((await window.nx.rpc("apps.list")).result?.apps ?? []); }
+  catch { progCatalogo = []; }
+  return progCatalogo;
 }
 
-async function desenharProgramas() {
-  const alvo = progEl();
+/** `apps.running` = processos com janela, cruzados com o catálogo. */
+async function lerAbertos() {
+  await garantirCatalogo();
+  try {
+    const rp = await window.nx.rpc("apps.running");
+    const rodando = new Set((rp.result?.apps ?? []).map(p => normalizarApp(p.name)));
+    progAbertos = progCatalogo.filter(p => p.chaves.some(k => rodando.has(k))).map(p => p.nome);
+  } catch { progAbertos = []; }
+  return progAbertos;
+}
+
+// ── Sinais vitais ─────────────────────────────────
+//
+// A telemetria chega a cada 3 s pelo IPC enquanto a janela está visível (main.ts). Aqui
+// ela vira histórico curto para a faísca — 40 amostras, dois minutos.
+let pcTelemetria = null;
+const pcHistorico = { cpu: [], ram: [] };
+const PC_HIST_MAX = 40;
+
+function registrarTelemetria(t) {
+  pcTelemetria = t;
+  pcHistorico.cpu.push(Number(t.cpu_pct) || 0);
+  pcHistorico.ram.push(Number(t.ram_pct) || 0);
+  if (pcHistorico.cpu.length > PC_HIST_MAX) pcHistorico.cpu.shift();
+  if (pcHistorico.ram.length > PC_HIST_MAX) pcHistorico.ram.shift();
+}
+
+/** Faísca: área + linha, 100 pontos de largura, 0–100 de altura. */
+function faisca(valores) {
+  if (valores.length < 2) return "";
+  const n = valores.length;
+  const pts = valores.map((v, i) => [(i / (n - 1)) * 100, 40 - (Math.max(0, Math.min(100, v)) / 100) * 36]);
+  const linha = pts.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(1)} ${y.toFixed(1)}`).join(" ");
+  return `<svg class="vital-faisca" viewBox="0 0 100 40" preserveAspectRatio="none" aria-hidden="true">
+    <path class="area" d="${linha} L100 40 L0 40 Z"/><path class="linha" d="${linha}"/></svg>`;
+}
+
+function tempoLigado(seg) {
+  if (!seg) return "";
+  const d = Math.floor(seg / 86400), h = Math.floor((seg % 86400) / 3600), m = Math.floor((seg % 3600) / 60);
+  if (d) return `${d} d ${h} h`;
+  if (h) return `${h} h ${m} min`;
+  return `${m} min`;
+}
+
+function desenharVitais() {
+  const alvo = document.getElementById("pc-vitais");
   if (!alvo) return;
-
-  let recorte = "";
-  try { recorte = (await window.nx.rpc("clipboard.get")).result?.text ?? ""; } catch { /* segue */ }
-
-  const filtro = progFiltro.trim().toLowerCase();
-  const filtrados = filtro
-    ? progCatalogo.filter(p => p.apelidos.some(k => k.toLowerCase().includes(filtro)))
-    : progCatalogo;
-
-  let abertosHtml;
-  if (progAbertos === null) {
-    abertosHtml = `<div class="home-empty prog-procurando">${ico("refresh", "ico-sm")}<span>Procurando o que está aberto…</span></div>`;
-  } else if (progAbertos.length === 0) {
-    abertosHtml = `<div class="home-empty">Nenhum programa conhecido aberto.</div>`;
-  } else {
-    abertosHtml = `<div class="prog-abertos mov-lista">` + progAbertos.map(k =>
-      `<div class="prog-aberto">
-        <span>${escHtml(k)}</span>
-        <button data-fechar="${escHtml(k)}" title="Fechar ${escHtml(k)}">${ico("x", "ico-sm")}</button>
-      </div>`).join("") + `</div>`;
-  }
-
+  const t = pcTelemetria;
+  if (!t) { alvo.innerHTML = `<div class="home-empty prog-procurando">${ico("refresh", "ico-sm")}<span>Lendo o estado do PC…</span></div>`; return; }
+  const disco = (t.disks ?? []).find(d => /^c/i.test(d.name)) ?? (t.disks ?? [])[0];
+  const cpu = Math.round(t.cpu_pct ?? 0), ram = Math.round(t.ram_pct ?? 0);
+  const extras = [];
+  if (typeof t.cpu_temp === "number") extras.push(`${t.cpu_temp}°C`);
+  if (typeof t.battery_pct === "number") extras.push(`bateria ${t.battery_pct}%${t.battery_charging ? " ⚡" : ""}`);
   alvo.innerHTML = `
-    <div class="prog-col">
-      <section class="prog-secao">
-        <h3>Abertos agora <button class="prog-reler" data-prog="reler" title="Procurar de novo">${ico("refresh", "ico-sm")}</button></h3>
-        ${abertosHtml}
-      </section>
-
-      <section class="prog-secao">
-        <h3>Abrir</h3>
-        <input type="text" id="prog-busca" placeholder="Buscar programa… (vale apelido: calc, notas, chrome)" autocomplete="off" value="${escHtml(progFiltro)}">
-        <div class="pilulas">${
-          filtrados.slice(0, 48).map(p =>
-            `<button class="pilula" data-abrir="${escHtml(p.nome)}" title="${escHtml(p.apelidos.join(" · "))}">${escHtml(p.nome)}</button>`).join("")
-          || `<div class="home-empty">Nada com esse nome.</div>`
-        }</div>
-      </section>
+    <div class="vital${cpu >= 90 ? " quente" : ""}">
+      <div class="vital-rotulo">${ico("cpu", "ico-sm")}<span>Processador</span></div>
+      <div class="vital-valor" id="vital-cpu">${cpu}<small>%</small></div>
+      <div class="vital-sub">${escHtml(extras[0] ?? (t.processes?.[0] ? `maior: ${semSufixo(t.processes[0].name)}` : "—"))}</div>
+      ${faisca(pcHistorico.cpu)}
     </div>
-
-    <div class="prog-col">
-      <section class="prog-secao">
-        <h3>Área de transferência</h3>
-        <div class="clip-caixa">${recorte ? escHtml(recorte.slice(0, 400)) : "<i>Vazia.</i>"}</div>
-        <div class="home-acoes">
-          <button data-clip="atualizar">${ico("refresh", "ico-sm")}<span>Reler</span></button>
-          <button data-clip="celular"${recorte ? "" : " disabled"}>${ico("smartphone", "ico-sm")}<span>Mandar pro celular</span></button>
-        </div>
-      </section>
-
-      <section class="prog-secao">
-        <h3>Energia</h3>
-        <div class="home-quick">
-          <button data-quick="print">${ico("monitor", "ico-sm")}<span>Tirar print</span></button>
-          <button data-quick="lock">${ico("x", "ico-sm")}<span>Bloquear tela</span></button>
-          <button data-quick="sleep">${ico("minus", "ico-sm")}<span>Suspender</span></button>
-          <button data-quick="restart" class="danger">${ico("refresh", "ico-sm")}<span>Reiniciar</span></button>
-          <button data-quick="shutdown" class="danger">${ico("x", "ico-sm")}<span>Desligar</span></button>
-          <button data-quick="cancel">${ico("check", "ico-sm")}<span>Cancelar desligamento</span></button>
-        </div>
-        <div class="home-empty">Reiniciar e desligar pedem confirmação e dão 30 s para cancelar.</div>
-      </section>
-
-      <section class="prog-secao">
-        <h3>Mídia e volume</h3>
-        <div class="mus-ctrl">
-          <button data-media="previous" title="Anterior">${ico("skip-back", "ico-sm")}</button>
-          <button data-media="play" class="principal" title="Play/Pause">${ico("play")}</button>
-          <button data-media="skip" title="Próxima">${ico("skip-forward", "ico-sm")}</button>
-          <span class="mus-sep"></span>
-          <button data-volume="mute" title="Mudo">${ico("volume-x", "ico-sm")}</button>
-          <button data-volume="down" title="Volume −">${ico("volume-1", "ico-sm")}</button>
-          <button data-volume="up" title="Volume +">${ico("volume", "ico-sm")}</button>
-        </div>
-      </section>
+    <div class="vital${ram >= 90 ? " quente" : ""}">
+      <div class="vital-rotulo">${ico("layers", "ico-sm")}<span>Memória</span></div>
+      <div class="vital-valor" id="vital-ram">${ram}<small>%</small></div>
+      <div class="vital-sub">${t.ram_total_gb ? `${t.ram_used_gb} de ${t.ram_total_gb} GB` : "—"}</div>
+      ${faisca(pcHistorico.ram)}
+    </div>
+    <div class="vital">
+      <div class="vital-rotulo">${ico("hard-drive", "ico-sm")}<span>Disco ${escHtml(disco?.name ?? "")}</span></div>
+      <div class="vital-valor">${disco ? `${disco.freeGB}<small>GB livres</small>` : "—"}</div>
+      <div class="vital-sub">${disco ? `${Math.round(disco.usedPct)}% usado de ${disco.totalGB} GB` : "sem leitura"}</div>
+      ${disco ? barra(disco.usedPct) : ""}
+    </div>
+    <div class="vital">
+      <div class="vital-rotulo">${ico("clock", "ico-sm")}<span>Ligado há</span></div>
+      <div class="vital-valor" style="font-size:20px">${escHtml(tempoLigado(t.uptime_sec) || "—")}</div>
+      <div class="vital-sub">${escHtml(extras[1] ?? (t.disks?.length > 1 ? `${t.disks.length} discos` : "sem bateria"))}</div>
     </div>`;
 }
 
-// Um ouvinte só, delegado: o painel é redesenhado inteiro a cada atualização, e ouvinte
-// preso em elemento redesenhado morre junto com ele.
-progEl()?.addEventListener("click", async (e) => {
-  const fechar = e.target.closest("button[data-fechar]");
-  if (fechar) {
-    const nome = fechar.dataset.fechar;
-    fechar.disabled = true;
-    try {
-      // Destrutivo: o diálogo de confirmação vive no processo principal (rpcBridge.ts).
-      // Recusar devolve `{ cancelado: true }` em vez de lançar.
-      const r = await window.nx.rpc("apps.close", { name: nome });
-      if (r.result?.cancelado) return;
-      showToast(r.result?.message ?? `${nome} fechado.`);
-      await carregarProgramas();
-    } catch { showToast("Não consegui fechar."); }
-    finally { fechar.disabled = false; }
-    return;
+/** Só os números, sem redesenhar (a faísca é redesenhada, é barata). */
+function pulsarVitais(t) {
+  registrarTelemetria(t);
+  if (layoutEl.getAttribute("data-view") !== "pc") return;
+  desenharVitais();
+}
+
+// ── Mídia e volume ────────────────────────────────
+let pcSpotify = null;
+
+function desenharMidia() {
+  const alvo = document.getElementById("pc-midia");
+  if (!alvo) return;
+  const n = pcSpotify;
+  const agora = n
+    ? `${n.albumArt ? `<img src="${escHtml(n.albumArt)}" alt="">` : ""}<div style="min-width:0"><div class="faixa">${escHtml(n.track ?? "")}</div><div class="artista">${escHtml(n.artist ?? "")}</div></div>`
+    : `<span class="vazio">Teclas de mídia do sistema — valem para qualquer player.</span>`;
+  alvo.innerHTML = `
+    <div class="pc-midia-agora">${agora}</div>
+    <div class="mus-ctrl">
+      <button data-media="previous" title="Anterior">${ico("skip-back", "ico-sm")}</button>
+      <button data-media="play" class="principal" title="Play/Pause">${ico(n?.isPlaying ? "pause" : "play")}</button>
+      <button data-media="skip" title="Próxima">${ico("skip-forward", "ico-sm")}</button>
+    </div>
+    <div class="pc-vol">
+      <button data-volume="mute" title="Mudo">${ico("volume-x", "ico-sm")}</button>
+      <button data-volume="down" title="Volume −">${ico("volume-1", "ico-sm")}</button>
+      <button data-volume="up" title="Volume +">${ico("volume", "ico-sm")}</button>
+      <div class="gp-chips" style="margin:0">
+        ${[25, 50, 75, 100].map(v => `<button data-volume="${v}" title="Volume ${v}%">${v}</button>`).join("")}
+      </div>
+    </div>`;
+}
+
+// ── Os painéis ────────────────────────────────────
+//
+// Cada painel: `render()` devolve o HTML da gaveta; `clique(e, corpo)` trata os botões
+// dele (delegado por #gaveta-corpo); `resumo()` é a linha do azulejo.
+const PAINEIS_PC = {
+  programas: {
+    titulo: "Programas", icone: "grid", resumo: () => progAbertos === null ? "Abrir e fechar" : `${progAbertos.length} abertos agora`,
+    async render(filtro = "") {
+      await garantirCatalogo();
+      const q = filtro.trim().toLowerCase();
+      const lista = q ? progCatalogo.filter(p => p.apelidos.some(k => k.toLowerCase().includes(q))) : progCatalogo;
+      const abertos = progAbertos === null
+        ? `<div class="home-empty prog-procurando">${ico("refresh", "ico-sm")}<span>Procurando o que está aberto…</span></div>`
+        : progAbertos.length === 0 ? `<div class="home-empty">Nenhum programa conhecido aberto.</div>`
+        : `<div class="gp-lista">` + progAbertos.map(k =>
+            `<div class="gp-linha"><span class="pontinho"></span><span class="gp-nome">${escHtml(k)}</span>
+             <button data-fechar="${escHtml(k)}" title="Fechar ${escHtml(k)}">${ico("x", "ico-sm")}</button></div>`).join("") + `</div>`;
+      return `
+        <div class="gp-secao"><h4>Abertos agora</h4>${abertos}</div>
+        <div class="gp-secao"><h4>Abrir</h4>
+          <input type="text" class="gp-busca" id="gp-busca-prog" placeholder="Buscar programa… (vale apelido: calc, notas, chrome)" autocomplete="off" value="${escHtml(filtro)}">
+          <div class="pilulas">${lista.slice(0, 60).map(p =>
+            `<button class="pilula" data-abrir="${escHtml(p.nome)}" title="${escHtml(p.apelidos.join(" · "))}">${escHtml(p.nome)}</button>`).join("") || `<div class="home-empty">Nada com esse nome.</div>`}</div>
+        </div>`;
+    },
+    async clique(e) {
+      const fechar = e.target.closest("[data-fechar]");
+      if (fechar) {
+        fechar.disabled = true;
+        try {
+          const r = await window.nx.rpc("apps.close", { name: fechar.dataset.fechar });
+          if (r.result?.cancelado) return;
+          showToast(r.result?.message ?? "Fechado.");
+          await lerAbertos(); redesenharPainel();
+        } catch { showToast("Não consegui fechar.", true); }
+        return;
+      }
+      const abrir = e.target.closest("[data-abrir]");
+      if (abrir) {
+        try { await window.nx.rpc("apps.open", { name: abrir.dataset.abrir }); showToast(`Abrindo ${abrir.dataset.abrir}…`); }
+        catch { showToast("Não consegui abrir.", true); }
+        setTimeout(async () => { await lerAbertos(); redesenharPainel(); desenharGradePc(); }, 1800);
+      }
+    },
+    input(e) {
+      if (e.target.id !== "gp-busca-prog") return;
+      redesenharPainel(e.target.value, "#gp-busca-prog");
+    },
+  },
+
+  processos: {
+    titulo: "Processos", icone: "cpu-chip", resumo: () => pcTelemetria?.processes?.[0] ? `maior: ${semSufixo(pcTelemetria.processes[0].name)}` : "Encerrar à força",
+    ordem: "cpu",
+    async render(filtro = "") {
+      let procs = [];
+      try { procs = (await window.nx.rpc("system.processes")).result?.processes ?? []; }
+      catch { procs = pcTelemetria?.processes ?? []; }
+      const q = filtro.trim().toLowerCase();
+      procs = procs.filter(p => !q || semSufixo(p.name).toLowerCase().includes(q));
+      procs.sort((a, b) => this.ordem === "ram" ? (b.ramMB ?? 0) - (a.ramMB ?? 0) : (b.cpu ?? 0) - (a.cpu ?? 0));
+      return `
+        <input type="text" class="gp-busca" id="gp-busca-proc" placeholder="Filtrar por nome…" autocomplete="off" value="${escHtml(filtro)}">
+        <div class="gp-chips">
+          <button data-ordem="cpu" class="${this.ordem === "cpu" ? "aceso" : ""}">Por CPU</button>
+          <button data-ordem="ram" class="${this.ordem === "ram" ? "aceso" : ""}">Por memória</button>
+          <button data-ordem="reler">${ico("refresh", "ico-sm")} Reler</button>
+        </div>
+        <div class="gp-lista">${procs.map(p => `
+          <div class="gp-linha">${ico("cpu", "ico-sm")}
+            <span class="gp-nome" title="PID ${p.pid}">${escHtml(semSufixo(p.name))}</span>
+            <span class="gp-meta">${Math.round(p.ramMB ?? 0)} MB</span>
+            <span class="gp-num">${Math.min(100, Math.round(p.cpu ?? 0))}% CPU</span>
+            <button data-matar="${p.pid}" data-nome="${escHtml(semSufixo(p.name))}" title="Encerrar à força">${ico("x", "ico-sm")}</button>
+          </div>`).join("") || `<div class="home-empty">Sem leitura de processos.</div>`}</div>
+        <p class="gp-nota">Top 15 por uso. Encerrar à força passa pela confirmação do PC.</p>`;
+    },
+    async clique(e) {
+      const ord = e.target.closest("[data-ordem]");
+      if (ord) {
+        if (ord.dataset.ordem !== "reler") this.ordem = ord.dataset.ordem;
+        redesenharPainel(document.getElementById("gp-busca-proc")?.value ?? "", "#gp-busca-proc");
+        return;
+      }
+      const matar = e.target.closest("[data-matar]");
+      if (matar) {
+        matar.disabled = true;
+        try {
+          const r = await window.nx.rpc("system.killProcess", { pid: Number(matar.dataset.matar) });
+          if (r.result?.cancelado) return;
+          showToast(`${matar.dataset.nome} encerrado.`);
+          setTimeout(() => redesenharPainel(document.getElementById("gp-busca-proc")?.value ?? "", "#gp-busca-proc"), 900);
+        } catch (err) { showToast(err?.message || "Não consegui encerrar.", true); }
+      }
+    },
+    input(e) { if (e.target.id === "gp-busca-proc") redesenharPainel(e.target.value, "#gp-busca-proc"); },
+  },
+
+  energia: {
+    titulo: "Energia", icone: "power", resumo: () => "Bloquear, suspender, desligar",
+    minutos: 0,
+    async render() {
+      return `
+        <div class="gp-grade-botoes">
+          <button data-quick="lock">${ico("lock")}<span>Bloquear a tela<small>Win+L</small></span></button>
+          <button data-quick="sleep">${ico("moon")}<span>Suspender<small>volta com o teclado</small></span></button>
+          <button data-quick="print">${ico("camera")}<span>Tirar print<small>PNG na Área de Trabalho</small></span></button>
+          <button data-quick="cancel">${ico("check")}<span>Cancelar desligamento<small>se houver um agendado</small></span></button>
+          <button data-quick="restart" class="danger">${ico("rotate")}<span>Reiniciar<small>pede confirmação</small></span></button>
+          <button data-quick="shutdown" class="danger">${ico("power")}<span>Desligar<small>pede confirmação</small></span></button>
+        </div>
+        <div class="gp-secao" style="margin-top:18px"><h4>Desligar daqui a</h4>
+          <div class="gp-chips">${[15, 30, 60, 120].map(m => `<button data-agendar="${m}">${m >= 60 ? `${m / 60} h` : `${m} min`}</button>`).join("")}</div>
+          <p class="gp-nota">O Windows agenda pelo <code>shutdown /t</code>; "Cancelar desligamento" desfaz. O celular faz o mesmo pelo painel Energia.</p>
+        </div>`;
+    },
+    async clique(e) {
+      const ag = e.target.closest("[data-agendar]");
+      if (ag) {
+        try {
+          const r = await window.nx.rpc("power.control", { operation: "shutdown", delaySeconds: Number(ag.dataset.agendar) * 60 });
+          if (r.result?.cancelado) return;
+          showToast(r.result?.message ?? "Agendado.");
+        } catch (err) { showToast(err?.message || "Não deu certo.", true); }
+        return;
+      }
+      const quick = e.target.closest("[data-quick]");
+      if (quick) await acaoRapida(quick);
+    },
+  },
+
+  transferencia: {
+    titulo: "Área de transferência", icone: "clipboard", resumo: () => "Ler, escrever, mandar pro celular",
+    async render() {
+      let recorte = "";
+      try { recorte = (await window.nx.rpc("clipboard.get")).result?.text ?? ""; } catch { /* segue */ }
+      return `
+        <div class="gp-secao"><h4>Agora no PC</h4>
+          <div class="clip-caixa" style="max-height:160px">${recorte ? escHtml(recorte.slice(0, 1200)) : "<i>Vazia (ou não é texto).</i>"}</div>
+          <div class="home-acoes">
+            <button data-clip="atualizar">${ico("refresh", "ico-sm")}<span>Reler</span></button>
+            <button data-clip="celular"${recorte ? "" : " disabled"}>${ico("smartphone", "ico-sm")}<span>Mandar pro celular</span></button>
+            <button data-clip="limpar"${recorte ? "" : " disabled"}>${ico("trash", "ico-sm")}<span>Limpar</span></button>
+          </div>
+        </div>
+        <div class="gp-secao"><h4>Escrever na área de transferência</h4>
+          <textarea class="gp-texto" id="gp-clip-texto" placeholder="Cole ou digite aqui e copie para o PC…"></textarea>
+          <div class="home-acoes" style="margin-top:0"><button data-clip="escrever">${ico("copy", "ico-sm")}<span>Copiar para o PC</span></button></div>
+        </div>`;
+    },
+    async clique(e) {
+      const b = e.target.closest("[data-clip]");
+      if (!b) return;
+      try {
+        if (b.dataset.clip === "atualizar") { redesenharPainel(); return; }
+        if (b.dataset.clip === "celular") {
+          const t = (await window.nx.rpc("clipboard.get")).result?.text ?? "";
+          if (!t) return;
+          await window.nx.mailboxSend(t); showToast("Mandado para o celular."); return;
+        }
+        if (b.dataset.clip === "limpar") { await window.nx.rpc("clipboard.set", { text: "" }); redesenharPainel(); return; }
+        if (b.dataset.clip === "escrever") {
+          const t = document.getElementById("gp-clip-texto")?.value ?? "";
+          if (!t.trim()) return;
+          await window.nx.rpc("clipboard.set", { text: t }); showToast("Copiado."); redesenharPainel();
+        }
+      } catch { showToast("Não deu certo.", true); }
+    },
+  },
+
+  lembretes: {
+    titulo: "Lembretes", icone: "bell", resumo: () => "Ver, criar e cancelar",
+    async render() {
+      let lista = [];
+      try { lista = ((await window.nx.rpc("reminders.list")).result?.reminders ?? []).filter(x => !x.firedAt).sort((a, b) => a.dueAt - b.dueAt); } catch { /* segue */ }
+      const hoje = new Date(); const pad = (n) => String(n).padStart(2, "0");
+      const dataHoje = `${hoje.getFullYear()}-${pad(hoje.getMonth() + 1)}-${pad(hoje.getDate())}`;
+      return `
+        <div class="gp-secao"><h4>Agendados</h4>
+          <div class="gp-lista">${lista.map(r => `
+            <div class="gp-linha">${ico(r.kind === "weekly" ? "repeat" : "bell", "ico-sm")}
+              <span class="gp-nome">${escHtml(r.text)}</span>
+              <span class="gp-meta">${escHtml(quandoTexto(r.dueAt))}${r.kind === "weekly" ? " · semanal" : ""}</span>
+              <button data-cancelar="${escHtml(r.id)}" title="Cancelar">${ico("x", "ico-sm")}</button>
+            </div>`).join("") || `<div class="home-empty">Nada agendado.</div>`}</div>
+        </div>
+        <div class="gp-secao"><h4>Novo lembrete</h4>
+          <form class="gp-form" id="gp-lembrete">
+            <input type="text" name="texto" placeholder="Lembrar de…" autocomplete="off" required>
+            <input type="date" name="data" value="${dataHoje}" required>
+            <input type="time" name="hora" required>
+            <select name="kind"><option value="once">uma vez</option><option value="weekly">toda semana</option></select>
+            <button type="submit">${ico("check", "ico-sm")}Criar</button>
+          </form>
+          <p class="gp-nota">O PC avisa por voz e notificação na hora; o celular também recebe.</p>
+        </div>`;
+    },
+    async clique(e) {
+      const c = e.target.closest("[data-cancelar]");
+      if (!c) return;
+      try { await window.nx.rpc("reminders.cancel", { id: c.dataset.cancelar }); showToast("Cancelado."); redesenharPainel(); }
+      catch { showToast("Não consegui cancelar.", true); }
+    },
+    async submit(e) {
+      if (e.target.id !== "gp-lembrete") return;
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      const [h, m] = String(fd.get("hora") || "").split(":").map(Number);
+      const [Y, M, D] = String(fd.get("data") || "").split("-").map(Number);
+      if (!Number.isFinite(h) || !Number.isFinite(Y)) return;
+      const quando = new Date(Y, M - 1, D, h, m || 0, 0, 0);
+      try {
+        await window.nx.rpc("reminders.create", { text: String(fd.get("texto") || "").trim(), dueAt: quando.getTime(), kind: String(fd.get("kind") || "once") });
+        showToast(`Lembrete para ${quandoTexto(quando.getTime())}.`);
+        redesenharPainel();
+      } catch (err) { showToast(err?.message || "Não consegui criar.", true); }
+    },
+  },
+
+  memoria: {
+    titulo: "Memória", icone: "bookmark", resumo: () => "O que o ELYSIUM lembra de você",
+    async render() {
+      let fatos = [];
+      try { fatos = (await window.nx.rpc("memory.list")).result?.facts ?? []; } catch { /* segue */ }
+      return `
+        <div class="gp-secao"><h4>Fatos guardados</h4>
+          <div class="gp-lista">${fatos.map(f => `
+            <div class="gp-linha">${ico("bulb", "ico-sm")}<span class="gp-nome" style="white-space:normal" title="${escHtml(f.text)}">${escHtml(f.text)}</span>
+              <button data-esquecer="${escHtml(f.id)}" title="Esquecer">${ico("x", "ico-sm")}</button></div>`).join("") || `<div class="home-empty">Nada guardado. Diga "lembre que…" ou escreva abaixo.</div>`}</div>
+        </div>
+        <div class="gp-secao"><h4>Guardar um fato</h4>
+          <form class="gp-form" id="gp-memoria">
+            <input type="text" name="texto" placeholder="Ex.: meu carro é um Civic prata" autocomplete="off" required>
+            <button type="submit">${ico("plus", "ico-sm")}Guardar</button>
+          </form>
+          <p class="gp-nota">Entra no prompt de toda conversa. É a mesma lista que o celular mostra.</p>
+        </div>`;
+    },
+    async clique(e) {
+      const b = e.target.closest("[data-esquecer]");
+      if (!b) return;
+      try { await window.nx.rpc("memory.remove", { id: b.dataset.esquecer }); showToast("Esquecido."); redesenharPainel(); }
+      catch { showToast("Não consegui esquecer.", true); }
+    },
+    async submit(e) {
+      if (e.target.id !== "gp-memoria") return;
+      e.preventDefault();
+      const texto = String(new FormData(e.target).get("texto") || "").trim();
+      if (!texto) return;
+      try { await window.nx.rpc("memory.add", { text: texto }); showToast("Guardado."); redesenharPainel(); }
+      catch { showToast("Não consegui guardar.", true); }
+    },
+  },
+
+  presets: {
+    titulo: "Presets", icone: "sliders", resumo: () => "Rotinas de um clique",
+    async render() {
+      let lista = [];
+      try { lista = (await window.nx.rpc("presets.list")).result?.presets ?? []; } catch { /* segue */ }
+      return `
+        <div class="gp-lista">${lista.map(p => `
+          <div class="gp-linha">${ico(p.icon, "ico-sm")}
+            <span class="gp-nome">${escHtml(p.name)}<div class="gp-meta" style="white-space:normal">${escHtml(p.description || "")}</div></span>
+            <span class="gp-meta">${p.actions} ${p.actions === 1 ? "ação" : "ações"}</span>
+            <button class="ok" data-rodar="${escHtml(p.name)}" title="Rodar">${ico("play", "ico-sm")}</button>
+            <button data-apagar="${escHtml(p.name)}" title="Apagar">${ico("trash", "ico-sm")}</button>
+          </div>`).join("") || `<div class="home-empty">Nenhum preset. Diga "cria um preset chamado…" no chat.</div>`}</div>
+        <p class="gp-nota">Criar preset continua sendo pelo chat ("cria um preset modo trabalho que abre o VS Code e o Spotify"): é o cérebro que traduz a frase em ações.</p>`;
+    },
+    async clique(e) {
+      const r = e.target.closest("[data-rodar]");
+      if (r) {
+        try { const x = await window.nx.rpc("presets.run", { name: r.dataset.rodar }); showToast(x.result?.reply ?? `Rodando ${r.dataset.rodar}…`); }
+        catch { showToast("Não consegui rodar.", true); }
+        return;
+      }
+      const a = e.target.closest("[data-apagar]");
+      if (a) {
+        try { const x = await window.nx.rpc("presets.delete", { name: a.dataset.apagar }); if (x.result?.cancelado) return; showToast("Apagado."); redesenharPainel(); }
+        catch { showToast("Não consegui apagar.", true); }
+      }
+    },
+  },
+
+  rede: {
+    titulo: "Rede e celular", icone: "wifi", resumo: () => "IPs, porta e pareamento",
+    async render() {
+      let info = {};
+      try { info = (await window.nx.getPairingInfo()) ?? {}; } catch { /* sem rede */ }
+      const ends = (info.endpoints ?? []).map(e => `<div><span>${escHtml(e.iface || "rede")}${e.tunnel ? " · túnel" : ""}</span><code>${escHtml(e.address)}</code></div>`).join("");
+      return `
+        <div class="gp-secao"><h4>Este PC na rede</h4>
+          <div class="gp-info">${ends || `<div><span>IP</span><code>${escHtml(info.ip ?? "—")}</code></div>`}
+            <div><span>Porta do ELYSIUM</span><code>${escHtml(String(info.port ?? 4200))}</code></div>
+          </div>
+        </div>
+        <div class="gp-secao"><h4>Celular</h4>
+          <div class="home-acoes" style="margin-top:0">
+            <button data-rede="parear">${ico("smartphone", "ico-sm")}<span>Abrir o QR de pareamento</span></button>
+            <button data-rede="ping">${ico("phone-call", "ico-sm")}<span>Mandar "oi" pro celular</span></button>
+          </div>
+          <p class="gp-nota">O QR está também no orbe da Início e em Ajustes → Celular. Fora de casa, o acesso vai pelo túnel (Ajustes → Celular).</p>
+        </div>`;
+    },
+    async clique(e) {
+      const b = e.target.closest("[data-rede]");
+      if (!b) return;
+      if (b.dataset.rede === "parear") { switchView("ajustes"); setTimeout(() => abrirSecao("celular"), 80); return; }
+      try { await window.nx.mailboxSend("oi — teste do PC"); showToast("Recado mandado."); } catch { showToast("Não consegui mandar.", true); }
+    },
+  },
+};
+
+const ORDEM_PAINEIS_PC = ["programas", "processos", "energia", "transferencia", "lembretes", "memoria", "presets", "rede"];
+let painelPcAberto = null;   // id do painel que está na gaveta
+
+/** Ações rápidas de energia/print, compartilhadas pela gaveta e pelos cards da Início. */
+async function acaoRapida(botao) {
+  const acoes = {
+    print:    () => window.nx.rpc("screen.screenshot"),
+    lock:     () => window.nx.rpc("power.control", { operation: "lock" }),
+    sleep:    () => window.nx.rpc("power.control", { operation: "sleep" }),
+    restart:  () => window.nx.rpc("power.control", { operation: "restart" }),
+    shutdown: () => window.nx.rpc("power.control", { operation: "shutdown" }),
+    cancel:   () => window.nx.rpc("power.control", { operation: "cancel" }),
+  };
+  botao.disabled = true;
+  try {
+    const r = await acoes[botao.dataset.quick]?.();
+    if (r?.result?.cancelado) return;
+    if (r?.result?.message) showToast(r.result.message);
+  } catch (err) { showToast(err?.message || "Não deu certo.", true); }
+  finally { botao.disabled = false; }
+}
+
+function desenharGradePc() {
+  const alvo = document.getElementById("pc-grade");
+  if (!alvo) return;
+  alvo.innerHTML = ORDEM_PAINEIS_PC.map(id => {
+    const p = PAINEIS_PC[id];
+    return `<button class="aj-azulejo" data-painel-pc="${id}">
+      <span class="aj-azulejo-ico">${ico(p.icone)}</span>
+      <span class="aj-azulejo-txt"><span class="aj-azulejo-nome">${escHtml(p.titulo)}</span><span class="aj-azulejo-resumo">${escHtml(String(p.resumo() ?? ""))}</span></span>
+      ${ico("chevron-right", "ico-sm")}</button>`;
+  }).join("");
+}
+
+async function abrirPainelPc(id) {
+  const p = PAINEIS_PC[id];
+  if (!p) return;
+  abrirGaveta({
+    titulo: p.titulo, icone: p.icone, classe: "gaveta-pc",
+    html: `<div class="home-empty prog-procurando">${ico("refresh", "ico-sm")}<span>Carregando…</span></div>`,
+    // Abrir um painel com outro aberto fecha o anterior primeiro (e o aoFechar dele roda):
+    // por isso o id só é gravado DEPOIS, e o aoFechar só zera se ainda for o dono.
+    aoFechar: () => { if (painelPcAberto === id) painelPcAberto = null; desenharGradePc(); },
+  });
+  painelPcAberto = id;
+  await redesenharPainel();
+}
+
+/**
+ * Redesenha o painel aberto. `foco` é o seletor do campo que estava sendo digitado: o
+ * innerHTML destrói o campo, então o foco e o cursor voltam para o novo.
+ */
+async function redesenharPainel(filtro = "", foco = null) {
+  const id = painelPcAberto;
+  const p = PAINEIS_PC[id];
+  if (!p) return;
+  const html = await p.render(filtro);
+  if (painelPcAberto !== id) return;   // fechou (ou trocou) enquanto carregava
+  const corpo = document.getElementById("gaveta-corpo");
+  corpo.innerHTML = html;
+  if (foco) {
+    const el = corpo.querySelector(foco);
+    if (el) { el.focus(); el.setSelectionRange?.(el.value.length, el.value.length); }
   }
+}
 
-  const abrir = e.target.closest("button[data-abrir]");
-  if (abrir) {
-    try {
-      await window.nx.rpc("apps.open", { name: abrir.dataset.abrir });
-      showToast(`Abrindo ${abrir.dataset.abrir}…`);
-      // O programa leva um instante para aparecer na lista de processos.
-      setTimeout(carregarProgramas, 1500);
-    } catch { showToast("Não consegui abrir."); }
-    return;
+/** Tudo da aba, do zero. */
+let pcCarregando = false;
+async function carregarPc() {
+  if (pcCarregando) return;
+  pcCarregando = true;
+  document.getElementById("pc-reler")?.classList.add("girando");
+  try {
+    desenharVitais(); desenharMidia(); desenharGradePc();
+    const jobs = [
+      (async () => { try { registrarTelemetria((await window.nx.rpc("system.telemetry")).result ?? {}); } catch { /* segue */ } desenharVitais(); })(),
+      (async () => {
+        try { const n = await window.nx.spotifyNowPlaying(); const np = n?.nowPlaying ?? n; pcSpotify = np && np.track ? np : null; } catch { pcSpotify = null; }
+        desenharMidia();
+      })(),
+      (async () => {
+        try {
+          const info = await window.nx.getPairingInfo();
+          const ip = info?.ip || info?.endpoints?.[0]?.address;
+          const sub = document.getElementById("pc-sub");
+          if (sub) sub.textContent = [ip ? `${ip}:${info.port ?? 4200}` : null, pcTelemetria?.uptime_sec ? `ligado há ${tempoLigado(pcTelemetria.uptime_sec)}` : null].filter(Boolean).join(" · ") || "Os mesmos painéis do celular.";
+        } catch { /* segue */ }
+      })(),
+      (async () => { await lerAbertos(); desenharGradePc(); })(),
+    ];
+    await Promise.all(jobs);
+  } finally {
+    pcCarregando = false;
+    document.getElementById("pc-reler")?.classList.remove("girando");
   }
+}
 
-  const clip = e.target.closest("button[data-clip]");
-  if (clip) {
-    if (clip.dataset.clip === "atualizar") { await desenharProgramas(); return; }
-    try {
-      const t = (await window.nx.rpc("clipboard.get")).result?.text ?? "";
-      if (!t) return;
-      await window.nx.mailboxSend(t);
-      showToast("Mandado para o celular.");
-    } catch { showToast("Não consegui mandar."); }
-    return;
-  }
-
-  const reler = e.target.closest("button[data-prog='reler']");
-  if (reler) { progAbertos = null; await desenharProgramas(); carregarProgramas(); return; }
-
-  const quick = e.target.closest("button[data-quick]");
-  if (quick) {
-    // Destrutivos (reiniciar, desligar, cancelar) passam pelo diálogo do processo
-    // principal (rpcBridge.ts); recusar devolve `{ cancelado: true }` em vez de lançar.
-    const acoes = {
-      print:    () => window.nx.rpc("screen.screenshot"),
-      lock:     () => window.nx.rpc("power.control", { operation: "lock" }),
-      sleep:    () => window.nx.rpc("power.control", { operation: "sleep" }),
-      restart:  () => window.nx.rpc("power.control", { operation: "restart" }),
-      shutdown: () => window.nx.rpc("power.control", { operation: "shutdown" }),
-      cancel:   () => window.nx.rpc("power.control", { operation: "cancel" }),
-    };
-    quick.disabled = true;
-    try {
-      const r = await acoes[quick.dataset.quick]?.();
-      if (r?.result?.cancelado) return;
-      if (r?.result?.message) showToast(r.result.message);
-    } catch (err) {
-      showToast(err?.message || "Não deu certo.");
-    } finally { quick.disabled = false; }
-    return;
-  }
-
+// Um ouvinte só, delegado: a aba e a gaveta são redesenhadas inteiras.
+pcEl()?.addEventListener("click", async (e) => {
+  const az = e.target.closest("[data-painel-pc]");
+  if (az) { abrirPainelPc(az.dataset.painelPc); return; }
+  if (e.target.closest("#pc-reler")) { progAbertos = null; carregarPc(); return; }
   const media = e.target.closest("button[data-media]");
   if (media) { window.nx.mediaControl(media.dataset.media); return; }
-
   const volume = e.target.closest("button[data-volume]");
   if (volume) {
-    try { await window.nx.rpc("volume.set", { level: volume.dataset.volume }); }
-    catch { showToast("Não consegui mexer no volume."); }
+    const v = volume.dataset.volume;
+    try { await window.nx.rpc("volume.set", { level: /^\d+$/.test(v) ? Number(v) : v }); }
+    catch { showToast("Não consegui mexer no volume.", true); }
   }
 });
 
-progEl()?.addEventListener("input", (e) => {
-  const busca = e.target.closest("#prog-busca");
-  if (!busca) return;
-  progFiltro = busca.value;
-  desenharProgramas().then(() => {
-    // Redesenhar o painel destrói o campo; devolve o foco e o cursor no fim do texto.
-    const novo = document.getElementById("prog-busca");
-    if (novo) { novo.focus(); novo.setSelectionRange(novo.value.length, novo.value.length); }
-  });
-});
+const gavetaCorpoEl = document.getElementById("gaveta-corpo");
+gavetaCorpoEl?.addEventListener("click", (e) => { if (painelPcAberto) PAINEIS_PC[painelPcAberto]?.clique?.(e); });
+gavetaCorpoEl?.addEventListener("input", (e) => { if (painelPcAberto) PAINEIS_PC[painelPcAberto]?.input?.(e); });
+gavetaCorpoEl?.addEventListener("submit", (e) => { if (painelPcAberto) PAINEIS_PC[painelPcAberto]?.submit?.(e); });
 
 // ─────────────────────────────────────────────────
 // TELA INÍCIO
@@ -5862,6 +6321,7 @@ document.getElementById("view-inicio")?.addEventListener("submit", async (e) => 
 // Só o card de telemetria precisa desse pulso; redesenhar a tela inteira a cada 5 s
 // mataria a digitação no formulário de lembrete e o arrasto em andamento.
 window.nx.onTelemetry?.((t) => {
+  pulsarVitais(t);   // a aba PC guarda o histórico mesmo fora dela — a faísca nasce cheia
   if (layoutEl.getAttribute("data-view") !== "inicio" || cardArrastado) return;
   if (estadoCards.ocultos.includes("computador")) return;
   const cpu = document.getElementById("home-cpu");
@@ -5888,6 +6348,7 @@ window.nx.onMailboxMessage(() => {
 document.body.classList.add("tabs");
 try {
   const salva = localStorage.getItem(VIEW_KEY);
+  if (salva === "programas") salva = "pc";   // nome antigo da aba, gravado antes do bloco 66
   if (salva && document.querySelector(`.vtab[data-view="${salva}"]`)) switchView(salva);
   else switchView("inicio");
 } catch { switchView("inicio"); }
@@ -5996,7 +6457,7 @@ async function montarIndicePaleta() {
     { grupo: "nav", icone: "home", texto: "Início", executar: () => switchView("inicio") },
     { grupo: "nav", icone: "message-circle", texto: "Chat com a IA", executar: () => { switchView("chat"); switchChatMode("ai"); } },
     { grupo: "nav", icone: "smartphone", texto: "Recados do celular", executar: () => { switchView("chat"); switchChatMode("self"); } },
-    { grupo: "nav", icone: "monitor", texto: "Programas", executar: () => switchView("programas") },
+    { grupo: "nav", icone: "monitor", texto: "PC", chaves: ["programas", "processos", "energia", "monitor"], executar: () => switchView("pc") },
     { grupo: "nav", icone: "settings", texto: "Ajustes", executar: () => switchView("ajustes") },
     { grupo: "nav", icone: "edit", texto: "Nova conversa", executar: () => { switchView("chat"); switchChatMode("ai"); startNewConversation(); } },
 
