@@ -3704,3 +3704,41 @@ que custava quadro lá era animar a PINTURA de gradientes em tela cheia. Aqui s�
 e `opacity` de views já pintadas mudam — o compositor move sem repintar, mesma classe de
 custo do polegar da TabBar. Se engasgar num aparelho fraco, o primeiro suspeito é a
 aurora (disco de 1400 px com 7 paradas): baixar para 1000 px ou tirar.
+
+### Bloco 72 — celular: notificações locais, rotinas e a aba Rotinas ✅
+
+O lado do celular do pedido 8. **Nada passa pela nuvem** — o push da Expo continua
+registrado como antes e continua não validado (FCM, §15); o que entrega de verdade são
+três caminhos em `src/lib/notificacoes.ts`:
+
+1. **Fila do PC** (`notify.pending` → notificação local → `notify.ack`). Roda ao voltar
+   para o app, a cada 60 s com o app aberto (`ligarSincronizacaoEmPrimeiroPlano`) e em
+   **segundo plano** pelo WorkManager: `expo-background-task` + `expo-task-manager`
+   (`tarefaSegundoPlano.ts`, `defineTask` no `index.ts`, intervalo mínimo de 15 min —
+   inexato, o Android decide). Precisa estar na mesma rede ou no túnel; fora disso a
+   fila espera no PC.
+2. **WebSocket**: com o Chat aberto, `{type:"notify"}` chega na hora (`stream.ts` →
+   `receberEntrega`).
+3. **Lembretes espelhados**: `espelharLembretes()` agenda cada lembrete `once` pendente
+   como notificação local COM HORA (`identifier: lembrete-<id>`), e cancela os que
+   sumiram. É o que toca com o celular longe do PC, sem rede. Para não tocar duas vezes,
+   uma entrega de tipo `lembrete` cujo `ref` está espelhado é confirmada sem ser mostrada.
+
+Ids vistos ficam em `AsyncStorage` (`elysium_entregas_vistas_v1`, 120 últimos) — a
+duplicata é barrada mesmo se o `ack` falhar. Canal Android `elysium-entregas`
+(importância alta). Chave `elysium_notificacoes_ativas_v1` = o interruptor "Avisar neste
+celular". `expo-notifications` continua entrando por import dinâmico (§14: derruba o Expo
+Go se importado no topo).
+
+**Aba Rotinas** (4ª aba, `RotinasScreen.tsx`): interruptor de avisos (pede a permissão
+do Android na hora), rotinas do PC (hora, próxima vez, dias, destinos, último resultado,
+pausar, rodar agora com o resultado num alerta, editar, apagar), formulário na `GlassModal`
+(mesmos campos do desktop, hora digitada "HH:MM", 3 exemplos), lembretes com cancelar, e
+"entregues a este celular" com recebida/aguardando. `Screen` ganhou `'rotinas'`; a lupa
+da Início leva para lá. `rpc.ts` ganhou os 8 métodos e os tipos `Rotina`/`Entrega`.
+
+⚠️ **Só o Zak valida** (sem `adb`): a notificação chegar com o app fechado (deixar o app
+fechado ~20 min com uma rotina "Estado do PC" marcada para daqui a 5 min, mesma rede); o
+lembrete tocar com o Wi-Fi desligado (espelho local); nenhuma duplicata com o app aberto.
+Dependências nativas novas → **APK novo obrigatório** (fingerprint muda; OTA não alcança).
+`expo export` OK (3,4 MB).
