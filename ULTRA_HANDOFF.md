@@ -4,7 +4,7 @@
 > `CONTRATO_RPC.md` e o `CONTEXTO_NEUROAXIS.md`. Se alguma coisa aqui divergir de outro
 > arquivo do repositório, **este aqui vale**.
 >
-> Última atualização: **17/09/2026**.
+> Última atualização: **18/09/2026**.
 
 ---
 
@@ -34,6 +34,7 @@
 | 22 | [Fase 5 — a IA morta, e os seis pedidos do celular](#22-fase-5--a-ia-morta-e-os-seis-pedidos-do-celular-blocos-41-a-50) |
 | 23 | [Fase 6 — o movimento saiu da thread de JS](#23-fase-6--o-movimento-saiu-da-thread-de-js-bloco-51) |
 | 24 | [Fase 7 — depois do Antigravity: triagem e polimento](#24-fase-7--depois-do-antigravity-triagem-e-o-polimento-dos-dois-lados-blocos-55) |
+| 25 | [Fase 8 — Início cheia, Ajustes em gavetas, temas do celular e rotinas](#25-fase-8--a-início-cheia-ajustes-em-gavetas-temas-do-celular-e-rotinas-blocos-64) |
 
 ---
 
@@ -3440,3 +3441,63 @@ sem fallback; BOM saneado com arquivo plantado.
   item do plano original que segue sem código.
 - `HomeScreen.tsx` tem 1.300 linhas: cada card num arquivo, antes da próxima rodada de
   cards.
+
+---
+
+## 25. Fase 8 — a Início cheia, Ajustes em gavetas, temas do celular e rotinas (blocos 64+)
+
+> **O pedido do Zak, 18/09/2026** (dois áudios transcritos + texto), na ordem em que ele
+> falou, porque a ordem diz a prioridade:
+>
+> 1. **Desktop, tela Início** — "muito simples, só com aqueles widgets, muito vazia e bem
+>    xoxa, mesmo eu podendo alterar bastante coisa". Mais conteúdo.
+> 2. **Desktop, Ajustes** — "tudo com base em gavetas": clica em Aparência e abre uma
+>    gavetinha com os temas; Atalhos, Clima, Cérebro, idem.
+> 3. **Desktop, a lupa** — não na aba Chat: "no mesmo lugar onde existem as abas, no canto
+>    superior, sempre a lupinha, como uma barrinha de pesquisa que seria o atalho real do
+>    Ctrl+K, para eu não precisar ficar clicando no atalho toda hora".
+> 4. **Desktop, Programas** — "coisas realmente úteis, ou trocar de nome e colocar tudo o
+>    que tem no mobile no desktop".
+> 5. **Celular, temas** — "o tema Liquid Glass do mobile simplesmente não tem Liquid Glass,
+>    é só um blur; os temas do ELYSIUM no PC sim têm um certo Liquid Glass, mas no celular
+>    está muito zoado. **Zere o Liquid Glass e deixe no máximo um blur extremamente
+>    levinho nos temas do ELYSIUM do celular**, está feio demais desse jeito".
+> 6. **Animações** mais bonitas; **mais funcionalidades e mais abinhas** nos dois.
+> 7. **Celular, widgets do Android** de verdade — "tipo busca e coisas relacionadas".
+> 8. **Celular, notificações** de tarefas automatizadas — "todo dia me mandar tal coisa".
+> 9. **O fundo das páginas** — "de extrema importância: muito parado e muito esquisito,
+>    tanto no mobile quanto no PC, principalmente no mobile".
+> 10. Sugestões minhas são bem-vindas, avisando.
+>
+> **Como a fase está organizada** (um bloco = um commit; ✅ quando entregue):
+>
+> | bloco | lado | o quê |
+> |---|---|---|
+> | 64 | desktop | lupa na barra de navegação (pedido 3) + 35 ícones novos no sprite |
+> | 65 | desktop | Ajustes em gavetas (pedido 2) |
+> | 66 | desktop | Programas vira **PC**, com os painéis do celular (pedido 4) |
+> | 67 | desktop | Início cheia (pedido 1) |
+> | 68 | desktop | **Rotinas**: automações agendadas + entregas para o celular (pedido 8, lado do PC) |
+> | 69 | desktop | fundo vivo e animações (pedidos 6 e 9) |
+> | 70 | celular | temas: ELYSIUM quase sem blur, Vidro Líquido com cara de vidro (pedido 5) |
+> | 71 | celular | fundo vivo (pedido 9) |
+> | 72 | celular | notificações locais, rotinas e lembretes no aparelho (pedido 8) |
+> | 73 | celular | widgets Android (pedido 7) |
+> | 74 | celular | aba Rotinas, animações e polimento (pedido 6) |
+> | 75 | os dois | instalador + APK, checklist |
+
+### Bloco 64 — a lupa na barra de navegação ✅
+
+`#nav-busca` entre as abas e Ajustes: pílula fosca com lupa, "Buscar ou comandar…" e o
+`kbd` Ctrl K. **Não é um campo de texto** — é um botão que abre a paleta do bloco 58. Um
+segundo campo com busca própria seria a mesma paleta escrita duas vezes; e como a paleta
+já limpa, foca e desenha no trecho síncrono de `abrirPaleta()`, digitar com a pílula focada
+abre a paleta **já com a letra** (o índice chega depois e não apaga o campo). Abaixo de
+880px a pílula vira só a lupa, como as abas viram só ícone.
+
+De quebra, o sprite ganhou 35 símbolos (`search`, `bell`, `calendar`, `wifi`, `power`,
+`lock`, `moon`, `sun`, `terminal`, `list`, `trash`, `plus`, `chevron-right/left`,
+`arrow-left`, `globe`, `key`, `bookmark`, `layers`, `camera`, `file-text`, `send`, `image`,
+`eye`, `info`, `alert`, `mouse`, `type`, `external`, `cpu-chip`, `sparkles`, `rotate`,
+`tag`, `phone-call`) — os blocos seguintes usam quase todos, e o `ico()` só aceita o que
+está em `ICONES_SPRITE`.
