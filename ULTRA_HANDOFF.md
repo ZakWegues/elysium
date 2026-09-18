@@ -3664,3 +3664,43 @@ ELYSIUM (`--muted` da noite sobre o vidro escuro).
 Verificado: duas capturas com 5 s de intervalo diferem em 30/255 por canal em média
 (fundo em movimento); `animationName` dos blobs = `lg-drift-1, lg-respira-1`; tema
 Crepúsculo com `vivo` ligado, a olho.
+
+### Bloco 70 — celular: ELYSIUM quase sem blur, Vidro Líquido com cara de vidro ✅
+
+Pedido 5, ao pé da letra. Tudo em `GlassFill` (`GlassSurface.tsx`) e nos alfas de
+`palettes.ts`; nenhuma tela mudou.
+
+**Família ELYSIUM (noite):** o desfoque pedido por cada superfície é multiplicado por
+0,25 e limitado a **10** (`BLUR_TETO_NOITE`; era 40–100). A tinta sobe para compensar —
+`glassSurface` 0,26 → **0,62**, `glassSurfaceStrong` 0,42 → **0,74**, gaveta 0,86 → 0,94,
+painel 0,90 → 0,96. Lê como painel escuro quase sólido com um véu leve. Sem brilho de
+aresta (o `sheen` e a lente só existem no dia); sobra um fio de luz fraco no topo/esquerda.
+
+**Família Vidro Líquido (dia):** o desfoque sobe 25% (teto 100) e ganha o que faltava para
+ser vidro e não "blur": **aresta especular** (fio branco de 1,5 px no topo e à esquerda,
+de onde vem a luz), **lente** (círculo branco de 180 px a 22% meio para fora do canto
+superior esquerdo — a luz refratando na curva) e **sombra interna no pé** (gradiente 0 →
+7% de escuro nos 40 px de baixo). Tudo View/LinearGradient, nada por quadro. A tinta baixa
+um pouco (0,34 → 0,30) porque a aresta e a lente já dão presença.
+
+**Sem aparelho no `adb`, a intensidade é o que o Zak precisa julgar** — os dois números que
+mandam são `BLUR_TETO_NOITE` e os alfas de `vidro()`.
+
+### Bloco 71 — celular: o fundo vivo ✅
+
+Pedido 9 ("principalmente no mobile"). `AppBackground.tsx` reescrito com Reanimated:
+
+- cada **mancha** deriva (40–60 px) e respira (escala 0,9–1,15, opacidade ±14%) num
+  ciclo próprio de 14–26 s, `withRepeat(withTiming, -1, reverse)` na thread de UI;
+- uma **aurora**: disco de 1400 px com gradiente em faixas nas cores do tema girando em
+  110 s (`rotate` só — não há gradiente cônico no `expo-linear-gradient`, e as faixas
+  diagonais girando dão o mesmo "luz que varre");
+- os **feixes** ELYSIUM deslizam (40 s / 56 s) e pulsam; as **partículas** derivam em
+  bloco (38 s); os traços ficam parados (linha de 2 px em movimento vira cintilação);
+- `ReduceMotion.System` em tudo: "reduzir movimento" do Android para o fundo inteiro.
+
+🔴 **A regra "mais elementos, menos movimento" do bloco 47 foi revista, não ignorada.** O
+que custava quadro lá era animar a PINTURA de gradientes em tela cheia. Aqui só `transform`
+e `opacity` de views já pintadas mudam — o compositor move sem repintar, mesma classe de
+custo do polegar da TabBar. Se engasgar num aparelho fraco, o primeiro suspeito é a
+aurora (disco de 1400 px com 7 paradas): baixar para 1000 px ou tirar.
