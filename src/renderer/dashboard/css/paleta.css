@@ -1,0 +1,287 @@
+/* dashboard/css/paleta.css — presets, paleta Ctrl+K, orbe, lupa da barra.
+   Era um trecho do <style> do dashboard.html (bloco 76). A ORDEM dos <link> no HTML é a
+   ordem em que estas regras estavam: cascata preservada. */
+
+/* ── PRESETS: bolinha e popover ───────────────────────────
+   Um botão redondo flutuando no canto superior direito do conteúdo, sem encostar na barra
+   de abas. O popover abre estilo iOS: escala a partir do canto de origem, com careta
+   apontando para o botão, e sai mais rápido do que entra.
+
+   É o único lugar do app onde o movimento usa mola — o resto segue a escala do bloco de
+   MOVIMENTO. Mola aqui é a assinatura do formato; mola em tudo seria o "bounce em todo
+   hover" que denuncia interface gerada. */
+#preset-btn {
+  /* Mora dentro da faixa do switch, alinhado com o botao de conversas do outro canto.
+     (52 - 36) / 2 = 8. */
+  position: absolute; top: 8px; right: 16px; z-index: 60;
+  width: 36px; height: 36px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  /* Era `var(--surface)` — hex OPACO nos temas ELYSIUM. O backdrop-filter abaixo nao
+     tinha efeito nenhum: outro vidro que so parecia vidro. */
+  background: var(--vidro-barra); border: 1px solid var(--border);
+  color: var(--purple-bright); cursor: pointer;
+  box-shadow: var(--shadow-card, 0 2px 10px rgba(0,0,0,0.3));
+  backdrop-filter: var(--blur-barra);
+  transition: background var(--mov-micro) var(--mov-curva), transform var(--mov-micro) var(--mov-curva);
+}
+/* Só no Chat: na Início aquele canto é do botão "Personalizar", e na aba PC a bolinha
+   cobria o card da direita. */
+#preset-btn { display: none; }
+#layout[data-view="chat"] #preset-btn { display: flex; }
+#preset-btn:hover { background: rgba(var(--purple-rgb),0.20); }
+#preset-btn:active { transform: scale(0.94); }
+#preset-btn[aria-expanded="true"] { background: rgba(var(--purple-rgb),0.28); }
+
+/* ── Paleta de comandos (Ctrl+K) ──────────────────────────
+   Um campo, uma lista, teclado. Mesma escada de vidro do popover (--vidro-painel): é um
+   painel com TEXTO, e texto pede alfa alto. O véu de trás é o glassBackdrop do celular. */
+#paleta-veu {
+  position: fixed; inset: 0; z-index: 400;
+  background: rgba(0,0,0,0.42);
+  display: none; opacity: 0;
+  transition: opacity var(--mov-micro) linear, display var(--mov-micro) allow-discrete;
+}
+#paleta-veu.aberto { display: block; opacity: 1; }
+@starting-style { #paleta-veu.aberto { opacity: 0; } }
+#paleta {
+  position: absolute; left: 50%; top: 16%; transform: translateX(-50%) translateY(0);
+  width: min(600px, calc(100vw - 48px));
+  border-radius: 20px; overflow: hidden;
+  background: var(--vidro-painel); border: 1px solid var(--border2);
+  box-shadow: var(--shadow-float, 0 12px 40px rgba(0,0,0,0.5));
+  backdrop-filter: blur(100px) saturate(160%);
+  transition: transform var(--mov-base) var(--mov-suave), opacity var(--mov-base) var(--mov-suave);
+}
+@starting-style { #paleta-veu.aberto #paleta { transform: translateX(-50%) translateY(-10px); opacity: 0; } }
+#paleta-campo {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 16px; border-bottom: 1px solid var(--border);
+}
+#paleta-campo .ico { color: var(--muted); flex-shrink: 0; }
+#paleta-input {
+  flex: 1; border: none; background: none; outline: none;
+  color: var(--text); font-family: inherit; font-size: 15px;
+}
+#paleta-input::placeholder { color: var(--muted); }
+#paleta-campo kbd {
+  font-family: var(--mono); font-size: 10.5px; padding: 2px 6px; border-radius: 5px;
+  background: rgba(var(--purple-rgb),0.12); border: 1px solid var(--border); color: var(--muted);
+}
+#paleta-lista {
+  max-height: 52vh; overflow-y: auto; padding: 6px;
+  scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+}
+#paleta-lista::-webkit-scrollbar { width: 4px; }
+#paleta-lista::-webkit-scrollbar-thumb { background: var(--border); border-radius: var(--radius-4); }
+.paleta-grupo {
+  font-size: 10.5px; font-weight: 600; color: var(--muted);
+  padding: 8px 12px 4px;
+}
+.paleta-item {
+  display: flex; align-items: center; gap: 11px;
+  padding: 9px 12px; border-radius: 12px; cursor: pointer;
+  color: var(--text); font-size: 13px;
+}
+.paleta-item .ico { color: var(--muted); flex-shrink: 0; }
+.paleta-item .paleta-sub { color: var(--muted); font-size: 11.5px; margin-left: auto; white-space: nowrap; }
+.paleta-item.ativo { background: rgba(var(--purple-rgb),0.16); }
+.paleta-item.ativo .ico { color: var(--purple-bright); }
+.paleta-item.perigo.ativo { background: rgba(224,82,82,0.14); }
+.paleta-item.perigo .ico { color: var(--red); }
+.paleta-item mark { background: none; color: var(--purple-bright); font-weight: 600; }
+#paleta-vazio { padding: 22px; text-align: center; color: var(--muted); font-size: 12.5px; }
+#paleta-rodape {
+  display: flex; gap: 14px; padding: 8px 14px; border-top: 1px solid var(--border);
+  font-size: 10.5px; color: var(--muted);
+}
+#paleta-rodape kbd {
+  font-family: var(--mono); padding: 1px 5px; border-radius: 4px; margin-right: 4px;
+  background: rgba(var(--purple-rgb),0.12); border: 1px solid var(--border); color: var(--text);
+}
+
+#preset-pop, .pop {
+  position: fixed; z-index: 300;
+  width: 296px;
+  padding: 12px; border-radius: 22px;
+  /* 🔴 ANTES ISTO SÓ PARECIA VIDRO. O `backdrop-filter` estava declarado, mas o fundo era
+     `var(--surface2)` — hex OPACO nos três temas ELYSIUM (#0e1220, #110d26, #0c101c).
+     Desfoque atrás de superfície opaca não desfoca nada visível: a declaração ficava lá,
+     sem efeito, e ninguém percebia. É o mesmo defeito que o GlassModal do celular teve
+     dentro do Modal do RN. Agora a tinta vem da escada (--vidro-painel), que é rgba. */
+  background: var(--vidro-painel); border: 1px solid var(--border2);
+  box-shadow: var(--shadow-float, 0 12px 40px rgba(0,0,0,0.5));
+  backdrop-filter: var(--blur-painel);
+  transform-origin: top right;
+  /* Fechado. `display` entra na transição com `allow-discrete`, então ele espera a
+     saída terminar antes de voltar a `none` — é isso que torna a saída visível. */
+  display: none; opacity: 0; transform: scale(0.92) translateY(-8px);
+  transition: opacity var(--mov-saida) var(--mov-curva),
+              transform var(--mov-saida) var(--mov-curva),
+              display var(--mov-saida) allow-discrete;
+}
+#preset-pop-corpo, .pop-corpo {
+  max-height: 56vh; overflow-y: auto;
+  scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+}
+#preset-pop-corpo::-webkit-scrollbar, .pop-corpo::-webkit-scrollbar { width: 4px; }
+#preset-pop-corpo::-webkit-scrollbar-thumb, .pop-corpo::-webkit-scrollbar-thumb { background: var(--border); border-radius: var(--radius-4); }
+#preset-pop.aberto, .pop.aberto {
+  display: block; opacity: 1; transform: none;
+  /* Mola: passa um pouco do alvo e volta. Curta o bastante para não virar espera.
+     É o único lugar do app com overshoot — é a assinatura do formato popover. */
+  transition: opacity var(--mov-micro) linear,
+              transform 340ms cubic-bezier(0.2, 1.3, 0.35, 1),
+              display 340ms allow-discrete;
+}
+/* De onde a entrada parte na primeira renderização. Sem isto o navegador não tem
+   estado anterior e a caixa apareceria pronta. */
+@starting-style {
+  #preset-pop.aberto, .pop.aberto { opacity: 0; transform: scale(0.92) translateY(-8px); }
+}
+/* A careta. Quadrado girado com as mesmas borda e cor do popover; a metade de baixo fica
+   escondida atrás dele, e o que sobra é o bico. */
+#preset-pop::before, .pop::before {
+  content: ""; position: absolute; top: -6px; right: 13px;
+  width: 11px; height: 11px; transform: rotate(45deg);
+  /* Mesma tinta do painel. Com `--surface2` a careta ficava opaca sobre um corpo
+     translúcido — dois tons diferentes na mesma caixa. */
+  background: var(--vidro-painel);
+  backdrop-filter: var(--blur-painel);
+  border-left: 1px solid var(--border2); border-top: 1px solid var(--border2);
+}
+/* Dentro de um popover de vidro, card com fundo próprio vira placa opaca sobre vidro —
+   duas superfícies competindo. O card some e fica só a moldura. Vem DEPOIS das regras de
+   família (.theme-lg / .theme-ely) de propósito: na mesma especificidade a última vence, e
+   é o id + a classe .pop que ganham das duas. */
+.pop #pairing-card,
+.pop #remote-card {
+  background: transparent;
+  box-shadow: none;
+  border-color: var(--border);
+  backdrop-filter: none;
+}
+
+/* 🔴 EXCEÇÃO DELIBERADA AO VIDRO: o quadrado do QR é CHAPADO.
+   QR sobre fundo translúcido com blobs derivando por baixo perde contraste em movimento e
+   a câmera do celular pode simplesmente parar de ler. A moldura é de vidro; o código, não.
+   `isolation: isolate` impede que qualquer backdrop-filter de ancestral atravesse. */
+#pairing-qr {
+  background: #fff !important;
+  backdrop-filter: none !important;
+  isolation: isolate;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.35);
+  image-rendering: pixelated;
+}
+
+#preset-pop-titulo, .pop-titulo { font-size: 11.5px; font-weight: 600; color: var(--muted); margin-bottom: 10px; padding: 0 2px; }
+
+.pop-lista { display: flex; flex-direction: column; gap: 5px; }
+.pop-item { display: flex; align-items: stretch; gap: 4px; }
+.pop-rodar {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 9px;
+  padding: 9px 11px; border-radius: var(--radius-7);
+  background: rgba(var(--purple-rgb),0.07); border: 1px solid var(--border);
+  color: var(--text); font-family: inherit; font-size: 12px; cursor: pointer; text-align: left;
+}
+.pop-rodar:hover { background: rgba(var(--purple-rgb),0.18); }
+.pop-rodar .ico { color: var(--purple-bright); }
+.pop-nome { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pop-qtd { font-size: 10px; color: var(--muted); white-space: nowrap; }
+.pop-apagar {
+  width: 30px; border-radius: var(--radius-7);
+  background: none; border: 1px solid transparent; color: var(--muted); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.pop-apagar:hover { background: rgba(224,82,82,0.14); color: var(--red); border-color: rgba(224,82,82,0.3); }
+
+.pop-novo {
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  width: 100%; margin-top: 9px; padding: 9px;
+  border-radius: var(--radius-7); border: 1px dashed var(--border2);
+  background: none; color: var(--purple-bright);
+  font-family: inherit; font-size: 11.5px; font-weight: 600; cursor: pointer;
+}
+.pop-novo:hover { background: rgba(var(--purple-rgb),0.12); }
+
+.pop-form { display: flex; flex-direction: column; gap: 9px; }
+#preset-nome {
+  padding: 8px 10px; border-radius: var(--radius-7);
+  background: rgba(0,0,0,0.2); border: 1px solid var(--border);
+  color: var(--text); font-family: inherit; font-size: 12px; outline: none;
+}
+#preset-nome:focus { border-color: var(--purple); }
+.pop-check-lista { display: flex; flex-direction: column; gap: 3px; max-height: 200px; overflow-y: auto; }
+.pop-check {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 9px; border-radius: var(--radius-6);
+  font-size: 11.5px; color: var(--text); cursor: pointer;
+}
+.pop-check:hover { background: rgba(var(--purple-rgb),0.08); }
+.pop-check input { accent-color: var(--purple); cursor: pointer; }
+.pop-form-acoes { display: flex; gap: 7px; justify-content: flex-end; }
+.pop-form-acoes button {
+  padding: 7px 14px; border-radius: var(--radius-7);
+  background: none; border: 1px solid var(--border); color: var(--muted);
+  font-family: inherit; font-size: 11.5px; font-weight: 600; cursor: pointer;
+}
+.pop-form-acoes button.primario { background: rgba(var(--purple-rgb),0.22); color: var(--purple-bright); border-color: rgba(var(--purple-rgb),0.4); }
+.pop-form-acoes button:hover { background: rgba(var(--purple-rgb),0.14); color: var(--text); }
+
+/* ── ORBE DE CONEXÃO ──────────────────────────────────────
+   O estado do celular ao lado da saudação. Verde alcançável, cinza não. O anel pulsa
+   devagar enquanto está conectado — é a única animação em laço do app, e existe porque
+   "vivo" precisa se distinguir de "parado numa cor". */
+.home-saudacao { display: flex; align-items: center; gap: 13px; min-width: 0; }
+#orbe {
+  width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(var(--purple-rgb),0.08); border: 1px solid var(--border);
+  cursor: pointer; position: relative;
+  transition: background var(--mov-micro) var(--mov-curva);
+}
+#orbe:hover { background: rgba(var(--purple-rgb),0.20); }
+.orbe-ponto {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--dim, #5a5d7a);
+  transition: background var(--mov-base) var(--mov-curva);
+}
+#orbe.online .orbe-ponto { background: var(--green); }
+/* O anel é um pseudo-elemento para não custar um nó a mais; só existe quando online. */
+#orbe.online::after {
+  content: ""; position: absolute; inset: -1px; border-radius: 50%;
+  border: 1px solid var(--green);
+  animation: orbe-pulso 2.4s var(--mov-suave) infinite;
+}
+@keyframes orbe-pulso {
+  0%   { transform: scale(1);    opacity: 0.5; }
+  70%  { transform: scale(1.35); opacity: 0; }
+  100% { transform: scale(1.35); opacity: 0; }
+}
+
+/* ── AJUSTES à direita ────────────────────────────────────
+   Separa os destinos de conteúdo do destino de configuração. */
+.vtab-fim { margin-left: 0; }
+
+/* ── Barra de busca da navegação ──────────────────────────
+   Uma pílula fosca no meio da barra, entre os destinos e Ajustes. Largura fixa com teto:
+   a barra de abas tem 40px e o campo precisa parecer parte dela, não um formulário. */
+#nav-busca {
+  margin-left: auto; align-self: center;
+  display: flex; align-items: center; gap: 8px;
+  width: min(300px, 28vw); height: 28px; padding: 0 8px 0 10px; margin-right: 6px;
+  border-radius: var(--radius-20); border: 1px solid var(--border);
+  background: rgba(var(--purple-rgb), 0.06);
+  color: var(--muted); font-family: inherit; font-size: 11.5px; cursor: text;
+  transition: background var(--mov-micro) var(--mov-curva), border-color var(--mov-micro) var(--mov-curva), width var(--mov-base) var(--mov-suave);
+}
+#nav-busca:hover, #nav-busca:focus-visible { background: rgba(var(--purple-rgb), 0.12); border-color: var(--border2); color: var(--text); outline: none; }
+#nav-busca .ico { flex-shrink: 0; color: var(--purple-bright); }
+.nav-busca-texto { flex: 1; min-width: 0; text-align: left; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+#nav-busca kbd {
+  font-family: var(--mono); font-size: 9.5px; padding: 1px 5px; border-radius: 4px;
+  background: rgba(var(--purple-rgb),0.10); border: 1px solid var(--border); color: var(--muted);
+}
+@media (max-width: 880px) { .nav-busca-texto, #nav-busca kbd { display: none; } #nav-busca { width: 34px; padding: 0; justify-content: center; } }
+/* O --muted da noite (#5a5d7a) some sobre o vidro escuro da barra. */
+.theme-ely #nav-busca { color: rgba(232,234,240,0.55); }
+.theme-ely #nav-busca kbd { color: rgba(232,234,240,0.45); }

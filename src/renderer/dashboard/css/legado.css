@@ -1,0 +1,383 @@
+/* dashboard/css/legado.css — gaveta direita, remoto, conversas, mini-player, modal de processos, personalização, pareamento.
+   Era um trecho do <style> do dashboard.html (bloco 76). A ORDEM dos <link> no HTML é a
+   ordem em que estas regras estavam: cascata preservada. */
+
+/* ── RIGHT DRAWER (config/presets/mídia/personalização) ─── */
+#drawer-right {
+  position: absolute; top: 0; bottom: 0; right: 0; z-index: 500;
+  width: 262px; flex-shrink: 0;
+  background: var(--surface2);
+  border-left: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  transform: translateX(100%);
+  transition: transform 0.22s ease;
+  box-shadow: -12px 0 32px rgba(0,0,0,0.35);
+}
+#drawer-right.open { transform: translateX(0); }
+
+
+#rtab-panels {
+  flex: 1; overflow-y: auto; overflow-x: hidden;
+  padding: 10px 10px 16px;
+  scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+}
+#rtab-panels::-webkit-scrollbar { width: 4px; }
+#rtab-panels::-webkit-scrollbar-thumb { background: var(--border); border-radius: var(--radius-4); }
+
+
+#open-config-btn {
+  width: 100%; padding: 9px; border-radius: var(--radius-8); border: none; cursor: pointer;
+  background: rgba(var(--purple-rgb),0.22); color: var(--purple-bright);
+  font-size: 12px; font-weight: 700; margin-bottom: 10px;
+  transition: background 0.2s;
+}
+#open-config-btn:hover { background: rgba(var(--purple-rgb),0.4); }
+
+/* Media */
+#media-card {
+  background: var(--surface); border: 1px solid var(--border2);
+  border-radius: var(--radius-10); padding: 12px; margin-bottom: 8px;
+  text-align: center;
+}
+#media-title { font-size: 11px; color: var(--muted); margin-bottom: 8px; }
+#media-controls { display: flex; justify-content: center; gap: 10px; }
+.media-btn {
+  width: 36px; height: 36px; border-radius: var(--radius-9); border: none; cursor: pointer;
+  background: rgba(var(--cyan-rgb),0.12); color: var(--cyan);
+  display: flex; align-items: center; justify-content: center; font-size: 16px;
+  transition: background 0.2s, box-shadow 0.2s;
+}
+.media-btn:hover { background: rgba(var(--cyan-rgb),0.28); color: var(--text); }
+
+/* ── Acesso remoto ─────────────────────────────────────────────────────────── */
+#remote-card {
+  background: var(--surface); border: 1px solid var(--border2);
+  border-radius: var(--radius-10); padding: 12px; margin-top: 4px;
+}
+#remote-status { display: flex; align-items: center; gap: 7px; margin-bottom: 8px; }
+#remote-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dim); flex-shrink: 0; }
+#remote-dot.on  { background: var(--green); }
+#remote-dot.off { background: var(--yellow); }
+#remote-label { font-size: 11.5px; font-weight: 700; }
+#remote-body { font-size: 10.5px; color: var(--muted); line-height: 1.6; }
+#remote-body code {
+  background: rgba(255,255,255,0.07); padding: 1px 5px; border-radius: var(--radius-4);
+  font-size: 10px; user-select: text;
+}
+#remote-body ol { margin: 6px 0 0 16px; }
+#remote-body li { margin-bottom: 4px; }
+#remote-body a { color: var(--purple-bright); }
+.theme-lg #remote-body code { background: rgba(17,17,26,0.06); }
+
+/* ── Conversas salvas ──────────────────────────────────────────────────────── */
+.conv-item {
+  background: var(--surface); border: 1px solid var(--border2);
+  border-radius: var(--radius-10); padding: 10px 12px; margin-bottom: 6px;
+  cursor: pointer; display: flex; align-items: center; gap: 8px;
+  transition: border-color 0.2s, transform 0.2s cubic-bezier(0.34,1.56,0.64,1);
+}
+.conv-item:hover  { border-color: var(--purple); }
+.conv-item:active { transform: scale(0.985); }
+.conv-item.conv-active { border-color: var(--purple); background: rgba(var(--purple-rgb),0.10); }
+.conv-body  { flex: 1; min-width: 0; }
+.conv-title { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.conv-meta  { font-size: 10px; color: var(--dim); margin-top: 2px; }
+.conv-act {
+  background: none; border: none; cursor: pointer; padding: 3px; font-size: 13px;
+  color: var(--dim); transition: color 0.2s, transform 0.2s cubic-bezier(0.34,1.56,0.64,1);
+  line-height: 1;
+}
+.conv-act:hover  { transform: scale(1.2); }
+.conv-act.on     { color: #f5a623; }
+.conv-act.del:hover { color: var(--red); }
+#conv-hint  { font-size: 10px; color: var(--dim); line-height: 1.5; margin-top: 10px; }
+#conv-empty { font-size: 11px; color: var(--muted); text-align: center; padding: 18px 6px; }
+/* Renomear no lugar do titulo. `prompt()` seria modal do processo inteiro e apareceria
+   no meio da transicao do popover. */
+.conv-rename {
+  width: 100%; font-family: inherit; font-size: 12px; font-weight: 600;
+  color: var(--text); background: rgba(0,0,0,0.24);
+  border: 1px solid var(--purple); border-radius: var(--radius-6);
+  padding: 2px 6px; outline: none;
+}
+
+/* ── Mini-player do Spotify ────────────────────────────────────────────────── */
+.sp-card {
+  background: var(--surface); border: 1px solid var(--border2);
+  border-radius: var(--radius-10); padding: 14px; margin-bottom: 8px;
+  text-align: center;
+}
+.sp-empty-art { font-size: 30px; opacity: 0.5; margin-bottom: 8px; }
+#sp-connect-text, #sp-idle-text { font-size: 11.5px; color: var(--muted); line-height: 1.5; }
+.sp-primary-btn {
+  margin-top: 10px; width: 100%; padding: 9px 12px; border: none; cursor: pointer;
+  border-radius: var(--radius-9); background: #1db954; color: #fff;
+  font-size: 12px; font-weight: 700; font-family: inherit;
+  transition: filter 0.2s, transform 0.2s cubic-bezier(0.34,1.56,0.64,1);
+}
+.sp-primary-btn:hover  { filter: brightness(1.12); }
+.sp-primary-btn:active { transform: scale(0.97); }
+
+#sp-art {
+  width: 100%; aspect-ratio: 1; object-fit: cover; display: block;
+  border-radius: var(--radius-10); margin-bottom: 10px; background: rgba(0,0,0,0.25);
+}
+#sp-track  { font-size: 13px; font-weight: 700; margin-bottom: 2px;
+             white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#sp-artist { font-size: 11.5px; color: var(--muted); margin-bottom: 10px;
+             white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+#sp-seek-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+#sp-elapsed, #sp-total {
+  font-size: 10px; color: var(--muted); font-variant-numeric: tabular-nums;
+  min-width: 30px;
+}
+#sp-seek {
+  flex: 1; height: 4px; border-radius: var(--radius-4); cursor: pointer;
+  background: rgba(255,255,255,0.13); position: relative;
+}
+#sp-seek-fill {
+  height: 100%; width: 0%; border-radius: var(--radius-4);
+  background: #1db954; transition: width 0.25s linear;
+}
+#sp-seek-knob {
+  position: absolute; top: 50%; left: 0; width: 10px; height: 10px; border-radius: 50%;
+  background: #fff; transform: translate(-50%, -50%); opacity: 0;
+  transition: opacity 0.2s, left 0.25s linear;
+}
+#sp-seek:hover #sp-seek-knob { opacity: 1; }
+
+#sp-controls { display: flex; justify-content: center; align-items: center; gap: 8px; margin-bottom: 12px; }
+.sp-btn {
+  width: 34px; height: 34px; border-radius: var(--radius-9); border: none; cursor: pointer;
+  background: transparent; color: var(--muted);
+  display: flex; align-items: center; justify-content: center; font-size: 14px;
+  transition: color 0.2s, background 0.2s, transform 0.2s cubic-bezier(0.34,1.56,0.64,1);
+}
+.sp-btn:hover  { color: var(--text); background: rgba(255,255,255,0.07); }
+.sp-btn:active { transform: scale(0.9); }
+/* Aleatório e repetir ficam verdes quando ligados — é o único jeito de saber. */
+.sp-btn.sp-on  { color: #1db954; }
+.sp-btn-main {
+  width: 44px; height: 44px; background: #1db954; color: #fff; font-size: 17px;
+}
+.sp-btn-main:hover { background: #1ed760; color: #fff; }
+
+#sp-vol-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.sp-vol-icon { font-size: 12px; opacity: 0.7; }
+#sp-vol {
+  flex: 1; -webkit-appearance: none; height: 4px; border-radius: var(--radius-4);
+  background: rgba(255,255,255,0.13); outline: none; cursor: pointer;
+}
+#sp-vol::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 12px; height: 12px; border-radius: 50%;
+  background: #fff; cursor: pointer;
+}
+#sp-vol-val { font-size: 10px; color: var(--muted); min-width: 22px; text-align: right;
+              font-variant-numeric: tabular-nums; }
+#sp-device { font-size: 10px; color: var(--dim); }
+
+.theme-lg #sp-seek, .theme-lg #sp-vol { background: rgba(17,17,26,0.10); }
+.theme-lg .sp-btn:hover { background: rgba(17,17,26,0.06); }
+.theme-lg #sp-vol::-webkit-slider-thumb { background: #16161d; }
+
+/* Presets */
+#presets-grid { display: flex; flex-direction: column; gap: 5px; margin-bottom: 8px; }
+.preset-card {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-8); padding: 8px 10px; cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+.preset-card:hover { border-color: var(--purple); background: rgba(var(--purple-rgb),0.1); }
+.preset-icon { font-size: 14px; }
+.preset-name { font-size: 11px; font-weight: 600; }
+
+/* Quick commands */
+#quick-wrap { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 8px; }
+.quick-pill {
+  padding: 4px 8px; border-radius: var(--radius-20); font-size: 10px; cursor: pointer;
+  background: rgba(var(--purple-rgb),0.1); border: 1px solid rgba(var(--purple-rgb),0.25); color: var(--purple-bright);
+  transition: background 0.2s; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis;
+}
+.quick-pill:hover { background: rgba(var(--purple-rgb),0.25); }
+
+/* Config shortcut */
+#shortcut-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-9); padding: 10px;
+}
+#shortcut-card .sc-label { font-size: 11px; font-weight: 600; color: var(--muted); margin-bottom: 7px; }
+#shortcut-input {
+  width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--border);
+  border-radius: var(--radius-6); padding: 6px 9px; color: var(--cyan);
+  font-family: var(--mono); font-size: 11px; cursor: pointer; outline: none;
+  text-align: center; transition: border-color 0.2s;
+}
+#shortcut-input:focus { border-color: var(--cyan); }
+#shortcut-hint { font-size: 9px; color: var(--muted); text-align: center; margin-top: 4px; }
+
+/* API key */
+#apikey-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-9); padding: 10px; margin-top: 6px;
+}
+#apikey-card .sc-label { font-size: 11px; font-weight: 600; color: var(--muted); margin-bottom: 7px; }
+#apikey-input {
+  width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--border);
+  border-radius: var(--radius-6); padding: 6px 9px; color: var(--text);
+  font-family: var(--mono); font-size: 10px; outline: none;
+  transition: border-color 0.2s;
+}
+#apikey-input:focus { border-color: var(--purple); }
+#apikey-input::placeholder { color: var(--muted); }
+.save-btn {
+  width: 100%; margin-top: 5px; padding: 5px; border-radius: var(--radius-6); border: none; cursor: pointer;
+  background: rgba(var(--purple-rgb),0.25); color: var(--purple-bright); font-size: 11px; font-weight: 600;
+  transition: background 0.2s;
+}
+.save-btn:hover { background: rgba(var(--purple-rgb),0.45); }
+
+/* ── PROCESS EXPAND BUTTON ──────────────────────────────── */
+.proc-expand-btn {
+  float: right; background: none; border: 1px solid rgba(var(--purple-rgb),0.3);
+  border-radius: var(--radius-4); color: var(--purple-bright); font-size: 9px;
+  padding: 1px 6px; cursor: pointer; font-weight: 700; letter-spacing: 0.06em;
+  transition: background 0.2s;
+}
+.proc-expand-btn:hover { background: rgba(var(--purple-rgb),0.2); }
+
+/* ── STABILITY TIMELINE ─────────────────────────────────── */
+
+/* ── INSIGHTS PANEL ─────────────────────────────────────── */
+#insights-card {
+  background: var(--surface); border: 1px solid rgba(var(--cyan-rgb),0.2);
+  border-radius: var(--radius-9); padding: 10px; margin-top: 6px;
+}
+#insights-card .sc-label { font-size: 11px; font-weight: 600; color: var(--muted); margin-bottom: 7px; }
+.insight-item {
+  display: flex; align-items: flex-start; gap: 6px;
+  background: rgba(var(--cyan-rgb),0.05); border: 1px solid rgba(var(--cyan-rgb),0.12);
+  border-radius: var(--radius-6); padding: 6px 8px; margin-bottom: 4px;
+  font-size: 10px; color: var(--text); line-height: 1.45;
+}
+.insight-item:last-child { margin-bottom: 0; }
+.insight-icon { font-size: 12px; flex-shrink: 0; margin-top: 1px; }
+#insights-empty { font-size: 10px; color: var(--muted); text-align: center; padding: 8px 0; }
+
+/* ── PROCESS MODAL ──────────────────────────────────────── */
+#proc-modal {
+  display: none; position: fixed; inset: 0; z-index: 1000;
+  background: rgba(0,0,0,0.72); backdrop-filter: blur(6px);
+  align-items: center; justify-content: center;
+}
+#proc-modal.open { display: flex; }
+.modal-box {
+  width: 720px; max-width: calc(100vw - 40px); max-height: calc(100vh - 60px);
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: var(--radius-14); display: flex; flex-direction: column;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.6);
+  overflow: hidden;
+}
+.modal-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 16px; border-bottom: 1px solid var(--border);
+  background: rgba(26,26,46,0.8); flex-shrink: 0;
+}
+.modal-title { font-size: 12px; font-weight: 700; color: var(--text); flex: 1; }
+#proc-search {
+  background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+  border-radius: var(--radius-6); padding: 4px 9px; color: var(--text);
+  font-size: 11px; outline: none; width: 140px; transition: border-color 0.2s;
+}
+#proc-search:focus { border-color: var(--purple); }
+#proc-search::placeholder { color: var(--muted); }
+.sort-btn {
+  padding: 4px 9px; border-radius: var(--radius-6); border: 1px solid var(--border);
+  background: rgba(255,255,255,0.03); color: var(--muted); font-size: 10px;
+  cursor: pointer; font-weight: 600; transition: all 0.2s; white-space: nowrap;
+}
+.sort-btn.active   { background: rgba(var(--purple-rgb),0.25); border-color: var(--purple); color: var(--purple-bright); }
+.sort-btn:hover:not(.active) { background: rgba(255,255,255,0.06); color: var(--text); }
+#proc-modal-close {
+  background: rgba(224,82,82,0.12); border: 1px solid rgba(224,82,82,0.25);
+  color: var(--red); border-radius: var(--radius-7); padding: 4px 10px; cursor: pointer;
+  font-size: 12px; font-weight: 700; transition: background 0.2s;
+}
+#proc-modal-close:hover { background: rgba(224,82,82,0.3); }
+.modal-body {
+  flex: 1; overflow-y: auto; overflow-x: hidden;
+  scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+}
+.modal-body::-webkit-scrollbar { width: 5px; }
+.modal-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: var(--radius-4); }
+#proc-modal-table { width: 100%; border-collapse: collapse; }
+#proc-modal-table th {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.08em; color: var(--muted);
+  text-align: left; padding: 6px 12px; border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; background: var(--surface2); z-index: 1;
+}
+#proc-modal-table td { font-family: var(--mono); font-size: 11px; padding: 6px 12px; border-bottom: 1px solid rgba(var(--purple-rgb),0.07); vertical-align: middle; }
+#proc-modal-table tr:last-child td { border-bottom: none; }
+#proc-modal-table tr:hover td { background: rgba(var(--purple-rgb),0.05); }
+.sys-badge {
+  display: inline-block; font-size: 8px; padding: 1px 5px; border-radius: var(--radius-3);
+  background: rgba(90,93,122,0.2); color: var(--muted); font-family: var(--mono);
+  letter-spacing: 0.05em; font-weight: 600; vertical-align: middle; margin-left: 4px;
+}
+.user-badge {
+  display: inline-block; font-size: 8px; padding: 1px 5px; border-radius: var(--radius-3);
+  background: rgba(var(--cyan-rgb),0.1); color: var(--cyan-dark); font-family: var(--mono);
+  letter-spacing: 0.05em; font-weight: 600; vertical-align: middle; margin-left: 4px;
+}
+
+#drawer-left .widget.widget-hidden { display: none; }
+
+/* ── PERSONALIZAÇÃO: temas + reorder de widgets ─────────── */
+/* As amostras de tema ganharam prévia e mudaram de bloco: ver "Ajustes em gavetas". */
+
+#widget-order-list { display: flex; flex-direction: column; gap: 5px; }
+.widget-order-row {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-7); padding: 6px 8px;
+}
+.widget-order-row.hidden-widget { opacity: 0.45; }
+.widget-order-name { flex: 1; font-size: 11px; }
+.widget-order-btn {
+  width: 20px; height: 20px; border-radius: var(--radius-5); border: none; cursor: pointer;
+  background: rgba(255,255,255,0.05); color: var(--muted); font-size: 10px;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.2s, color 0.2s;
+}
+.widget-order-btn:hover:not(:disabled) { background: rgba(var(--purple-rgb),0.25); color: var(--purple-bright); }
+.widget-order-btn:disabled { opacity: 0.3; cursor: default; }
+.widget-order-toggle { width: 15px; height: 15px; cursor: pointer; accent-color: var(--purple); }
+
+/* ── PAREAMENTO (ELYSIUM-M mobile) ───────────────── */
+/* Um eixo de alinhamento só. Antes o card era `text-align: center` e as caixas de código
+   eram `text-align: left` — rótulo centralizado sobre valor à esquerda, duas vezes
+   seguidas. O QR se centraliza sozinho pelo próprio `margin: 0 auto`. */
+#pairing-card {
+  background: var(--surface); border: 1px solid var(--border2);
+  border-radius: var(--radius-10); padding: 12px;
+  display: flex; flex-direction: column; gap: 7px;
+}
+#pairing-card .sc-label { margin: 4px 0 0; }
+#pairing-card .save-btn { width: 100%; margin-top: 4px; }
+#pairing-qr {
+  display: none; width: 176px; height: 176px; margin: 0 auto 8px;
+  background: #fff; border-radius: var(--radius-8); padding: 8px;
+}
+#pairing-qr.show { display: block; }
+#pairing-empty { font-size: 11px; color: var(--muted); padding: 20px 4px; text-align: center; }
+#pairing-empty.hide { display: none; }
+#pairing-token { cursor: pointer; user-select: none; }
+#pairing-token.revelado { user-select: text; }
+#pairing-token:hover { border-color: rgba(var(--cyan-rgb),0.4); }
+.pairing-mono {
+  font-family: var(--mono); font-size: 10.5px; color: var(--cyan);
+  background: rgba(0,0,0,0.3); border: 1px solid var(--border);
+  border-radius: var(--radius-6); padding: 5px 8px; word-break: break-all; text-align: left;
+}
+#pairing-hint { font-size: 10.5px; color: var(--muted); margin-top: 6px; line-height: 1.5; }

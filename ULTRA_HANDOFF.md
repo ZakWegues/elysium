@@ -36,6 +36,7 @@
 | 24 | [Fase 7 — depois do Antigravity: triagem e polimento](#24-fase-7--depois-do-antigravity-triagem-e-o-polimento-dos-dois-lados-blocos-55) |
 | 25 | [Fase 8 — Início cheia, Ajustes em gavetas, temas do celular e rotinas](#25-fase-8--a-início-cheia-ajustes-em-gavetas-temas-do-celular-e-rotinas-blocos-64) |
 | 26 | [O plano do que falta — fases 9, 10 e 11](#26-o-plano-do-que-falta--fases-9-10-e-11-blocos-76) |
+| 27 | [Fase 9 — o cérebro com ferramentas, e a base que aguenta](#27-fase-9--o-cérebro-com-ferramentas-e-a-base-que-aguenta-blocos-76) |
 
 ---
 
@@ -4074,3 +4075,38 @@ com "esquecer este".
 - **Relay em nuvem próprio** — o túnel resolve fora de casa; o push (bloco 94) resolve o
   resto. Um relay é um servidor para manter para sempre.
 - **Mais abas** — cinco no desktop e quatro no celular é o teto antes de virar menu.
+
+---
+
+## 27. Fase 9 — o cérebro com ferramentas, e a base que aguenta (blocos 76+)
+
+> O plano está na §26. Aqui, o que foi feito de cada bloco, na ordem.
+
+### Bloco 76 — `dashboard.html` em arquivos ✅
+
+De 7.413 linhas num arquivo para **495 de markup** + `src/renderer/dashboard/css/` (12
+arquivos) + `src/renderer/dashboard/js/` (14 arquivos). Sem bundler: `<link>` e `<script>`
+clássicos, **na mesma ordem em que o código estava** — cascata e escopo global preservados
+(`const`/`let` de script clássico vivem no escopo global compartilhado).
+
+| css | js |
+|---|---|
+| `base` (vars, famílias, ícones, movimento, abas, polegar) · `layout` · `chat` · `legado` (gaveta direita, remoto, mini-player, modal de processos, pareamento) · `fundo` · `rich` (.theme-rich/.theme-lg) · `abas` · `ajustes` · `pc` · `rotinas` · `paleta` (presets, paleta, orbe, lupa) · `inicio` | `nucleo` · `chat` · `temas` · `voz` · `conversas` · `config` · `abas` · `ajustes` (+ gaveta genérica) · `presets` · `pc` · `rotinas` · `inicio` · `paleta` · **`boot`** |
+
+🔴 **A única regra nova:** chamada **síncrona no nível do arquivo** só pode apontar para
+função de arquivo anterior — o hoisting que o arquivo único dava de graça não atravessa
+`<script>`. Por isso o bloco INIT (`loadHistory/loadConfig/loadApiKey/carregarCards`) e a
+cauda de arranque (restaurar aba, ouvintes de foco) saíram do meio e viraram `boot.js`, o
+último. Chamadas em tempo de execução (handlers, `switchView`, RPC) continuam livres.
+`copy-assets.mjs` copia a pasta; `node --check` em cada `.js`.
+
+**Prova:** `scripts/erros-no-dashboard.mjs` (novo — liga `Runtime.exceptionThrown` e
+`console.error` ANTES do reload, percorre as 5 abas, uma gaveta de cada tipo e a paleta):
+*"Sem exceções nem console.error no arranque e nas abas"*; 12 folhas carregadas com suas
+regras; captura das 5 abas idêntica ao antes. De quebra: `let salva` no boot — era
+`const` reatribuído (lançava e caía no `catch` quando a aba salva era "programas").
+
+**Armadilha de teste descoberta:** a janela dev virava `iconic` 2–3 s depois de aparecer —
+era o **Zak minimizando**, porque está usando o PC. `scratchpad/mostrar.ps1` restaura sem
+foco e manda a janela para x=-2400; com `CalculateNativeWinOcclusion` desligado, fora da
+tela ainda captura. Anotado na memória de depuração.

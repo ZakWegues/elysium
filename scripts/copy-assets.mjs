@@ -21,5 +21,7 @@ if (existsSync("config.json")) {
 cpSync("src/renderer/config.html",       "dist/renderer/config.html");
 cpSync("src/renderer/recorder.html",     "dist/renderer/recorder.html");
 cpSync("src/renderer/dashboard.html",    "dist/renderer/dashboard.html");
+// O CSS e o JS do dashboard moram em pasta própria desde o bloco 76.
+cpSync("src/renderer/dashboard", "dist/renderer/dashboard", { recursive: true });
 
 console.log("Assets copiados para dist/");

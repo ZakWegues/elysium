@@ -1,0 +1,305 @@
+/* dashboard/css/base.css — variáveis, as duas famílias de tema, ícones, escala de movimento, troca de aba, polegar, micro-interações.
+   Era um trecho do <style> do dashboard.html (bloco 76). A ORDEM dos <link> no HTML é a
+   ordem em que estas regras estavam: cascata preservada. */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:        #0d0d1a;
+  --surface:   #1a1a2e;
+  --surface2:  #12122a;
+  --purple:    #7b5ea7;
+  --purple-bright: #9d7fd4;
+  --cyan:      #4ecdc4;
+  --cyan-dark: #38a89d;
+  /* Os mesmos roxo e ciano em componentes separados, para servirem de base a rgba()
+     com alfa. Sem isso, toda regra translúcida do tema precisaria repetir a cor em
+     literal — e foi exatamente o que travou as variações de cor do Vidro Líquido:
+     19 usos de rgba(var(--purple-rgb),…) que não seguiam a paleta escolhida.
+     Quem mantém isto em dia é o applyTheme(), a partir do hex da paleta. */
+  --purple-rgb: 123,94,167;
+  --cyan-rgb:   78,205,196;
+  /* ── ESCADA DE VIDRO ──────────────────────────────────────
+     Direção HyperOS / One UI, não iOS: alfa ALTO + desfoque ALTO. O painel não mostra
+     as formas do fundo, mostra COR e luz difusa — e o texto lê perfeitamente por cima.
+     A rota iOS (alfa baixo, desfoque médio) foi testada no celular e deixou painel
+     ilegível; a correção está registrada no bloco 53 do ULTRA_HANDOFF.
+
+     A tinta NUNCA é branco puro: `--glass-ink` sai da paleta do tema (applyTheme). Foi
+     branco puro com desfoque baixo que produziu o aspecto "leitoso" reclamado.
+
+     Quatro degraus, os mesmos já validados no celular:
+       card 0,34 · barra 0,52 · gaveta 0,86 · painel 0,92 */
+  --glass-ink:    16,20,34;
+  --vidro-card:   rgba(var(--glass-ink), 0.34);
+  --vidro-barra:  rgba(var(--glass-ink), 0.52);
+  --vidro-gaveta: rgba(var(--glass-ink), 0.86);
+  --vidro-painel: rgba(var(--glass-ink), 0.92);
+  --blur-barra:  blur(22px) saturate(150%);
+  --blur-gaveta: blur(34px) saturate(165%);
+  --blur-painel: blur(44px) saturate(180%);
+  --red:       #e05252;
+  --green:     #3ecf8e;
+  --yellow:    #f0c040;
+  --border:    rgba(125,94,167,0.22);
+  --border2:   rgba(var(--cyan-rgb),0.15);
+  --text:      #e8eaf0;
+  --muted:     #5a5d7a;
+  --mono:      "Consolas", "Cascadia Code", monospace;
+  --radius-3: 3px; --radius-4: 4px; --radius-5: 5px; --radius-6: 6px;
+  --radius-7: 7px; --radius-8: 8px; --radius-9: 9px; --radius-10: 10px;
+  --radius-12: 12px; --radius-14: 14px; --radius-20: 20px;
+  --glass-blur: none;
+}
+
+/* ── LIQUID GLASS THEME (claro, linguagem do ELYSIUM-M) ── */
+body.theme-lg {
+  --radius-3: 8px;  --radius-4: 10px; --radius-5: 12px; --radius-6: 14px;
+  --radius-7: 16px; --radius-8: 18px; --radius-9: 20px; --radius-10: 22px;
+  --radius-12: 22px; --radius-14: 28px; --radius-20: 999px;
+  --text:    #16161d;
+  --muted:   #6b7280;
+  --border:  rgba(17,17,26,0.07);
+  --border2: rgba(17,17,26,0.05);
+  --red:     #e5484d;
+  --green:   #17b26a;
+  --yellow:  #d9a300;
+  --glass-blur: blur(22px) saturate(180%);
+  --shadow-card: 0 2px 10px rgba(17,17,26,0.05), 0 10px 28px rgba(17,17,26,0.05);
+  --shadow-float: 0 4px 14px rgba(17,17,26,0.08), 0 16px 40px rgba(17,17,26,0.07);
+  /* <html> mantém a cor de fundo; o <body> precisa ficar transparente senão
+     tapa a camada de blobs (que fica em z-index:-1, atrás do body). */
+  background: transparent;
+}
+.theme-lg .bubble.user      { border-bottom-right-radius: var(--radius-12); }
+.theme-lg .bubble.assistant { border-bottom-left-radius:  var(--radius-12); }
+
+/* ── ELYSIUM — campos elísios: luz dourada sobre azul-noite ────────────────
+   Este bloco é curto de propósito, e o do Vidro Líquido é longo pelo mesmo motivo: o
+   dashboard já nasceu escuro, então o `lg` gasta ~100 regras convertendo escuro em claro.
+   O ELYSIUM herda a base e só precisa mexer no que é identidade — vidro sobre a noite,
+   borda dourada, raios generosos e profundidade. Tudo que é movimento vem de `.theme-rich`.
+
+   As variáveis continuam se chamando `--purple` e `--cyan` mesmo valendo ouro e éter.
+   Renomear atingiria centenas de usos em quase 3000 linhas sem ganho funcional nenhum;
+   não é descuido, é escolha. */
+body.theme-ely {
+  --radius-3: 7px;  --radius-4: 9px;  --radius-5: 11px; --radius-6: 13px;
+  --radius-7: 15px; --radius-8: 16px; --radius-9: 18px; --radius-10: 20px;
+  --radius-12: 20px; --radius-14: 24px; --radius-20: 999px;
+  --border:  rgba(var(--purple-rgb),0.16);
+  --border2: rgba(var(--cyan-rgb),0.12);
+  --glass-blur: blur(20px) saturate(140%);
+  --shadow-card:  0 2px 10px rgba(0,0,0,0.35), 0 12px 32px rgba(0,0,0,0.28);
+  --shadow-float: 0 6px 20px rgba(0,0,0,0.45), 0 22px 56px rgba(0,0,0,0.38);
+  /* Mesmo motivo do `lg`: o <html> segura a cor de fundo e o <body> fica transparente,
+     senão tapa a camada de blobs e dos feixes, que vivem em z-index negativo. */
+  background: transparent;
+}
+
+/* Superfícies: no lugar do preenchimento opaco da base, vidro sobre a noite. */
+.theme-ely #topbar {
+  background: var(--vidro-barra);
+  backdrop-filter: var(--blur-barra);
+  border-bottom-color: var(--border);
+}
+.theme-ely #drawer-left,
+.theme-ely #drawer-right,
+.theme-ely #input-bar,
+.theme-ely .modal-box {
+  background: var(--vidro-gaveta);
+  backdrop-filter: var(--blur-gaveta);
+  box-shadow: var(--shadow-float);
+}
+.theme-ely .log-card,
+.theme-ely .preset-card,
+.theme-ely .disk-card,
+.theme-ely .theme-swatch,
+.theme-ely #media-card,
+.theme-ely #insights-card,
+.theme-ely #apikey-card,
+.theme-ely #shortcut-card,
+.theme-ely #pairing-card,
+.theme-ely .chart-wrap {
+  background: rgba(255,255,255,0.04);
+  border-color: var(--border);
+  box-shadow: var(--shadow-card);
+}
+.theme-ely .bubble.assistant {
+  background: rgba(255,255,255,0.05);
+  border-color: var(--border2);
+  backdrop-filter: var(--glass-blur);
+  border-bottom-left-radius: var(--radius-12);
+}
+.theme-ely .bubble.user {
+  border-bottom-right-radius: var(--radius-12);
+}
+.theme-ely #cmd-input,
+.theme-ely #proc-search,
+.theme-ely #apikey-input,
+.theme-ely #shortcut-input {
+  background: rgba(255,255,255,0.05);
+  border-color: var(--border);
+}
+.theme-ely #drawer-backdrop { background: rgba(6,8,14,0.55); }
+.theme-ely .logo-text {
+  /* O nome é o único ponto onde o dourado aparece cheio, sem alfa. */
+  color: var(--purple-bright);
+  letter-spacing: 0.14em;
+}
+
+/* Feixes de luz — o elemento que o Vidro Líquido não tem, e que dá o "campos elísios".
+   Ficam sobre os blobs e abaixo de todo o resto, com deriva bem mais lenta que a deles
+   para o fundo nunca competir com a leitura. */
+#ely-shafts { position: fixed; inset: -20%; z-index: -1; display: none; pointer-events: none; overflow: hidden; }
+.theme-ely #ely-shafts { display: block; }
+.ely-shaft {
+  position: absolute; top: -30%; height: 160%; width: 42%;
+  background: linear-gradient(180deg, transparent, var(--shaft, #d9b168), transparent);
+  opacity: 0.06; filter: blur(50px); transform: skewX(-14deg); will-change: transform;
+}
+.ely-shaft-1 { left: 6%;  animation: ely-shaft-1 24s ease-in-out infinite alternate, ely-pulsa 9s ease-in-out infinite; }
+.ely-shaft-2 { right: 2%; animation: ely-shaft-2 30s ease-in-out infinite alternate, ely-pulsa 12s ease-in-out infinite 3s; }
+.ely-shaft-3 { left: 44%; width: 26%; opacity: 0.04; animation: ely-shaft-3 36s ease-in-out infinite alternate, ely-pulsa-fraco 15s ease-in-out infinite 6s; }
+@keyframes ely-shaft-1 { from { transform: skewX(-14deg) translateX(-40px); } to { transform: skewX(-14deg) translateX(150px); } }
+@keyframes ely-shaft-2 { from { transform: skewX(-14deg) translateX(40px); }  to { transform: skewX(-14deg) translateX(-170px); } }
+@keyframes ely-shaft-3 { from { transform: skewX(-14deg) translateX(90px); }  to { transform: skewX(-14deg) translateX(-90px); } }
+@keyframes ely-pulsa { 0%, 100% { opacity: 0.06; } 50% { opacity: 0.12; } }
+@keyframes ely-pulsa-fraco { 0%, 100% { opacity: 0.04; } 50% { opacity: 0.08; } }
+body.vivo .ely-shaft { animation-duration: 12s, 4s; }
+
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-movimento="sempre"]) .ely-shaft,
+  :root:not([data-movimento="sempre"]) .bg-traco,
+  :root:not([data-movimento="sempre"]) #bg-poeira i,
+  :root:not([data-movimento="sempre"]) .aurora,
+  :root:not([data-movimento="sempre"]) .lg-blob { animation: none !important; }
+}
+:root[data-movimento="nunca"] .aurora, :root[data-movimento="nunca"] .lg-blob,
+:root[data-movimento="nunca"] .ely-shaft, :root[data-movimento="nunca"] .bg-traco,
+:root[data-movimento="nunca"] #bg-poeira i { animation: none !important; }
+
+
+/* ── ÍCONES ───────────────────────────────────────────────
+   Substituem os emoji. Herdam a cor do texto, então acompanham tema, hover e
+   estado desabilitado sem uma regra por ícone. */
+.ico { width: 16px; height: 16px; flex-shrink: 0; display: block; }
+.ico-sm { width: 13px; height: 13px; }
+.ico-lg { width: 20px; height: 20px; }
+.conv-star .ico.on, .ico.on { fill: currentColor; }
+
+
+/* ── MOVIMENTO ────────────────────────────────────────────
+   Três durações e duas curvas, e nada além disso. Regras:
+     · nada passa de 300 ms — acima disso vira espera, não resposta;
+     · nada faz bounce, exceto o popover, que é mola porque é iOS;
+     · só `transform` e `opacity` — animar width/height/top força layout a
+       cada quadro e engasga junto com o resto do app.
+   O interruptor de acessibilidade no fim do bloco zera tudo de uma vez. */
+:root {
+  --mov-micro: 120ms;   /* hover, foco, toggle */
+  --mov-base: 220ms;    /* troca de aba, card entrando */
+  --mov-saida: 140ms;   /* saída é sempre mais rápida que entrada */
+  --mov-curva: cubic-bezier(0.2, 0, 0.2, 1);
+  --mov-suave: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* Entradas em CSS puro: sem classe adicionada por JS, sem requestAnimationFrame. */
+@keyframes mov-entra {
+  from { opacity: 0; transform: translateY(8px) scale(0.985); }
+  to   { opacity: 1; transform: none; }
+}
+.mov-entra { animation: mov-entra var(--mov-base) var(--mov-suave) both; }
+.bubble, .log-card { animation: mov-entra var(--mov-base) var(--mov-suave) both; }
+
+/* Escalonamento na montagem de lista. Seis é o teto de propósito: a partir daí a
+   espera acumulada passa a ser sentida como lentidão. */
+.mov-lista > * { animation: mov-entra var(--mov-base) var(--mov-suave) both; }
+.mov-lista > *:nth-child(1) { animation-delay: 0ms; }
+.mov-lista > *:nth-child(2) { animation-delay: 30ms; }
+.mov-lista > *:nth-child(3) { animation-delay: 60ms; }
+.mov-lista > *:nth-child(4) { animation-delay: 90ms; }
+.mov-lista > *:nth-child(5) { animation-delay: 120ms; }
+.mov-lista > *:nth-child(n+6) { animation-delay: 150ms; }
+
+/* ── Troca de aba ─────────────────────────────────────────
+   `@starting-style` diz de onde a animação parte na PRIMEIRA vez que o elemento
+   é renderizado, e `transition-behavior: allow-discrete` faz `display` esperar a
+   transição terminar antes de voltar a `none`. Juntos, animam a partir de
+   `display:none` sem uma linha de JS.
+
+   Aqui havia a View Transitions API. Ela tira um snapshot da página e o sobrepõe
+   ao DOM vivo — então a barrinha da barra de abas deslizava POR BAIXO do snapshot,
+   invisível, e sobrava um cross-fade de dois painéis escuros quase iguais, que lê
+   como nada acontecendo. A API serve para morph entre estados diferentes, não para
+   navegação, onde o que importa é ver o indicador percorrer o caminho. */
+#layout > #view-inicio,
+#layout > #center,
+#layout > #view-pc,
+#layout > #view-rotinas,
+#layout > #drawer-right {
+  transition: opacity var(--mov-base) var(--mov-suave),
+              transform var(--mov-base) var(--mov-suave),
+              display var(--mov-base) allow-discrete;
+}
+@starting-style {
+  #layout[data-view="inicio"]    #view-inicio,
+  #layout[data-view="chat"]      #center,
+  #layout[data-view="pc"] #view-pc,
+  #layout[data-view="rotinas"] #view-rotinas,
+  #layout[data-view="ajustes"]   #drawer-right { opacity: 0; transform: translateY(14px) scale(0.992); }
+}
+
+/* ── Polegar deslizante da barra de abas ──────────────────
+   Substitui o `border-bottom` que apagava num destino e acendia noutro. O
+   traço percorre a distância, e é esse percurso que diz de onde você veio. */
+#viewtabs { position: relative; }
+/* O DESENHO mudou; o MOVIMENTO nao. O elemento continua sendo 1px de largura levado por
+   translateX + scaleX, exatamente como antes — e por isso continua sendo so transform.
+
+   O problema de desenhar uma pilula direto neste elemento e que o raio de borda e
+   calculado ANTES do transform: num box de 1px de largura, `border-radius: 999px` e
+   grampeado para 0,5px e o scaleX depois estica esse 0,5px em dezenas de pixels. A
+   pilula viraria uma lente pontuda. Por isso o desenho vive num ::after que tem a
+   largura REAL da aba (--w) e se contra-escala por 1/--w: o raio e calculado no box
+   certo, e a escala do pai devolve o tamanho. O --w e a unica coisa nova no JS, e ele
+   nao participa da animacao. */
+#vtab-thumb {
+  position: absolute; top: 5px; bottom: 5px; left: 0;
+  width: 1px; transform: translateX(0) scaleX(0); transform-origin: left center;
+  /* Mola curta: passa 6% do alvo e volta. É a assinatura do popover (motion.ts do celular)
+     aplicada ao único elemento do desktop que "viaja". */
+  transition: transform 300ms cubic-bezier(0.34, 1.3, 0.64, 1);
+  pointer-events: none;
+  z-index: 0;
+}
+#vtab-thumb::after {
+  content: ""; position: absolute; top: 0; bottom: 0; left: 0;
+  width: calc(var(--w, 1) * 1px);
+  transform: scaleX(calc(1 / var(--w, 1)));
+  transform-origin: left center;
+  border-radius: 999px;
+  background: var(--vidro-card);
+  border: 1px solid rgba(var(--purple-rgb), 0.30);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 2px 10px rgba(0,0,0,0.22);
+  backdrop-filter: blur(12px) saturate(150%);
+}
+
+/* ── Micro-interações ─────────────────────────────────────
+   Recuo de 1px ao apertar, em vez de bounce ao passar o mouse. */
+button:not(:disabled):active { transform: translateY(1px); }
+.vtab:active { transform: none; }
+button, input, .home-card, .chart-wrap, .home-item {
+  transition: background var(--mov-micro) var(--mov-curva),
+              border-color var(--mov-micro) var(--mov-curva),
+              color var(--mov-micro) var(--mov-curva),
+              transform var(--mov-micro) var(--mov-curva);
+}
+.home-card:hover { transform: translateY(-1px); }
+
+/* Barras de métrica por `scaleX`: a largura em % reflui a cada quadro, a escala não. */
+.home-bar > i, .bat-bar-fill, .disk-bar-fill {
+  transform-origin: left center;
+  transition: transform var(--mov-base) var(--mov-suave), background var(--mov-base) linear;
+}
+
+html, body { height: 100vh; overflow: hidden; background: var(--bg); color: var(--text); font-family: "Segoe UI", system-ui, sans-serif; font-size: 13px; }

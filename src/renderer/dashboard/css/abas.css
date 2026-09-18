@@ -1,0 +1,125 @@
+/* dashboard/css/abas.css — navegação por abas, painéis, Ajustes base.
+   Era um trecho do <style> do dashboard.html (bloco 76). A ORDEM dos <link> no HTML é a
+   ordem em que estas regras estavam: cascata preservada. */
+
+/* ── NAVEGAÇÃO POR ABAS ───────────────────────────────────
+   O dashboard nasceu com duas gavetas deslizantes e uma timeline no meio. O app mobile
+   navega por destinos nomeados, um de cada vez, e é essa a estrutura que se quis aqui.
+
+   🔴 NADA DE MARKUP FOI MOVIDO. As gavetas continuam exatamente onde estavam no HTML —
+   com os gráficos, o Spotify, o pareamento e a telemetria que já funcionavam. O que muda é
+   que, com `data-view` no #layout, elas deixam de ser `absolute` com translateX e viram
+   painel de largura cheia. Reescrever 3000 linhas para trocar de navegação seria jogar
+   fora tudo que já está de pé.
+
+   As abas ficam no TOPO, e não no rodapé como no celular: barra inferior existe em telefone
+   por alcance do polegar, razão que não vale para mouse. O destino é o mesmo, o lugar é o
+   que a plataforma pede. */
+
+#viewtabs {
+  display: flex; align-items: stretch; gap: 2px;
+  height: 40px; padding: 0 10px;
+  background: rgba(var(--purple-rgb), 0.04);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.vtab {
+  display: flex; align-items: center; gap: 7px;
+  padding: 0 14px; border: none; background: none;
+  color: var(--muted); font-family: inherit; font-size: 12px; font-weight: 600;
+  cursor: pointer; position: relative;
+  border-bottom: 2px solid transparent;
+  transition: color 0.2s, background 0.2s;
+  /* O #vtab-thumb é o ÚLTIMO filho da barra e é absoluto: sem isto ele pinta por cima
+     do botão, e a pílula de vidro do bloco 54 cobria o rótulo da aba ativa — a barra
+     mostrava uma pílula vazia onde devia estar "Início". */
+  z-index: 1;
+}
+.vtab:hover { color: var(--text); background: rgba(var(--purple-rgb), 0.06); }
+/* O traco embaixo saiu: quem marca a aba ativa agora e a pilula de vidro do #vtab-thumb.
+   Dois indicadores ao mesmo tempo era o que deixava a barra pesada. */
+.vtab.active { color: var(--purple-bright); }
+.vtab-ico { font-size: 14px; line-height: 1; }
+/* Abaixo de ~880px de largura os rótulos saem e ficam só os ícones, em vez de a barra
+   quebrar em duas linhas ou cortar destino. */
+@media (max-width: 880px) { .vtab-label { display: none; } .vtab { padding: 0 11px; } }
+
+/* Um ponto no destino que tem novidade — mesma ideia do badge da TabBar do celular. */
+.vtab-dot {
+  position: absolute; top: 7px; right: 7px;
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--cyan); display: none;
+}
+.vtab.has-news .vtab-dot { display: block; }
+
+/* O layout perde os 40px da barra de abas além dos 42 do topbar. */
+#layout { height: calc(100vh - 82px); }
+
+/* ── As gavetas viram painéis ─────────────────────────────
+   Só enquanto uma aba está ativa. A regra é a mesma para as duas: solta do canto, ocupa a
+   largura toda, sem sombra de gaveta e sem transform. */
+#layout[data-view] #drawer-right {
+  position: static;
+  transform: none !important;
+  width: 100%;
+  max-width: none;
+  box-shadow: none;
+  border-left: none;
+  border-right: none;
+  z-index: auto;
+}
+/* Fora da sua aba, some de vez: `display:none` e não translate, senão o conteúdo
+   continuaria recebendo foco por Tab e o leitor de tela ainda o anunciaria. */
+#layout[data-view] #drawer-right,
+#layout[data-view] #center,
+#layout[data-view] #view-inicio,
+#layout[data-view] #view-pc,
+#layout[data-view] #view-rotinas { display: none; opacity: 0; transform: translateY(-6px); }
+
+/* Os painéis se SOBREPÕEM, não dividem espaço.
+   Enquanto a troca acontece, o que sai e o que entra estão os dois visíveis por ~220ms —
+   `display` só volta a `none` no fim, por causa do `allow-discrete`. Se fossem itens de
+   flex, nesse intervalo eles partiriam a janela ao meio e a tela pularia. Empilhados, um
+   simplesmente atravessa o outro, que é o que se quer ver. */
+#layout[data-view] > #view-inicio,
+#layout[data-view] > #center,
+#layout[data-view] > #view-pc,
+#layout[data-view] > #view-rotinas,
+#layout[data-view] > #drawer-right {
+  position: absolute; inset: 0; min-width: 0;
+}
+/* A faixa do switch come 52px do topo, e so na aba Chat. Acrescentar a faixa sem mexer
+   no inset empurraria o fim da conversa para fora da janela. */
+#layout[data-view="chat"] > #center { top: 52px; }
+#layout[data-view="inicio"]  #view-inicio  { display: block; opacity: 1; transform: none; }
+#layout[data-view="chat"]    #center       { display: flex;  opacity: 1; transform: none; }
+#layout[data-view="pc"] #view-pc { display: block; opacity: 1; transform: none; }
+#layout[data-view="rotinas"] #view-rotinas { display: block; opacity: 1; transform: none; }
+#layout[data-view="ajustes"] #drawer-right { display: flex;  opacity: 1; transform: none; }
+
+
+
+
+/* Com abas, as gavetas nunca deslizam — logo o backdrop e os botões de gaveta não fazem
+   mais sentido e sairiam sobrando por cima do conteúdo. */
+#layout[data-view] #drawer-backdrop { display: none !important; }
+body.tabs .top-btn.drawer-toggle { display: none; }
+
+
+
+/* ── AJUSTES ──────────────────────────────────────────────
+   A gaveta foi desenhada para 262px. Quando o bloco 18 a transformou em aba, a regra
+   `width:100%` sem teto passou a valer para a janela inteira: o botão "Salvar" de 5px de
+   padding esticava por 1200px, enquanto os botões de tamanho fixo em pixel continuavam
+   minúsculos e sozinhos no meio do vazio. Três estratégias de largura conflitando.
+
+   O conserto é uma coluna com teto e uma grade rótulo/controle: o rótulo tem largura
+   previsível, e o controle tem um máximo real. */
+#layout[data-view="ajustes"] #rtab-panels {
+  max-width: 900px; margin: 0 auto; width: 100%;
+}
+
+/* Os controles compostos (amostras de tema, lista de widgets) seguem o mesmo teto dos
+   campos simples — senão só eles esticariam. */
+#layout[data-view="ajustes"] #theme-swatches,
+#layout[data-view="ajustes"] #widget-order-list { max-width: 340px; }

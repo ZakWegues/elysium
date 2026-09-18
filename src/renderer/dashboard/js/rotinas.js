@@ -1,0 +1,202 @@
+// dashboard/js/rotinas.js — aba Rotinas.
+//
+// Era um trecho do <script> único do dashboard.html (bloco 76). Scripts clássicos, não
+// módulos: o escopo global é um só, e a ORDEM dos <script> no HTML é a ordem em que o
+// código estava. Função declarada aqui pode ser chamada de qualquer arquivo em tempo de
+// execução; chamada SÍNCRONA no nível do arquivo só pode apontar para arquivo anterior.
+
+// ─────────────────────────────────────────────────
+// ABA ROTINAS
+// ─────────────────────────────────────────────────
+//
+// Uma rotina é um texto que o ELYSIUM executa numa hora, em certos dias, como se o Zak
+// tivesse falado — e a resposta vira notificação no PC e/ou entrega para o celular. O
+// serviço mora em src/services/rotinas.ts; aqui é só a tela. Os lembretes da coluna da
+// direita reaproveitam o painel da aba PC (mesmo HTML, mesmos ouvintes).
+
+const DIAS_CURTOS = ["D", "S", "T", "Q", "Q", "S", "S"];
+const DIAS_LONGOS = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
+
+const ROTINAS_EXEMPLO = [
+  { nome: "Bom dia", texto: "como está o tempo hoje?", hora: "07:30", dias: [1, 2, 3, 4, 5], falar: true },
+  { nome: "Lembretes do dia", texto: "quais são os meus lembretes de hoje?", hora: "08:00", dias: [] },
+  { nome: "Modo trabalho", texto: "roda o preset trabalho", hora: "09:00", dias: [1, 2, 3, 4, 5], entregar: ["pc"] },
+  { nome: "Estado do PC", texto: "como está o PC?", hora: "18:00", dias: [] },
+];
+
+let rotinasCache = [];
+
+function diasTexto(dias) {
+  if (!dias?.length || dias.length === 7) return "todos os dias";
+  if (dias.length === 5 && [1, 2, 3, 4, 5].every(d => dias.includes(d))) return "dias úteis";
+  if (dias.length === 2 && dias.includes(0) && dias.includes(6)) return "fins de semana";
+  return dias.map(d => DIAS_LONGOS[d]).join(", ");
+}
+
+function desenharRotinas() {
+  const alvo = document.getElementById("rot-lista");
+  if (!alvo) return;
+  if (!rotinasCache.length) {
+    alvo.innerHTML = `<div class="rot-card rot-vazio">Nenhuma rotina ainda. Uma rotina é um pedido que o ELYSIUM faz sozinho na hora marcada — a resposta chega no PC e no celular.
+      <div class="gp-chips">${ROTINAS_EXEMPLO.map((r, i) => `<button data-exemplo="${i}">${escHtml(r.nome)} · ${r.hora}</button>`).join("")}</div></div>`;
+    return;
+  }
+  alvo.innerHTML = rotinasCache.map(r => `
+    <div class="rotina${r.ativa ? "" : " pausada"}" data-rotina="${escHtml(r.id)}">
+      <div>
+        <div class="rotina-hora">${escHtml(r.hora)}</div>
+        <div class="rotina-proxima">${r.ativa && r.proxima ? escHtml(quandoTexto(r.proxima)) : "pausada"}</div>
+      </div>
+      <div style="min-width:0">
+        <div class="rotina-nome">${escHtml(r.nome)}
+          <span class="rotina-entrega" title="Para onde vai a resposta">${r.entregar.includes("pc") ? ico("monitor", "ico-sm") : ""}${r.entregar.includes("celular") ? ico("smartphone", "ico-sm") : ""}${r.falar ? ico("mic", "ico-sm") : ""}</span>
+        </div>
+        <div class="rotina-texto" title="${escHtml(r.texto)}">“${escHtml(r.texto)}”</div>
+        <div class="rotina-dias" title="${escHtml(diasTexto(r.dias))}">${DIAS_CURTOS.map((d, i) => `<span class="${!r.dias.length || r.dias.includes(i) ? "on" : ""}">${d}</span>`).join("")}</div>
+        ${r.ultimoResultado ? `<div class="rotina-resultado"><em>última vez, ${escHtml(quandoTexto(r.ultimaExecucao))}</em>${escHtml(r.ultimoResultado)}</div>` : ""}
+      </div>
+      <div class="rotina-acoes">
+        <label class="cfg-switch" title="${r.ativa ? "Pausar" : "Ativar"}"><input type="checkbox" data-rot-ativa="${escHtml(r.id)}"${r.ativa ? " checked" : ""}><span></span></label>
+        <div class="linha">
+          <button data-rot-rodar="${escHtml(r.id)}" title="Rodar agora">${ico("play", "ico-sm")}</button>
+          <button data-rot-editar="${escHtml(r.id)}" title="Editar">${ico("edit", "ico-sm")}</button>
+          <button data-rot-apagar="${escHtml(r.id)}" class="perigo" title="Apagar">${ico("trash", "ico-sm")}</button>
+        </div>
+      </div>
+    </div>`).join("");
+}
+
+async function desenharEntregas() {
+  const alvo = document.getElementById("rot-entregas");
+  if (!alvo) return;
+  let lista = [];
+  try { lista = (await window.nx.rpc("notify.history")).result?.entregas ?? []; } catch { /* segue */ }
+  if (!lista.length) { alvo.innerHTML = `<div class="home-empty">Nada entregue ainda. Lembretes e rotinas com destino "celular" aparecem aqui.</div>`; return; }
+  alvo.innerHTML = lista.slice(0, 12).map(e => `
+    <div class="entrega">${ico(e.tipo === "lembrete" ? "bell" : e.tipo === "rotina" ? "calendar" : "info", "ico-sm")}
+      <div class="entrega-txt"><b>${escHtml(e.titulo)}</b><span title="${escHtml(e.corpo)}">${escHtml(e.corpo)}</span></div>
+      <div class="entrega-meta"><i>${escHtml(quandoTexto(e.em))}</i><i class="${e.entregueEm ? "ok" : "pend"}">${e.entregueEm ? "no celular" : "aguardando"}</i></div>
+    </div>`).join("");
+}
+
+async function desenharLembretesRotinas() {
+  const alvo = document.getElementById("rot-lembretes");
+  if (!alvo) return;
+  alvo.innerHTML = await PAINEIS_PC.lembretes.render();
+}
+
+async function carregarRotinas() {
+  try { rotinasCache = (await window.nx.rpc("rotinas.list")).result?.rotinas ?? []; } catch { rotinasCache = []; }
+  desenharRotinas();
+  await Promise.all([desenharLembretesRotinas(), desenharEntregas()]);
+}
+
+/** Formulário na gaveta. `base` é a rotina a editar ou um exemplo para pré-preencher. */
+function abrirFormRotina(base = {}) {
+  const dias = Array.isArray(base.dias) ? base.dias : [];
+  const entregar = base.entregar ?? ["pc", "celular"];
+  abrirGaveta({
+    titulo: base.id ? "Editar rotina" : "Nova rotina", icone: "calendar", classe: "gaveta-pc",
+    html: `<form class="rot-form" id="rot-form" data-id="${escHtml(base.id ?? "")}">
+      <label>Nome<input type="text" name="nome" value="${escHtml(base.nome ?? "")}" placeholder="Ex.: Bom dia" required autocomplete="off"></label>
+      <label>O que o ELYSIUM faz<small>Escreva como falaria: uma pergunta, um comando, um preset.</small>
+        <textarea name="texto" placeholder="Ex.: como está o tempo hoje?" required>${escHtml(base.texto ?? "")}</textarea></label>
+      <div class="rot-exemplos gp-chips">${ROTINAS_EXEMPLO.map((r, i) => `<button type="button" data-exemplo-texto="${i}">${escHtml(r.texto)}</button>`).join("")}</div>
+      <label>Hora<input type="time" name="hora" value="${escHtml(base.hora ?? "08:00")}" required></label>
+      <label>Dias<small>Nenhum marcado = todos os dias.</small>
+        <div class="rot-dias">${DIAS_CURTOS.map((d, i) => `<button type="button" data-dia="${i}" class="${dias.includes(i) ? "on" : ""}" title="${DIAS_LONGOS[i]}">${d}</button>`).join("")}</div></label>
+      <label>Entregar<div class="rot-opcoes">
+        <label class="home-toggle"><input type="checkbox" name="pc"${entregar.includes("pc") ? " checked" : ""}> ${ico("monitor", "ico-sm")} No PC (notificação)</label>
+        <label class="home-toggle"><input type="checkbox" name="celular"${entregar.includes("celular") ? " checked" : ""}> ${ico("smartphone", "ico-sm")} No celular</label>
+        <label class="home-toggle"><input type="checkbox" name="falar"${base.falar ? " checked" : ""}> ${ico("mic", "ico-sm")} Falar no PC</label>
+      </div></label>
+      <div class="home-acoes">
+        <button type="submit" class="principal">${ico("check", "ico-sm")}<span>${base.id ? "Salvar" : "Criar rotina"}</span></button>
+        <button type="button" data-rot-cancelar="1">${ico("x", "ico-sm")}<span>Cancelar</span></button>
+      </div>
+    </form>`,
+  });
+}
+
+document.getElementById("view-rotinas")?.addEventListener("click", async (e) => {
+  const alvo = (sel) => e.target.closest(sel);
+  if (alvo("#rot-nova")) { abrirFormRotina(); return; }
+  const ex = alvo("[data-exemplo]");
+  if (ex) { abrirFormRotina(ROTINAS_EXEMPLO[Number(ex.dataset.exemplo)]); return; }
+
+  const rodar = alvo("[data-rot-rodar]");
+  if (rodar) {
+    rodar.disabled = true;
+    showToast("Rodando…");
+    try { const r = await window.nx.rpc("rotinas.run", { id: rodar.dataset.rotRodar }); showToast(r.result?.resultado ?? "Feito."); }
+    catch (err) { showToast(err?.message || "Não deu certo.", true); }
+    finally { rodar.disabled = false; carregarRotinas(); }
+    return;
+  }
+  const editar = alvo("[data-rot-editar]");
+  if (editar) { abrirFormRotina(rotinasCache.find(r => r.id === editar.dataset.rotEditar) ?? {}); return; }
+  const apagar = alvo("[data-rot-apagar]");
+  if (apagar) {
+    try { await window.nx.rpc("rotinas.delete", { id: apagar.dataset.rotApagar }); showToast("Rotina apagada."); carregarRotinas(); }
+    catch { showToast("Não consegui apagar.", true); }
+    return;
+  }
+  // Lembretes da coluna da direita: mesmos botões do painel da aba PC.
+  if (alvo("#rot-lembretes")) {
+    await PAINEIS_PC.lembretes.clique(e);
+    if (alvo("[data-cancelar]")) desenharLembretesRotinas();
+  }
+});
+
+document.getElementById("view-rotinas")?.addEventListener("change", async (e) => {
+  const t = e.target.closest("[data-rot-ativa]");
+  if (!t) return;
+  try { await window.nx.rpc("rotinas.toggle", { id: t.dataset.rotAtiva, ativa: t.checked }); carregarRotinas(); }
+  catch { showToast("Não consegui alterar.", true); }
+});
+
+document.getElementById("view-rotinas")?.addEventListener("submit", async (e) => {
+  if (e.target.id !== "gp-lembrete") return;
+  await PAINEIS_PC.lembretes.submit(e);
+  desenharLembretesRotinas();
+});
+
+// O formulário vive na gaveta: dias, exemplos, cancelar e gravar.
+document.getElementById("gaveta-corpo")?.addEventListener("click", (e) => {
+  const form = e.target.closest("#rot-form");
+  if (!form) return;
+  const dia = e.target.closest("[data-dia]");
+  if (dia) { dia.classList.toggle("on"); return; }
+  const ex = e.target.closest("[data-exemplo-texto]");
+  if (ex) { form.texto.value = ROTINAS_EXEMPLO[Number(ex.dataset.exemploTexto)].texto; return; }
+  if (e.target.closest("[data-rot-cancelar]")) fecharGaveta();
+});
+
+document.getElementById("gaveta-corpo")?.addEventListener("submit", async (e) => {
+  const form = e.target.closest("#rot-form");
+  if (!form) return;
+  e.preventDefault();
+  const entregar = [form.pc.checked ? "pc" : null, form.celular.checked ? "celular" : null].filter(Boolean);
+  const dados = {
+    id: form.dataset.id || undefined,
+    nome: form.nome.value, texto: form.texto.value, hora: form.hora.value,
+    dias: [...form.querySelectorAll("[data-dia].on")].map(b => Number(b.dataset.dia)),
+    entregar: entregar.length ? entregar : ["pc"],
+    falar: form.falar.checked,
+  };
+  try {
+    await window.nx.rpc("rotinas.save", dados);
+    fecharGaveta();
+    showToast(dados.id ? "Rotina salva." : "Rotina criada.");
+    carregarRotinas();
+    if (dadosInicio.rotinas) atualizarInicio();
+  } catch (err) { showToast(err?.message || "Não consegui salvar.", true); }
+});
+
+// Uma rotina que acabou de rodar (pelo tique do main) atualiza a lista se a aba estiver aberta.
+window.nx.onRotinaExecutada?.(() => { if (layoutEl.getAttribute("data-view") === "rotinas") carregarRotinas(); });
+
+const gavetaCorpoEl = document.getElementById("gaveta-corpo");
+gavetaCorpoEl?.addEventListener("click", (e) => { if (painelPcAberto) PAINEIS_PC[painelPcAberto]?.clique?.(e); });
+gavetaCorpoEl?.addEventListener("input", (e) => { if (painelPcAberto) PAINEIS_PC[painelPcAberto]?.input?.(e); });
+gavetaCorpoEl?.addEventListener("submit", (e) => { if (painelPcAberto) PAINEIS_PC[painelPcAberto]?.submit?.(e); });

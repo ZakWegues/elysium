@@ -1,0 +1,224 @@
+/* dashboard/css/rich.css — movimento e vidro das famílias caprichadas (.theme-rich, .theme-lg).
+   Era um trecho do <style> do dashboard.html (bloco 76). A ORDEM dos <link> no HTML é a
+   ordem em que estas regras estavam: cascata preservada. */
+
+/* ── MOVIMENTO — vale para toda família "caprichada" (.theme-rich) ────────
+   Estas regras são só transform, transition e @keyframes: não têm cor nenhuma. Por isso
+   servem ao Vidro Líquido e ao ELYSIUM sem uma linha de diferença, e ficam sob uma classe
+   comum em vez de duplicadas por família. As regras DE COR continuam separadas, com
+   `.theme-lg` e `.theme-ely`, porque aí sim cada família quer coisa diferente. */
+.theme-rich .top-btn, .theme-rich .send-btn, .theme-rich .mic-btn, .theme-rich .chat-tab-btn,
+.theme-rich .rtab-btn, .theme-rich .media-btn, .theme-rich .widget-order-btn,
+.theme-rich #stop-btn, .theme-rich #proc-modal-close, .theme-rich .sort-btn,
+.theme-rich .save-btn, .theme-rich .attachment-btn,
+.theme-rich .kill-btn, .theme-rich .proc-expand-btn {
+  /* Sem overshoot e sem crescer no hover: o hover muda a COR, o toque é que move.
+     Overshoot em hover é o "bounce em todo hover" da lista de sinais de IA — e some
+     no celular, onde não existe hover. */
+  transition: transform var(--mov-micro) var(--mov-curva), background var(--mov-micro) var(--mov-curva),
+              box-shadow var(--mov-micro) var(--mov-curva), border-color var(--mov-micro) var(--mov-curva);
+}
+/* Hover levanta 1px. A regra do bloco 24 era "sem overshoot no hover", nao "sem
+   movimento nenhum": 1px de subida em 120ms e resposta, nao bounce. */
+.theme-rich .top-btn:hover, .theme-rich .send-btn:hover, .theme-rich .mic-btn:hover,
+.theme-rich .media-btn:hover, .theme-rich .save-btn:hover, .theme-rich .sort-btn:hover,
+.theme-rich #conv-btn:hover, .theme-rich #preset-btn:hover, .theme-rich .widget-order-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+.theme-rich .top-btn:active, .theme-rich .send-btn:active, .theme-rich .mic-btn:active,
+.theme-rich .chat-tab-btn:active, .theme-rich .rtab-btn:active, .theme-rich .media-btn:active,
+.theme-rich .widget-order-btn:active, .theme-rich #stop-btn:active, .theme-rich #proc-modal-close:active,
+.theme-rich .sort-btn:active, .theme-rich .save-btn:active,
+.theme-rich .attachment-btn:active, .theme-rich .kill-btn:active, .theme-rich .proc-expand-btn:active {
+  transform: scale(0.96);
+  transition-duration: 80ms;
+}
+.theme-rich .preset-card, .theme-rich .theme-swatch {
+  transition: transform var(--mov-micro) var(--mov-curva), background var(--mov-micro) var(--mov-curva), border-color var(--mov-micro) var(--mov-curva);
+}
+.theme-rich .preset-card:hover, .theme-rich .theme-swatch:hover { transform: translateY(-2px); }
+.theme-rich .preset-card:active, .theme-rich .theme-swatch:active { transform: scale(0.98); transition-duration: 0.1s; }
+.theme-rich .quick-pill {
+  transition: transform var(--mov-micro) var(--mov-curva), background var(--mov-micro) var(--mov-curva);
+}
+.theme-rich .quick-pill:hover  { transform: translateY(-1px); }
+.theme-rich .quick-pill:active { transform: scale(0.94); transition-duration: 0.1s; }
+
+/* Abertura de gaveta na escada do bloco 24: 220ms, curva suave, sem mola. 400ms com
+   overshoot passava dos 300ms e era o unico lugar fora do popover com bounce. */
+.theme-rich #drawer-left, .theme-rich #drawer-right {
+  transition: transform var(--mov-base) var(--mov-suave), opacity var(--mov-base) var(--mov-suave);
+}
+
+.theme-rich .modal-box { animation: lg-modal-in var(--mov-base) var(--mov-suave); }
+@keyframes lg-modal-in { from { opacity: 0; transform: scale(0.96) translateY(10px); } to { opacity: 1; transform: none; } }
+
+.theme-rich .bubble { animation: lg-bubble-in var(--mov-base) var(--mov-suave); }
+@keyframes lg-bubble-in { from { opacity: 0; transform: scale(0.96) translateY(8px); } to { opacity: 1; transform: none; } }
+
+.theme-rich .send-btn, .theme-rich .save-btn, .theme-rich #open-config-btn { position: relative; overflow: hidden; }
+.theme-rich .send-btn::after, .theme-rich .save-btn::after, .theme-rich #open-config-btn::after {
+  content: ""; position: absolute; top: 0; left: -60%; width: 40%; height: 100%;
+  background: linear-gradient(120deg, transparent, rgba(255,255,255,0.35), transparent);
+  transform: skewX(-20deg); transition: left 0.55s ease; pointer-events: none;
+}
+.theme-rich .send-btn:hover::after, .theme-rich .save-btn:hover::after, .theme-rich #open-config-btn:hover::after { left: 130%; }
+
+.theme-rich #cmd-input:focus, .theme-rich #proc-search:focus, .theme-rich #apikey-input:focus, .theme-rich #shortcut-input:focus {
+  border-color: rgba(var(--purple-rgb),0.5);
+  box-shadow: 0 0 0 4px rgba(var(--purple-rgb),0.14);
+  transition: box-shadow 0.25s ease, border-color 0.2s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-movimento="sempre"]) .theme-rich * { animation: none !important; transition: none !important; }
+}
+
+/* ── LIQUID GLASS: chrome (barras/gavetas/modal) ─────────── */
+.theme-lg #topbar {
+  background: var(--vidro-barra);
+  backdrop-filter: var(--blur-barra);
+  border-bottom-color: var(--border);
+}
+.theme-lg .logo-text { color: var(--text); }
+.theme-lg #drawer-left, .theme-lg #drawer-right {
+  background: var(--vidro-gaveta);
+  backdrop-filter: var(--blur-gaveta);
+  box-shadow: 0 8px 40px rgba(17,17,26,0.1);
+}
+.theme-lg #drawer-left  { border-right-color: var(--border); }
+.theme-lg #drawer-right { border-left-color:  var(--border); }
+.theme-lg #drawer-backdrop { background: rgba(17,17,26,0.18); }
+.theme-lg #proc-modal { background: rgba(17,17,26,0.28); backdrop-filter: blur(14px) saturate(140%); }
+.theme-lg .modal-box {
+  background: var(--vidro-gaveta);
+  backdrop-filter: var(--blur-gaveta);
+  border-color: var(--border);
+  box-shadow: var(--shadow-float);
+}
+.theme-lg .modal-header { background: rgba(255,255,255,0.6); border-bottom-color: var(--border); }
+.theme-lg .modal-title  { color: var(--text); }
+.theme-lg #proc-modal-table th { background: rgba(255,255,255,0.92); border-bottom-color: var(--border); }
+.theme-lg #proc-modal-table td { border-bottom-color: rgba(17,17,26,0.05); }
+.theme-lg #proc-modal-table tr:hover td { background: rgba(var(--purple-rgb),0.04); }
+.theme-lg #proc-table th { border-bottom-color: var(--border); }
+
+/* ── LIQUID GLASS: cards brancos translúcidos ────────────── */
+.theme-lg .chart-wrap, .theme-lg #temp-row, .theme-lg #bat-row, .theme-lg .disk-card,
+.theme-lg .preset-card, .theme-lg .theme-swatch, .theme-lg #shortcut-card,
+.theme-lg #apikey-card,
+.theme-lg #pairing-card, .theme-lg #media-card, .theme-lg #toast-el,
+.theme-lg .widget-order-row, .theme-lg .bubble.assistant, .theme-lg .attachment-file {
+  background: rgba(255,255,255,0.82);
+  backdrop-filter: var(--glass-blur);
+  border-color: transparent;
+  box-shadow: var(--shadow-card);
+}
+.theme-lg .log-card {
+  background: rgba(255,255,255,0.7); backdrop-filter: var(--glass-blur);
+  border-color: transparent; border-left: 2px solid var(--purple);
+  color: var(--muted); box-shadow: var(--shadow-card);
+}
+.theme-lg .theme-swatch.active { background: rgba(var(--purple-rgb),0.09); border-color: var(--purple); }
+.theme-lg .preset-card:hover   { background: rgba(var(--purple-rgb),0.07); border-color: transparent; }
+.theme-lg .theme-dot { box-shadow: inset 0 0 0 1px rgba(17,17,26,0.1); }
+.theme-lg .bat-bar-track, .theme-lg .disk-bar-track { background: rgba(17,17,26,0.07); }
+
+/* ── LIQUID GLASS: bolhas de chat ────────────────────────── */
+.theme-lg .bubble.user {
+  background: var(--purple-bright); border-color: transparent; color: #fff;
+  box-shadow: 0 4px 14px rgba(var(--purple-rgb),0.25);
+}
+.theme-lg .bubble.assistant { color: var(--text); }
+.theme-lg .bubble.system {
+  background: rgba(var(--cyan-rgb),0.1); border-color: rgba(var(--cyan-rgb),0.2); color: #0e7f92;
+}
+.theme-lg .bubble.error {
+  background: rgba(229,72,77,0.09); border-color: rgba(229,72,77,0.2); color: #c93035;
+}
+.theme-lg .bubble strong { color: #4c2fd1; }
+.theme-lg .bubble em     { color: #0e7f92; }
+.theme-lg .bubble code   { background: rgba(17,17,26,0.06); color: #b5279a; }
+.theme-lg .bubble pre    { background: rgba(17,17,26,0.04); border-color: var(--border); }
+.theme-lg .bubble pre code { color: var(--text); }
+.theme-lg .kw { color: #8a3ffc; } .theme-lg .str { color: #1a7f37; }
+.theme-lg .num { color: #b5451b; } .theme-lg .cmt { color: #8b94a7; }
+.theme-lg .attachment-file { color: var(--text); }
+
+/* ── LIQUID GLASS: controles (pills, círculos, inputs) ───── */
+.theme-lg .top-btn { background: rgba(17,17,26,0.045); color: var(--muted); }
+.theme-lg .top-btn:hover { background: rgba(229,72,77,0.12); color: var(--red); }
+.theme-lg .top-btn.min:hover { background: rgba(17,17,26,0.08); color: var(--text); }
+.theme-lg .top-btn.drawer-toggle.active { background: rgba(var(--purple-rgb),0.13); color: var(--purple); }
+.theme-lg #status-badge { background: rgba(17,17,26,0.05); border-color: transparent; color: var(--muted); }
+.theme-lg #status-badge.listening  { background: rgba(var(--purple-rgb),0.14); border-color: transparent; color: var(--purple); }
+.theme-lg #status-badge.processing { background: rgba(var(--cyan-rgb),0.16); border-color: transparent; color: var(--cyan-dark); }
+.theme-lg #status-badge.speaking   { background: rgba(23,178,106,0.14); border-color: transparent; color: #0f8a52; }
+.theme-lg #status-badge.error      { background: rgba(229,72,77,0.13); border-color: transparent; color: var(--red); }
+/* Os dois lados do switch sao SEM fundo proprio: quem pinta o lado ativo e o polegar
+   atras deles. Antes cada botao tinha a sua placa branca, e com o polegar por baixo o
+   controle mostrava tres retangulos empilhados no lugar de um. */
+.theme-lg .chat-tab-btn {
+  background: none; border-color: transparent; color: var(--muted); box-shadow: none;
+}
+.theme-lg .chat-tab-btn:hover  { color: var(--text); border-color: transparent; }
+.theme-lg .chat-tab-btn.active { background: none; border-color: transparent; color: var(--purple); }
+.theme-lg #input-bar {
+  background: var(--vidro-gaveta);
+  backdrop-filter: var(--blur-gaveta);
+  border-top-color: var(--border);
+}
+/* Todo campo de formulário do dia é branco: o `rgba(0,0,0,0.2)` padrão é da noite, e no
+   claro virava um bloco cinza-chumbo (o select de Animações era o mais feio). */
+.theme-lg #cmd-input, .theme-lg #shortcut-input, .theme-lg #apikey-input, .theme-lg #proc-search,
+.theme-lg .cfg-controle input[type="text"], .theme-lg .cfg-controle input[type="password"],
+.theme-lg .cfg-controle select, .theme-lg #clima-busca, .theme-lg .gp-busca, .theme-lg .gp-texto,
+.theme-lg .gp-form input, .theme-lg .gp-form select, .theme-lg .lembrete-novo input, .theme-lg .clip-caixa {
+  background: rgba(255,255,255,0.9); border-color: var(--border); color: var(--text);
+  box-shadow: inset 0 1px 2px rgba(17,17,26,0.04);
+}
+.theme-lg #cmd-input::placeholder, .theme-lg #apikey-input::placeholder, .theme-lg #proc-search::placeholder { color: #9aa1af; }
+.theme-lg #shortcut-input { color: var(--cyan-dark); }
+.theme-lg .send-btn {
+  background: var(--purple-bright); color: #fff;
+  box-shadow: 0 4px 14px rgba(var(--purple-rgb),0.32);
+}
+.theme-lg .send-btn:hover { background: var(--purple); }
+.theme-lg .mic-btn { background: rgba(var(--purple-rgb),0.12); color: var(--purple); }
+.theme-lg .mic-btn:hover, .theme-lg .mic-btn.active { background: rgba(var(--purple-rgb),0.22); color: var(--purple); }
+.theme-lg .media-btn { background: rgba(var(--cyan-rgb),0.14); color: var(--cyan-dark); box-shadow: var(--shadow-card); }
+.theme-lg .media-btn:hover { background: rgba(var(--cyan-rgb),0.24); box-shadow: var(--shadow-card); }
+.theme-lg .quick-pill {
+  background: rgba(255,255,255,0.85); backdrop-filter: var(--glass-blur);
+  border-color: transparent; color: var(--purple); box-shadow: var(--shadow-card);
+}
+.theme-lg .quick-pill:hover { background: rgba(var(--purple-rgb),0.1); }
+.theme-lg .save-btn, .theme-lg #open-config-btn {
+  background: var(--purple-bright); color: #fff;
+  box-shadow: 0 4px 14px rgba(var(--purple-rgb),0.3);
+}
+.theme-lg .save-btn:hover, .theme-lg #open-config-btn:hover { background: var(--purple); }
+.theme-lg .widget-order-btn { background: rgba(17,17,26,0.05); color: var(--muted); }
+.theme-lg .widget-order-btn:hover:not(:disabled) { background: rgba(var(--purple-rgb),0.14); color: var(--purple); }
+.theme-lg .sort-btn { background: rgba(255,255,255,0.85); border-color: var(--border); color: var(--muted); }
+.theme-lg .sort-btn:hover:not(.active) { background: rgba(17,17,26,0.04); color: var(--text); }
+.theme-lg .sort-btn.active { background: var(--purple-bright); border-color: transparent; color: #fff; }
+.theme-lg .kill-btn, .theme-lg #proc-modal-close {
+  background: rgba(229,72,77,0.1); border-color: rgba(229,72,77,0.2); color: var(--red);
+}
+.theme-lg .kill-btn:hover, .theme-lg #proc-modal-close:hover { background: rgba(229,72,77,0.2); }
+.theme-lg .proc-expand-btn { border-color: rgba(var(--purple-rgb),0.25); color: var(--purple); }
+.theme-lg .proc-expand-btn:hover { background: rgba(var(--purple-rgb),0.12); }
+.theme-lg #stop-btn { background: rgba(229,72,77,0.1); border-color: rgba(229,72,77,0.35); color: var(--red); }
+.theme-lg #stop-btn:hover { background: rgba(229,72,77,0.2); box-shadow: 0 0 24px rgba(229,72,77,0.28); }
+.theme-lg .insight-item { background: rgba(var(--cyan-rgb),0.06); border-color: rgba(var(--cyan-rgb),0.14); color: var(--text); }
+.theme-lg #pairing-token { cursor: pointer; user-select: none; }
+#pairing-token.revelado { user-select: text; }
+#pairing-token:hover { border-color: rgba(var(--cyan-rgb),0.4); }
+.pairing-mono { background: rgba(17,17,26,0.04); border-color: var(--border); color: var(--cyan-dark); }
+.theme-lg .sys-badge  { background: rgba(17,17,26,0.06); color: var(--muted); }
+.theme-lg .user-badge { background: rgba(var(--cyan-rgb),0.12); color: var(--cyan-dark); }
+.theme-lg .attachment-btn { background: rgba(17,17,26,0.6); color: #fff; }
+.theme-lg .attachment-btn:hover { background: rgba(17,17,26,0.78); }
+.theme-lg #toast-el { color: var(--text); }
+.theme-lg .vbar { filter: drop-shadow(0 0 4px rgba(var(--purple-rgb),0.45)); }

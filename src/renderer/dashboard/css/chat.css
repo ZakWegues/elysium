@@ -1,0 +1,227 @@
+/* dashboard/css/chat.css — bolhas de partida, timeline, bolhas, barra de escrita.
+   Era um trecho do <style> do dashboard.html (bloco 76). A ORDEM dos <link> no HTML é a
+   ordem em que estas regras estavam: cascata preservada. */
+
+/* ── Bolhas de partida do chat ────────────────────────────
+   Rotacionam a cada abertura do app e a cada entrada na aba. O que você repete vem
+   primeiro; o resto são partidas curadas. Ver `perguntas.ts`. */
+#chat-bolhas {
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 7px;
+  padding: 0 16px 10px;
+}
+/* No lado "Celular" some: recado para si mesmo não tem pergunta pronta. */
+#center.modo-self #chat-bolhas { display: none; }
+#chat-bolhas:empty { display: none; }
+.chat-bolha {
+  max-width: 100%;
+  padding: 8px 15px; border-radius: var(--radius-20);
+  background: rgba(var(--purple-rgb),0.08);
+  border: 1px solid var(--border);
+  color: var(--muted); font-family: inherit; font-size: 11.5px; font-weight: 500;
+  cursor: pointer; text-align: left;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  transition: background var(--mov-micro) var(--mov-curva),
+              border-color var(--mov-micro) var(--mov-curva),
+              color var(--mov-micro) var(--mov-curva);
+}
+.chat-bolha:hover {
+  background: rgba(var(--purple-rgb),0.18);
+  border-color: rgba(var(--purple-rgb),0.42);
+  color: var(--text);
+}
+/* Entram escalonadas, como as listas da Início. */
+#chat-bolhas .chat-bolha { animation: mov-entra var(--mov-base) var(--mov-suave) both; }
+#chat-bolhas .chat-bolha:nth-child(2) { animation-delay: 40ms; }
+#chat-bolhas .chat-bolha:nth-child(3) { animation-delay: 80ms; }
+#chat-bolhas .chat-bolha:nth-child(4) { animation-delay: 120ms; }
+
+/* Timeline */
+#timeline, #timeline-self {
+  flex: 1; overflow-y: auto; padding: 12px 16px;
+  scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+  display: flex; flex-direction: column; gap: 8px;
+}
+#timeline::-webkit-scrollbar, #timeline-self::-webkit-scrollbar { width: 4px; }
+#timeline::-webkit-scrollbar-thumb, #timeline-self::-webkit-scrollbar-thumb { background: var(--border); border-radius: var(--radius-4); }
+#timeline-self.hidden, #timeline.hidden { display: none; }
+/* Cursor no fim da bolha que ainda está sendo escrita — é o que diz "ainda vem mais". */
+.bubble.escrevendo::after {
+  content: ""; display: inline-block; width: 2px; height: 0.95em; margin-left: 3px;
+  vertical-align: -0.15em; background: currentColor; opacity: 0.7;
+  animation: cursor-pisca 0.9s steps(1) infinite;
+}
+@keyframes cursor-pisca { 50% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .bubble.escrevendo::after { animation: none; } }
+
+/* Estado vazio do chat. A tela abria com um selo de 11px no topo e 500px de nada até a
+   barra de escrita — parecia carregamento que não terminou. O convite fica no CENTRO
+   (margin auto num flex de coluna) e some na primeira mensagem de verdade. */
+#chat-vazio {
+  margin: auto; text-align: center; max-width: 380px;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  color: var(--muted); animation: pop-in 0.22s ease-out;
+}
+#chat-vazio .marca {
+  width: 56px; height: 56px; border-radius: 18px;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(var(--purple-rgb),0.12); border: 1px solid rgba(var(--purple-rgb),0.36);
+  color: var(--purple-bright); font-size: 20px; font-weight: 800; letter-spacing: 0.02em;
+  margin-bottom: 4px;
+}
+#chat-vazio h2 { font-size: 20px; font-weight: 700; color: var(--text); letter-spacing: -0.01em; }
+#chat-vazio p { font-size: 12.5px; line-height: 1.55; }
+#chat-vazio kbd {
+  font-family: var(--mono); font-size: 11px; padding: 2px 7px; border-radius: 6px;
+  background: rgba(var(--purple-rgb),0.12); border: 1px solid var(--border); color: var(--text);
+}
+
+.bubble {
+  max-width: 82%; padding: 9px 13px; border-radius: var(--radius-12); line-height: 1.55;
+  animation: pop-in 0.18s ease-out;
+}
+@keyframes pop-in { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+.bubble.user {
+  align-self: flex-end;
+  background: rgba(var(--purple-rgb),0.18); border: 1px solid rgba(var(--purple-rgb),0.35);
+  color: #c4b5fd; border-bottom-right-radius: var(--radius-3);
+}
+.bubble.assistant {
+  align-self: flex-start;
+  background: var(--surface); border: 1px solid var(--border2);
+  color: var(--text); border-bottom-left-radius: var(--radius-3);
+}
+.bubble.system {
+  align-self: center; font-size: 11px;
+  background: rgba(var(--cyan-rgb),0.08); border: 1px solid rgba(var(--cyan-rgb),0.2);
+  color: var(--cyan-dark); border-radius: var(--radius-6); padding: 5px 12px;
+}
+.bubble.error {
+  align-self: center; font-size: 11px;
+  background: rgba(224,82,82,0.1); border: 1px solid rgba(224,82,82,0.25);
+  color: #f08080; border-radius: var(--radius-6); padding: 5px 12px;
+}
+
+/* Anexos de imagem — thumbnail com barra de ações no hover */
+.attachment-image-wrap {
+  position: relative; display: inline-block; margin-top: 6px;
+  border-radius: var(--radius-10); overflow: hidden; line-height: 0;
+}
+.attachment-image {
+  width: 220px; height: 220px; object-fit: cover; display: block;
+  border-radius: var(--radius-10); border: 1px solid var(--border2);
+}
+.attachment-hover-bar {
+  position: absolute; top: 6px; right: 6px; display: flex; gap: 4px;
+  opacity: 0; pointer-events: none; transition: opacity 0.15s;
+}
+.attachment-image-wrap:hover .attachment-hover-bar { opacity: 1; pointer-events: auto; }
+.attachment-btn {
+  width: 26px; height: 26px; border: none; border-radius: var(--radius-6); cursor: pointer;
+  background: rgba(0,0,0,0.55); color: #fff; font-size: 13px;
+  display: flex; align-items: center; justify-content: center;
+}
+.attachment-btn:hover { background: rgba(0,0,0,0.75); }
+
+/* Anexos não-imagem — ícone + nome, clique abre no visualizador padrão */
+.attachment-file {
+  margin-top: 6px; display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(0,0,0,0.2); border: 1px solid var(--border);
+  border-radius: var(--radius-8); padding: 6px 10px; font-size: 12px; cursor: pointer;
+}
+.attachment-file:hover { border-color: var(--border2); }
+
+/* Toast de feedback rápido (copiar/salvar) */
+#toast-el {
+  position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+  background: var(--surface); border: 1px solid var(--border2); color: var(--text);
+  padding: 8px 16px; border-radius: var(--radius-8); font-size: 12px; z-index: 9999;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.35); opacity: 0; transition: opacity 0.2s; pointer-events: none;
+}
+#toast-el.error { border-color: rgba(224,82,82,0.4); color: #f08080; }
+.log-card {
+  align-self: flex-start; display: flex; align-items: center; gap: 8px;
+  background: rgba(26,26,46,0.7); border: 1px solid rgba(var(--purple-rgb),0.15);
+  border-left: 2px solid var(--purple); border-radius: var(--radius-6); padding: 5px 10px;
+  font-size: 11px; color: var(--muted); font-family: var(--mono);
+}
+.log-card .log-icon { font-size: 12px; }
+.log-card .log-ok   { color: var(--green); margin-left: auto; font-size: 10px; }
+.log-card .log-err  { color: var(--red); margin-left: auto; font-size: 10px; }
+
+/* Markdown in bubbles */
+.bubble p  { margin: 0 0 6px; }
+.bubble p:last-child { margin-bottom: 0; }
+.bubble ul, .bubble ol { padding-left: 18px; margin: 4px 0; }
+.bubble li  { margin: 2px 0; }
+.bubble strong { color: #d0bcff; font-weight: 700; }
+.bubble em     { color: #a5f3fc; font-style: italic; }
+.bubble code   { font-family: var(--mono); font-size: 11px; background: rgba(0,0,0,0.35); padding: 1px 5px; border-radius: var(--radius-4); color: #86efac; }
+.bubble pre    { background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.06); border-radius: var(--radius-6); padding: 8px 10px; overflow-x: auto; margin: 6px 0; }
+.bubble pre code { background: none; padding: 0; color: var(--text); }
+.kw  { color: #c792ea; }
+.str { color: #c3e88d; }
+.num { color: #f78c6c; }
+.cmt { color: #546e7a; font-style: italic; }
+
+/* Stop TTS kill switch */
+#stop-zone {
+  display: none; justify-content: center; align-items: center;
+  padding: 8px 0 4px;
+}
+#stop-btn {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 22px; border-radius: var(--radius-10); cursor: pointer;
+  background: rgba(224,82,82,0.12); border: 1px solid rgba(224,82,82,0.5);
+  color: var(--red); font-size: 12px; font-weight: 700; letter-spacing: 0.04em;
+  animation: pulse-red 1.5s ease-in-out infinite;
+  transition: background 0.15s, box-shadow 0.15s;
+}
+#stop-btn:hover {
+  background: rgba(224,82,82,0.28);
+  box-shadow: 0 0 28px rgba(224,82,82,0.5);
+}
+@keyframes pulse-red {
+  0%, 100% { box-shadow: 0 0 8px  rgba(224,82,82,0.22); }
+  50%       { box-shadow: 0 0 20px rgba(224,82,82,0.52); }
+}
+
+/* Voice input bar */
+#input-bar {
+  border-top: 1px solid var(--border); padding: 10px 12px;
+  background: var(--surface2);
+}
+/* (aparência do tema Vidro Líquido fica no bloco LIQUID GLASS no fim do <style>) */
+#voice-zone {
+  display: none; flex-direction: column; align-items: center; gap: 6px;
+  padding: 10px 0 4px;
+}
+#voice-zone.active { display: flex; }
+#wave-status { font-size: 11.5px; font-weight: 600; color: var(--purple-bright); }
+#bars-row { display: flex; align-items: flex-end; gap: 5px; height: 40px; }
+.vbar { width: 5px; border-radius: var(--radius-4); background: var(--purple-bright); filter: drop-shadow(0 0 5px var(--purple)); transition: filter 0.3s, background 0.3s; }
+.state-processing .vbar { background: var(--cyan); filter: drop-shadow(0 0 5px var(--cyan)); }
+
+#text-zone { display: flex; gap: 8px; align-items: center; }
+#text-zone.hidden { display: none; }
+#cmd-input {
+  flex: 1; background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+  border-radius: var(--radius-8); padding: 8px 12px; color: var(--text); font-size: 13px; outline: none;
+  transition: border-color 0.2s;
+}
+#cmd-input:focus { border-color: var(--purple); }
+#cmd-input::placeholder { color: var(--muted); }
+.send-btn {
+  width: 34px; height: 34px; border-radius: var(--radius-8); border: none; cursor: pointer;
+  background: rgba(var(--purple-rgb),0.25); color: var(--purple-bright);
+  display: flex; align-items: center; justify-content: center; font-size: 15px;
+  transition: background 0.2s;
+}
+.send-btn:hover { background: rgba(var(--purple-rgb),0.45); }
+.mic-btn {
+  width: 34px; height: 34px; border-radius: var(--radius-8); border: none; cursor: pointer;
+  background: rgba(var(--purple-rgb),0.15); color: var(--muted);
+  display: flex; align-items: center; justify-content: center; font-size: 15px;
+  transition: background 0.2s, color 0.2s;
+}
+.mic-btn:hover, .mic-btn.active { background: rgba(var(--purple-rgb),0.35); color: var(--purple-bright); }
+.mic-btn.hidden { display: none; }

@@ -1,0 +1,121 @@
+/* dashboard/css/fundo.css — blobs, aurora, traços, poeira (bloco 69).
+   Era um trecho do <style> do dashboard.html (bloco 76). A ORDEM dos <link> no HTML é a
+   ordem em que estas regras estavam: cascata preservada. */
+
+/* ── LIQUID GLASS: blob background layer ────────────────── */
+#lg-blob-bg { position: fixed; inset: 0; z-index: -1; overflow: hidden; display: none; pointer-events: none; }
+.theme-rich #lg-blob-bg { display: block; }
+/* FUNDO VIVO (bloco 69). O Zak: "muito parado e muito esquisito". O que mudou:
+   · deriva com o dobro da amplitude e ~metade do período (26–46 s → 14–24 s), ainda
+     abaixo do limiar em que o olho lê "animação" em vez de "vivo";
+   · cada blob RESPIRA (opacidade) num ciclo próprio, defasado do deslocamento — dois
+     ritmos que não coincidem é o que tira a cara de loop;
+   · uma AURORA por cima: dois gradientes cônicos gigantes girando devagar (90 s e 130 s,
+     sentidos opostos), nas cores do tema. É só transform, composto na GPU;
+   · PARALLAX com o mouse: a camada inteira desloca até 14 px na direção do ponteiro,
+     com transição longa. O JS escreve duas variáveis por quadro, nada mais;
+   · reage ao ESTADO: ouvindo/pensando/falando acelera a deriva e acende a aurora
+     (`body.vivo`). O fundo respira junto com a conversa. */
+#lg-blob-bg, #ely-shafts, #bg-tracos, #bg-poeira {
+  transform: translate(calc(var(--par-x, 0) * 14px), calc(var(--par-y, 0) * 10px));
+  transition: transform 1.6s var(--mov-suave);
+}
+#bg-tracos, #bg-poeira { transform: translate(calc(var(--par-x, 0) * 26px), calc(var(--par-y, 0) * 18px)); }
+.lg-blob { position: absolute; border-radius: 50%; filter: blur(36px); will-change: transform, opacity; }
+.lg-blob::after { content: none; }
+@keyframes lg-respira-1 { 0%, 100% { opacity: 0.50; } 50% { opacity: 0.66; } }
+@keyframes lg-respira-2 { 0%, 100% { opacity: 0.55; } 50% { opacity: 0.38; } }
+@keyframes lg-respira-3 { 0%, 100% { opacity: 0.40; } 50% { opacity: 0.58; } }
+@keyframes lg-respira-4 { 0%, 100% { opacity: 0.26; } 50% { opacity: 0.42; } }
+@keyframes lg-respira-5 { 0%, 100% { opacity: 0.22; } 50% { opacity: 0.36; } }
+.lg-blob-1 { animation: lg-drift-1 16s ease-in-out infinite alternate, lg-respira-1 11s ease-in-out infinite; }
+.lg-blob-2 { animation: lg-drift-2 20s ease-in-out infinite alternate, lg-respira-2 13s ease-in-out infinite; }
+.lg-blob-3 { animation: lg-drift-3 14s ease-in-out infinite alternate, lg-respira-3 9s ease-in-out infinite; }
+.lg-blob-4 { animation: lg-drift-4 24s ease-in-out infinite alternate, lg-respira-4 15s ease-in-out infinite; }
+.lg-blob-5 { animation: lg-drift-5 22s ease-in-out infinite alternate, lg-respira-5 17s ease-in-out infinite; }
+/* Com o app ouvindo/pensando/falando, tudo anda ~2x. `animation-duration` em vez de
+   trocar keyframes: a posição atual é preservada e nada pula. */
+body.vivo .lg-blob-1 { animation-duration: 8s, 5s; }
+body.vivo .lg-blob-2 { animation-duration: 10s, 6s; }
+body.vivo .lg-blob-3 { animation-duration: 7s, 4s; }
+body.vivo .lg-blob-4 { animation-duration: 12s, 7s; }
+body.vivo .lg-blob-5 { animation-duration: 11s, 8s; }
+
+/* A aurora: dois cônicos girando. Ficam ATRÁS dos blobs (mesmo z-index, DOM antes) e
+   só aparecem nas famílias caprichadas. */
+#bg-aurora { position: fixed; inset: -30%; z-index: -1; display: none; pointer-events: none; overflow: hidden; }
+.theme-rich #bg-aurora { display: block; }
+.aurora {
+  position: absolute; left: 50%; top: 50%; width: 140vmax; height: 140vmax; margin: -70vmax 0 0 -70vmax;
+  border-radius: 50%; opacity: 0.16; filter: blur(60px); will-change: transform;
+  background: conic-gradient(from 0deg, transparent 0deg, var(--blob-1, #cbb9ff) 60deg, transparent 120deg, var(--blob-2, #b8ecf3) 200deg, transparent 260deg, var(--blob-3, #ded7ff) 320deg, transparent 360deg);
+  transition: opacity 1.2s var(--mov-suave);
+}
+.aurora-1 { animation: aurora-gira 90s linear infinite; }
+.aurora-2 { animation: aurora-gira 130s linear infinite reverse; opacity: 0.10; transform-origin: 48% 52%; }
+@keyframes aurora-gira { to { transform: rotate(360deg); } }
+.theme-ely .aurora { opacity: 0.10; }
+.theme-ely .aurora-2 { opacity: 0.06; }
+body.vivo .aurora { opacity: 0.30; }
+body.vivo.theme-ely .aurora { opacity: 0.20; }
+body.vivo .aurora-1 { animation-duration: 40s; }
+body.vivo .aurora-2 { animation-duration: 60s; }
+/* As cores vêm de variáveis para os blobs seguirem a variação de cor escolhida — em
+   literal, "Vidro — Maré" e "Vidro — Âmbar" ficariam com o fundo roxo do `lg`. Os
+   valores padrão abaixo são exatamente os do `lg` original. */
+.lg-blob-1 { /* quente/primário — canto superior direito */
+  width: 620px; height: 620px; top: -230px; right: -170px;
+  background: var(--blob-1, #cbb9ff); opacity: 0.5;
+}
+.lg-blob-2 { /* frio/secundário — canto inferior esquerdo */
+  width: 640px; height: 640px; bottom: -280px; left: -190px;
+  background: var(--blob-2, #b8ecf3); opacity: 0.55;
+}
+.lg-blob-3 { /* meio, só profundidade */
+  width: 400px; height: 400px; top: 46%; left: 48%;
+  background: var(--blob-3, #ded7ff); opacity: 0.4;
+}
+@keyframes lg-drift-1 { from { transform: translate(0,0) scale(1); } to { transform: translate(120px,80px) scale(1.14); } }
+@keyframes lg-drift-2 { from { transform: translate(0,0) scale(1); } to { transform: translate(-110px,-130px) scale(1.10); } }
+.lg-blob-4 { /* mancha pequena, alto a esquerda — quebra a simetria dos tres cantos */
+  width: 300px; height: 300px; top: 8%; left: 14%;
+  background: var(--blob-2, #b8ecf3); opacity: 0.26;
+}
+.lg-blob-5 { /* mancha pequena, baixo a direita */
+  width: 340px; height: 340px; bottom: 6%; right: 18%;
+  background: var(--blob-1, #cbb9ff); opacity: 0.22;
+}
+@keyframes lg-drift-3 { from { transform: translate(0,0) scale(1); } to { transform: translate(-90px,110px) scale(0.88); } }
+@keyframes lg-drift-4 { from { transform: translate(0,0) scale(1); } to { transform: translate(150px,-70px) scale(1.2); } }
+@keyframes lg-drift-5 { from { transform: translate(0,0) scale(1); } to { transform: translate(-130px,-90px) scale(1.12); } }
+
+/* ── Tracos finos ─────────────────────────────────────────
+   Linhas de 1px inclinadas, quase invisiveis. Servem de referencia: e por elas passando
+   por tras que se percebe que o painel e translucido e nao cinza. */
+#bg-tracos { position: fixed; inset: -10%; z-index: -1; display: none; pointer-events: none; overflow: hidden; }
+.theme-rich #bg-tracos { display: block; }
+.bg-traco {
+  position: absolute; top: -20%; height: 140%; width: 1px;
+  background: linear-gradient(180deg, transparent, rgba(var(--purple-rgb),0.55), transparent);
+  opacity: 0.16; will-change: transform;
+}
+.bg-traco-1 { left: 22%; animation: bg-traco-1 68s ease-in-out infinite alternate; }
+.bg-traco-2 { left: 54%; animation: bg-traco-2 84s ease-in-out infinite alternate;
+  background: linear-gradient(180deg, transparent, rgba(var(--cyan-rgb),0.55), transparent); }
+.bg-traco-3 { left: 81%; animation: bg-traco-3 76s ease-in-out infinite alternate; }
+@keyframes bg-traco-1 { from { transform: skewX(-9deg) translateX(-40px); } to { transform: skewX(-9deg) translateX(60px); } }
+@keyframes bg-traco-2 { from { transform: skewX(7deg)  translateX(50px); }  to { transform: skewX(7deg)  translateX(-70px); } }
+@keyframes bg-traco-3 { from { transform: skewX(-5deg) translateX(30px); }  to { transform: skewX(-5deg) translateX(-50px); } }
+
+/* ── Poeira ───────────────────────────────────────────────
+   Oito pontos de 2px. Posicao, duracao e alfa vem de estilo inline no markup: oito
+   regras CSS quase iguais so para mudar dois numeros nao se le nem se mantem. */
+#bg-poeira { position: fixed; inset: 0; z-index: -1; display: none; pointer-events: none; overflow: hidden; }
+.theme-rich #bg-poeira { display: block; }
+#bg-poeira i {
+  position: absolute; width: 2px; height: 2px; border-radius: 50%;
+  background: var(--purple-bright); opacity: var(--a, 0.22);
+  filter: blur(0.4px); will-change: transform;
+  animation: bg-poeira var(--d, 48s) ease-in-out infinite alternate;
+}
+@keyframes bg-poeira { from { transform: translate(0,0); } to { transform: translate(26px,-34px); } }
