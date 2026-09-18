@@ -3501,3 +3501,30 @@ De quebra, o sprite ganhou 35 símbolos (`search`, `bell`, `calendar`, `wifi`, `
 `eye`, `info`, `alert`, `mouse`, `type`, `external`, `cpu-chip`, `sparkles`, `rotate`,
 `tag`, `phone-call`) — os blocos seguintes usam quase todos, e o `ico()` só aceita o que
 está em `ICONES_SPRITE`.
+
+### Bloco 65 — Ajustes em gavetas ✅
+
+A aba virou um **hub de dez azulejos** (Aparência, Atalho e conta, Cérebro, Voz, Clima,
+Conversa, Celular, Sistema, Comandos recentes, Sobre), cada um com o valor que está valendo
+como resumo ("Vidro — Maré", "Ctrl+Shift+J", "Local · responde local", "São Paulo"…).
+Clicar abre `#aj-gaveta`, uma gaveta de vidro que desliza da direita por cima do hub, com
+véu, Esc e clique fora fechando.
+
+**O truque que evita duplicar markup:** as seções continuam todas no DOM, escondidas em
+`#aj-secoes` (as estáticas com `id="sec-…"`, as geradas pelo esquema `AJUSTES` com
+`data-secao="<slug do grupo>"`). `abrirSecao(id)` **move** os nós listados em
+`SECOES_AJUSTES[].nos` para dentro de `#aj-corpo` e `fecharSecao()` devolve cada um ao
+pai e à posição exata de onde saiu. Os ids (`#theme-swatches`, `#shortcut-input`,
+`#clima-busca`) e os ouvintes delegados seguem vivos — os delegados subiram de
+`#tab-config` para `#drawer-right`, porque a gaveta é filha direta do `#drawer-right`
+(véu absoluto sobre a aba inteira; `fixed` ficaria preso pelo `backdrop-filter` dos temas
+ELYSIUM). O azulejo **Celular** move o `.pop-corpo` do popover do orbe — o mesmo QR nos
+dois lugares, sem cópia; `switchView` fecha a gaveta ao sair da aba para o QR voltar ao
+popover.
+
+Também: amostras de tema viraram **cartões com prévia** (fundo do tema + as duas cores em
+manchas + um "card" por cima), agrupadas em "ELYSIUM — noite" e "Vidro Líquido — dia";
+seção **Sobre** (versão via IPC novo `app:version`, porta, endereços, caminho da config,
+atalhos); campos de formulário brancos no tema claro (o `select` de Animações era um bloco
+cinza-chumbo). Verificado: abrir/fechar cada gaveta, QR presente na gaveta e de volta no
+popover, tema ELYSIUM e Vidro.

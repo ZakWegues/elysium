@@ -447,6 +447,9 @@ ipcMain.on("window:minimize", () => {
 });
 
 ipcMain.handle("config:get-all", () => getConfig());
+// A seção "Sobre" de Ajustes mostra a versão instalada — é a pergunta número um quando algo
+// não bate com o handoff.
+ipcMain.handle("app:version", () => app.getVersion());
 
 ipcMain.handle("brain:ollama-status", async (_e, modelo?: string) => {
   const cfg = getConfig();

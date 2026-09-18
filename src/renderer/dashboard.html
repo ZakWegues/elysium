@@ -1064,18 +1064,7 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
 #drawer-left .widget.widget-hidden { display: none; }
 
 /* ── PERSONALIZAÇÃO: temas + reorder de widgets ─────────── */
-#theme-swatches { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
-.theme-swatch {
-  display: flex; align-items: center; gap: 8px;
-  background: var(--surface); border: 1px solid var(--border);
-  border-radius: var(--radius-8); padding: 7px 9px; cursor: pointer;
-  transition: border-color 0.2s, background 0.2s;
-}
-.theme-swatch:hover { border-color: var(--purple); }
-.theme-swatch.active { border-color: var(--purple-bright); background: rgba(var(--purple-rgb),0.14); }
-.theme-dots { display: flex; gap: 3px; }
-.theme-dot { width: 12px; height: 12px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.15); }
-.theme-swatch-name { font-size: 11px; font-weight: 600; }
+/* As amostras de tema ganharam prévia e mudaram de bloco: ver "Ajustes em gavetas". */
 
 #widget-order-list { display: flex; flex-direction: column; gap: 5px; }
 .widget-order-row {
@@ -1358,7 +1347,11 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
   backdrop-filter: var(--blur-gaveta);
   border-top-color: var(--border);
 }
-.theme-lg #cmd-input, .theme-lg #shortcut-input, .theme-lg #apikey-input, .theme-lg #proc-search {
+/* Todo campo de formulário do dia é branco: o `rgba(0,0,0,0.2)` padrão é da noite, e no
+   claro virava um bloco cinza-chumbo (o select de Animações era o mais feio). */
+.theme-lg #cmd-input, .theme-lg #shortcut-input, .theme-lg #apikey-input, .theme-lg #proc-search,
+.theme-lg .cfg-controle input[type="text"], .theme-lg .cfg-controle input[type="password"],
+.theme-lg .cfg-controle select, .theme-lg #clima-busca, .theme-lg #prog-busca, .theme-lg .campo-claro {
   background: rgba(255,255,255,0.9); border-color: var(--border); color: var(--text);
   box-shadow: inset 0 1px 2px rgba(17,17,26,0.04);
 }
@@ -1519,13 +1512,126 @@ body.tabs .top-btn.drawer-toggle { display: none; }
    O conserto é uma coluna com teto e uma grade rótulo/controle: o rótulo tem largura
    previsível, e o controle tem um máximo real. */
 #layout[data-view="ajustes"] #rtab-panels {
-  max-width: 760px; margin: 0 auto; width: 100%;
+  max-width: 900px; margin: 0 auto; width: 100%;
 }
 
 /* Os controles compostos (amostras de tema, lista de widgets) seguem o mesmo teto dos
    campos simples — senão só eles esticariam. */
 #layout[data-view="ajustes"] #theme-swatches,
 #layout[data-view="ajustes"] #widget-order-list { max-width: 340px; }
+
+/* ── Ajustes em gavetas ───────────────────────────────────
+   O hub é uma grade de azulejos (como a aba PC do celular); a gaveta desliza da direita
+   por cima do hub, dentro da própria aba. Ela é absoluta em relação ao #tab-config, e não
+   `fixed`, de propósito: o #drawer-right dos temas ELYSIUM tem backdrop-filter, que faz
+   de container para descendentes fixos — um `fixed` aqui ficaria preso do mesmo jeito,
+   só que sem que ninguém soubesse por quê. */
+.aj-topo { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin: 6px 0 18px; }
+.aj-topo h2 { font-size: 21px; font-weight: 700; color: var(--text); margin-bottom: 3px; }
+.aj-topo p { font-size: 12px; color: var(--muted); }
+#aj-hub {
+  display: grid; gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+}
+.aj-azulejo {
+  display: flex; align-items: center; gap: 13px; text-align: left;
+  padding: 14px 15px; min-height: 76px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-10);
+  box-shadow: var(--shadow-card, none); backdrop-filter: var(--glass-blur);
+  color: var(--text); font-family: inherit; cursor: pointer;
+  transition: transform var(--mov-micro) var(--mov-curva), border-color var(--mov-micro) var(--mov-curva), background var(--mov-micro) var(--mov-curva);
+}
+.aj-azulejo:hover { transform: translateY(-1px); border-color: rgba(var(--purple-rgb),0.45); background: rgba(var(--purple-rgb),0.08); }
+.aj-azulejo:active { transform: scale(0.985); }
+.aj-azulejo-ico {
+  width: 38px; height: 38px; border-radius: 12px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(var(--purple-rgb),0.14); color: var(--purple-bright);
+}
+.aj-azulejo-txt { flex: 1; min-width: 0; }
+.aj-azulejo-nome { display: block; font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+.aj-azulejo-resumo { display: block; font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.aj-azulejo > .ico:last-child { color: var(--muted); flex-shrink: 0; opacity: 0.6; }
+
+#aj-veu {
+  position: absolute; inset: 0; z-index: 60;
+  background: rgba(0,0,0,0.30);
+  display: none; opacity: 0;
+  transition: opacity var(--mov-base) linear, display var(--mov-base) allow-discrete;
+}
+#aj-veu.aberto { display: block; opacity: 1; }
+@starting-style { #aj-veu.aberto { opacity: 0; } }
+#aj-gaveta {
+  position: absolute; top: 0; right: 0; bottom: 0;
+  width: min(520px, 92%);
+  display: flex; flex-direction: column;
+  background: var(--vidro-gaveta); backdrop-filter: var(--blur-gaveta);
+  border-left: 1px solid var(--border2);
+  box-shadow: -18px 0 48px rgba(0,0,0,0.35);
+  transform: translateX(0);
+  transition: transform var(--mov-base) var(--mov-suave);
+}
+@starting-style { #aj-veu.aberto #aj-gaveta { transform: translateX(40px); } }
+#aj-veu:not(.aberto) #aj-gaveta { transform: translateX(40px); }
+.aj-gaveta-topo {
+  display: flex; align-items: center; gap: 11px;
+  padding: 16px 18px 12px; border-bottom: 1px solid var(--border);
+}
+.aj-gaveta-ico {
+  width: 32px; height: 32px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(var(--purple-rgb),0.16); color: var(--purple-bright);
+}
+.aj-gaveta-topo h3 { flex: 1; font-size: 15px; font-weight: 700; color: var(--text); }
+#aj-fechar {
+  width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--border);
+  background: none; color: var(--muted); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+#aj-fechar:hover { background: rgba(var(--purple-rgb),0.16); color: var(--text); }
+#aj-corpo { flex: 1; overflow-y: auto; padding: 8px 18px 22px; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+#aj-corpo::-webkit-scrollbar { width: 4px; }
+#aj-corpo::-webkit-scrollbar-thumb { background: var(--border); border-radius: var(--radius-4); }
+/* Dentro da gaveta a grade rótulo/controle vira uma coluna: 520px não comportam as duas. */
+#aj-corpo .cfg-row { grid-template-columns: 1fr; gap: 8px; }
+#aj-corpo .cfg-grupo { margin-bottom: 8px; }
+#aj-corpo .cfg-grupo h3 { display: none; }
+#aj-corpo .cfg-controle input[type="text"], #aj-corpo .cfg-controle input[type="password"],
+#aj-corpo .cfg-controle select, #aj-corpo .cfg-faixa, #aj-corpo #clima-resultados { max-width: none; }
+/* O pareamento, quando entra na gaveta, ganha espaço para o QR. */
+#aj-corpo #pairing-card { max-width: none; }
+#aj-corpo #pairing-qr { width: 200px; height: 200px; }
+/* O véu é filho direto do #drawer-right, que já é absoluto e ocupa a aba inteira. */
+#layout[data-view="ajustes"] #drawer-right { position: absolute; }
+
+/* Amostras de tema, agora em cartões: um retângulo com a cor de fundo do tema e as duas
+   cores de destaque por cima, agrupados por família. Um nome ao lado de duas bolinhas
+   não dizia se o tema era claro ou escuro. */
+#theme-swatches { display: flex; flex-direction: column; gap: 14px; }
+.theme-familia { font-size: 10.5px; font-weight: 600; color: var(--muted); margin-bottom: 7px; letter-spacing: 0.02em; text-transform: uppercase; }
+.theme-grade { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; }
+.theme-swatch {
+  display: flex; flex-direction: column; align-items: stretch; gap: 0; padding: 0; overflow: hidden;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-8);
+  cursor: pointer; transition: border-color var(--mov-micro) var(--mov-curva), transform var(--mov-micro) var(--mov-curva);
+}
+.theme-swatch:hover { transform: translateY(-1px); border-color: var(--purple); }
+.theme-swatch.active { border-color: var(--purple-bright); box-shadow: 0 0 0 2px rgba(var(--purple-rgb),0.30); }
+.theme-previa {
+  height: 54px; position: relative; overflow: hidden;
+  background: var(--previa-bg, #0a0c14);
+}
+.theme-previa i {
+  position: absolute; border-radius: 50%; filter: blur(9px); opacity: 0.85;
+}
+.theme-previa i:nth-child(1) { width: 46px; height: 46px; left: -8px; top: -14px; }
+.theme-previa i:nth-child(2) { width: 40px; height: 40px; right: -6px; bottom: -14px; }
+.theme-previa b {
+  position: absolute; left: 10px; right: 10px; bottom: 9px; height: 14px; border-radius: 5px;
+  background: var(--previa-card, rgba(255,255,255,0.12)); border: 1px solid rgba(255,255,255,0.14);
+}
+.theme-swatch-name { display: block; padding: 7px 9px 8px; font-size: 11px; font-weight: 600; color: var(--text); }
+.theme-dots { display: none; }
 
 .cfg-grupo { margin-bottom: 26px; }
 .cfg-grupo h3 {
@@ -2499,16 +2605,30 @@ body.redimensionando, body.redimensionando * { user-select: none !important; cur
            bandeja, mas o dashboard não depende mais dela. -->
       <div id="tab-config">
 
-        <section class="cfg-grupo">
-          <h3>Aparência</h3>
+        <!-- AJUSTES EM GAVETAS (bloco 65). A página é um hub de azulejos, um por assunto;
+             clicar num azulejo abre a gaveta da direita com AQUELA seção dentro. As seções
+             continuam no DOM o tempo todo, escondidas em #aj-secoes: a gaveta MOVE o nó
+             para dentro dela ao abrir e devolve ao fechar. É o que mantém vivos os ids
+             (#theme-swatches, #shortcut-input, #clima-busca) e os ouvintes delegados em
+             #tab-config, sem duplicar nenhum markup. -->
+        <header class="aj-topo">
+          <div>
+            <h2>Ajustes</h2>
+            <p>Cada assunto abre numa gaveta. Tudo grava sozinho ao mudar.</p>
+          </div>
+        </header>
+        <div id="aj-hub" class="mov-lista"></div>
+
+        <div id="aj-secoes" hidden>
+
+        <section class="cfg-grupo" id="sec-aparencia">
           <div class="cfg-row">
-            <label>Tema</label>
+            <label>Tema<small>Duas famílias: ELYSIUM é noite com luz dourada; Vidro Líquido é dia e translúcido</small></label>
             <div class="cfg-controle"><div id="theme-swatches"></div></div>
           </div>
         </section>
 
-        <section class="cfg-grupo">
-          <h3>Atalho e conta</h3>
+        <section class="cfg-grupo" id="sec-atalho">
           <div class="cfg-row">
             <label>Tecla de ativação<small>Clique e pressione a combinação</small></label>
             <div class="cfg-controle">
@@ -2525,8 +2645,7 @@ body.redimensionando, body.redimensionando * { user-select: none !important; cur
           </div>
         </section>
 
-        <section class="cfg-grupo">
-          <h3>Clima</h3>
+        <section class="cfg-grupo" id="sec-clima">
           <div class="cfg-row">
             <label>Cidade<small>Só o nome e as coordenadas são gravados</small></label>
             <div class="cfg-controle">
@@ -2541,13 +2660,30 @@ body.redimensionando, body.redimensionando * { user-select: none !important; cur
 
         <div id="cfg-form"></div>
 
-        <section class="cfg-grupo">
-          <h3>Comandos recentes</h3>
+        <section class="cfg-grupo" id="sec-recentes">
+          <p class="cfg-nota">O que você mais pede, por texto ou por voz. Clicar reenvia.</p>
           <div id="quick-wrap"></div>
         </section>
+
+        <section class="cfg-grupo" id="sec-sobre">
+          <div id="sobre-corpo"></div>
+        </section>
+
+        </div><!-- /aj-secoes -->
       </div><!-- /tab-config -->
 
     </div><!-- /rtab-panels -->
+
+        <div id="aj-veu">
+          <aside id="aj-gaveta" role="dialog" aria-modal="true" aria-labelledby="aj-titulo">
+            <header class="aj-gaveta-topo">
+              <span class="aj-gaveta-ico" id="aj-ico"></span>
+              <h3 id="aj-titulo"></h3>
+              <button id="aj-fechar" title="Fechar (Esc)"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-x"/></svg></button>
+            </header>
+            <div id="aj-corpo"></div>
+          </aside>
+        </div>
   </div><!-- /drawer-right -->
 
 </div><!-- /layout -->
@@ -3098,21 +3234,31 @@ function applyTheme(id) {
 
 function renderThemeSwatches() {
   const wrap = document.getElementById("theme-swatches");
+  if (!wrap) return;
   wrap.innerHTML = "";
+  const grades = {};
+  for (const [fam, rotulo] of [["ely", "ELYSIUM — noite"], ["lg", "Vidro Líquido — dia"]]) {
+    const bloco = document.createElement("div");
+    bloco.innerHTML = `<div class="theme-familia">${rotulo}</div><div class="theme-grade"></div>`;
+    wrap.appendChild(bloco);
+    grades[fam] = bloco.querySelector(".theme-grade");
+  }
   Object.entries(THEMES).forEach(([id, t]) => {
     const div = document.createElement("div");
     div.className = "theme-swatch" + (id === currentTheme ? " active" : "");
+    div.title = t.name;
+    const cardPrevia = t.family === "lg" ? "rgba(255,255,255,0.7)" : "rgba(255,255,255,0.10)";
     div.innerHTML = `
-      <div class="theme-dots">
-        <span class="theme-dot" style="background:${t.purpleBright}"></span>
-        <span class="theme-dot" style="background:${t.cyan}"></span>
+      <div class="theme-previa" style="--previa-bg:${t.bg};--previa-card:${cardPrevia}">
+        <i style="background:${t.purpleBright}"></i><i style="background:${t.cyan}"></i><b></b>
       </div>
       <span class="theme-swatch-name">${escHtml(t.name)}</span>`;
     div.addEventListener("click", () => {
       applyTheme(id);
+      cfgAtual.theme = id;
       window.nx.setConfig({ theme: id }).catch(() => {});
     });
-    wrap.appendChild(div);
+    grades[t.family].appendChild(div);
   });
 }
 
@@ -3991,6 +4137,7 @@ new ResizeObserver(moverPolegar).observe(document.getElementById("viewtabs"));
  * volta a ser vista deslizando.
  */
 function switchView(view) {
+  if (view !== "ajustes" && typeof fecharSecao === "function") fecharSecao();
   layoutEl.setAttribute("data-view", view);
   vtabs.forEach(b => {
     const ativa = b.dataset.view === view;
@@ -4119,12 +4266,123 @@ function valorLegivel(campo, v) {
   return `${Math.round(v / 60000)} min`;
 }
 
+/**
+ * Os azulejos do hub. `nos` são os seletores das seções que a gaveta mostra para aquele
+ * assunto — mais de um quando o assunto vive em dois lugares (Aparência = tema estático +
+ * "movimento" do esquema). `resumo` lê a config para dizer, no azulejo, o que está valendo.
+ */
+const SECOES_AJUSTES = [
+  { id: "aparencia", titulo: "Aparência", icone: "droplet", nos: ["#sec-aparencia", "[data-secao='aparencia']"],
+    resumo: (c) => THEMES[c.theme]?.name ?? "Tema" },
+  { id: "atalho", titulo: "Atalho e conta", icone: "key", nos: ["#sec-atalho"],
+    resumo: (c) => c.shortcut || "Ctrl+Shift+J" },
+  { id: "cerebro", titulo: "Cérebro", icone: "cpu", nos: ["[data-secao='cerebro']", "[data-secao='modelos-da-groq']"],
+    resumo: (c) => (c.routerProvider === "groq" ? "Nuvem" : "Local") + " · " + (c.chatProvider === "groq" ? "responde na nuvem" : "responde local") },
+  { id: "voz", titulo: "Voz", icone: "mic", nos: ["[data-secao='voz']"],
+    resumo: (c) => (String(c.voice || "").match(/pt-BR-([A-Za-z]+?)(Multilingual)?Neural/)?.[1]) || "Antonio" },
+  { id: "clima", titulo: "Clima", icone: "cloud", nos: ["#sec-clima"],
+    resumo: (c) => c.climaCidade || "Cidade não definida" },
+  { id: "conversa", titulo: "Conversa", icone: "message-circle", nos: ["[data-secao='conversa']"],
+    resumo: (c) => `${c.chatHistoryTurns ?? 8} turnos na memória` },
+  { id: "celular", titulo: "Celular", icone: "smartphone", nos: ["#orbe-pop > .pop-corpo"],
+    resumo: () => "QR, token e acesso de fora", aoAbrir: () => loadPairing() },
+  { id: "sistema", titulo: "Sistema", icone: "power", nos: ["[data-secao='sistema']"],
+    resumo: (c) => c.autoLaunch ? "Inicia com o Windows" : "Não inicia com o Windows" },
+  { id: "recentes", titulo: "Comandos recentes", icone: "clock", nos: ["#sec-recentes"],
+    resumo: () => "O que você mais pede" },
+  { id: "sobre", titulo: "Sobre", icone: "info", nos: ["#sec-sobre"],
+    resumo: () => "Versão, porta e pastas", aoAbrir: () => desenharSobre() },
+];
+
+let cfgAtual = {};
+let secaoAberta = null;      // { def, movidos: [{ no, pai, proximo }] }
+
+function desenharHub() {
+  const hub = document.getElementById("aj-hub");
+  if (!hub) return;
+  hub.innerHTML = SECOES_AJUSTES.map(s => `
+    <button class="aj-azulejo" data-secao-id="${s.id}">
+      <span class="aj-azulejo-ico">${ico(s.icone)}</span>
+      <span class="aj-azulejo-txt">
+        <span class="aj-azulejo-nome">${escHtml(s.titulo)}</span>
+        <span class="aj-azulejo-resumo">${escHtml(String(s.resumo(cfgAtual) ?? ""))}</span>
+      </span>
+      ${ico("chevron-right", "ico-sm")}
+    </button>`).join("");
+}
+
+/** Move as seções do assunto para dentro da gaveta e abre. */
+function abrirSecao(id) {
+  const def = SECOES_AJUSTES.find(s => s.id === id);
+  if (!def) return;
+  if (secaoAberta) fecharSecao(true);
+  const corpo = document.getElementById("aj-corpo");
+  const movidos = [];
+  for (const sel of def.nos) {
+    document.querySelectorAll(sel).forEach(no => {
+      movidos.push({ no, pai: no.parentNode, proximo: no.nextSibling });
+      corpo.appendChild(no);
+    });
+  }
+  secaoAberta = { def, movidos };
+  document.getElementById("aj-titulo").textContent = def.titulo;
+  document.getElementById("aj-ico").innerHTML = ico(def.icone, "ico-sm");
+  document.getElementById("aj-veu").classList.add("aberto");
+  corpo.scrollTop = 0;
+  def.aoAbrir?.();
+  corpo.querySelector("input, select, button")?.focus?.({ preventScroll: true });
+}
+
+/** Devolve cada nó exatamente de onde saiu (mesmo pai, mesma posição). */
+function fecharSecao(silencioso = false) {
+  if (!secaoAberta) return;
+  for (const m of secaoAberta.movidos) m.pai.insertBefore(m.no, m.proximo);
+  secaoAberta = null;
+  if (!silencioso) document.getElementById("aj-veu").classList.remove("aberto");
+  desenharHub();
+}
+
+document.getElementById("aj-hub")?.addEventListener("click", (e) => {
+  const az = e.target.closest("[data-secao-id]");
+  if (az) abrirSecao(az.dataset.secaoId);
+});
+document.getElementById("aj-fechar")?.addEventListener("click", () => fecharSecao());
+document.getElementById("aj-veu")?.addEventListener("click", (e) => { if (e.target.id === "aj-veu") fecharSecao(); });
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && secaoAberta) { e.stopPropagation(); fecharSecao(); }
+}, true);
+
+/** A seção "Sobre": o que se pergunta quando algo dá errado, num lugar só. */
+async function desenharSobre() {
+  const alvo = document.getElementById("sobre-corpo");
+  if (!alvo) return;
+  let info = {}, versao = "—";
+  try { info = (await window.nx.getPairingInfo()) ?? {}; } catch { /* sem rede */ }
+  try { versao = await window.nx.versao(); } catch { /* preload antigo */ }
+  const linhas = [
+    ["Versão", versao],
+    ["Porta", String(info.port ?? 4200)],
+    ["Endereços", (info.endpoints ?? []).map(e => e.address).join(" · ") || info.ip || "—"],
+    ["Configuração", "%APPDATA%\\elysium\\elysium-config.json"],
+    ["Atalho global", cfgAtual.shortcut || "Ctrl+Shift+J"],
+    ["Paleta", "Ctrl+K · Ctrl+1…5 troca de aba"],
+  ];
+  alvo.innerHTML = linhas.map(([k, v]) => `<div class="cfg-row"><label>${escHtml(k)}</label><div class="cfg-controle"><span class="cfg-atual" style="white-space:normal">${escHtml(String(v))}</span></div></div>`).join("");
+}
+
+function slugSecao(nome) {
+  // Sem depender do `dobrar` da paleta, declarado bem mais abaixo neste arquivo.
+  return String(nome).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
+}
+
 function desenharAjustes(cfg) {
+  cfgAtual = cfg ?? {};
+  desenharHub();
   const alvo = document.getElementById("cfg-form");
   if (!alvo) return;
 
   alvo.innerHTML = AJUSTES.map(g => `
-    <section class="cfg-grupo">
+    <section class="cfg-grupo" data-secao="${slugSecao(g.grupo)}">
       <h3>${escHtml(g.grupo)}</h3>
       ${g.nota ? `<p class="cfg-nota">${escHtml(g.nota)}</p>` : ""}
       ${g.campos.map(c => {
@@ -4155,7 +4413,7 @@ function desenharAjustes(cfg) {
  * Grava campo a campo, no `change`. Não há botão "Salvar" de propósito: com botão, sair da
  * tela perde o que foi mexido — e esta tela agora é uma aba, de onde se sai o tempo todo.
  */
-document.getElementById("tab-config")?.addEventListener("change", async (e) => {
+document.getElementById("drawer-right")?.addEventListener("change", async (e) => {
   const el = e.target.closest("[data-cfg]");
   if (!el) return;
   const chave = el.dataset.cfg;
@@ -4165,13 +4423,13 @@ document.getElementById("tab-config")?.addEventListener("change", async (e) => {
   // Aplica na hora o que é visual; esperar reiniciar para ver o efeito de um seletor de
   // aparência é o tipo de coisa que faz parecer que não funcionou.
   if (chave === "movimento") document.documentElement.dataset.movimento = String(valor);
-  try { await window.nx.setConfig({ [chave]: valor }); showToast("Salvo."); }
+  try { await window.nx.setConfig({ [chave]: valor }); cfgAtual[chave] = valor; showToast("Salvo."); }
   catch { showToast("Não consegui salvar."); }
 });
 
 // O número ao lado do controle acompanha o arrasto; a gravação só acontece no `change`,
 // que dispara ao soltar — senão seriam dezenas de escritas em disco por arrasto.
-document.getElementById("tab-config")?.addEventListener("input", (e) => {
+document.getElementById("drawer-right")?.addEventListener("input", (e) => {
   const el = e.target.closest('input[type="range"][data-cfg]');
   if (!el) return;
   const campo = AJUSTES.flatMap(g => g.campos).find(c => c.chave === el.dataset.cfg);
@@ -4219,6 +4477,7 @@ document.getElementById("clima-resultados")?.addEventListener("click", async (e)
       climaLon: Number(op.dataset.lon),
     });
     document.getElementById("clima-atual").textContent = op.dataset.nome;
+    cfgAtual.climaCidade = op.dataset.nome;
     document.getElementById("clima-busca").value = "";
     document.getElementById("clima-resultados").innerHTML = "";
     showToast(`Clima de ${op.dataset.nome}.`);

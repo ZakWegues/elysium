@@ -36,6 +36,7 @@ contextBridge.exposeInMainWorld("nx", {
   setConfig:       (p: Record<string, unknown>) => ipcRenderer.invoke("config:set-all", p),
   resetConfig:     ()                           => ipcRenderer.invoke("config:reset-defaults"),
   openConfigWindow: ()                          => ipcRenderer.send("config:open-window"),
+  versao:          ()                           => ipcRenderer.invoke("app:version"),
 
   // ── Telemetry ──────────────────────────────────────────────────────────────
   onTelemetry:     (cb: (t: unknown) => void)   => { ipcRenderer.on("dash:telemetry",     (_e, t) => cb(t)); },
