@@ -31,6 +31,14 @@ export interface Clima {
   /** Nome de ícone do sprite do dashboard, já resolvido aqui. */
   icone: string;
   chuvaHoje: boolean;
+  /** Sensação térmica, umidade e vento — o card da Início ganhou espaço para eles (bloco 67). */
+  sensacao?: number;
+  umidade?: number;
+  ventoKmh?: number;
+  /** As próximas 6 horas cheias: hora local (0–23), temperatura e ícone. */
+  horas?: { hora: number; temp: number; icone: string; chuva: boolean }[];
+  /** Amanhã, só o resumo: máxima, mínima e ícone do dia. */
+  amanha?: { max: number; min: number; icone: string };
 }
 
 /**
@@ -38,13 +46,13 @@ export interface Clima {
  * viram a mesma coisa de propósito: ninguém muda de plano por causa dessa diferença.
  */
 function descreverWmo(codigo: number): { descricao: string; icone: string; chuva: boolean } {
-  if (codigo === 0) return { descricao: "céu limpo", icone: "zap", chuva: false };
+  if (codigo === 0) return { descricao: "céu limpo", icone: "sun", chuva: false };
   if (codigo <= 3) return { descricao: "nublado", icone: "cloud", chuva: false };
   if (codigo <= 48) return { descricao: "neblina", icone: "cloud", chuva: false };
-  if (codigo <= 57) return { descricao: "garoa", icone: "cloud", chuva: true };
-  if (codigo <= 67) return { descricao: "chuva", icone: "cloud", chuva: true };
+  if (codigo <= 57) return { descricao: "garoa", icone: "droplet", chuva: true };
+  if (codigo <= 67) return { descricao: "chuva", icone: "droplet", chuva: true };
   if (codigo <= 77) return { descricao: "neve", icone: "cloud", chuva: true };
-  if (codigo <= 82) return { descricao: "pancadas de chuva", icone: "cloud", chuva: true };
+  if (codigo <= 82) return { descricao: "pancadas de chuva", icone: "droplet", chuva: true };
   if (codigo <= 86) return { descricao: "pancadas de neve", icone: "cloud", chuva: true };
   return { descricao: "tempestade", icone: "zap", chuva: true };
 }
@@ -77,9 +85,10 @@ export async function climaAgora(): Promise<Clima | null> {
 
   const url =
     `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
-    `&current=temperature_2m,weather_code` +
-    `&daily=temperature_2m_max,temperature_2m_min` +
-    `&timezone=auto&forecast_days=1`;
+    `&current=temperature_2m,weather_code,apparent_temperature,relative_humidity_2m,wind_speed_10m` +
+    `&hourly=temperature_2m,weather_code` +
+    `&daily=temperature_2m_max,temperature_2m_min,weather_code` +
+    `&timezone=auto&forecast_days=2`;
 
   try {
     // Timeout curto e explícito: o `fetch` do Node espera indefinidamente por padrão, e
@@ -91,8 +100,9 @@ export async function climaAgora(): Promise<Clima | null> {
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
 
     const j = await r.json() as {
-      current?: { temperature_2m?: number; weather_code?: number };
-      daily?: { temperature_2m_max?: number[]; temperature_2m_min?: number[] };
+      current?: { temperature_2m?: number; weather_code?: number; apparent_temperature?: number; relative_humidity_2m?: number; wind_speed_10m?: number };
+      hourly?: { time?: string[]; temperature_2m?: number[]; weather_code?: number[] };
+      daily?: { temperature_2m_max?: number[]; temperature_2m_min?: number[]; weather_code?: number[] };
     };
 
     const temp = j.current?.temperature_2m;
@@ -107,8 +117,29 @@ export async function climaAgora(): Promise<Clima | null> {
       descricao,
       icone,
       chuvaHoje: chuva,
+      sensacao: j.current?.apparent_temperature,
+      umidade: j.current?.relative_humidity_2m,
+      ventoKmh: j.current?.wind_speed_10m,
     };
-    ultimaFalha = null;
+
+    // As próximas 6 horas a partir da hora cheia atual. A API devolve 48 entradas em hora
+    // local ("2026-09-18T14:00"); a comparação é por string, sem fuso para errar.
+    const agora = new Date();
+    const chaveAgora = `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, "0")}-${String(agora.getDate()).padStart(2, "0")}T${String(agora.getHours()).padStart(2, "0")}:00`;
+    const tempos = j.hourly?.time ?? [];
+    const ini = Math.max(0, tempos.indexOf(chaveAgora));
+    dado.horas = tempos.slice(ini + 1, ini + 7).map((t, k) => {
+      const i = ini + 1 + k;
+      const w = descreverWmo(j.hourly?.weather_code?.[i] ?? 3);
+      return { hora: Number(t.slice(11, 13)), temp: j.hourly?.temperature_2m?.[i] ?? temp, icone: w.icone, chuva: w.chuva };
+    });
+    if (j.daily?.temperature_2m_max?.[1] !== undefined) {
+      dado.amanha = {
+        max: j.daily.temperature_2m_max[1],
+        min: j.daily.temperature_2m_min?.[1] ?? j.daily.temperature_2m_max[1],
+        icone: descreverWmo(j.daily.weather_code?.[1] ?? 3).icone,
+      };
+    }
     ultimaFalha = null;
     cache = { em: Date.now(), dado };
     return dado;

@@ -120,6 +120,8 @@ export interface AppConfig {
     fixos?: string[];
     tamanhos?: Record<string, { span?: number; alt?: number }>;
   };
+  /** O card "Notas rápidas" da Início (bloco 67). Texto livre, grava a cada pausa de digitação. */
+  homeNotas: string;
 }
 
 const DEFAULTS: AppConfig = {
@@ -160,6 +162,7 @@ const DEFAULTS: AppConfig = {
   climaLat: null,
   climaLon: null,
   homeCards: { ordem: [], ocultos: [] },
+  homeNotas: "",
 };
 
 function loadDefaults(): AppConfig {

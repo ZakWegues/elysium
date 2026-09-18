@@ -135,7 +135,8 @@ async function candidatas(): Promise<Sugestao[]> {
     const pesado = procs.slice().sort((a, b) => (b.cpu ?? 0) - (a.cpu ?? 0))[0];
     if (pesado && (pesado.cpu ?? 0) >= 35) {
       c.push({
-        texto: `${pesado.name} em ${Math.round(pesado.cpu ?? 0)}% de CPU`,
+        // "chrome#2" é o sufixo de instância dos contadores de desempenho; ninguém fala assim.
+        texto: `${pesado.name.replace(/#\d+$/, "")} em ${Math.min(100, Math.round(pesado.cpu ?? 0))}% de CPU`,
         icone: "cpu",
         detalhe: "Ver os processos",
         peso: 5,

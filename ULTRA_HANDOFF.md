@@ -3555,3 +3555,39 @@ dono. `%` de CPU de processo vem somado por núcleo (121%) e é mostrado com tet
 
 Verificado no app: os 4 vitais com valores reais, faísca crescendo, os 8 painéis
 renderizando, criar e cancelar lembrete pelo formulário, filtro de processos.
+
+### Bloco 67 — a Início cheia ✅
+
+O pedido 1 ("muito vazia e bem xoxa"). O que entrou:
+
+**Cabeçalho:** a saudação ganhou a data por extenso embaixo ("Sexta-feira, 18 de setembro");
+à direita, o **relógio grande** (anda a cada 20 s enquanto a aba está aberta) e um **chip do
+clima** (ícone, temperatura, descrição — mesmo dado do card, sem consulta extra; clicar
+rola até o card).
+
+**Cards novos** (`CARDS`): `discos` (todos os discos com barra), `conversas` (5 recentes,
+clicar abre), `caixa` (últimos 4 recados do celular/PC, "novo" quando não lido),
+`memoria` (fatos em chips + "ver e editar tudo" → aba PC), `notas` (textarea que grava em
+`homeNotas` da config 800 ms depois da última tecla; copiar e mandar pro celular; o
+redesenho periódico da Início é pulado enquanto a textarea tem foco), `timer` (5/15/25/50
+min, iniciar/pausar/zerar — **o aviso é um lembrete de verdade** criado ao iniciar e
+cancelado ao pausar, para o PC falar na hora mesmo com o dashboard na bandeja), `rede`
+(celular conectado?, IPs por interface, túnel, porta).
+
+**Cards que cresceram:** `clima` agora ocupa 2 colunas com temperatura grande, sensação,
+chips (máx/mín, umidade, vento, chuva hoje, amanhã) e **as próximas 6 horas** —
+`clima.ts` passou a pedir `hourly`, `apparent_temperature`, `relative_humidity_2m`,
+`wind_speed_10m` e 2 dias de `daily`, e os ícones WMO viraram `sun`/`droplet`/`cloud`/`zap`;
+`computador` ganhou a faísca da aba PC (mesmo histórico), RAM em GB e "ligado há";
+`atalhos` virou grade de 6 (print, bloquear, suspender, mudo, nova conversa, buscar);
+`programas` mostra os nomes agrupados (não as 75 chaves) e "todos os programas →";
+`processos` sem "#2" e com teto de 100%. A sugestão "electron#1 em 118% de CPU" foi
+corrigida na origem (`sugestoes.ts`).
+
+**Ordem de fábrica** (`CARDS_PADRAO`, 12 cards): sugestões, clima, computador, música,
+lembretes, atalhos, conversas, timer, notas, caixa, memória, discos. Quem já tinha
+personalização gravada recebe os novos como "faltando" — a regra do `carregarCards` liga
+os que estão no padrão e esconde o resto, então a tela dele também enche.
+
+Verificado no app: as duas telas (cabeçalho, 12 cards, clima com 6 horas reais de São
+Paulo), timer criando e cancelando o lembrete, notas gravando na config.

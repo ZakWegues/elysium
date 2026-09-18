@@ -2148,7 +2148,90 @@ body.tabs .top-btn.drawer-toggle { display: none; }
 #view-inicio::-webkit-scrollbar { width: 4px; }
 #view-inicio::-webkit-scrollbar-thumb { background: var(--border); border-radius: var(--radius-4); }
 
-.home-topo { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+.home-topo { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+.home-relance { display: flex; align-items: center; gap: 14px; }
+.home-relogio {
+  font-size: 30px; font-weight: 700; letter-spacing: 0.01em; color: var(--text);
+  font-variant-numeric: tabular-nums; line-height: 1;
+}
+.home-clima-chip {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 13px 7px 10px; border-radius: var(--radius-20);
+  background: rgba(var(--purple-rgb),0.08); border: 1px solid var(--border);
+  color: var(--text); font-family: inherit; font-size: 12px; cursor: pointer;
+}
+.home-clima-chip .ico { color: var(--purple-bright); }
+.home-clima-chip b { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.home-clima-chip span { color: var(--muted); }
+.home-clima-chip:hover { background: rgba(var(--purple-rgb),0.16); }
+@media (max-width: 760px) { .home-clima-chip span { display: none; } .home-relogio { font-size: 24px; } }
+
+/* Card do clima: temperatura grande, detalhes em chips e as próximas horas em fila. */
+.clima-grande { display: flex; align-items: center; gap: 14px; }
+.clima-grande .ico-xl { width: 44px; height: 44px; color: var(--purple-bright); flex-shrink: 0; }
+.clima-grande .clima-temp { font-size: 38px; line-height: 1; }
+.clima-detalhes { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.clima-detalhes .clima-desc { font-size: 13px; color: var(--text); text-transform: capitalize; }
+.clima-detalhes .clima-sub { font-size: 11px; color: var(--muted); }
+.clima-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.clima-chips span { display: inline-flex; align-items: center; gap: 5px; padding: 4px 9px; border-radius: var(--radius-20); background: rgba(var(--purple-rgb),0.08); border: 1px solid var(--border); font-size: 10.5px; color: var(--muted); }
+.clima-chips span b { color: var(--text); font-weight: 600; }
+.clima-horas { display: flex; gap: 4px; margin-top: 12px; }
+.clima-hora { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 7px 2px; border-radius: var(--radius-8); background: rgba(var(--purple-rgb),0.05); font-size: 10.5px; color: var(--muted); }
+.clima-hora b { font-size: 12px; color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+.clima-hora .ico { color: var(--purple-bright); }
+.clima-hora.chuva .ico { color: var(--cyan); }
+
+/* Faísca dentro de um card (o mesmo SVG da aba PC, menor). */
+.home-metric { position: relative; }
+.home-metric .vital-faisca { position: static; width: 100%; height: 26px; margin-top: 4px; display: block; }
+
+/* Conversas e recados: linhas com título e "quando". */
+.home-item.clicavel { cursor: pointer; }
+.home-item.clicavel:hover { background: rgba(var(--purple-rgb),0.12); }
+.home-item .home-item-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.home-item .home-item-txt em { font-style: normal; font-size: 10.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.home-item .home-item-txt span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.home-item .de-celular { color: var(--cyan); }
+
+/* Memória: fatos em chips. */
+.home-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.home-chips span { padding: 5px 10px; border-radius: var(--radius-20); background: rgba(var(--purple-rgb),0.08); border: 1px solid var(--border); font-size: 11px; color: var(--text); max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Notas rápidas. */
+.notas-caixa {
+  width: 100%; min-height: 96px; resize: vertical;
+  padding: 9px 11px; border-radius: var(--radius-7);
+  background: rgba(0,0,0,0.18); border: 1px solid var(--border);
+  color: var(--text); font-family: inherit; font-size: 12px; line-height: 1.55; outline: none;
+}
+.notas-caixa:focus { border-color: var(--purple); }
+.theme-lg .notas-caixa { background: rgba(255,255,255,0.9); }
+.notas-rodape { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; font-size: 10.5px; color: var(--muted); }
+.notas-rodape button { border: none; background: none; color: var(--purple-bright); font-family: inherit; font-size: 11px; font-weight: 600; cursor: pointer; padding: 3px 6px; border-radius: 6px; }
+.notas-rodape button:hover { background: rgba(var(--purple-rgb),0.14); }
+
+/* Timer. */
+.timer-visor { font-size: 40px; font-weight: 700; text-align: center; font-variant-numeric: tabular-nums; color: var(--text); line-height: 1; margin: 6px 0 10px; }
+.timer-visor.rodando { color: var(--purple-bright); }
+.timer-anel { height: 5px; border-radius: 3px; background: rgba(var(--purple-rgb),0.14); overflow: hidden; margin-bottom: 12px; }
+.timer-anel > i { display: block; height: 100%; background: var(--purple); transform-origin: left center; transition: transform 1s linear; }
+.timer-presets { display: flex; gap: 6px; justify-content: center; margin-bottom: 10px; }
+.timer-presets button { padding: 5px 10px; border-radius: var(--radius-20); border: 1px solid var(--border); background: rgba(var(--purple-rgb),0.08); color: var(--text); font-family: inherit; font-size: 11px; cursor: pointer; }
+.timer-presets button.aceso, .timer-presets button:hover { background: rgba(var(--purple-rgb),0.22); color: var(--purple-bright); }
+
+/* Rede. */
+.rede-linhas { display: flex; flex-direction: column; gap: 5px; }
+.rede-linhas div { display: flex; justify-content: space-between; gap: 10px; font-size: 11.5px; padding: 6px 9px; border-radius: var(--radius-7); background: rgba(var(--purple-rgb),0.06); }
+.rede-linhas div span:first-child { color: var(--muted); }
+.rede-linhas code { font-family: var(--mono); font-size: 11px; color: var(--cyan-dark, var(--cyan)); }
+.rede-ok { color: var(--green); font-weight: 600; }
+.rede-off { color: var(--muted); }
+.home-ver-tudo { margin-top: 10px; font-size: 11px; color: var(--purple-bright); background: none; border: none; font-family: inherit; font-weight: 600; cursor: pointer; padding: 0; }
+.home-ver-tudo:hover { text-decoration: underline; }
+.home-quick.seis { display: grid; grid-template-columns: repeat(3, 1fr); }
+.home-quick.seis button { justify-content: center; padding: 9px 6px; }
+.home-quick.seis button span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .home-greet { font-size: 21px; font-weight: 700; color: var(--text); margin-bottom: 3px; }
 .home-sub   { font-size: 12px; color: var(--muted); }
 #home-btn-personalizar {
@@ -2588,6 +2671,9 @@ body.redimensionando, body.redimensionando * { user-select: none !important; cur
 
   <!-- TELA INÍCIO — catálogo de cards; ver o bloco JS "TELA INÍCIO" -->
   <div id="view-inicio">
+    <!-- CABEÇALHO (bloco 67): saudação e data à esquerda, relógio grande e o clima de relance
+         à direita. O relógio anda a cada 20 s enquanto a aba está aberta; o chip do clima é
+         o mesmo dado do card, sem consulta extra. -->
     <header class="home-topo">
       <div class="home-saudacao">
         <!-- Verde quando o celular está pareado e alcançável. Clicar abre o QR, o token e
@@ -2600,9 +2686,13 @@ body.redimensionando, body.redimensionando * { user-select: none !important; cur
           <div class="home-sub" id="home-sub">O seu dia, de relance.</div>
         </div>
       </div>
-      <button id="home-btn-personalizar" title="Escolher quais cards aparecem">
-        <svg class="ico ico-sm" aria-hidden="true"><use href="#i-sliders"/></svg><span>Personalizar</span>
-      </button>
+      <div class="home-relance">
+        <button class="home-clima-chip" id="home-clima-chip" title="Clima agora" hidden></button>
+        <div class="home-relogio" id="home-relogio" aria-live="off">--:--</div>
+        <button id="home-btn-personalizar" title="Escolher quais cards aparecem">
+          <svg class="ico ico-sm" aria-hidden="true"><use href="#i-sliders"/></svg><span>Personalizar</span>
+        </button>
+      </div>
     </header>
 
     <div id="home-personalizar"></div>
@@ -5548,9 +5638,12 @@ const CARDS = {
       if (!t) return vazio("Não consegui ler o estado do PC.");
       const disco = (t.disks ?? [])[0];
       let html = linhaMetrica("Processador", `${Math.round(t.cpu_pct ?? 0)}%`, t.cpu_pct ?? 0, "home-cpu")
-               + linhaMetrica("Memória", `${Math.round(t.ram_pct ?? 0)}%`, t.ram_pct ?? 0, "home-ram");
+               + linhaMetrica("Memória", t.ram_total_gb ? `${Math.round(t.ram_pct ?? 0)}% · ${t.ram_used_gb} de ${t.ram_total_gb} GB` : `${Math.round(t.ram_pct ?? 0)}%`, t.ram_pct ?? 0, "home-ram");
       if (disco) html += linhaMetrica(`Disco ${escHtml(disco.name ?? "principal")}`, `${disco.freeGB} GB livres`, disco.usedPct ?? 0);
+      // A faísca da aba PC, quando já há histórico — os dois compartilham o pulso.
+      if (pcHistorico.cpu.length > 2) html += `<div class="home-metric">${faisca(pcHistorico.cpu)}</div>`;
       const extras = [];
+      if (t.uptime_sec) extras.push(`ligado há ${tempoLigado(t.uptime_sec)}`);
       if (typeof t.cpu_temp === "number") extras.push(`${t.cpu_temp}°C`);
       if (typeof t.battery_pct === "number") extras.push(`bateria ${t.battery_pct}%${t.battery_charging ? ", carregando" : ""}`);
       if (extras.length) html += `<div class="home-rodape">${escHtml(extras.join(" · "))}</div>`;
@@ -5618,16 +5711,108 @@ const CARDS = {
   },
 
   clima: {
-    titulo: "Lá fora", icone: "cloud", span: 1, precisa: ["clima"],
+    titulo: "Lá fora", icone: "cloud", span: 2, precisa: ["clima"],
     render: (d) => {
       const c = d.clima;
-      if (!c) return vazio("Defina a cidade em Ajustes para ver o tempo.");
-      return `<div class="clima-agora">
-        ${ico(c.icone ?? "cloud", "ico-lg")}
+      if (!c) return vazio("Defina a cidade em Ajustes → Clima para ver o tempo.");
+      const chips = [
+        `<span>máx <b>${Math.round(c.max)}°</b> · mín <b>${Math.round(c.min)}°</b></span>`,
+        typeof c.umidade === "number" ? `<span>${ico("droplet", "ico-sm")} <b>${Math.round(c.umidade)}%</b></span>` : "",
+        typeof c.ventoKmh === "number" ? `<span>vento <b>${Math.round(c.ventoKmh)} km/h</b></span>` : "",
+        c.chuvaHoje ? `<span>${ico("droplet", "ico-sm")} chuva hoje</span>` : "",
+        c.amanha ? `<span>amanhã ${ico(c.amanha.icone, "ico-sm")} <b>${Math.round(c.amanha.max)}°</b> / ${Math.round(c.amanha.min)}°</span>` : "",
+      ].filter(Boolean).join("");
+      const horas = (c.horas ?? []).length
+        ? `<div class="clima-horas">` + c.horas.map(h =>
+            `<div class="clima-hora${h.chuva ? " chuva" : ""}"><span>${String(h.hora).padStart(2, "0")}h</span>${ico(h.icone, "ico-sm")}<b>${Math.round(h.temp)}°</b></div>`).join("") + `</div>`
+        : "";
+      return `<div class="clima-grande">
+        ${ico(c.icone ?? "cloud", "ico-xl")}
         <span class="clima-temp">${Math.round(c.temperatura)}°</span>
-        <span class="clima-desc">${escHtml(c.descricao)}</span>
+        <div class="clima-detalhes">
+          <span class="clima-desc">${escHtml(c.descricao)}</span>
+          <span class="clima-sub">${escHtml(c.cidade)}${typeof c.sensacao === "number" ? ` · sensação de ${Math.round(c.sensacao)}°` : ""}</span>
+        </div>
       </div>
-      <div class="home-rodape">${escHtml(c.cidade)} · máx ${Math.round(c.max)}° / mín ${Math.round(c.min)}°</div>`;
+      <div class="clima-chips">${chips}</div>${horas}`;
+    },
+  },
+
+  discos: {
+    titulo: "Discos", icone: "hard-drive", span: 1, precisa: ["telemetria"],
+    render: (d) => {
+      const discos = d.telemetria?.disks ?? [];
+      if (!discos.length) return vazio("Sem leitura de discos.");
+      return discos.map(x => linhaMetrica(`Disco ${x.name}`, `${x.freeGB} GB livres de ${x.totalGB}`, x.usedPct ?? 0)).join("");
+    },
+  },
+
+  conversas: {
+    titulo: "Conversas recentes", icone: "message-circle", span: 1, precisa: ["conversas"],
+    render: (d) => {
+      const l = (d.conversas ?? []).slice(0, 5);
+      if (!l.length) return vazio("Nenhuma conversa ainda. Pergunte algo no Chat.") + `<button class="home-ver-tudo" data-ir="chat">Abrir o chat →</button>`;
+      return `<div class="home-list mov-lista">` + l.map(s =>
+        `<div class="home-item clicavel" data-conversa="${escHtml(s.id)}">${ico(s.favorite ? "star" : "message-circle", "ico-sm")}
+          <div class="home-item-txt"><span>${escHtml(s.title || "Conversa")}</span><em>${s.messages?.length ?? 0} mensagens · ${escHtml(quandoTexto(s.updatedAt ?? s.createdAt))}</em></div></div>`).join("") + `</div>`;
+    },
+  },
+
+  caixa: {
+    titulo: "Recados do celular", icone: "smartphone", span: 1, precisa: ["caixa"],
+    render: (d) => {
+      const l = (d.caixa ?? []).slice(0, 4);
+      if (!l.length) return vazio("Nada na caixa. Compartilhe algo do celular para cair aqui.") + `<button class="home-ver-tudo" data-ir="caixa">Abrir a caixa →</button>`;
+      return `<div class="home-list mov-lista">` + l.map(m =>
+        `<div class="home-item clicavel" data-ir="caixa">${ico(m.attachment ? "paperclip" : "inbox", "ico-sm")}
+          <div class="home-item-txt"><span class="${m.from === "mobile" ? "de-celular" : ""}">${escHtml(m.text || m.attachment?.name || "(anexo)")}</span><em>${m.from === "mobile" ? "do celular" : "do PC"} · ${escHtml(quandoTexto(m.createdAt))}${m.readAt ? "" : " · novo"}</em></div></div>`).join("") + `</div>`;
+    },
+  },
+
+  memoria: {
+    titulo: "O que ele lembra", icone: "bookmark", span: 1, precisa: ["memoria"],
+    render: (d) => {
+      const l = (d.memoria ?? []).slice(0, 6);
+      if (!l.length) return vazio("Nada guardado. Diga \"lembre que…\" no chat.");
+      return `<div class="home-chips">` + l.map(x => `<span title="${escHtml(x.text)}">${escHtml(x.text)}</span>`).join("") + `</div>` +
+        `<button class="home-ver-tudo" data-painel="memoria">Ver e editar tudo →</button>`;
+    },
+  },
+
+  notas: {
+    titulo: "Notas rápidas", icone: "edit", span: 1, precisa: ["notas"],
+    render: (d) => `<textarea class="notas-caixa" id="notas-caixa" placeholder="Rabisque aqui. Grava sozinho e fica neste PC." spellcheck="false">${escHtml(d.notas ?? "")}</textarea>
+      <div class="notas-rodape"><span id="notas-estado">${d.notas ? "Guardado" : "Vazio"}</span><span><button data-notas="copiar">Copiar</button><button data-notas="celular">Mandar pro celular</button></span></div>`,
+  },
+
+  timer: {
+    titulo: "Timer", icone: "clock", span: 1, precisa: [],
+    render: () => {
+      const t = timerEstado;
+      const resta = t.fim ? Math.max(0, t.fim - Date.now()) : t.restaMs;
+      return `<div class="timer-visor${t.fim ? " rodando" : ""}" id="timer-visor">${msParaTempo(resta)}</div>
+      <div class="timer-anel"><i id="timer-anel" style="transform:scaleX(${t.totalMs ? (resta / t.totalMs).toFixed(3) : 1})"></i></div>
+      <div class="timer-presets">${[5, 15, 25, 50].map(m => `<button data-timer-min="${m}" class="${t.totalMs === m * 60000 ? "aceso" : ""}">${m} min</button>`).join("")}</div>
+      <div class="home-quick" style="justify-content:center">
+        <button data-timer="${t.fim ? "pausar" : "iniciar"}">${ico(t.fim ? "pause" : "play", "ico-sm")}<span>${t.fim ? "Pausar" : "Iniciar"}</span></button>
+        <button data-timer="zerar">${ico("rotate", "ico-sm")}<span>Zerar</span></button>
+      </div>`;
+    },
+  },
+
+  rede: {
+    titulo: "Rede e celular", icone: "wifi", span: 1, precisa: ["rede"],
+    render: (d) => {
+      const r = d.rede;
+      if (!r) return vazio("Sem leitura de rede.");
+      const locais = (r.endpoints ?? []).filter(e => !e.tunnel);
+      const tuneis = (r.endpoints ?? []).filter(e => e.tunnel);
+      return `<div class="rede-linhas">
+        <div><span>Celular</span><span class="${r.celular ? "rede-ok" : "rede-off"}">${r.celular ? "conectado" : "fora de alcance"}</span></div>
+        ${locais.slice(0, 2).map(e => `<div><span>${escHtml(e.iface)}</span><code>${escHtml(e.address)}</code></div>`).join("")}
+        ${tuneis.slice(0, 1).map(e => `<div><span>túnel</span><code>${escHtml(e.address)}</code></div>`).join("")}
+        <div><span>Porta</span><code>${escHtml(String(r.port ?? 4200))}</code></div>
+      </div>`;
     },
   },
 
@@ -5666,18 +5851,19 @@ const CARDS = {
       const p = (d.processos ?? []).slice(0, 4);
       if (!p.length) return vazio("Sem leitura de processos.");
       return `<div class="home-list mov-lista">` + p.map(x =>
-        `<div class="home-item">${ico("cpu", "ico-sm")}<span>${escHtml(x.name)}</span>` +
-        `<span class="when">${(x.cpu ?? 0).toFixed(0)}% CPU</span></div>`).join("") + `</div>`;
+        `<div class="home-item">${ico("cpu", "ico-sm")}<span>${escHtml(semSufixo(x.name))}</span>` +
+        `<span class="when">${Math.min(100, Math.round(x.cpu ?? 0))}% CPU</span></div>`).join("") + `</div>`;
     },
   },
 
   programas: {
     titulo: "Abrir um programa", icone: "monitor", span: 1, precisa: ["programas"],
     render: (d) => {
-      const p = (d.programas ?? []).slice(0, 8);
+      const p = (d.programas ?? []).slice(0, 10);
       if (!p.length) return vazio("Nenhum programa catalogado.");
       return `<div class="pilulas">` + p.map(nome =>
-        `<button class="pilula" data-abrir="${escHtml(nome)}">${escHtml(nome)}</button>`).join("") + `</div>`;
+        `<button class="pilula" data-abrir="${escHtml(nome)}">${escHtml(nome)}</button>`).join("") + `</div>` +
+        `<button class="home-ver-tudo" data-painel="programas">Todos os programas →</button>`;
     },
   },
 
@@ -5695,16 +5881,19 @@ const CARDS = {
 
   atalhos: {
     titulo: "Atalhos", icone: "zap", span: 1, precisa: [],
-    render: () => `<div class="home-quick">
-      <button data-quick="print">${ico("monitor", "ico-sm")}<span>Tirar print</span></button>
-      <button data-quick="lock">${ico("x", "ico-sm")}<span>Bloquear tela</span></button>
-      <button data-quick="sleep">${ico("minus", "ico-sm")}<span>Suspender</span></button>
+    render: () => `<div class="home-quick seis">
+      <button data-quick="print">${ico("camera", "ico-sm")}<span>Print</span></button>
+      <button data-quick="lock">${ico("lock", "ico-sm")}<span>Bloquear</span></button>
+      <button data-quick="sleep">${ico("moon", "ico-sm")}<span>Suspender</span></button>
+      <button data-quick="mute">${ico("volume-x", "ico-sm")}<span>Mudo</span></button>
+      <button data-ir="nova-conversa">${ico("edit", "ico-sm")}<span>Nova conversa</span></button>
+      <button data-ir="paleta">${ico("search", "ico-sm")}<span>Buscar</span></button>
     </div>`,
   },
 };
 
 /** Ordem de fábrica. Cards fora desta lista existem mas nascem desligados. */
-const CARDS_PADRAO = ["sugestoes", "computador", "musica", "lembretes", "insights", "atalhos"];
+const CARDS_PADRAO = ["sugestoes", "clima", "computador", "musica", "lembretes", "atalhos", "conversas", "timer", "notas", "caixa", "memoria", "discos"];
 
 /**
  * `fixos` são desenhados antes de todos os outros e não saem do lugar quando você arrasta
@@ -5750,7 +5939,23 @@ async function carregarDadosInicio() {
     (r?.processes ?? []).slice().sort((a, b) => (b.cpu ?? 0) - (a.cpu ?? 0))));
   // `apps.list` devolve { key, command }, não strings — o card só quer o nome.
   if (precisa.has("programas")) jobs.push(rpc("programas", "apps.list", undefined,
-    r => (r?.apps ?? []).map(a => (typeof a === "string" ? a : a.key)).filter(Boolean)));
+    r => agruparCatalogo(r?.apps ?? []).map(p => p.nome)));
+  if (precisa.has("memoria")) jobs.push(rpc("memoria", "memory.list", undefined, r => r?.facts ?? []));
+  if (precisa.has("conversas")) jobs.push((async () => {
+    try { d.conversas = (await window.nx.chatSessionsList()).slice().sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0)); } catch { d.conversas = []; }
+  })());
+  if (precisa.has("caixa")) jobs.push((async () => {
+    try { d.caixa = (await window.nx.getMailboxThread()).slice().sort((a, b) => b.createdAt - a.createdAt); } catch { d.caixa = []; }
+  })());
+  if (precisa.has("notas")) jobs.push((async () => {
+    try { d.notas = String((await window.nx.getConfig())?.homeNotas ?? ""); } catch { d.notas = ""; }
+  })());
+  if (precisa.has("rede")) jobs.push((async () => {
+    try {
+      const [info, ends] = await Promise.all([window.nx.getPairingInfo(), window.nx.rpc("pairing.endpoints").catch(() => null)]);
+      d.rede = { ...info, celular: (ends?.result?.conectados ?? 0) > 0 };
+    } catch { d.rede = null; }
+  })());
   if (precisa.has("clipboard")) jobs.push(rpc("clipboard", "clipboard.get", undefined, r => r?.text ?? ""));
   if (precisa.has("sugestoes")) jobs.push(rpc("sugestoes", "suggestions.list", undefined, r => r?.suggestions ?? []));
   if (precisa.has("clima")) jobs.push(rpc("clima", "weather.now", undefined, r => r ?? null));
@@ -5799,6 +6004,9 @@ function desenharInicio() {
   // chamou volta a desenhar no próximo ciclo; nenhum dos chamadores é a única chance de
   // atualizar a tela.
   if (redimensionandoAgora) return;
+  // Digitando nas notas: o redesenho periódico (tique do Spotify, volta do foco) trocaria a
+  // textarea por outra e a frase pararia no meio. Quem chamou redesenha no próximo ciclo.
+  if (document.activeElement?.id === "notas-caixa" && grade.children.length) return;
   const visiveis = cardsVisiveis();
 
   grade.innerHTML = visiveis.map(id => {
@@ -5824,14 +6032,99 @@ function desenharInicio() {
   }
 }
 
+/** "quinta-feira, 18 de setembro" — a data por extenso vai na linha de baixo da saudação. */
+function dataPorExtenso() {
+  const s = new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" });
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function atualizarRelogio() {
+  const el = document.getElementById("home-relogio");
+  if (el) el.textContent = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+}
+setInterval(() => { if (layoutEl.getAttribute("data-view") === "inicio") atualizarRelogio(); }, 20_000);
+
+function atualizarChipClima() {
+  const chip = document.getElementById("home-clima-chip");
+  if (!chip) return;
+  const c = dadosInicio.clima;
+  if (!c) { chip.hidden = true; return; }
+  chip.hidden = false;
+  chip.innerHTML = `${ico(c.icone ?? "cloud", "ico-sm")}<b>${Math.round(c.temperatura)}°</b><span>${escHtml(c.descricao)}</span>`;
+}
+
+// ── Timer ──
+//
+// Conta no renderer, mas o AVISO é um lembrete de verdade: assim o PC fala e notifica na
+// hora certa mesmo com o dashboard escondido na bandeja. Pausar cancela o lembrete e
+// guarda o que resta; iniciar de novo cria outro.
+let timerEstado = { totalMs: 25 * 60000, restaMs: 25 * 60000, fim: null, lembreteId: null };
+let timerTick = 0;
+
+function desenharTimerNoLugar() {
+  const card = document.querySelector('[data-card="timer"] .home-card-corpo');
+  if (card) card.innerHTML = CARDS.timer.render();
+}
+
+async function timerIniciar() {
+  const t = timerEstado;
+  if (t.fim) return;
+  const resta = t.restaMs > 0 ? t.restaMs : t.totalMs;
+  t.fim = Date.now() + resta;
+  t.restaMs = resta;
+  try {
+    const r = await window.nx.rpc("reminders.create", { text: `Timer de ${Math.round(t.totalMs / 60000)} minutos terminou`, dueAt: t.fim + 500 });
+    t.lembreteId = r.result?.reminder?.id ?? null;
+  } catch { t.lembreteId = null; }
+  clearInterval(timerTick);
+  timerTick = setInterval(() => {
+    const v = document.getElementById("timer-visor");
+    const anel = document.getElementById("timer-anel");
+    const resta = Math.max(0, t.fim - Date.now());
+    if (v) v.textContent = msParaTempo(resta);
+    if (anel) anel.style.transform = `scaleX(${(resta / t.totalMs).toFixed(3)})`;
+    if (resta <= 0) {
+      clearInterval(timerTick);
+      t.fim = null; t.restaMs = t.totalMs; t.lembreteId = null;
+      showToast("Tempo esgotado.");
+      desenharTimerNoLugar();
+    }
+  }, 1000);
+  desenharTimerNoLugar();
+}
+
+async function timerPausar() {
+  const t = timerEstado;
+  if (!t.fim) return;
+  t.restaMs = Math.max(0, t.fim - Date.now());
+  t.fim = null;
+  clearInterval(timerTick);
+  if (t.lembreteId) { try { await window.nx.rpc("reminders.cancel", { id: t.lembreteId }); } catch { /* já disparou */ } t.lembreteId = null; }
+  desenharTimerNoLugar();
+}
+
+async function timerZerar(minutos) {
+  await timerPausar();
+  if (minutos) timerEstado.totalMs = minutos * 60000;
+  timerEstado.restaMs = timerEstado.totalMs;
+  desenharTimerNoLugar();
+}
+
+// ── Notas: grava 800 ms depois da última tecla ──
+let notasTimer = 0;
+
 async function atualizarInicio() {
   const saud = document.getElementById("home-greet");
   if (saud) saud.textContent = `${saudacao()}, Zak`;
+  const sub = document.getElementById("home-sub");
+  if (sub) sub.textContent = dataPorExtenso();
+  atualizarRelogio();
   // Desenha antes de buscar: as chamadas RPC levam algumas centenas de ms, e sem isto a
   // tela ficava totalmente em branco nesse intervalo — inclusive na abertura do app.
   if (!gradeInicio()?.children.length) desenharInicio();
   dadosInicio = await carregarDadosInicio();
   desenharInicio();
+  atualizarChipClima();
   ligarTickMusica();
   atualizarOrbe();
 }
@@ -6168,20 +6461,53 @@ document.getElementById("view-inicio")?.addEventListener("click", async (e) => {
 
   const quick = alvo("button[data-quick]");
   if (quick) {
-    const acoes = {
-      print: () => window.nx.rpc("screen.screenshot"),
-      lock:  () => window.nx.rpc("power.control", { operation: "lock" }),
-      sleep: () => window.nx.rpc("power.control", { operation: "sleep" }),
-    };
-    quick.disabled = true;
-    try {
-      const r = await acoes[quick.dataset.quick]?.();
-      if (r?.result?.message) showToast(r.result.message);
-    } catch (err) {
-      showToast(err?.message || "Não deu certo.");
-    } finally { quick.disabled = false; }
+    if (quick.dataset.quick === "mute") {
+      try { await window.nx.rpc("volume.set", { level: "mute" }); showToast("Mudo."); } catch { showToast("Não deu certo.", true); }
+      return;
+    }
+    await acaoRapida(quick);
     return;
   }
+
+  const ir = alvo("[data-ir]");
+  if (ir) {
+    const onde = ir.dataset.ir;
+    if (onde === "chat") { switchView("chat"); switchChatMode("ai"); }
+    else if (onde === "caixa") { switchView("chat"); switchChatMode("self"); }
+    else if (onde === "nova-conversa") { switchView("chat"); switchChatMode("ai"); startNewConversation(); }
+    else if (onde === "paleta") abrirPaleta();
+    return;
+  }
+
+  const painel = alvo("[data-painel]");
+  if (painel) { switchView("pc"); setTimeout(() => abrirPainelPc(painel.dataset.painel), 60); return; }
+
+  const conv = alvo("[data-conversa]");
+  if (conv) { switchView("chat"); switchChatMode("ai"); openConversation(conv.dataset.conversa); return; }
+
+  const tm = alvo("[data-timer-min]");
+  if (tm) { await timerZerar(Number(tm.dataset.timerMin)); return; }
+  const tb = alvo("[data-timer]");
+  if (tb) {
+    if (tb.dataset.timer === "iniciar") await timerIniciar();
+    else if (tb.dataset.timer === "pausar") await timerPausar();
+    else await timerZerar();
+    return;
+  }
+
+  const notas = alvo("[data-notas]");
+  if (notas) {
+    const texto = document.getElementById("notas-caixa")?.value ?? "";
+    if (!texto.trim()) return;
+    try {
+      if (notas.dataset.notas === "copiar") { await window.nx.rpc("clipboard.set", { text: texto }); showToast("Copiado."); }
+      else { await window.nx.mailboxSend(texto); showToast("Mandado para o celular."); }
+    } catch { showToast("Não deu certo.", true); }
+    return;
+  }
+
+  const chip = alvo("#home-clima-chip");
+  if (chip) { document.querySelector('[data-card="clima"]')?.scrollIntoView({ behavior: "smooth", block: "center" }); return; }
 
   const login = alvo("button[data-spotify]");
   if (login) {
@@ -6268,6 +6594,18 @@ document.getElementById("view-inicio")?.addEventListener("click", async (e) => {
 // Um comando por pixel arrastado estouraria a cota da API — o valor aparece no `input`
 // e só é enviado no `change`, que dispara ao soltar.
 document.getElementById("view-inicio")?.addEventListener("input", (e) => {
+  const notas = e.target.closest("#notas-caixa");
+  if (notas) {
+    const estado = document.getElementById("notas-estado");
+    if (estado) estado.textContent = "Escrevendo…";
+    clearTimeout(notasTimer);
+    notasTimer = setTimeout(async () => {
+      dadosInicio.notas = notas.value;
+      try { await window.nx.setConfig({ homeNotas: notas.value }); if (estado) estado.textContent = "Guardado"; }
+      catch { if (estado) estado.textContent = "Não consegui guardar"; }
+    }, 800);
+    return;
+  }
   const v = e.target.closest("#mus-vol");
   if (!v) return;
   const saida = document.getElementById("mus-vol-val");
