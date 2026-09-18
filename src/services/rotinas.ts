@@ -167,7 +167,8 @@ export function entregasPendentes(): Entrega[] {
 }
 
 export function historicoEntregas(): Entrega[] {
-  return store.get("entregas").slice().sort((a, b) => b.em - a.em);
+  // Mais recente primeiro; empate no mesmo milissegundo desempata pela ordem de chegada.
+  return store.get("entregas").map((e, i) => ({ e, i })).sort((a, b) => (b.e.em - a.e.em) || (b.i - a.i)).map(x => x.e);
 }
 
 export function confirmarEntregas(ids: string[]): number {

@@ -1,7 +1,10 @@
-import { composeChatReply, decideBrain, noteFastRouted, recordAssistantReply, BrainAction } from "./brain";
+import { composeChatReply, decideBrain, noteFastRouted, recordAssistantReply, registrarTurnoUsuario, BrainAction } from "./brain";
 import { fastRoute } from "./fastRoute";
+import { agir } from "./agente";
+import { ferramenta } from "./ferramentas";
 import { routeAction } from "../actions/router";
 import { trackUsage } from "./history";
+import { getConfig } from "../main/config";
 
 export type ResultadoComando = {
   actions: BrainAction[];
@@ -38,14 +41,41 @@ export async function executarComando(
   // instantâneo, isso preserva a cota de tokens por minuto da Groq para os pedidos
   // que realmente exigem interpretação.
   const shortcut = fastRoute(text);
-  const actions = shortcut ?? await decideBrain(text);
   if (shortcut) noteFastRouted(text, shortcut);
+
+  // O cérebro com ferramentas (bloco 78): olha o PC, age em etapas e escreve a resposta.
+  // "CHAT" vira a composição de sempre (com streaming); falha do provedor cai no roteador
+  // clássico logo abaixo — ele continua inteiro como rede de segurança.
+  let actions: BrainAction[] | null = shortcut;
+  let replyPronta: string | null = null;
+  if (!shortcut && getConfig().cerebroFerramentas !== false) {
+    registrarTurnoUsuario(text);
+    const r = await agir(text, {
+      onChamada: (nome, args) => { const eq = ferramentaComoAcao(nome, args); if (eq) ganchos.onActions?.([eq]); },
+    });
+    if (r?.modo === "ferramentas") {
+      actions = r.acoes.length ? r.acoes : [{ action: "chat" }];
+      replyPronta = r.reply;
+      // A resposta chega inteira; o dashboard e o celular esperam pedaços — um pedaço só.
+      if (replyPronta) ganchos.onToken?.(replyPronta);
+    } else if (r?.modo === "chat") {
+      actions = [{ action: "chat" }];
+    } else {
+      actions = await decideBrain(text, true);
+    }
+  }
+  if (!actions) actions = await decideBrain(text);
   ganchos.onActions?.(actions);
 
   const replies: string[] = [];
-  for (const action of actions) {
-    replies.push(await resolveAction(action, text, ganchos.onToken));
-    trackUsage(text, action);
+  if (replyPronta !== null) {
+    replies.push(replyPronta);
+    for (const action of actions) trackUsage(text, action);
+  } else {
+    for (const action of actions) {
+      replies.push(await resolveAction(action, text, ganchos.onToken));
+      trackUsage(text, action);
+    }
   }
 
   const reply = replies.filter(Boolean).join(" ");
@@ -55,6 +85,11 @@ export async function executarComando(
   if (reply && !shortcut) recordAssistantReply(reply);
 
   return { actions, reply, atalho: shortcut !== null };
+}
+
+/** A ação equivalente a uma ferramenta, para o rótulo "Abrindo o Chrome…" enquanto ela roda. */
+function ferramentaComoAcao(nome: string, args: Record<string, unknown>): BrainAction | null {
+  return ferramenta(nome)?.acao?.(args) ?? null;
 }
 
 /** Só a resposta. É o contrato do `POST /api/command`. */

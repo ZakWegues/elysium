@@ -79,6 +79,11 @@ export interface AppConfig {
   ollamaKeepAlive: string;
   /** Repetir na Groq quando o local devolve algo inaproveitável. Exige a API key. */
   fallbackToGroq: boolean;
+  /**
+   * O cérebro com ferramentas (bloco 78): o modelo olha o PC e age em etapas. Desligado,
+   * volta ao roteador clássico de uma lista de ações — a rede de segurança.
+   */
+  cerebroFerramentas: boolean;
   /** Com jogo aberto, rotear pela nuvem em vez de disputar VRAM. Ver `gpuGuard.ts`. */
   evitarGpuOcupada: boolean;
   spotifyClientId: string;
@@ -150,6 +155,7 @@ const DEFAULTS: AppConfig = {
   // protegida pelo `evitarGpuOcupada`, que desvia para a nuvem sem tocar na VRAM.
   ollamaKeepAlive: "10m",
   fallbackToGroq: true,
+  cerebroFerramentas: true,
   evitarGpuOcupada: true,
   spotifyClientId: "042904fef8cc41f0bf05b7abeda2d66f",
   chatHistoryTurns: 6,
@@ -266,7 +272,22 @@ function healModel(value: string, fallback: string, key: string): string {
   return vivo;
 }
 
-function healOllama(value: string, fallback: string, key: string): string {
+/**
+ * Nome de modelo do Ollama como o Ollama aceita.
+ *
+ * 🔴 Achado do bloco 78: o campo "Modelo local" de Ajustes guardava `"llama3.1 8b"` — com
+ * ESPAÇO, digitado à mão — e o Ollama respondia `400 invalid model name` em TODO pedido.
+ * O roteador caía na Groq em silêncio há dias e batia no limite de tokens por minuto. Um
+ * nome com espaço e sem dois-pontos é sempre isso: `nome tag` → `nome:tag`.
+ */
+function normalizarNomeOllama(value: string): string {
+  const v = String(value ?? "").trim();
+  if (!v.includes(":") && /\s/.test(v)) return v.replace(/\s+/g, ":");
+  return v;
+}
+
+function healOllama(bruto: string, fallback: string, key: string): string {
+  const value = normalizarNomeOllama(bruto);
   if (!OLLAMA_MODELS_MORTOS.has(value)) return value;
 
   const vivo = primeiroVivo(CANDIDATOS_OLLAMA, OLLAMA_MODELS_MORTOS);

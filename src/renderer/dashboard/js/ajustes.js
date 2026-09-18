@@ -33,6 +33,8 @@ const AJUSTES = [
       { chave: "chatProvider", rotulo: "Quem escreve a resposta", tipo: "select", opcoes: [
         ["ollama", "Local — Ollama nesta máquina"], ["groq", "Nuvem — Groq"]] },
       { chave: "ollamaRouterModel", rotulo: "Modelo local", tipo: "texto", dica: "ollama pull llama3.1:8b" },
+      { chave: "cerebroFerramentas", rotulo: "Agir em etapas (ferramentas)", tipo: "bool",
+        dica: "O modelo olha o PC (o que está aberto, clima, estado) antes de agir e encadeia ações. Desligado, volta ao roteador de uma lista só." },
       { chave: "fallbackToGroq", rotulo: "Cair na Groq se o local falhar", tipo: "bool",
         dica: "Cobre JSON quebrado e Ollama fora do ar. Não cobre pedido composto pela metade — aquilo é JSON válido." },
       { chave: "evitarGpuOcupada", rotulo: "Usar a nuvem com jogo aberto", tipo: "bool",

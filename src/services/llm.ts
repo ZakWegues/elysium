@@ -29,8 +29,51 @@ const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 export type Provider = "groq" | "ollama";
 
 export interface ChatMessage {
-  role: "system" | "user" | "assistant";
+  role: "system" | "user" | "assistant" | "tool";
   content: string;
+  /** Só em mensagens do assistente que pediram ferramentas (bloco 78). */
+  tool_calls?: ChamadaDeFerramenta[];
+  /** Só em mensagens `tool`: a qual chamada este resultado responde. */
+  tool_call_id?: string;
+  /** Só em mensagens `tool`: o nome da ferramenta (o Ollama usa isto em vez do id). */
+  name?: string;
+}
+
+// ── Ferramentas (bloco 78) ────────────────────────────────────────────────────
+//
+// Os dois provedores falam o dialeto da OpenAI para ferramentas, com uma diferença que
+// importa: a Groq devolve `arguments` como STRING JSON e exige `tool_call_id` na resposta;
+// o Ollama devolve `arguments` como OBJETO e ignora o id (aceita `tool_name`). Aqui os
+// dois viram o mesmo `ChamadaDeFerramenta`, e a mensagem `tool` leva id e nome.
+
+export interface DefinicaoDeFerramenta {
+  name: string;
+  description: string;
+  /** JSON Schema dos argumentos (`type: "object"`). */
+  parameters: Record<string, unknown>;
+}
+
+export interface ChamadaDeFerramenta {
+  id: string;
+  name: string;
+  args: Record<string, unknown>;
+}
+
+export interface RespostaComFerramentas {
+  /** Texto do assistente (vazio quando ele só pediu ferramentas). */
+  content: string;
+  toolCalls: ChamadaDeFerramenta[];
+}
+
+/** Uma chamada SEM stream, com ferramentas oferecidas. Nenhum dos dois provedores é obrigado a usá-las. */
+export interface PedidoComFerramentas {
+  provider: Provider;
+  model: string;
+  messages: ChatMessage[];
+  tools: DefinicaoDeFerramenta[];
+  temperature: number;
+  maxTokens: number;
+  timeoutMs?: number;
 }
 
 export interface ChatPedido {
@@ -173,7 +216,8 @@ async function chamarOllama(p: ChatPedido): Promise<string> {
     const corpo = await corpoCurto(res);
     // O Ollama devolve `{"error":"model 'x' not found"}` quando o modelo não foi puxado
     // nesta máquina. Mesmo tratamento do lado da nuvem — ver `marcarModeloMorto`.
-    if (res.status === 404 && /not found/i.test(corpo)) {
+    // `400 invalid model name` é o mesmo caso na prática: um nome que o Ollama não aceita.
+    if ((res.status === 404 && /not found/i.test(corpo)) || (res.status === 400 && /invalid model/i.test(corpo))) {
       marcarModeloMorto("ollama", p.model);
     }
     throw new ProviderError("ollama", `HTTP ${res.status} ${corpo}`);
@@ -241,6 +285,90 @@ async function lerLinhas(
 
 export async function callChat(p: ChatPedido): Promise<string> {
   return p.provider === "ollama" ? chamarOllama(p) : chamarGroq(p);
+}
+
+/** Mensagens no formato de cada provedor: a Groq quer `arguments` em string, o Ollama em objeto. */
+function mensagensParaFerramentas(msgs: ChatMessage[], provider: Provider): unknown[] {
+  return msgs.map(m => {
+    if (m.role === "assistant" && m.tool_calls?.length) {
+      return {
+        role: "assistant",
+        content: m.content ?? "",
+        tool_calls: m.tool_calls.map(c => ({
+          id: c.id, type: "function",
+          function: { name: c.name, arguments: provider === "groq" ? JSON.stringify(c.args) : c.args },
+        })),
+      };
+    }
+    if (m.role === "tool") {
+      return provider === "groq"
+        ? { role: "tool", tool_call_id: m.tool_call_id, content: m.content }
+        : { role: "tool", tool_name: m.name, content: m.content };
+    }
+    return { role: m.role, content: m.content };
+  });
+}
+
+function lerChamadas(brutas: unknown): ChamadaDeFerramenta[] {
+  if (!Array.isArray(brutas)) return [];
+  return brutas.flatMap((c, i) => {
+    const fn = (c as { function?: { name?: string; arguments?: unknown } }).function;
+    if (!fn?.name) return [];
+    let args: Record<string, unknown> = {};
+    if (typeof fn.arguments === "string") { try { args = JSON.parse(fn.arguments); } catch { args = {}; } }
+    else if (fn.arguments && typeof fn.arguments === "object") args = fn.arguments as Record<string, unknown>;
+    return [{ id: (c as { id?: string }).id ?? `chamada-${i}`, name: fn.name, args }];
+  });
+}
+
+export async function callChatComFerramentas(p: PedidoComFerramentas): Promise<RespostaComFerramentas> {
+  const tools = p.tools.map(t => ({ type: "function", function: { name: t.name, description: t.description, parameters: t.parameters } }));
+  const messages = mensagensParaFerramentas(p.messages, p.provider);
+
+  if (p.provider === "groq") {
+    const apiKey = getApiKey();
+    if (!apiKey) throw apiKeyError();
+    let res: Response;
+    try {
+      res = await fetch(GROQ_URL, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ model: p.model, messages, tools, tool_choice: "auto", temperature: p.temperature, max_tokens: p.maxTokens }),
+        signal: AbortSignal.timeout(p.timeoutMs ?? 30_000),
+      });
+    } catch (e) { throw networkError(String(e)); }
+    if (res.status === 401) throw apiKeyError();
+    if (!res.ok) {
+      const corpo = await corpoCurto(res);
+      if (res.status === 404 && /model_not_found|does not exist/i.test(corpo)) marcarModeloMorto("groq", p.model);
+      throw new ProviderError("groq", `HTTP ${res.status} ${corpo}`);
+    }
+    const dados = await res.json() as { choices?: { message?: { content?: string | null; tool_calls?: unknown } }[] };
+    const msg = dados.choices?.[0]?.message;
+    return { content: msg?.content ?? "", toolCalls: lerChamadas(msg?.tool_calls) };
+  }
+
+  const cfg = getConfig();
+  let res: Response;
+  try {
+    res = await fetch(`${baseOllama()}/api/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: p.model, messages, tools, stream: false,
+        keep_alive: cfg.ollamaKeepAlive || "60s",
+        options: { temperature: p.temperature, num_predict: p.maxTokens },
+      }),
+      signal: AbortSignal.timeout(p.timeoutMs ?? 60_000),
+    });
+  } catch (e) { throw new ProviderError("ollama", `não consegui falar com o Ollama: ${String(e)}`); }
+  if (!res.ok) {
+    const corpo = await corpoCurto(res);
+    if ((res.status === 404 && /not found/i.test(corpo)) || (res.status === 400 && /invalid model/i.test(corpo))) marcarModeloMorto("ollama", p.model);
+    throw new ProviderError("ollama", `HTTP ${res.status} ${corpo}`);
+  }
+  const dados = await res.json() as { message?: { content?: string; tool_calls?: unknown } };
+  return { content: dados.message?.content ?? "", toolCalls: lerChamadas(dados.message?.tool_calls) };
 }
 
 /** O Ollama está de pé e com o modelo pedido? Usado pelo dashboard e pela config. */

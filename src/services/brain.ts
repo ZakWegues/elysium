@@ -195,7 +195,7 @@ export function recordAssistantReply(text: string): void {
  * bem na hora em que ela está disputada tiraria quadros do jogo, e ninguém ligaria a
  * queda ao assistente de voz. Ver `gpuGuard.ts`.
  */
-async function provedorDoRoteador(cfg: AppConfig): Promise<{ provider: Provider; motivo?: string }> {
+export async function provedorDoRoteador(cfg: AppConfig): Promise<{ provider: Provider; motivo?: string }> {
   if (cfg.routerProvider !== "ollama") return { provider: "groq" };
   if (!cfg.evitarGpuOcupada) return { provider: "ollama" };
 
@@ -205,24 +205,36 @@ async function provedorDoRoteador(cfg: AppConfig): Promise<{ provider: Provider;
   return { provider: "groq", motivo: `${ocupada} está usando a GPU; roteando pela nuvem desta vez` };
 }
 
-export async function decideBrain(text: string): Promise<BrainAction[]> {
+/**
+ * Registra o pedido no histórico (com o reset por inatividade). Era o começo de
+ * `decideBrain`; saiu para o agente do bloco 78 registrar do mesmo jeito. Chamar UMA vez
+ * por pedido — o agente e o roteador clássico nunca rodam os dois no mesmo pedido.
+ */
+export function registrarTurnoUsuario(text: string): void {
   const cfg = getConfig();
-
   const now = Date.now();
   if (now - lastActivity > cfg.chatIdleResetMs) history = [];
   lastActivity = now;
-
   history.push({ role: "user", content: text });
-
   const maxMsgs = cfg.chatHistoryTurns * 2;
   if (history.length > maxMsgs) history = history.slice(history.length - maxMsgs);
+}
+
+/** A conversa recente como bloco de texto (sem o pedido atual), para o system prompt. */
+export function contextoRecente(): string {
+  return history.slice(0, -1)
+    .map(m => (m.role === "user" ? `Usuário: ${m.content}` : `ELYSIUM: ${m.content}`))
+    .join("\n");
+}
+
+export async function decideBrain(text: string, jaRegistrado = false): Promise<BrainAction[]> {
+  const cfg = getConfig();
+  if (!jaRegistrado) registrarTurnoUsuario(text);
 
   // O histórico entra como bloco de texto no system, não como turnos de chat. Em modo
   // JSON o modelo local tende a responder ao ÚLTIMO turno do assistente do histórico em
   // vez de classificar o pedido novo; como contexto colado, ele lê e não imita.
-  const routerContext = history.slice(0, -1)
-    .map(m => (m.role === "user" ? `Usuário: ${m.content}` : `ELYSIUM: ${m.content}`))
-    .join("\n");
+  const routerContext = contextoRecente();
   let finalPrompt = buildSystemPrompt();
   if (routerContext) finalPrompt += "\n\n[CONTEXTO DA CONVERSA RECENTE]\n" + routerContext;
 

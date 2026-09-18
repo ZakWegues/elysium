@@ -1,0 +1,185 @@
+import { getApiKey, getConfig } from "../main/config";
+import { buildMemoryBlock } from "./memoryStore";
+import { callChatComFerramentas, ChatMessage, ChamadaDeFerramenta, Provider } from "./llm";
+import { definicoesDeFerramentas, executarFerramenta, ferramenta } from "./ferramentas";
+import { contextoRecente, provedorDoRoteador, BrainAction } from "./brain";
+
+/**
+ * O cérebro com ferramentas (bloco 78) — o laço "olha, age, responde".
+ *
+ * Antes, o roteador devolvia UMA lista fechada de ações sem enxergar o PC: "fecha o que
+ * estiver aberto que não seja o VS Code" era impossível, e "como está o tempo" virou "não
+ * tenho acesso" até alguém costurar uma ação à mão. Aqui o modelo recebe as ferramentas
+ * de `ferramentas.ts`, chama as que precisar (até `MAX_RODADAS`), lê o resultado de cada
+ * uma e só então escreve a resposta.
+ *
+ * O que NÃO muda: o `fastRoute` continua na frente (barato e certo), os executores são os
+ * mesmos da voz, e conversa pura continua saindo pela `composeChatReply` com streaming —
+ * o modelo sinaliza conversa respondendo só `CHAT`, e o chamador segue o caminho antigo.
+ *
+ * Devolve `null` quando o provedor não entregou nada aproveitável (sem ferramentas
+ * suportadas, JSON quebrado, rede): quem chama cai no roteador clássico.
+ */
+
+const MAX_RODADAS = 4;
+const MAX_CHAMADAS = 8;
+
+export interface ResultadoAgente {
+  /** "chat" = o modelo disse que é conversa; "ferramentas" = agiu e escreveu a resposta. */
+  modo: "chat" | "ferramentas";
+  reply: string;
+  /** Ações equivalentes às ferramentas chamadas — para o rótulo do dashboard e o histórico de uso. */
+  acoes: BrainAction[];
+  /** O que foi chamado, na ordem, para o log. */
+  chamadas: { nome: string; args: Record<string, unknown>; resultado: string }[];
+}
+
+function promptDoAgente(): string {
+  const agora = new Date();
+  const data = agora.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  const hora = agora.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  const iso = `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, "0")}-${String(agora.getDate()).padStart(2, "0")}T${String(agora.getHours()).padStart(2, "0")}:${String(agora.getMinutes()).padStart(2, "0")}`;
+  return `Você é o ELYSIUM, o assistente do Zak que controla o PC dele (Windows) e fala português do Brasil.
+Agora é ${data}, ${hora} (ISO local ${iso}).
+
+Como agir
+- Se o pedido precisa de algo do PC (abrir, fechar, tocar, volume, energia, lembrete, rotina, memória, clima, estado do PC, o que está aberto, tela, web), use as ferramentas. Pode usar mais de uma, em sequência: primeiro olhe (programas_abertos, estado_do_pc…), depois aja.
+- Se o pedido é só conversa, pergunta geral, opinião, cálculo ou algo que você sabe sem o PC, não use ferramenta: responda exatamente a palavra CHAT e nada mais.
+- Depois de olhar (programas_abertos, estado_do_pc, rotinas, lembretes…), decida: se o pedido era para fazer algo, chame a ferramenta de ação; se era só saber, responda em 1 a 3 frases curtas, em texto corrido (vai ser lida em voz alta), sem listas, sem markdown, sem emoji.
+- A resposta diz o que a ferramenta devolveu, e só isso: se ela listou "Bom dia às 07:30", existe a rotina Bom dia às 07:30. Nunca diga que não achou quando a lista tem itens.
+- Fazer é chamar a ferramenta: nunca diga que abriu, fechou, criou ou apagou sem tê-la chamado.
+- Não mencione "ferramenta", "função" ou "busca": fale em primeira pessoa, como se você mesmo tivesse olhado e feito.
+- Em programas_abertos cada item é "processo (título da janela)": "CalculatorApp (Calculadora)" ou "ApplicationFrameHost (Calculadora)" quer dizer que a calculadora está aberta.
+- Datas para lembretes: calcule a data absoluta a partir de agora.${buildMemoryBlock()}`;
+}
+
+/** Verbos de ação no passado, em primeira pessoa: o sinal de que o modelo NARROU em vez de agir. */
+const ALEGA_ACAO = /\b(fechei|abri|toquei|pausei|coloquei|ajustei|aumentei|diminuí|criei|agendei|cancelei|apaguei|esqueci|guardei|mandei|enviei|desliguei|reiniciei|bloqueei|suspendi|tirei|salvei|escrevi|rodei|ativei|maximizei|minimizei)\b|\b(foi|foram|está|estão)\s+(aberto|aberta|abertos|abertas|fechad[oa]s?|criad[oa]s?|apagad[oa]s?|cancelad[oa]s?|agendad[oa]s?|pausad[oa]s?|ativad[oa]s?|enviad[oa]s?|mandad[oa]s?|salv[oa]s?|bloquead[oa]s?|desligad[oa]s?|reiniciad[oa]s?|guardad[oa]s?)\b/i;
+function alegaAcao(texto: string): boolean {
+  return ALEGA_ACAO.test(texto);
+}
+
+/** Ferramentas que só OLHAM. Chamá-las não conta como "ter feito" alguma coisa. */
+const LEITURA = new Set(["programas_abertos", "estado_do_pc", "processos_pesados", "clima", "lembretes", "memoria", "rotinas", "presets", "tocando_agora", "area_de_transferencia"]);
+
+export async function agir(
+  texto: string,
+  opcoes: { onChamada?: (nome: string, args: Record<string, unknown>) => void } = {},
+): Promise<ResultadoAgente | null> {
+  const cfg = getConfig();
+  const { provider, motivo } = await provedorDoRoteador(cfg);
+  if (motivo) console.log(`[agente] ${motivo}`);
+  const modelo = provider === "ollama" ? cfg.ollamaRouterModel : cfg.routerModel;
+
+  const contexto = contextoRecente();
+  const messages: ChatMessage[] = [
+    { role: "system", content: promptDoAgente() + (contexto ? "\n\n[CONVERSA RECENTE]\n" + contexto : "") },
+    { role: "user", content: texto },
+  ];
+
+  const tentar = (prov: Provider, mod: string) => callChatComFerramentas({
+    provider: prov, model: mod, messages, tools: definicoesDeFerramentas(),
+    temperature: 0.1, maxTokens: 600,
+  });
+
+  const chamadas: ResultadoAgente["chamadas"] = [];
+  const acoes: BrainAction[] = [];
+  let totalChamadas = 0;
+  let cutucado = false;
+  let continuou = false;
+  // " e ", "depois", "também", vírgula: mais de um pedido na mesma frase.
+  const pedidoComposto = /\s(e|depois|também|tambem)\s|,/.test(texto.toLowerCase());
+  /** Índice em `chamadas` da primeira ação — as leituras anteriores não viram fala. */
+  let inicioFala = -1;
+  let prov = provider, mod = modelo;
+
+  for (let rodada = 0; rodada < MAX_RODADAS; rodada++) {
+    let resposta;
+    try {
+      resposta = await tentar(prov, mod);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      // O local falhou (fora do ar, sem suporte a ferramentas): mesma rede de segurança do
+      // roteador clássico — repete na nuvem uma vez, se houver chave.
+      if (prov === "ollama" && cfg.fallbackToGroq && getApiKey() && rodada === 0) {
+        console.warn(`[agente] o local falhou (${msg}); repetindo na Groq.`);
+        prov = "groq"; mod = cfg.routerModel;
+        try { resposta = await tentar(prov, mod); }
+        catch (e2) { console.error("[agente] a Groq também falhou:", e2); return null; }
+      } else {
+        console.error(`[agente] falha do provedor "${prov}": ${msg}`);
+        return null;
+      }
+    }
+
+    if (!resposta.toolCalls.length) {
+      const content = resposta.content.trim();
+      console.log(`[agente] ${prov}/${mod} sem ferramentas: "${content.slice(0, 80)}"`);
+      // "CHAT" (antes ou depois de olhar alguma coisa) é conversa: o modelo de 8B às vezes
+      // consulta uma ferramenta irrelevante e só então percebe que era papo.
+      if (/^\W*chat\W*$/i.test(content)) return { modo: "chat", reply: "", acoes: [{ action: "chat" }], chamadas };
+      if (!chamadas.length) return content ? { modo: "ferramentas", reply: content, acoes, chamadas } : null;
+      // 🔴 Já houve leitura e o modelo respondeu em texto. O 8B narra ("fechei a
+      // calculadora") sem ter agido, ecoa o prompt ("CHAME rotinas") ou contradiz o que
+      // leu ("não achei" com a lista cheia). Se ele alega ação sem ter agido, uma
+      // cutucada, uma vez; fora isso, A RESPOSTA É O QUE AS FERRAMENTAS DEVOLVERAM — elas
+      // já falam em frases ("Em São Paulo, 17 graus…", "Bom dia às 07:30") e não mentem.
+      if (!chamadas.some(c => !LEITURA.has(c.nome)) && !cutucado && alegaAcao(content)) {
+        cutucado = true;
+        messages.push({ role: "assistant", content });
+        messages.push({ role: "user", content: "Você disse que fez isso, mas não chamou nenhuma ferramenta de ação. Se é para fazer, chame a ferramenta agora; se não é, responda o que realmente aconteceu." });
+        continue;
+      }
+      return { modo: "ferramentas", reply: falasDasChamadas(inicioFala >= 0 ? chamadas.slice(inicioFala) : chamadas), acoes, chamadas };
+    }
+
+    // Executa as chamadas desta rodada e devolve os resultados ao modelo.
+    messages.push({ role: "assistant", content: resposta.content ?? "", tool_calls: resposta.toolCalls });
+    for (const c of resposta.toolCalls as ChamadaDeFerramenta[]) {
+      if (++totalChamadas > MAX_CHAMADAS) {
+        messages.push({ role: "tool", tool_call_id: c.id, name: c.name, content: "Limite de chamadas atingido; responda com o que já tem." });
+        continue;
+      }
+      opcoes.onChamada?.(c.name, c.args);
+      const equivalente = ferramenta(c.name)?.acao?.(c.args);
+      if (equivalente) acoes.push(equivalente);
+      const resultado = await executarFerramenta(c.name, c.args);
+      chamadas.push({ nome: c.name, args: c.args, resultado });
+      console.log(`[agente] ${c.name}(${JSON.stringify(c.args)}) → ${resultado.slice(0, 120)}`);
+      messages.push({ role: "tool", tool_call_id: c.id, name: c.name, content: resultado });
+    }
+
+    // 🔴 Rodada com AÇÃO: acabou. A resposta é o que os executores disseram ("Abrindo
+    // bloco de notas. Em São Paulo, 17 graus…"), sem voltar ao modelo — que, pedido para
+    // resumir, dizia "não achei a rotina para apagar" DEPOIS de a ferramenta ter apagado,
+    // e ainda custava uma chamada. Rodada só de leitura volta ao modelo: ele pode
+    // precisar agir com o que leu ("se estiver aberta, fecha").
+    if (resposta.toolCalls.some(c => !LEITURA.has(c.name))) {
+      if (inicioFala < 0) inicioFala = chamadas.length - resposta.toolCalls.length;
+      // Pedido composto ("abre o bloco de notas E me diz o tempo"): o 8B costuma chamar
+      // só a primeira parte. Uma volta a mais, uma vez; se ele não chamar nada, acabou.
+      if (pedidoComposto && !continuou) { continuou = true; continue; }
+      return { modo: "ferramentas", reply: falasDasChamadas(chamadas.slice(inicioFala)), acoes, chamadas };
+    }
+    if (continuou) {
+      // A volta a mais trouxe só leituras: junta tudo desde a ação.
+      return { modo: "ferramentas", reply: falasDasChamadas(chamadas.slice(inicioFala)), acoes, chamadas };
+    }
+  }
+
+  // Estourou as rodadas só lendo: a resposta é o que foi lido.
+  return { modo: "ferramentas", reply: falasDasChamadas(chamadas), acoes, chamadas };
+}
+
+/** As falas dos executores, sem repetir a mesma frase (duas leituras iguais viram uma). */
+function falasDasChamadas(lista: ResultadoAgente["chamadas"]): string {
+  const vistas = new Set<string>();
+  const falas: string[] = [];
+  for (const c of lista) {
+    const t = c.resultado.trim();
+    if (!t || vistas.has(t)) continue;
+    vistas.add(t);
+    falas.push(t);
+  }
+  return falas.join(" ") || "Feito.";
+}

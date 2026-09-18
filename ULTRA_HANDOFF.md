@@ -4136,3 +4136,60 @@ por teste.
 **Scripts:** `npm test` (= `vitest run`) e `npm run check` nos dois — no desktop `tsc` +
 testes; no celular `tsc` + testes + `expo export`. **A regra 1 da §3 ganha um passo: `npm run
 check` verde antes de commitar.**
+
+### Bloco 78 — o cérebro com ferramentas ★ ✅
+
+O salto da fase. O modelo deixa de devolver uma lista fechada de ações às cegas e passa a
+**olhar o PC, agir em etapas e responder** — "se a calculadora estiver aberta, fecha ela"
+funciona (olha `programas_abertos`, chama `fechar_programa`), "cria uma rotina chamada Bom
+dia que todo dia útil às 7h30 me diz o tempo, no celular também" cria a rotina certa, "me
+lembra de tomar água daqui a 20 minutos" acerta a hora. Tudo verificado ao vivo com o
+`llama3.1:8b` pelo Ollama 0.34 (e o Zak jogando Dark Souls III ao mesmo tempo, com 96% de
+RAM — 4 a 27 s por pedido; sem o jogo, 2 a 4 s).
+
+**Arquivos novos:** `src/services/ferramentas.ts` (o catálogo, 30 ferramentas),
+`src/services/agente.ts` (o laço), `tests/agente.test.ts` (8 testes da política).
+**Mudados:** `llm.ts` (`callChatComFerramentas`, mensagens `tool`, dialetos Groq/Ollama),
+`brain.ts` (`registrarTurnoUsuario`, `contextoRecente`, `provedorDoRoteador` exportados;
+`decideBrain` intacto como rede de segurança), `command.ts` (a costura), `config.ts`
+(`cerebroFerramentas`, ligado por padrão; Ajustes → Cérebro → "Agir em etapas").
+
+**O catálogo (`ferramentas.ts`)** — não é a superfície RPC inteira: é o que faz sentido em
+português. Leitura: `programas_abertos` (processo + título da janela — é assim que a
+calculadora da loja aparece, "CalculatorApp (Calculadora)"), `estado_do_pc`,
+`processos_pesados`, `clima`, `lembretes`, `memoria`, `rotinas`, `presets`, `tocando_agora`,
+`area_de_transferencia`. Ação: `abrir_programa`, `fechar_programa`, `janela`, `abrir_site`,
+`tocar_musica`, `midia`, `volume`, `energia`, `tirar_print`, `olhar_a_tela`, `buscar_na_web`,
+`criar_lembrete` (com `em_minutos` — o PC faz a conta; o 8B devolvia a hora de agora para
+"daqui a 20 min"), `cancelar_lembrete`, `lembrar_fato`, `esquecer_fato`, `rodar_preset`,
+`criar_rotina`, `apagar_rotina`, `pausar_rotina`, `rodar_rotina`, `mandar_para_o_celular`,
+`escrever_texto`, `criar_arquivo`. **Cada ação delega ao mesmo executor da voz**
+(`routeAction` com a `BrainAction` equivalente): nenhum caminho novo, nenhuma permissão
+nova. `input.*` (mouse/teclado) fica fora de propósito. `normalizarArgs` converte o que o
+8B manda como string (`"true"`, `"[1, 2, 3]"`) pelo esquema.
+
+**A política do laço (`agente.ts`)**, cada regra nasceu de um erro visto ao vivo:
+- `fastRoute` continua na frente; `CHAT` (antes ou depois de uma leitura irrelevante) →
+  `composeChatReply` de sempre, com streaming.
+- **Rodada com ação encerra, e a fala é o que os executores disseram** ("Abrindo
+  calculadora.", "Rotina Bom dia apagada.") — sem voltar ao modelo. Pedido para resumir,
+  o 8B dizia "não achei a rotina para apagar" *depois* de a ferramenta ter apagado.
+- **Rodada só de leitura volta ao modelo** (ele pode precisar agir com o que leu); se
+  ele responder em texto, **a fala é o que foi lido**, não o texto — o 8B ecoava o prompt
+  ("CHAME rotinas", "OLHAR estado_do_pc") ou contradizia a lista.
+- **Alegar sem agir** ("fechei a calculadora", "a calculadora foi fechada" sem chamada de
+  ação) → uma cutucada, uma vez, e ele chama a ferramenta.
+- Pedido composto (" e ", "depois", vírgula) → uma volta a mais depois da ação.
+- Tetos: 4 rodadas, 8 chamadas; falha do local → Groq uma vez → `null` → roteador
+  clássico. Prompt sem palavras em maiúsculas: o 8B as ecoa.
+
+**Achado grave no caminho:** Ajustes → Cérebro → "Modelo local" guardava `"llama3.1 8b"`
+(com espaço) e o Ollama respondia `400 invalid model name` em **todo** pedido — o roteador
+caía na Groq em silêncio há dias e batia no limite de 8000 tokens/min. `normalizarNomeOllama`
+(`nome tag` → `nome:tag`) e 400 "invalid model" agora marca o modelo como morto. Era o
+motivo de a Groq viver em 429.
+
+**Limites conhecidos do 8B:** às vezes chama uma leitura irrelevante antes de decidir
+(`clima` para "que horas em Tóquio"); pedido composto nem sempre completa a segunda parte;
+`quemOcupaGpu` não reconhece o Dark Souls III (o local rodou com o jogo aberto). Bloco 82
+mede alternativas.
