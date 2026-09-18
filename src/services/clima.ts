@@ -66,6 +66,29 @@ const VALIDADE_MS = 60 * 60 * 1000;
 const VALIDADE_FALHA_MS = 60 * 1000;
 let cache: { em: number; dado: Clima | null } | null = null;
 
+/**
+ * O clima em uma frase, para a ação `weather` (fastRoute e roteador). Antes disto o modelo
+ * respondia "não tenho acesso à previsão do tempo" enquanto a Início mostrava o tempo ao
+ * lado — a rotina "Bom dia" do bloco 68 foi quem denunciou.
+ */
+export async function climaFalado(): Promise<string> {
+  const c = await climaAgora();
+  if (!c) {
+    return motivoDaFalha() === "sem-cidade"
+      ? "Ainda não sei a sua cidade — defina em Ajustes, Clima."
+      : "Não consegui consultar o tempo agora; parece que estou sem internet.";
+  }
+  const partes = [`Em ${c.cidade}, ${Math.round(c.temperatura)} graus e ${c.descricao}`];
+  if (typeof c.sensacao === "number" && Math.abs(c.sensacao - c.temperatura) >= 2) partes[0] += `, sensação de ${Math.round(c.sensacao)}`;
+  partes.push(`Máxima de ${Math.round(c.max)}, mínima de ${Math.round(c.min)}`);
+  const chuvaEmBreve = (c.horas ?? []).find(h => h.chuva);
+  if (chuvaEmBreve) partes.push(`Chuva por volta das ${chuvaEmBreve.hora} horas`);
+  else if (c.chuvaHoje) partes.push("Pode chover hoje");
+  else partes.push("Sem chuva à vista");
+  if (c.amanha) partes.push(`Amanhã, ${Math.round(c.amanha.max)} de máxima e ${Math.round(c.amanha.min)} de mínima`);
+  return partes.join(". ") + ".";
+}
+
 /** Último motivo de falha, para o card dizer "sem conexão" em vez de "defina a cidade". */
 let ultimaFalha: string | null = null;
 

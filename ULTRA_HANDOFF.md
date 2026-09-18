@@ -3591,3 +3591,46 @@ os que estão no padrão e esconde o resto, então a tela dele também enche.
 
 Verificado no app: as duas telas (cabeçalho, 12 cards, clima com 6 horas reais de São
 Paulo), timer criando e cancelando o lembrete, notas gravando na config.
+
+### Bloco 68 — Rotinas: automações agendadas e a fila de entregas para o celular ✅
+
+O pedido 8 ("todo dia me mandar tal coisa"), lado do PC. É o bloco 22 da §19 que nunca
+tinha saído do papel.
+
+**`src/services/rotinas.ts`** — uma rotina é `{nome, texto, hora "HH:MM", dias[0-6]
+(vazio = todos), entregar ["pc"|"celular"], falar, ativa}`; o `texto` é executado pelo
+**mesmo `executarComando` do chat e da voz**, então vale tudo o que já funciona ali
+("como está o tempo", "roda o preset trabalho", "quais são os meus lembretes de hoje").
+Tique de 30 s comparando "HH:MM" + dia da semana; `ultimaExecucao` impede disparar duas
+vezes no minuto e ignora o que venceu durante hibernação (rotina atrasada é ruído). A
+execução espera o app ficar `idle` (até 60 s) para não atropelar uma gravação.
+Persistência em `rotinas.json` do userData (`electron-store`).
+
+**Entregas** (mesmo arquivo): fila `{id, tipo rotina|lembrete|aviso, titulo, corpo, em,
+entregueEm?, ref?}`. **Por que existe:** o push pela Expo nunca foi validado (FCM, §15);
+o que funciona sem nuvem é o celular vir buscar. O PC enfileira, avisa quem tem WS aberto
+(`{type:"notify", …}`, `broadcastNotify` em `server.ts`) e ainda tenta o push; o app
+confirma por `notify.ack`. Lembretes disparados também entram na fila. Poda em 60,
+nunca descartando o que não foi entregue.
+
+**RPC novos (7):** `rotinas.list` (com `proxima` em epoch), `rotinas.save`,
+`rotinas.delete`, `rotinas.toggle`, `rotinas.run`, `notify.pending`, `notify.history`,
+`notify.ack`. IPC `rotina:executada` → renderer.
+
+**Aba Rotinas** (5ª aba, entre PC e Ajustes): cartões por rotina (hora grande, próxima
+vez, nome, texto, os 7 dias, ícones de destino, último resultado, interruptor, rodar
+agora/editar/apagar); coluna da direita com **os lembretes** (o mesmo painel da aba PC,
+mesmos ouvintes) e **entregas ao celular** ("aguardando"/"no celular"). Formulário na
+gaveta genérica com 4 exemplos prontos. Card `rotinas` na Início (próximas 4), entradas
+na paleta ("Rotinas", "Nova rotina", "Rodar agora: …").
+
+**Achado no caminho:** a rotina "Bom dia — como está o tempo?" respondeu *"não tenho
+acesso à previsão do tempo"* — o cérebro não sabia o clima que a Início mostra ao lado.
+Entrou a ação **`weather`** (`brain.ts`, `routerPrompt.ts`, `fastRoute` com ~10 formas de
+perguntar, `router.ts` → `climaFalado()` em `clima.ts`): "Em São Paulo, 22 graus e
+nublado. Máxima de 22, mínima de 14. Sem chuva à vista. Amanhã, 26 de máxima e 15 de
+mínima." O padrão de `list_reminders` do fastRoute também ganhou "quais são os meus
+lembretes de hoje".
+
+Verificado no app: criar pelo formulário (dias úteis, próxima "21/09 07:30"), rodar
+agora com a resposta do clima real, entrega na fila (`notify.pending`) e no histórico.

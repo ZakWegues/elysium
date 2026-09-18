@@ -84,10 +84,14 @@ const RULES: Rule[] = [
   { pattern: /^cancela(r)? o desligamento$/,
     build: () => [{ action: "power_control", operation: "cancel" }] },
 
+  // — clima — a resposta vem da Open-Meteo (clima.ts); o modelo não sabe o tempo
+  { pattern: /^(como (esta|ta) o tempo( hoje| la fora| agora)?|clima|clima (de )?hoje|previsao( do tempo)?( (de|para) hoje)?|que tempo faz( hoje)?|vai chover( hoje)?|(esta|ta) (frio|quente|chovendo)( la fora)?|temperatura la fora)$/,
+    build: () => [{ action: "weather" }] },
+
   // — presets e memória —
   { pattern: /^(lista(r)? (os )?presets|quais presets( eu)? tenho|meus presets)$/,
     build: () => [{ action: "list_presets" }] },
-  { pattern: /^(quais lembretes( eu)? tenho|meus lembretes|o que (esta|ta) agendado)$/,
+  { pattern: /^(quais (sao )?(os )?meus lembretes( de hoje| para hoje)?|quais lembretes( eu)? tenho( hoje)?|meus lembretes( de hoje)?|o que (esta|ta) agendado( para hoje| hoje)?)$/,
     build: () => [{ action: "list_reminders" }] },
   { pattern: /^(o que voce lembra sobre mim|o que voce sabe sobre mim|sua memoria)$/,
     build: () => [{ action: "list_memory" }] },

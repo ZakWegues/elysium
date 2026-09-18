@@ -25,6 +25,7 @@ contextBridge.exposeInMainWorld("nx", {
   onChatChunk:     (cb: (t: string)    => void) => { ipcRenderer.on("chat:chunk",         (_e, t) => cb(t)); },
   onChatError:     (cb: (m: string)    => void) => { ipcRenderer.on("chat:error",         (_e, m) => cb(m)); },
   onChatBusy:      (cb: ()             => void) => { ipcRenderer.on("chat:busy",          ()       => cb()); },
+  onRotinaExecutada: (cb: (r: unknown) => void) => { ipcRenderer.on("rotina:executada", (_e, r) => cb(r)); },
   getHistory:      ()                           => ipcRenderer.invoke("history:get"),
   chatStarters:    ()                           => ipcRenderer.invoke("chat:starters"),
   minimizar:       ()                           => ipcRenderer.send("window:minimize"),

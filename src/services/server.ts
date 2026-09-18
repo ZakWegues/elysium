@@ -146,6 +146,19 @@ function broadcastTelemetry(payload: object): void {
 }
 
 /** Real-time nudge for mobile: "há item novo, refaz o GET". Puramente otimização de UX. */
+/**
+ * Uma entrega (rotina executada, lembrete disparado) para os celulares com WS aberto.
+ * O app mostra como notificação local na hora; quem não estiver conectado pega depois
+ * por `notify.pending` (rotinas.ts).
+ */
+export function broadcastNotify(entrega: { id: string; tipo: string; titulo: string; corpo: string; em: number; ref?: string }): void {
+  if (wsClients.size === 0) return;
+  const frame = buildTextFrame(JSON.stringify({ type: "notify", ...entrega }));
+  for (const c of wsClients) {
+    try { c.socket.write(frame); } catch { wsClients.delete(c); }
+  }
+}
+
 export function broadcastMailboxEvent(direction: "toMobile" | "toDesktop", id: string): void {
   if (wsClients.size === 0) return;
   const frame = buildTextFrame(JSON.stringify({ type: "mailbox_new", direction, id }));

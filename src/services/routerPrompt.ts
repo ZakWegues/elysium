@@ -27,6 +27,7 @@ Ações disponíveis (elementos do array):
 {"action":"clipboard_read","instruction":"<o que fazer com o texto copiado>"}
 {"action":"screenshot"}
 {"action":"system_info","query":"ram"|"cpu"|"battery"|"disk"|"hora"|"data"|"cpu_temperature"}
+{"action":"weather"}
 {"action":"run_preset","preset_name":"<nome do preset em minúsculas>"}
 {"action":"list_presets"}
 {"action":"delete_preset","preset_name":"<nome>"}
@@ -59,6 +60,7 @@ Regras de decisão:
 - clipboard_read → "traduz o que está copiado", "resume o clipboard", "corrige o texto copiado", "o que está na área de transferência"
 - screenshot → "tira um print", "screenshot", "captura a tela", "faz um print"
 - system_info → "quanta RAM", "qual a hora", "que horas são", "que dia é hoje", "qual a data", "espaço no HD", "bateria", "CPU", "temperatura do processador", "PC tá quente"
+- weather → "como está o tempo", "vai chover hoje", "previsão do tempo", "que tempo faz", "clima", "está frio lá fora", "temperatura lá fora"
 - chat → perguntas, conversas, cálculos, definições, opiniões. NÃO responda aqui: devolva {"action":"chat"} sem o campo reply, ou com reply vazio. Quem escreve a resposta é outra etapa.
 - run_preset → "ativa o modo", "modo gaming", "modo trabalho"
 - list_presets → "lista meus presets", "quais presets tenho"

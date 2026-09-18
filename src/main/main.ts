@@ -37,7 +37,8 @@ import { registrarPergunta, bolhasDoChat } from "../services/perguntas";
 import { synthesize, cancelSpeak } from "../services/tts";
 import { ElysiumError } from "../services/errors";
 import { processCommand, processCommandStream, executarComando } from "../services/command";
-import { startServer, setActiveToken, broadcastMailboxEvent } from "../services/server";
+import { startServer, setActiveToken, broadcastMailboxEvent, broadcastNotify } from "../services/server";
+import { iniciarRotinas, pararRotinas, enfileirarEntrega } from "../services/rotinas";
 import { ollamaDisponivel } from "../services/llm";
 import { registerRpcBridge } from "./rpcBridge";
 import { startMonitor, getDashboardTelemetry, killProcess } from "../actions/systemInfo";
@@ -664,6 +665,7 @@ app.on("ready", async () => {
     // e fica pendurado segurando o stdin.
     inputHost.stop();
     stopScheduler();
+  pararRotinas();
     app.exit(0);
   };
 
@@ -711,8 +713,34 @@ app.on("ready", async () => {
     notify("ELYSIUM — Lembrete", reminder.text);
     speak(`Lembrete: ${reminder.text}`).catch(() => { /* best-effort */ });
     void sendPush("reminder", "Lembrete", reminder.text, { reminderId: reminder.id });
+    // Fila + WS: é o que chega ao celular sem push pela nuvem (bloco 68).
+    const entrega = enfileirarEntrega({ tipo: "lembrete", titulo: "Lembrete", corpo: reminder.text, ref: reminder.id });
+    broadcastNotify(entrega);
     dashWin?.webContents.send("reminder:fired", reminder);
   });
+
+  // Rotinas: o texto passa pelo mesmo pipeline do chat e da voz. O comando não pode
+  // atropelar uma gravação em andamento, então espera o app ficar ocioso (até 60 s).
+  iniciarRotinas(
+    async (rotina) => {
+      const t0 = Date.now();
+      while (!state.is("idle") && Date.now() - t0 < 60_000) await new Promise(r => setTimeout(r, 1000));
+      const { reply } = await executarComando(rotina.texto);
+      return reply;
+    },
+    (rotina, resultado) => {
+      if (rotina.entregar.includes("pc")) {
+        notify(`ELYSIUM — ${rotina.nome}`, resultado);
+        if (rotina.falar) speak(resultado).catch(() => { /* best-effort */ });
+      }
+      if (rotina.entregar.includes("celular")) {
+        const entrega = enfileirarEntrega({ tipo: "rotina", titulo: rotina.nome, corpo: resultado, ref: rotina.id });
+        broadcastNotify(entrega);
+        void sendPush("reminder", rotina.nome, resultado, { rotinaId: rotina.id });
+      }
+      dashWin?.webContents.send("rotina:executada", { id: rotina.id, nome: rotina.nome, resultado });
+    },
+  );
 
   // Antes de registrar o nome novo: senão sobram duas entradas em HKCU\...\Run, e a
   // antiga aponta para o caminho da instalação NEUROAXIS.

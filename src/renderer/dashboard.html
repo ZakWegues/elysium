@@ -229,6 +229,7 @@ body.theme-ely {
 #layout > #view-inicio,
 #layout > #center,
 #layout > #view-pc,
+#layout > #view-rotinas,
 #layout > #drawer-right {
   transition: opacity var(--mov-base) var(--mov-suave),
               transform var(--mov-base) var(--mov-suave),
@@ -238,6 +239,7 @@ body.theme-ely {
   #layout[data-view="inicio"]    #view-inicio,
   #layout[data-view="chat"]      #center,
   #layout[data-view="pc"] #view-pc,
+  #layout[data-view="rotinas"] #view-rotinas,
   #layout[data-view="ajustes"]   #drawer-right { opacity: 0; transform: translateY(10px); }
 }
 
@@ -1473,7 +1475,8 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
 #layout[data-view] #drawer-right,
 #layout[data-view] #center,
 #layout[data-view] #view-inicio,
-#layout[data-view] #view-pc { display: none; opacity: 0; transform: translateY(-6px); }
+#layout[data-view] #view-pc,
+#layout[data-view] #view-rotinas { display: none; opacity: 0; transform: translateY(-6px); }
 
 /* Os painéis se SOBREPÕEM, não dividem espaço.
    Enquanto a troca acontece, o que sai e o que entra estão os dois visíveis por ~220ms —
@@ -1483,6 +1486,7 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
 #layout[data-view] > #view-inicio,
 #layout[data-view] > #center,
 #layout[data-view] > #view-pc,
+#layout[data-view] > #view-rotinas,
 #layout[data-view] > #drawer-right {
   position: absolute; inset: 0; min-width: 0;
 }
@@ -1492,6 +1496,7 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
 #layout[data-view="inicio"]  #view-inicio  { display: block; opacity: 1; transform: none; }
 #layout[data-view="chat"]    #center       { display: flex;  opacity: 1; transform: none; }
 #layout[data-view="pc"] #view-pc { display: block; opacity: 1; transform: none; }
+#layout[data-view="rotinas"] #view-rotinas { display: block; opacity: 1; transform: none; }
 #layout[data-view="ajustes"] #drawer-right { display: flex;  opacity: 1; transform: none; }
 
 
@@ -1809,13 +1814,13 @@ body.tabs .top-btn.drawer-toggle { display: none; }
 .gp-linha button:hover { background: rgba(224,82,82,0.18); color: var(--red); }
 .gp-linha button.ok:hover { background: rgba(var(--purple-rgb),0.2); color: var(--purple-bright); }
 .gp-form { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
-.gp-form input[type="text"] { flex-basis: 100%; }
 .gp-form input, .gp-form select {
   padding: 8px 10px; border-radius: var(--radius-6);
   background: rgba(0,0,0,0.18); border: 1px solid var(--border);
   color: var(--text); font-family: inherit; font-size: 11.5px; outline: none;
 }
-.gp-form input[type="text"] { flex: 1; min-width: 0; }
+/* O texto ocupa a linha inteira; data, hora e botão dividem a de baixo. */
+.gp-form input[type="text"] { flex: 1 1 100%; min-width: 0; }
 .gp-form input:focus, .gp-form select:focus { border-color: var(--purple); }
 .gp-form input[type="time"], .gp-form input[type="date"] { color-scheme: dark; }
 .theme-lg .gp-form input[type="time"], .theme-lg .gp-form input[type="date"], .theme-lg .lembrete-novo input[type="time"] { color-scheme: light; }
@@ -1850,6 +1855,103 @@ body.tabs .top-btn.drawer-toggle { display: none; }
 .prog-procurando .ico { animation: prog-gira 1.1s linear infinite; }
 @keyframes prog-gira { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .prog-procurando .ico, #pc-reler.girando .ico { animation: none; } }
+
+/* ── ABA ROTINAS ──────────────────────────────────────────
+   Duas colunas: as rotinas à esquerda, lembretes e entregas à direita. O formulário de
+   rotina abre na gaveta genérica. */
+#view-rotinas {
+  overflow-y: auto; padding: 18px 24px 28px;
+  scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+}
+#view-rotinas::-webkit-scrollbar { width: 4px; }
+#view-rotinas::-webkit-scrollbar-thumb { background: var(--border); border-radius: var(--radius-4); }
+#rot-nova {
+  display: flex; align-items: center; gap: 6px; flex-shrink: 0;
+  padding: 8px 15px; border-radius: var(--radius-20);
+  background: rgba(var(--purple-rgb),0.18); border: 1px solid var(--border);
+  color: var(--purple-bright); font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+}
+#rot-nova:hover { background: rgba(var(--purple-rgb),0.28); }
+.rot-colunas { display: grid; grid-template-columns: minmax(0, 3fr) minmax(300px, 2fr); gap: 22px; align-items: start; }
+@media (max-width: 900px) { .rot-colunas { grid-template-columns: 1fr; } }
+.rot-col { min-width: 0; }
+.rot-h3 { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.03em; margin: 4px 0 10px; }
+.rot-h3:not(:first-child) { margin-top: 18px; }
+.rot-card {
+  padding: 14px 16px; border-radius: var(--radius-10);
+  background: var(--surface); border: 1px solid var(--border);
+  box-shadow: var(--shadow-card, none); backdrop-filter: var(--glass-blur);
+}
+#rot-lista { display: flex; flex-direction: column; gap: 12px; }
+.rotina {
+  display: grid; grid-template-columns: 74px minmax(0, 1fr) auto; gap: 14px; align-items: start;
+  padding: 14px 16px; border-radius: var(--radius-10);
+  background: var(--surface); border: 1px solid var(--border);
+  box-shadow: var(--shadow-card, none); backdrop-filter: var(--glass-blur);
+  transition: opacity var(--mov-micro) var(--mov-curva);
+}
+.rotina.pausada { opacity: 0.55; }
+.rotina-hora { font-size: 24px; font-weight: 700; color: var(--purple-bright); font-variant-numeric: tabular-nums; line-height: 1; }
+.rotina-proxima { font-size: 10.5px; color: var(--muted); margin-top: 5px; }
+.rotina-nome { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 3px; }
+.rotina-texto { font-size: 12px; color: var(--muted); font-style: italic; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rotina-dias { display: flex; gap: 3px; margin-top: 8px; }
+.rotina-dias span {
+  width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  font-size: 9.5px; font-weight: 700; color: var(--muted); background: rgba(var(--purple-rgb),0.06);
+}
+.rotina-dias span.on { color: var(--purple-bright); background: rgba(var(--purple-rgb),0.2); }
+.rotina-entrega { display: inline-flex; align-items: center; gap: 4px; margin-left: 8px; font-size: 10.5px; color: var(--muted); }
+.rotina-entrega .ico { width: 13px; height: 13px; }
+.rotina-resultado { margin-top: 8px; font-size: 11.5px; color: var(--text); padding: 7px 10px; border-radius: var(--radius-7); background: rgba(var(--purple-rgb),0.06); border-left: 2px solid var(--purple); line-height: 1.45; }
+.rotina-resultado em { font-style: normal; color: var(--muted); font-size: 10.5px; display: block; margin-bottom: 2px; }
+.rotina-acoes { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.rotina-acoes .linha { display: flex; gap: 4px; }
+.rotina-acoes .linha button {
+  width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--border);
+  background: none; color: var(--muted); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.rotina-acoes .linha button:hover { background: rgba(var(--purple-rgb),0.16); color: var(--purple-bright); }
+.rotina-acoes .linha button.perigo:hover { background: rgba(224,82,82,0.16); color: var(--red); }
+.rot-vazio { padding: 22px 18px; text-align: center; color: var(--muted); font-size: 12.5px; line-height: 1.6; }
+.rot-vazio .gp-chips { justify-content: center; margin-top: 12px; }
+.entrega { display: flex; gap: 10px; padding: 8px 0; border-bottom: 1px solid rgba(var(--purple-rgb),0.08); font-size: 12px; }
+.entrega:last-child { border-bottom: none; }
+.entrega .ico { color: var(--muted); flex-shrink: 0; margin-top: 2px; }
+.entrega-txt { flex: 1; min-width: 0; }
+.entrega-txt b { display: block; font-weight: 600; color: var(--text); }
+.entrega-txt span { color: var(--muted); font-size: 11.5px; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.entrega-meta { font-size: 10.5px; color: var(--muted); white-space: nowrap; text-align: right; }
+.entrega-meta i { display: block; font-style: normal; }
+.entrega-meta .ok { color: var(--green); }
+.entrega-meta .pend { color: var(--yellow); }
+
+/* Formulário de rotina, na gaveta. */
+.rot-form { display: flex; flex-direction: column; gap: 14px; }
+.rot-form label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--text); font-weight: 600; }
+.rot-form label small { font-weight: 400; color: var(--muted); font-size: 10.5px; }
+.rot-form input[type="text"], .rot-form input[type="time"], .rot-form textarea {
+  padding: 9px 12px; border-radius: var(--radius-7);
+  background: rgba(0,0,0,0.2); border: 1px solid var(--border);
+  color: var(--text); font-family: inherit; font-size: 12.5px; outline: none; font-weight: 400;
+}
+.rot-form textarea { min-height: 72px; resize: vertical; line-height: 1.5; }
+.rot-form input:focus, .rot-form textarea:focus { border-color: var(--purple); }
+.rot-form input[type="time"] { width: 120px; color-scheme: dark; }
+.theme-lg .rot-form input[type="time"] { color-scheme: light; }
+.theme-lg .rot-form input[type="text"], .theme-lg .rot-form input[type="time"], .theme-lg .rot-form textarea { background: rgba(255,255,255,0.9); }
+.rot-dias { display: flex; gap: 5px; }
+.rot-dias button {
+  width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--border);
+  background: rgba(var(--purple-rgb),0.06); color: var(--muted); font-family: inherit; font-size: 11px; font-weight: 700; cursor: pointer;
+}
+.rot-dias button.on { background: rgba(var(--purple-rgb),0.24); color: var(--purple-bright); border-color: rgba(var(--purple-rgb),0.4); }
+.rot-opcoes { display: flex; flex-wrap: wrap; gap: 8px; }
+.rot-opcoes .home-toggle { font-weight: 400; flex-direction: row; }   /* o label de fora é coluna */
+.rot-form .home-acoes { margin-top: 4px; }
+.rot-form .home-acoes .principal { background: rgba(var(--purple-rgb),0.24); }
+.rot-exemplos { margin-top: 4px; }
 .mus-sep { width: 1px; height: 22px; background: var(--border); margin: 0 4px; }
 
 /* ── PRESETS: bolinha e popover ───────────────────────────
@@ -2653,6 +2755,7 @@ body.redimensionando, body.redimensionando * { user-select: none !important; cur
   <button class="vtab active" data-view="inicio"  role="tab" aria-selected="true"><span class="vtab-ico"><svg class="ico" aria-hidden="true"><use href="#i-home"/></svg></span><span class="vtab-label">Início</span><span class="vtab-dot"></span></button>
   <button class="vtab"        data-view="chat"    role="tab" aria-selected="false"><span class="vtab-ico"><svg class="ico" aria-hidden="true"><use href="#i-message-circle"/></svg></span><span class="vtab-label">Chat</span><span class="vtab-dot"></span></button>
   <button class="vtab"        data-view="pc" role="tab" aria-selected="false"><span class="vtab-ico"><svg class="ico" aria-hidden="true"><use href="#i-monitor"/></svg></span><span class="vtab-label">PC</span><span class="vtab-dot"></span></button>
+  <button class="vtab"        data-view="rotinas" role="tab" aria-selected="false"><span class="vtab-ico"><svg class="ico" aria-hidden="true"><use href="#i-calendar"/></svg></span><span class="vtab-label">Rotinas</span><span class="vtab-dot"></span></button>
   <!-- A lupa do Ctrl+K, sempre à vista. Não é um campo de verdade: clicar (ou começar a
        digitar com ela focada) abre a paleta, que já tem o índice e o teclado prontos. Um
        segundo campo com busca própria seria a mesma paleta escrita duas vezes. -->
@@ -2719,6 +2822,31 @@ body.redimensionando, body.redimensionando * { user-select: none !important; cur
     <section class="pc-vitais" id="pc-vitais"></section>
     <section class="pc-midia" id="pc-midia"></section>
     <div class="pc-grade mov-lista" id="pc-grade"></div>
+  </div>
+
+  <!-- ABA ROTINAS (bloco 68) — o que acontece sozinho, na hora certa: rotinas (texto que o
+       ELYSIUM executa numa hora, em certos dias), os lembretes e o histórico do que foi
+       entregue ao celular. Ver o bloco JS "ABA ROTINAS". -->
+  <div id="view-rotinas">
+    <header class="pc-topo">
+      <div>
+        <h2>Rotinas</h2>
+        <p>O que acontece sozinho, na hora certa — no PC e no celular.</p>
+      </div>
+      <button id="rot-nova"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-plus"/></svg><span>Nova rotina</span></button>
+    </header>
+    <div class="rot-colunas">
+      <section class="rot-col">
+        <h3 class="rot-h3">Rotinas</h3>
+        <div id="rot-lista" class="mov-lista"></div>
+      </section>
+      <section class="rot-col">
+        <h3 class="rot-h3">Lembretes</h3>
+        <div id="rot-lembretes" class="rot-card gaveta-pc"></div>
+        <h3 class="rot-h3">Entregas ao celular</h3>
+        <div id="rot-entregas" class="rot-card"></div>
+      </section>
+    </div>
   </div>
 
   <!-- FAIXA DO SWITCH IA <-> CELULAR.
@@ -4341,6 +4469,7 @@ function switchView(view) {
 
   if (view === "chat") { requestAnimationFrame(moverPolegar); carregarBolhasChat(); }
   if (view === "pc") carregarPc();
+  if (view === "rotinas") carregarRotinas();
   if (view === "inicio") atualizarInicio().then(ligarArrasto);
   // Os canvas nascem dentro de um painel oculto, e elemento em `display:none` mede zero.
   // Só ao entrar na aba dá para saber a largura real.
@@ -5504,6 +5633,197 @@ pcEl()?.addEventListener("click", async (e) => {
   }
 });
 
+// ─────────────────────────────────────────────────
+// ABA ROTINAS
+// ─────────────────────────────────────────────────
+//
+// Uma rotina é um texto que o ELYSIUM executa numa hora, em certos dias, como se o Zak
+// tivesse falado — e a resposta vira notificação no PC e/ou entrega para o celular. O
+// serviço mora em src/services/rotinas.ts; aqui é só a tela. Os lembretes da coluna da
+// direita reaproveitam o painel da aba PC (mesmo HTML, mesmos ouvintes).
+
+const DIAS_CURTOS = ["D", "S", "T", "Q", "Q", "S", "S"];
+const DIAS_LONGOS = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
+
+const ROTINAS_EXEMPLO = [
+  { nome: "Bom dia", texto: "como está o tempo hoje?", hora: "07:30", dias: [1, 2, 3, 4, 5], falar: true },
+  { nome: "Lembretes do dia", texto: "quais são os meus lembretes de hoje?", hora: "08:00", dias: [] },
+  { nome: "Modo trabalho", texto: "roda o preset trabalho", hora: "09:00", dias: [1, 2, 3, 4, 5], entregar: ["pc"] },
+  { nome: "Estado do PC", texto: "como está o PC?", hora: "18:00", dias: [] },
+];
+
+let rotinasCache = [];
+
+function diasTexto(dias) {
+  if (!dias?.length || dias.length === 7) return "todos os dias";
+  if (dias.length === 5 && [1, 2, 3, 4, 5].every(d => dias.includes(d))) return "dias úteis";
+  if (dias.length === 2 && dias.includes(0) && dias.includes(6)) return "fins de semana";
+  return dias.map(d => DIAS_LONGOS[d]).join(", ");
+}
+
+function desenharRotinas() {
+  const alvo = document.getElementById("rot-lista");
+  if (!alvo) return;
+  if (!rotinasCache.length) {
+    alvo.innerHTML = `<div class="rot-card rot-vazio">Nenhuma rotina ainda. Uma rotina é um pedido que o ELYSIUM faz sozinho na hora marcada — a resposta chega no PC e no celular.
+      <div class="gp-chips">${ROTINAS_EXEMPLO.map((r, i) => `<button data-exemplo="${i}">${escHtml(r.nome)} · ${r.hora}</button>`).join("")}</div></div>`;
+    return;
+  }
+  alvo.innerHTML = rotinasCache.map(r => `
+    <div class="rotina${r.ativa ? "" : " pausada"}" data-rotina="${escHtml(r.id)}">
+      <div>
+        <div class="rotina-hora">${escHtml(r.hora)}</div>
+        <div class="rotina-proxima">${r.ativa && r.proxima ? escHtml(quandoTexto(r.proxima)) : "pausada"}</div>
+      </div>
+      <div style="min-width:0">
+        <div class="rotina-nome">${escHtml(r.nome)}
+          <span class="rotina-entrega" title="Para onde vai a resposta">${r.entregar.includes("pc") ? ico("monitor", "ico-sm") : ""}${r.entregar.includes("celular") ? ico("smartphone", "ico-sm") : ""}${r.falar ? ico("mic", "ico-sm") : ""}</span>
+        </div>
+        <div class="rotina-texto" title="${escHtml(r.texto)}">“${escHtml(r.texto)}”</div>
+        <div class="rotina-dias" title="${escHtml(diasTexto(r.dias))}">${DIAS_CURTOS.map((d, i) => `<span class="${!r.dias.length || r.dias.includes(i) ? "on" : ""}">${d}</span>`).join("")}</div>
+        ${r.ultimoResultado ? `<div class="rotina-resultado"><em>última vez, ${escHtml(quandoTexto(r.ultimaExecucao))}</em>${escHtml(r.ultimoResultado)}</div>` : ""}
+      </div>
+      <div class="rotina-acoes">
+        <label class="cfg-switch" title="${r.ativa ? "Pausar" : "Ativar"}"><input type="checkbox" data-rot-ativa="${escHtml(r.id)}"${r.ativa ? " checked" : ""}><span></span></label>
+        <div class="linha">
+          <button data-rot-rodar="${escHtml(r.id)}" title="Rodar agora">${ico("play", "ico-sm")}</button>
+          <button data-rot-editar="${escHtml(r.id)}" title="Editar">${ico("edit", "ico-sm")}</button>
+          <button data-rot-apagar="${escHtml(r.id)}" class="perigo" title="Apagar">${ico("trash", "ico-sm")}</button>
+        </div>
+      </div>
+    </div>`).join("");
+}
+
+async function desenharEntregas() {
+  const alvo = document.getElementById("rot-entregas");
+  if (!alvo) return;
+  let lista = [];
+  try { lista = (await window.nx.rpc("notify.history")).result?.entregas ?? []; } catch { /* segue */ }
+  if (!lista.length) { alvo.innerHTML = `<div class="home-empty">Nada entregue ainda. Lembretes e rotinas com destino "celular" aparecem aqui.</div>`; return; }
+  alvo.innerHTML = lista.slice(0, 12).map(e => `
+    <div class="entrega">${ico(e.tipo === "lembrete" ? "bell" : e.tipo === "rotina" ? "calendar" : "info", "ico-sm")}
+      <div class="entrega-txt"><b>${escHtml(e.titulo)}</b><span title="${escHtml(e.corpo)}">${escHtml(e.corpo)}</span></div>
+      <div class="entrega-meta"><i>${escHtml(quandoTexto(e.em))}</i><i class="${e.entregueEm ? "ok" : "pend"}">${e.entregueEm ? "no celular" : "aguardando"}</i></div>
+    </div>`).join("");
+}
+
+async function desenharLembretesRotinas() {
+  const alvo = document.getElementById("rot-lembretes");
+  if (!alvo) return;
+  alvo.innerHTML = await PAINEIS_PC.lembretes.render();
+}
+
+async function carregarRotinas() {
+  try { rotinasCache = (await window.nx.rpc("rotinas.list")).result?.rotinas ?? []; } catch { rotinasCache = []; }
+  desenharRotinas();
+  await Promise.all([desenharLembretesRotinas(), desenharEntregas()]);
+}
+
+/** Formulário na gaveta. `base` é a rotina a editar ou um exemplo para pré-preencher. */
+function abrirFormRotina(base = {}) {
+  const dias = Array.isArray(base.dias) ? base.dias : [];
+  const entregar = base.entregar ?? ["pc", "celular"];
+  abrirGaveta({
+    titulo: base.id ? "Editar rotina" : "Nova rotina", icone: "calendar", classe: "gaveta-pc",
+    html: `<form class="rot-form" id="rot-form" data-id="${escHtml(base.id ?? "")}">
+      <label>Nome<input type="text" name="nome" value="${escHtml(base.nome ?? "")}" placeholder="Ex.: Bom dia" required autocomplete="off"></label>
+      <label>O que o ELYSIUM faz<small>Escreva como falaria: uma pergunta, um comando, um preset.</small>
+        <textarea name="texto" placeholder="Ex.: como está o tempo hoje?" required>${escHtml(base.texto ?? "")}</textarea></label>
+      <div class="rot-exemplos gp-chips">${ROTINAS_EXEMPLO.map((r, i) => `<button type="button" data-exemplo-texto="${i}">${escHtml(r.texto)}</button>`).join("")}</div>
+      <label>Hora<input type="time" name="hora" value="${escHtml(base.hora ?? "08:00")}" required></label>
+      <label>Dias<small>Nenhum marcado = todos os dias.</small>
+        <div class="rot-dias">${DIAS_CURTOS.map((d, i) => `<button type="button" data-dia="${i}" class="${dias.includes(i) ? "on" : ""}" title="${DIAS_LONGOS[i]}">${d}</button>`).join("")}</div></label>
+      <label>Entregar<div class="rot-opcoes">
+        <label class="home-toggle"><input type="checkbox" name="pc"${entregar.includes("pc") ? " checked" : ""}> ${ico("monitor", "ico-sm")} No PC (notificação)</label>
+        <label class="home-toggle"><input type="checkbox" name="celular"${entregar.includes("celular") ? " checked" : ""}> ${ico("smartphone", "ico-sm")} No celular</label>
+        <label class="home-toggle"><input type="checkbox" name="falar"${base.falar ? " checked" : ""}> ${ico("mic", "ico-sm")} Falar no PC</label>
+      </div></label>
+      <div class="home-acoes">
+        <button type="submit" class="principal">${ico("check", "ico-sm")}<span>${base.id ? "Salvar" : "Criar rotina"}</span></button>
+        <button type="button" data-rot-cancelar="1">${ico("x", "ico-sm")}<span>Cancelar</span></button>
+      </div>
+    </form>`,
+  });
+}
+
+document.getElementById("view-rotinas")?.addEventListener("click", async (e) => {
+  const alvo = (sel) => e.target.closest(sel);
+  if (alvo("#rot-nova")) { abrirFormRotina(); return; }
+  const ex = alvo("[data-exemplo]");
+  if (ex) { abrirFormRotina(ROTINAS_EXEMPLO[Number(ex.dataset.exemplo)]); return; }
+
+  const rodar = alvo("[data-rot-rodar]");
+  if (rodar) {
+    rodar.disabled = true;
+    showToast("Rodando…");
+    try { const r = await window.nx.rpc("rotinas.run", { id: rodar.dataset.rotRodar }); showToast(r.result?.resultado ?? "Feito."); }
+    catch (err) { showToast(err?.message || "Não deu certo.", true); }
+    finally { rodar.disabled = false; carregarRotinas(); }
+    return;
+  }
+  const editar = alvo("[data-rot-editar]");
+  if (editar) { abrirFormRotina(rotinasCache.find(r => r.id === editar.dataset.rotEditar) ?? {}); return; }
+  const apagar = alvo("[data-rot-apagar]");
+  if (apagar) {
+    try { await window.nx.rpc("rotinas.delete", { id: apagar.dataset.rotApagar }); showToast("Rotina apagada."); carregarRotinas(); }
+    catch { showToast("Não consegui apagar.", true); }
+    return;
+  }
+  // Lembretes da coluna da direita: mesmos botões do painel da aba PC.
+  if (alvo("#rot-lembretes")) {
+    await PAINEIS_PC.lembretes.clique(e);
+    if (alvo("[data-cancelar]")) desenharLembretesRotinas();
+  }
+});
+
+document.getElementById("view-rotinas")?.addEventListener("change", async (e) => {
+  const t = e.target.closest("[data-rot-ativa]");
+  if (!t) return;
+  try { await window.nx.rpc("rotinas.toggle", { id: t.dataset.rotAtiva, ativa: t.checked }); carregarRotinas(); }
+  catch { showToast("Não consegui alterar.", true); }
+});
+
+document.getElementById("view-rotinas")?.addEventListener("submit", async (e) => {
+  if (e.target.id !== "gp-lembrete") return;
+  await PAINEIS_PC.lembretes.submit(e);
+  desenharLembretesRotinas();
+});
+
+// O formulário vive na gaveta: dias, exemplos, cancelar e gravar.
+document.getElementById("gaveta-corpo")?.addEventListener("click", (e) => {
+  const form = e.target.closest("#rot-form");
+  if (!form) return;
+  const dia = e.target.closest("[data-dia]");
+  if (dia) { dia.classList.toggle("on"); return; }
+  const ex = e.target.closest("[data-exemplo-texto]");
+  if (ex) { form.texto.value = ROTINAS_EXEMPLO[Number(ex.dataset.exemploTexto)].texto; return; }
+  if (e.target.closest("[data-rot-cancelar]")) fecharGaveta();
+});
+
+document.getElementById("gaveta-corpo")?.addEventListener("submit", async (e) => {
+  const form = e.target.closest("#rot-form");
+  if (!form) return;
+  e.preventDefault();
+  const entregar = [form.pc.checked ? "pc" : null, form.celular.checked ? "celular" : null].filter(Boolean);
+  const dados = {
+    id: form.dataset.id || undefined,
+    nome: form.nome.value, texto: form.texto.value, hora: form.hora.value,
+    dias: [...form.querySelectorAll("[data-dia].on")].map(b => Number(b.dataset.dia)),
+    entregar: entregar.length ? entregar : ["pc"],
+    falar: form.falar.checked,
+  };
+  try {
+    await window.nx.rpc("rotinas.save", dados);
+    fecharGaveta();
+    showToast(dados.id ? "Rotina salva." : "Rotina criada.");
+    carregarRotinas();
+    if (dadosInicio.rotinas) atualizarInicio();
+  } catch (err) { showToast(err?.message || "Não consegui salvar.", true); }
+});
+
+// Uma rotina que acabou de rodar (pelo tique do main) atualiza a lista se a aba estiver aberta.
+window.nx.onRotinaExecutada?.(() => { if (layoutEl.getAttribute("data-view") === "rotinas") carregarRotinas(); });
+
 const gavetaCorpoEl = document.getElementById("gaveta-corpo");
 gavetaCorpoEl?.addEventListener("click", (e) => { if (painelPcAberto) PAINEIS_PC[painelPcAberto]?.clique?.(e); });
 gavetaCorpoEl?.addEventListener("input", (e) => { if (painelPcAberto) PAINEIS_PC[painelPcAberto]?.input?.(e); });
@@ -5800,6 +6120,16 @@ const CARDS = {
     },
   },
 
+  rotinas: {
+    titulo: "Próximas rotinas", icone: "calendar", span: 1, precisa: ["rotinas"],
+    render: (d) => {
+      const l = (d.rotinas ?? []).filter(r => r.ativa && r.proxima).sort((a, b) => a.proxima - b.proxima).slice(0, 4);
+      if (!l.length) return vazio("Nenhuma rotina ativa.") + `<button class="home-ver-tudo" data-ir="rotinas">Criar uma rotina →</button>`;
+      return `<div class="home-list mov-lista">` + l.map(r =>
+        `<div class="home-item clicavel" data-ir="rotinas">${ico("calendar", "ico-sm")}<div class="home-item-txt"><span>${escHtml(r.nome)}</span><em>${escHtml(quandoTexto(r.proxima))} · ${escHtml(diasTexto(r.dias))}</em></div></div>`).join("") + `</div>`;
+    },
+  },
+
   rede: {
     titulo: "Rede e celular", icone: "wifi", span: 1, precisa: ["rede"],
     render: (d) => {
@@ -5893,7 +6223,7 @@ const CARDS = {
 };
 
 /** Ordem de fábrica. Cards fora desta lista existem mas nascem desligados. */
-const CARDS_PADRAO = ["sugestoes", "clima", "computador", "musica", "lembretes", "atalhos", "conversas", "timer", "notas", "caixa", "memoria", "discos"];
+const CARDS_PADRAO = ["sugestoes", "clima", "computador", "musica", "lembretes", "rotinas", "atalhos", "conversas", "timer", "notas", "caixa", "memoria", "discos"];
 
 /**
  * `fixos` são desenhados antes de todos os outros e não saem do lugar quando você arrasta
@@ -5941,6 +6271,7 @@ async function carregarDadosInicio() {
   if (precisa.has("programas")) jobs.push(rpc("programas", "apps.list", undefined,
     r => agruparCatalogo(r?.apps ?? []).map(p => p.nome)));
   if (precisa.has("memoria")) jobs.push(rpc("memoria", "memory.list", undefined, r => r?.facts ?? []));
+  if (precisa.has("rotinas")) jobs.push(rpc("rotinas", "rotinas.list", undefined, r => r?.rotinas ?? []));
   if (precisa.has("conversas")) jobs.push((async () => {
     try { d.conversas = (await window.nx.chatSessionsList()).slice().sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0)); } catch { d.conversas = []; }
   })());
@@ -6473,6 +6804,7 @@ document.getElementById("view-inicio")?.addEventListener("click", async (e) => {
   if (ir) {
     const onde = ir.dataset.ir;
     if (onde === "chat") { switchView("chat"); switchChatMode("ai"); }
+    else if (onde === "rotinas") switchView("rotinas");
     else if (onde === "caixa") { switchView("chat"); switchChatMode("self"); }
     else if (onde === "nova-conversa") { switchView("chat"); switchChatMode("ai"); startNewConversation(); }
     else if (onde === "paleta") abrirPaleta();
@@ -6796,6 +7128,8 @@ async function montarIndicePaleta() {
     { grupo: "nav", icone: "message-circle", texto: "Chat com a IA", executar: () => { switchView("chat"); switchChatMode("ai"); } },
     { grupo: "nav", icone: "smartphone", texto: "Recados do celular", executar: () => { switchView("chat"); switchChatMode("self"); } },
     { grupo: "nav", icone: "monitor", texto: "PC", chaves: ["programas", "processos", "energia", "monitor"], executar: () => switchView("pc") },
+    { grupo: "nav", icone: "calendar", texto: "Rotinas", chaves: ["automações", "agendar"], executar: () => switchView("rotinas") },
+    { grupo: "nav", icone: "plus", texto: "Nova rotina", executar: () => { switchView("rotinas"); setTimeout(() => abrirFormRotina(), 80); } },
     { grupo: "nav", icone: "settings", texto: "Ajustes", executar: () => switchView("ajustes") },
     { grupo: "nav", icone: "edit", texto: "Nova conversa", executar: () => { switchView("chat"); switchChatMode("ai"); startNewConversation(); } },
 
@@ -6836,6 +7170,12 @@ async function montarIndicePaleta() {
       const r = await window.nx.rpc("presets.list");
       for (const p of r.result?.presets ?? []) {
         itens.push({ grupo: "preset", icone: "zap", texto: p.name, sub: p.description || "", executar: rpcToast("presets.run", { name: p.name }, `Rodando ${p.name}…`) });
+      }
+    },
+    async () => {
+      const r = await window.nx.rpc("rotinas.list");
+      for (const x of r.result?.rotinas ?? []) {
+        itens.push({ grupo: "preset", icone: "calendar", texto: `Rodar agora: ${x.nome}`, sub: x.hora, executar: rpcToast("rotinas.run", { id: x.id }, "Rodando…") });
       }
     },
     async () => {

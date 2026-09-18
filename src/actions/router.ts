@@ -22,6 +22,7 @@ import {
 } from "./memoryActions";
 import { searchWeb } from "../services/webSearch";
 import { askAboutScreen } from "../services/vision";
+import { climaFalado } from "../services/clima";
 
 export async function routeAction(action: BrainAction): Promise<string> {
   switch (action.action) {
@@ -37,6 +38,7 @@ export async function routeAction(action: BrainAction): Promise<string> {
     case "clipboard_read":    return clipboardRead(action.instruction);
     case "screenshot":        return screenshot(action.filename);
     case "system_info":       return systemInfo(action.query);
+    case "weather":           return climaFalado();
     case "run_preset":        return runPreset(action.preset_name);
     case "list_presets":      return listPresetsReply();
     case "delete_preset":     return deletePreset(action.preset_name);

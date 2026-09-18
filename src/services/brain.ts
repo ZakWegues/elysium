@@ -31,6 +31,7 @@ export type BrainAction =
   | { action: "remember";          fact: string }
   | { action: "forget";            query: string }
   | { action: "list_memory" }
+  | { action: "weather" }
   | { action: "create_reminder";   text: string; due_at: string; weekly?: boolean }
   | { action: "list_reminders" }
   | { action: "cancel_reminder";   query: string }
@@ -115,6 +116,7 @@ function actionSummary(action: BrainAction): string {
     case "clipboard_read":    return `Clipboard: ${action.instruction}`;
     case "screenshot":        return "Screenshot capturado";
     case "system_info":       return `Info: ${action.query}`;
+    case "weather":           return "Clima";
     case "run_preset":        return `Preset ativado: ${action.preset_name}`;
     case "list_presets":      return "Listou presets";
     case "delete_preset":     return `Removeu preset: ${action.preset_name}`;
@@ -141,7 +143,7 @@ const ACOES_VALIDAS = new Set<string>([
   "system_info", "run_preset", "list_presets", "delete_preset", "create_preset",
   "send_to_mobile", "power_control", "remember", "forget", "list_memory",
   "create_reminder", "list_reminders", "cancel_reminder", "web_search",
-  "look_at_screen", "chat", "unknown",
+  "look_at_screen", "chat", "unknown", "weather",
 ]);
 
 /**

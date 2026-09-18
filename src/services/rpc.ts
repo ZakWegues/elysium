@@ -37,6 +37,10 @@ import { screenshot } from "../actions/screenshot";
 import { inputHost, MouseButton } from "./inputHost";
 import { addFact, listFacts, removeFactById } from "./memoryStore";
 import { cancelReminder, createReminder, listAll, ReminderKind } from "./scheduler";
+import {
+  listarRotinas, salvarRotina, apagarRotina, alternarRotina, executarRotina, proximoDisparo,
+  entregasPendentes, historicoEntregas, confirmarEntregas, Rotina,
+} from "./rotinas";
 import { getPushPrefs, registerToken, setPushPrefs, unregisterToken, PushCategory } from "./push";
 import { askAboutImage, askAboutScreen } from "./vision";
 import { searchWeb } from "./webSearch";
@@ -693,6 +697,55 @@ const METHODS: Record<string, MethodDef> = {
   },
   "reminders.cancel": {
     handler: async (params) => ({ cancelled: cancelReminder(requireString(params, "id")) }),
+  },
+
+  // — rotinas (automações agendadas) e entregas para o celular — bloco 68 —
+  "rotinas.list": {
+    handler: async () => ({
+      rotinas: listarRotinas().map(r => ({ ...r, proxima: proximoDisparo(r) })),
+    }),
+  },
+  "rotinas.save": {
+    handler: async (params) => {
+      const dias = Array.isArray(params.dias) ? (params.dias as unknown[]).map(Number) : [];
+      const entregar = Array.isArray(params.entregar) ? (params.entregar as string[]) : ["pc", "celular"];
+      const rotina = salvarRotina({
+        id: optionalString(params, "id"),
+        nome: requireString(params, "nome"),
+        texto: requireString(params, "texto"),
+        hora: requireString(params, "hora"),
+        dias,
+        entregar: entregar as Rotina["entregar"],
+        falar: params.falar === true,
+        ativa: typeof params.ativa === "boolean" ? params.ativa : undefined,
+      });
+      return { rotina: { ...rotina, proxima: proximoDisparo(rotina) } };
+    },
+  },
+  "rotinas.delete": {
+    handler: async (params) => ({ deleted: apagarRotina(requireString(params, "id")) }),
+  },
+  "rotinas.toggle": {
+    handler: async (params) => {
+      const r = alternarRotina(requireString(params, "id"), typeof params.ativa === "boolean" ? params.ativa : undefined);
+      if (!r) throw new RpcError(404, "rotina não encontrada");
+      return { rotina: { ...r, proxima: proximoDisparo(r) } };
+    },
+  },
+  "rotinas.run": {
+    handler: async (params) => ({ resultado: await executarRotina(requireString(params, "id")) }),
+  },
+  "notify.pending": {
+    handler: async () => ({ entregas: entregasPendentes() }),
+  },
+  "notify.history": {
+    handler: async () => ({ entregas: historicoEntregas().slice(0, 40) }),
+  },
+  "notify.ack": {
+    handler: async (params) => {
+      const ids = Array.isArray(params.ids) ? (params.ids as unknown[]).map(String) : [];
+      return { acked: confirmarEntregas(ids) };
+    },
   },
 
   // — notificações push —
