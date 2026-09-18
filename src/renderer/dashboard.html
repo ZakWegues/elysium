@@ -159,18 +159,26 @@ body.theme-ely {
   background: linear-gradient(180deg, transparent, var(--shaft, #d9b168), transparent);
   opacity: 0.06; filter: blur(50px); transform: skewX(-14deg); will-change: transform;
 }
-.ely-shaft-1 { left: 6%;  animation: ely-shaft-1 44s ease-in-out infinite alternate; }
-.ely-shaft-2 { right: 2%; animation: ely-shaft-2 58s ease-in-out infinite alternate; }
-.ely-shaft-3 { left: 44%; width: 26%; opacity: 0.04; animation: ely-shaft-3 71s ease-in-out infinite alternate; }
-@keyframes ely-shaft-1 { from { transform: skewX(-14deg) translateX(0); }    to { transform: skewX(-14deg) translateX(70px); } }
-@keyframes ely-shaft-2 { from { transform: skewX(-14deg) translateX(0); }    to { transform: skewX(-14deg) translateX(-90px); } }
-@keyframes ely-shaft-3 { from { transform: skewX(-14deg) translateX(40px); } to { transform: skewX(-14deg) translateX(-40px); } }
+.ely-shaft-1 { left: 6%;  animation: ely-shaft-1 24s ease-in-out infinite alternate, ely-pulsa 9s ease-in-out infinite; }
+.ely-shaft-2 { right: 2%; animation: ely-shaft-2 30s ease-in-out infinite alternate, ely-pulsa 12s ease-in-out infinite 3s; }
+.ely-shaft-3 { left: 44%; width: 26%; opacity: 0.04; animation: ely-shaft-3 36s ease-in-out infinite alternate, ely-pulsa-fraco 15s ease-in-out infinite 6s; }
+@keyframes ely-shaft-1 { from { transform: skewX(-14deg) translateX(-40px); } to { transform: skewX(-14deg) translateX(150px); } }
+@keyframes ely-shaft-2 { from { transform: skewX(-14deg) translateX(40px); }  to { transform: skewX(-14deg) translateX(-170px); } }
+@keyframes ely-shaft-3 { from { transform: skewX(-14deg) translateX(90px); }  to { transform: skewX(-14deg) translateX(-90px); } }
+@keyframes ely-pulsa { 0%, 100% { opacity: 0.06; } 50% { opacity: 0.12; } }
+@keyframes ely-pulsa-fraco { 0%, 100% { opacity: 0.04; } 50% { opacity: 0.08; } }
+body.vivo .ely-shaft { animation-duration: 12s, 4s; }
 
 @media (prefers-reduced-motion: reduce) {
   :root:not([data-movimento="sempre"]) .ely-shaft,
   :root:not([data-movimento="sempre"]) .bg-traco,
-  :root:not([data-movimento="sempre"]) #bg-poeira i { animation: none !important; }
+  :root:not([data-movimento="sempre"]) #bg-poeira i,
+  :root:not([data-movimento="sempre"]) .aurora,
+  :root:not([data-movimento="sempre"]) .lg-blob { animation: none !important; }
 }
+:root[data-movimento="nunca"] .aurora, :root[data-movimento="nunca"] .lg-blob,
+:root[data-movimento="nunca"] .ely-shaft, :root[data-movimento="nunca"] .bg-traco,
+:root[data-movimento="nunca"] #bg-poeira i { animation: none !important; }
 
 
 /* ── ÍCONES ───────────────────────────────────────────────
@@ -199,7 +207,7 @@ body.theme-ely {
 
 /* Entradas em CSS puro: sem classe adicionada por JS, sem requestAnimationFrame. */
 @keyframes mov-entra {
-  from { opacity: 0; transform: translateY(6px) scale(0.99); }
+  from { opacity: 0; transform: translateY(8px) scale(0.985); }
   to   { opacity: 1; transform: none; }
 }
 .mov-entra { animation: mov-entra var(--mov-base) var(--mov-suave) both; }
@@ -240,7 +248,7 @@ body.theme-ely {
   #layout[data-view="chat"]      #center,
   #layout[data-view="pc"] #view-pc,
   #layout[data-view="rotinas"] #view-rotinas,
-  #layout[data-view="ajustes"]   #drawer-right { opacity: 0; transform: translateY(10px); }
+  #layout[data-view="ajustes"]   #drawer-right { opacity: 0; transform: translateY(14px) scale(0.992); }
 }
 
 /* ── Polegar deslizante da barra de abas ──────────────────
@@ -260,7 +268,9 @@ body.theme-ely {
 #vtab-thumb {
   position: absolute; top: 5px; bottom: 5px; left: 0;
   width: 1px; transform: translateX(0) scaleX(0); transform-origin: left center;
-  transition: transform var(--mov-base) var(--mov-suave);
+  /* Mola curta: passa 6% do alvo e volta. É a assinatura do popover (motion.ts do celular)
+     aplicada ao único elemento do desktop que "viaja". */
+  transition: transform 300ms cubic-bezier(0.34, 1.3, 0.64, 1);
   pointer-events: none;
   z-index: 0;
 }
@@ -1117,40 +1127,89 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
 /* ── LIQUID GLASS: blob background layer ────────────────── */
 #lg-blob-bg { position: fixed; inset: 0; z-index: -1; overflow: hidden; display: none; pointer-events: none; }
 .theme-rich #lg-blob-bg { display: block; }
-.lg-blob { position: absolute; border-radius: 50%; filter: blur(36px); will-change: transform; }
+/* FUNDO VIVO (bloco 69). O Zak: "muito parado e muito esquisito". O que mudou:
+   · deriva com o dobro da amplitude e ~metade do período (26–46 s → 14–24 s), ainda
+     abaixo do limiar em que o olho lê "animação" em vez de "vivo";
+   · cada blob RESPIRA (opacidade) num ciclo próprio, defasado do deslocamento — dois
+     ritmos que não coincidem é o que tira a cara de loop;
+   · uma AURORA por cima: dois gradientes cônicos gigantes girando devagar (90 s e 130 s,
+     sentidos opostos), nas cores do tema. É só transform, composto na GPU;
+   · PARALLAX com o mouse: a camada inteira desloca até 14 px na direção do ponteiro,
+     com transição longa. O JS escreve duas variáveis por quadro, nada mais;
+   · reage ao ESTADO: ouvindo/pensando/falando acelera a deriva e acende a aurora
+     (`body.vivo`). O fundo respira junto com a conversa. */
+#lg-blob-bg, #ely-shafts, #bg-tracos, #bg-poeira {
+  transform: translate(calc(var(--par-x, 0) * 14px), calc(var(--par-y, 0) * 10px));
+  transition: transform 1.6s var(--mov-suave);
+}
+#bg-tracos, #bg-poeira { transform: translate(calc(var(--par-x, 0) * 26px), calc(var(--par-y, 0) * 18px)); }
+.lg-blob { position: absolute; border-radius: 50%; filter: blur(36px); will-change: transform, opacity; }
+.lg-blob::after { content: none; }
+@keyframes lg-respira-1 { 0%, 100% { opacity: 0.50; } 50% { opacity: 0.66; } }
+@keyframes lg-respira-2 { 0%, 100% { opacity: 0.55; } 50% { opacity: 0.38; } }
+@keyframes lg-respira-3 { 0%, 100% { opacity: 0.40; } 50% { opacity: 0.58; } }
+@keyframes lg-respira-4 { 0%, 100% { opacity: 0.26; } 50% { opacity: 0.42; } }
+@keyframes lg-respira-5 { 0%, 100% { opacity: 0.22; } 50% { opacity: 0.36; } }
+.lg-blob-1 { animation: lg-drift-1 16s ease-in-out infinite alternate, lg-respira-1 11s ease-in-out infinite; }
+.lg-blob-2 { animation: lg-drift-2 20s ease-in-out infinite alternate, lg-respira-2 13s ease-in-out infinite; }
+.lg-blob-3 { animation: lg-drift-3 14s ease-in-out infinite alternate, lg-respira-3 9s ease-in-out infinite; }
+.lg-blob-4 { animation: lg-drift-4 24s ease-in-out infinite alternate, lg-respira-4 15s ease-in-out infinite; }
+.lg-blob-5 { animation: lg-drift-5 22s ease-in-out infinite alternate, lg-respira-5 17s ease-in-out infinite; }
+/* Com o app ouvindo/pensando/falando, tudo anda ~2x. `animation-duration` em vez de
+   trocar keyframes: a posição atual é preservada e nada pula. */
+body.vivo .lg-blob-1 { animation-duration: 8s, 5s; }
+body.vivo .lg-blob-2 { animation-duration: 10s, 6s; }
+body.vivo .lg-blob-3 { animation-duration: 7s, 4s; }
+body.vivo .lg-blob-4 { animation-duration: 12s, 7s; }
+body.vivo .lg-blob-5 { animation-duration: 11s, 8s; }
+
+/* A aurora: dois cônicos girando. Ficam ATRÁS dos blobs (mesmo z-index, DOM antes) e
+   só aparecem nas famílias caprichadas. */
+#bg-aurora { position: fixed; inset: -30%; z-index: -1; display: none; pointer-events: none; overflow: hidden; }
+.theme-rich #bg-aurora { display: block; }
+.aurora {
+  position: absolute; left: 50%; top: 50%; width: 140vmax; height: 140vmax; margin: -70vmax 0 0 -70vmax;
+  border-radius: 50%; opacity: 0.16; filter: blur(60px); will-change: transform;
+  background: conic-gradient(from 0deg, transparent 0deg, var(--blob-1, #cbb9ff) 60deg, transparent 120deg, var(--blob-2, #b8ecf3) 200deg, transparent 260deg, var(--blob-3, #ded7ff) 320deg, transparent 360deg);
+  transition: opacity 1.2s var(--mov-suave);
+}
+.aurora-1 { animation: aurora-gira 90s linear infinite; }
+.aurora-2 { animation: aurora-gira 130s linear infinite reverse; opacity: 0.10; transform-origin: 48% 52%; }
+@keyframes aurora-gira { to { transform: rotate(360deg); } }
+.theme-ely .aurora { opacity: 0.10; }
+.theme-ely .aurora-2 { opacity: 0.06; }
+body.vivo .aurora { opacity: 0.30; }
+body.vivo.theme-ely .aurora { opacity: 0.20; }
+body.vivo .aurora-1 { animation-duration: 40s; }
+body.vivo .aurora-2 { animation-duration: 60s; }
 /* As cores vêm de variáveis para os blobs seguirem a variação de cor escolhida — em
    literal, "Vidro — Maré" e "Vidro — Âmbar" ficariam com o fundo roxo do `lg`. Os
    valores padrão abaixo são exatamente os do `lg` original. */
 .lg-blob-1 { /* quente/primário — canto superior direito */
   width: 620px; height: 620px; top: -230px; right: -170px;
   background: var(--blob-1, #cbb9ff); opacity: 0.5;
-  animation: lg-drift-1 26s ease-in-out infinite alternate;
 }
 .lg-blob-2 { /* frio/secundário — canto inferior esquerdo */
   width: 640px; height: 640px; bottom: -280px; left: -190px;
   background: var(--blob-2, #b8ecf3); opacity: 0.55;
-  animation: lg-drift-2 32s ease-in-out infinite alternate;
 }
 .lg-blob-3 { /* meio, só profundidade */
   width: 400px; height: 400px; top: 46%; left: 48%;
   background: var(--blob-3, #ded7ff); opacity: 0.4;
-  animation: lg-drift-3 22s ease-in-out infinite alternate;
 }
-@keyframes lg-drift-1 { from { transform: translate(0,0) scale(1); } to { transform: translate(60px,40px) scale(1.08); } }
-@keyframes lg-drift-2 { from { transform: translate(0,0) scale(1); } to { transform: translate(-50px,-70px) scale(1.05); } }
+@keyframes lg-drift-1 { from { transform: translate(0,0) scale(1); } to { transform: translate(120px,80px) scale(1.14); } }
+@keyframes lg-drift-2 { from { transform: translate(0,0) scale(1); } to { transform: translate(-110px,-130px) scale(1.10); } }
 .lg-blob-4 { /* mancha pequena, alto a esquerda — quebra a simetria dos tres cantos */
   width: 300px; height: 300px; top: 8%; left: 14%;
   background: var(--blob-2, #b8ecf3); opacity: 0.26;
-  animation: lg-drift-4 38s ease-in-out infinite alternate;
 }
 .lg-blob-5 { /* mancha pequena, baixo a direita */
   width: 340px; height: 340px; bottom: 6%; right: 18%;
   background: var(--blob-1, #cbb9ff); opacity: 0.22;
-  animation: lg-drift-5 46s ease-in-out infinite alternate;
 }
-@keyframes lg-drift-3 { from { transform: translate(0,0) scale(1); } to { transform: translate(-40px,50px) scale(0.94); } }
-@keyframes lg-drift-4 { from { transform: translate(0,0) scale(1); } to { transform: translate(70px,-30px) scale(1.12); } }
-@keyframes lg-drift-5 { from { transform: translate(0,0) scale(1); } to { transform: translate(-60px,-45px) scale(1.06); } }
+@keyframes lg-drift-3 { from { transform: translate(0,0) scale(1); } to { transform: translate(-90px,110px) scale(0.88); } }
+@keyframes lg-drift-4 { from { transform: translate(0,0) scale(1); } to { transform: translate(150px,-70px) scale(1.2); } }
+@keyframes lg-drift-5 { from { transform: translate(0,0) scale(1); } to { transform: translate(-130px,-90px) scale(1.12); } }
 
 /* ── Tracos finos ─────────────────────────────────────────
    Linhas de 1px inclinadas, quase invisiveis. Servem de referencia: e por elas passando
@@ -2234,6 +2293,9 @@ body.tabs .top-btn.drawer-toggle { display: none; }
   background: rgba(var(--purple-rgb),0.10); border: 1px solid var(--border); color: var(--muted);
 }
 @media (max-width: 880px) { .nav-busca-texto, #nav-busca kbd { display: none; } #nav-busca { width: 34px; padding: 0; justify-content: center; } }
+/* O --muted da noite (#5a5d7a) some sobre o vidro escuro da barra. */
+.theme-ely #nav-busca { color: rgba(232,234,240,0.55); }
+.theme-ely #nav-busca kbd { color: rgba(232,234,240,0.45); }
 
 /* ── TELA INÍCIO ──────────────────────────────────────────
    Um catálogo de cards, não uma tela fixa. A grade usa `auto-fill` com um mínimo
@@ -2266,6 +2328,8 @@ body.tabs .top-btn.drawer-toggle { display: none; }
 .home-clima-chip b { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .home-clima-chip span { color: var(--muted); }
 .home-clima-chip:hover { background: rgba(var(--purple-rgb),0.16); }
+/* `display:flex` acima venceria o atributo hidden — sem isto o chip nasce como uma pílula vazia. */
+.home-clima-chip[hidden] { display: none; }
 @media (max-width: 760px) { .home-clima-chip span { display: none; } .home-relogio { font-size: 24px; } }
 
 /* Card do clima: temperatura grande, detalhes em chips e as próximas horas em fila. */
@@ -2703,6 +2767,10 @@ body.redimensionando, body.redimensionando * { user-select: none !important; cur
   <symbol id="i-phone-call" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16.5v3a1.5 1.5 0 0 1-1.6 1.5A18 18 0 0 1 3 4.6 1.5 1.5 0 0 1 4.5 3h3a1.5 1.5 0 0 1 1.5 1.3c.1 1 .4 2 .7 2.9a1.5 1.5 0 0 1-.3 1.6L8.1 10a15 15 0 0 0 5.9 5.9l1.2-1.3a1.5 1.5 0 0 1 1.6-.3c.9.3 1.9.6 2.9.7a1.5 1.5 0 0 1 1.3 1.5"/></symbol>
 </svg>
 
+<div id="bg-aurora">
+  <div class="aurora aurora-1"></div>
+  <div class="aurora aurora-2"></div>
+</div>
 <div id="lg-blob-bg">
   <div class="lg-blob lg-blob-1"></div>
   <div class="lg-blob lg-blob-2"></div>
@@ -3620,6 +3688,8 @@ const WAVE_LABELS = {
 function setState(s) {
   appState = s;
   statusBadge.className = s;
+  // O fundo acelera enquanto o app está ouvindo, pensando ou falando.
+  document.body.classList.toggle("vivo", s === "listening" || s === "processing" || s === "speaking");
   statusBadge.textContent = STATE_LABELS[s] ?? s.toUpperCase();
 
   const inVoice = s === "listening" || s === "processing" || s === "speaking";
@@ -3661,6 +3731,27 @@ document.addEventListener("keydown", (e) => {
 // ELYSIUM API BRIDGE
 // ─────────────────────────────────────────────────
 window.nx.onState(setState);
+
+// ── Fundo vivo (bloco 69): parallax pelo mouse e reação ao estado ──
+//
+// Duas variáveis CSS (-1..1) escritas no máximo uma vez por quadro; as camadas do fundo
+// as leem com transição longa, então o movimento é sempre suave mesmo com o mouse
+// pulando. Fora da janela, volta ao centro devagar.
+{
+  let px = 0, py = 0, agendado = false;
+  const aplicar = () => {
+    agendado = false;
+    document.documentElement.style.setProperty("--par-x", px.toFixed(3));
+    document.documentElement.style.setProperty("--par-y", py.toFixed(3));
+  };
+  document.addEventListener("mousemove", (e) => {
+    if (!movimentoLigado()) return;
+    px = (e.clientX / innerWidth) * 2 - 1;
+    py = (e.clientY / innerHeight) * 2 - 1;
+    if (!agendado) { agendado = true; requestAnimationFrame(aplicar); }
+  }, { passive: true });
+  document.addEventListener("mouseleave", () => { px = 0; py = 0; requestAnimationFrame(aplicar); });
+}
 
 window.nx.onAudioLevel((level) => {
   if (appState !== "listening") return;

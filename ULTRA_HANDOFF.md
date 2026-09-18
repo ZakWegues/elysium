@@ -3634,3 +3634,33 @@ lembretes de hoje".
 
 Verificado no app: criar pelo formulário (dias úteis, próxima "21/09 07:30"), rodar
 agora com a resposta do clima real, entrega na fila (`notify.pending`) e no histórico.
+
+### Bloco 69 — o fundo vivo do desktop, e o movimento ✅
+
+Pedido 9 ("muito parado e muito esquisito") no PC. O fundo já era animado, mas com 60 px
+de deriva em 26–46 s — o olho lia como parado. Agora:
+
+- **Deriva** com o dobro da amplitude (até 150 px) e período de 14–24 s; cada blob
+  **respira** (opacidade) num ciclo próprio, defasado da deriva — dois ritmos que não
+  coincidem é o que tira a cara de loop.
+- **Aurora** (`#bg-aurora`): dois gradientes cônicos de 140 vmax girando devagar (90 s e
+  130 s, sentidos opostos) nas cores do tema, atrás dos blobs. Só `transform`, composto
+  na GPU. Mais fraca na família ELYSIUM (0,10/0,06) do que no vidro (0,16/0,10).
+- **Parallax**: `mousemove` escreve `--par-x/--par-y` (−1..1) no máximo uma vez por
+  quadro; as camadas do fundo deslocam até 14 px (blobs/feixes) e 26 px (traços/poeira)
+  com transição de 1,6 s. Sai do mouse, volta ao centro.
+- **Reage ao estado**: `body.vivo` enquanto ouvindo/pensando/falando — blobs e feixes
+  em ~metade do período (`animation-duration`, para não pular de posição) e aurora em
+  0,30. O fundo respira junto com a conversa.
+- Feixes ELYSIUM: deriva de 150 px em 24–36 s e pulso de opacidade.
+- "Reduzir movimento" (Windows) e Ajustes → "Nunca animar" param tudo isso.
+
+**Movimento:** o polegar da barra de abas ganhou mola (`cubic-bezier(0.34,1.3,0.64,1)`,
+300 ms — a assinatura do popover do celular); `mov-entra` sobe 8 px com escala 0,985; a
+troca de aba parte de 14 px + escala 0,992. Corrigido de quebra: o chip do clima nascia
+como pílula vazia (`display:flex` vencia o `hidden`) e a lupa da barra sumia no tema
+ELYSIUM (`--muted` da noite sobre o vidro escuro).
+
+Verificado: duas capturas com 5 s de intervalo diferem em 30/255 por canal em média
+(fundo em movimento); `animationName` dos blobs = `lg-drift-1, lg-respira-1`; tema
+Crepúsculo com `vivo` ligado, a olho.
