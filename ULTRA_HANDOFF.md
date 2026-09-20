@@ -4298,3 +4298,23 @@ no prompt, compactador estourando não perde turnos, resumo cresce em lotes) e +
 ⚠️ Um teste ao vivo deixou o fato "Meu cachorro se chama Bolt…" na memória do Zak (o 8B
 chamou `lembrar_fato` sozinho ao ouvir a frase) — removido pelo `memory.remove`. Ao testar
 o agente com frases pessoais, conferir `memory.list` depois.
+
+
+### Bloco 81 — `HomeScreen.tsx` em arquivos ✅
+
+1.256 linhas viraram quatro, **sem uma linha de comportamento mudada** (o script só moveu
+trechos e reescreveu imports; `tsc --noUnusedLocals` limpou o que sobrou):
+
+| arquivo | linhas | o quê |
+|---|---|---|
+| `src/screens/HomeScreen.tsx` | 562 | a tela: estado, busca de dados, personalização, grade |
+| `src/screens/inicio/cards.tsx` | 465 | `CARDS` (o catálogo) e os corpos: Bolhas, Metricas, ClimaCorpo, Lembretes, Lista, Discos, Transferencia, Atalhos, Energia, mais `segundosAte`/`relogio`/`faltando` |
+| `src/screens/inicio/CardArrastavel.tsx` | 207 | o card que se arrasta e se redimensiona (gesture-handler + reanimated) |
+| `src/screens/inicio/tipos.ts` | 55 | `Dados`, `Ctx`, `DefCard`, `CARDS_PADRAO`, as chaves do `AsyncStorage`, `saudacao()` |
+
+Os estilos foram junto com quem os usa (cada arquivo tem o próprio `StyleSheet.create`
+só com as chaves que referencia). Card novo = uma entrada em `CARDS` e um corpo em
+`cards.tsx`; a tela não muda. O `catalogo.ts` partilhado com a `BuscaPanel` que o plano
+previa **não existe**: a busca tem o catálogo dela (apps, presets, ações) e não lê `CARDS`.
+Validado por `npm run check` (tsc + vitest + `expo export`). Sem aparelho no `adb`: a
+prova visual é o Zak abrir a Início e não notar nada.
