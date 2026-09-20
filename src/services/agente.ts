@@ -34,7 +34,8 @@ export interface ResultadoAgente {
   chamadas: { nome: string; args: Record<string, unknown>; resultado: string }[];
 }
 
-function promptDoAgente(): string {
+/** Exportado para a bancada (`scripts/bench-agente.mjs`) medir com o prompt de produção. */
+export function promptDoAgente(): string {
   const agora = new Date();
   const data = agora.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
   const hora = agora.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
@@ -132,7 +133,9 @@ export async function agir(
       // "CHAT" (antes ou depois de olhar alguma coisa) é conversa: o modelo de 8B às vezes
       // consulta uma ferramenta irrelevante e só então percebe que era papo.
       // "CHAT" solto ou embrulhado em JSON (`{"name": "CHAT", "parameters": {}}`, o 8B faz isso).
-      if (/^\W*chat\W*$/i.test(content) || /^\s*\{[^}]*"chat"/i.test(content)) return { modo: "chat", reply: "", acoes: [{ action: "chat" }], chamadas };
+      // "CHAT" solto, embrulhado em JSON, ou seguido da resposta ("CHAT Alan Turing foi…", o
+      // qwen2.5 faz isso): tudo é conversa — quem escreve a resposta é a composeChatReply.
+      if (/^\W*chat\b/i.test(content) || /^\s*\{[^}]*"chat"/i.test(content)) return { modo: "chat", reply: "", acoes: [{ action: "chat" }], chamadas };
       if (!chamadas.length) return content ? { modo: "ferramentas", reply: content, acoes, chamadas } : null;
       // 🔴 Já houve leitura e o modelo respondeu em texto. O 8B narra ("fechei a
       // calculadora") sem ter agido, ecoa o prompt ("CHAME rotinas") ou contradiz o que

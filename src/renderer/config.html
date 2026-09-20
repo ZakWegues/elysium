@@ -373,10 +373,10 @@
           <option value="groq">Nuvem — Groq</option>
         </select>
         <small>O local é o padrão porque o prompt de roteamento tem ~3,4 mil tokens e o plano
-        gratuito da Groq devolve 429 já na segunda chamada seguida. Medido em 20/08/2026, o
-        <code>llama3.1:8b</code> acertou os 5 casos difíceis, inclusive pedido composto
-        ("fecha o Chrome e abre o VS Code") — que era justamente o ponto fraco do
-        <code>llama3.2</code> anterior. Rode <code>scripts/bench-router.mjs</code> para medir de novo.</small>
+        gratuito da Groq devolve 429 já na segunda chamada seguida. Medido em 20/09/2026 na
+        bancada do agente (20 pedidos compostos e condicionais × 3): <code>qwen2.5:7b</code>
+        acertou 80% em 1,0 s, <code>llama3.1:8b</code> 73% em 2,1 s, <code>llama3.2:3b</code>
+        60% e age em conversa. Rode <code>scripts/bench-agente.mjs</code> para medir de novo.</small>
       </div>
       <div class="field">
         <label for="chatProvider">Conversa (o que ele fala)</label>
@@ -388,8 +388,8 @@
       </div>
       <div class="field">
         <label for="ollamaRouterModel">Modelo local</label>
-        <input type="text" id="ollamaRouterModel" placeholder="llama3.1:8b" spellcheck="false">
-        <small>Precisa estar baixado (<code>ollama pull llama3.1:8b</code>). Vale para roteamento
+        <input type="text" id="ollamaRouterModel" placeholder="qwen2.5:7b" spellcheck="false">
+        <small>Precisa estar baixado (<code>ollama pull qwen2.5:7b</code>). Vale para roteamento
         e conversa. Ocupa ~4,9 GB e leva ~18 s para entrar na GPU a frio — por isso o tempo de
         permanência abaixo é generoso.</small>
       </div>
@@ -563,7 +563,7 @@
 
       setSelect("routerProvider", cfg.routerProvider ?? "ollama");
       setSelect("chatProvider",   cfg.chatProvider   ?? "ollama");
-      document.getElementById("ollamaRouterModel").value = cfg.ollamaRouterModel ?? "llama3.1:8b";
+      document.getElementById("ollamaRouterModel").value = cfg.ollamaRouterModel ?? "qwen2.5:7b";
       document.getElementById("fallbackToGroq").checked   = cfg.fallbackToGroq !== false;
       document.getElementById("evitarGpuOcupada").checked = cfg.evitarGpuOcupada !== false;
       checarOllama();
@@ -581,7 +581,7 @@
      */
     async function checarOllama() {
       const alvo = document.getElementById("ollamaStatus");
-      const modelo = document.getElementById("ollamaRouterModel").value.trim() || "llama3.1:8b";
+      const modelo = document.getElementById("ollamaRouterModel").value.trim() || "qwen2.5:7b";
       alvo.innerHTML = "<small>verificando o Ollama…</small>";
       try {
         const r = await window.elysiumConfig.ollamaStatus(modelo);
@@ -694,10 +694,10 @@
         routerModel: document.getElementById("routerModel").value,
         routerProvider:    document.getElementById("routerProvider").value,
         chatProvider:      document.getElementById("chatProvider").value,
-        ollamaRouterModel: document.getElementById("ollamaRouterModel").value.trim() || "llama3.1:8b",
+        ollamaRouterModel: document.getElementById("ollamaRouterModel").value.trim() || "qwen2.5:7b",
         // O mesmo modelo atende roteamento e conversa: manter dois campos para o que na
         // prática é sempre o mesmo valor seria pedir para eles divergirem sem querer.
-        ollamaChatModel:   document.getElementById("ollamaRouterModel").value.trim() || "llama3.1:8b",
+        ollamaChatModel:   document.getElementById("ollamaRouterModel").value.trim() || "qwen2.5:7b",
         fallbackToGroq:    document.getElementById("fallbackToGroq").checked,
         evitarGpuOcupada:  document.getElementById("evitarGpuOcupada").checked,
         autoLaunch: document.getElementById("autoLaunchToggle").checked,

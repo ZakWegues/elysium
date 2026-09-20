@@ -1,0 +1,36 @@
+{
+  "_leia": [
+    "Banco de casos da bancada do cérebro com ferramentas (scripts/bench-agente.mjs).",
+    "",
+    "`esperado` são as ferramentas de AÇÃO que precisam ser chamadas, na ordem; leituras",
+    "(programas_abertos, estado_do_pc…) podem acontecer à vontade e não contam. Um item",
+    "`nome:trecho` exige que os argumentos contenham o trecho (`a|b` = um dos dois); `?nome` é opcional (não",
+    "conta se vier, não falta se não vier). `CHAT` = o modelo tem que",
+    "responder só CHAT, sem ação. `[]` = pode olhar, mas não pode agir.",
+    "",
+    "`cenario` são os resultados que as ferramentas de leitura devolvem neste caso — nada",
+    "toca o PC de verdade. Sem cenário, vale o padrão do script."
+  ],
+  "casos": [
+    { "texto": "se o chrome estiver aberto, fecha ele", "esperado": ["fechar_programa:chrome"] },
+    { "texto": "se a calculadora estiver aberta, fecha ela", "esperado": [] },
+    { "texto": "abre o bloco de notas e me diz como está o tempo", "esperado": ["abrir_programa:bloco|notepad"], "leituras": ["clima"] },
+    { "texto": "quanto de RAM está em uso e quem está usando mais", "esperado": [], "leituras": ["estado_do_pc|processos_pesados"] },
+    { "texto": "abre o spotify e toca lo-fi", "esperado": ["?abrir_programa:spotify", "tocar_musica:lo"] },
+    { "texto": "fecha tudo que está aberto menos o vs code", "esperado": ["fechar_programa:chrome", "fechar_programa:spotify"] },
+    { "texto": "pausa a música e abaixa o volume", "esperado": ["midia:paus", "volume"] },
+    { "texto": "me lembra daqui a 20 minutos de tirar o bolo do forno", "esperado": ["criar_lembrete:bolo"] },
+    { "texto": "cria uma rotina pra todo dia às 8 me dizer como está o tempo", "esperado": ["criar_rotina:08"] },
+    { "texto": "que programas estão abertos?", "esperado": [], "leituras": ["programas_abertos"] },
+    { "texto": "lembra que meu carro é um civic prata", "esperado": ["lembrar_fato:civic"] },
+    { "texto": "quem foi Alan Turing?", "esperado": "CHAT" },
+    { "texto": "se estiver tocando alguma coisa, pausa", "esperado": ["midia:paus"], "cenario": { "tocando_agora": "Tocando: Lo-fi Beats — ChilledCow, no Spotify." } },
+    { "texto": "se estiver tocando alguma coisa, pausa", "esperado": [], "cenario": { "tocando_agora": "Nada tocando no Spotify agora." } },
+    { "texto": "tira um print e manda pro celular", "esperado": ["tirar_print", "mandar_para_o_celular"] },
+    { "texto": "desliga o pc daqui a 30 minutos", "esperado": ["energia:30"] },
+    { "texto": "quanto é 15% de 200?", "esperado": "CHAT" },
+    { "texto": "que horas são em tóquio agora?", "esperado": "CHAT" },
+    { "texto": "coloca o volume em 40 e toca alguma coisa do Radiohead", "esperado": ["volume:40", "tocar_musica:radiohead"] },
+    { "texto": "apaga a rotina Bom dia", "esperado": ["apagar_rotina:bom"] }
+  ]
+}

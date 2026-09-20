@@ -488,7 +488,7 @@ cérebro perderia o fio: depois de um "pausa" resolvido no atalho, um "continua"
 ### Os quatro em uso
 
 > ⚠️ **Desde 14/08/2026 o cérebro é local.** `routerProvider` e `chatProvider` vêm como
-> `ollama` (`llama3.1:8b` desde 21/08), e os dois modelos abaixo passaram a ser **só o fallback** — ver
+> `ollama` (`llama3.1:8b` desde 21/08, **`qwen2.5:7b` desde 20/09 — bloco 82, §27**), e os dois modelos abaixo passaram a ser **só o fallback** — ver
 > §18. Visão, busca web e STT continuam na Groq de verdade, então a API key segue
 > obrigatória.
 
@@ -4318,3 +4318,45 @@ só com as chaves que referencia). Card novo = uma entrada em `CARDS` e um corpo
 previa **não existe**: a busca tem o catálogo dela (apps, presets, ações) e não lê `CARDS`.
 Validado por `npm run check` (tsc + vitest + `expo export`). Sem aparelho no `adb`: a
 prova visual é o Zak abrir a Início e não notar nada.
+
+
+
+### Bloco 82 — o roteador local medido no laço do agente: qwen2.5:7b vira o padrão ✅
+
+**`scripts/bench-agente.mjs` + `bench-agente-casos.json`** (novos). A `bench-router.mjs`
+mede o roteador clássico (uma chamada, um JSON); desde o bloco 78 o caminho principal é o
+agente, e um modelo pode ser bom em JSON e péssimo em escolher ferramenta. A bancada nova
+carrega **as 33 ferramentas e o prompt de produção do `dist/`** (com `electron` e
+`electron-store` substituídos por dublês) e reproduz o laço do `agente.ts` — mas **nada
+toca o PC**: cada leitura devolve um cenário combinado e cada ação devolve "Feito". 20
+casos compostos e condicionais ("se o Chrome estiver aberto, fecha", "fecha tudo menos o
+VS Code", "tira um print e manda pro celular", "quanto é 15% de 200" → CHAT). Item
+`?nome` é opcional, `a|b` aceita um dos dois, `cenario` troca o que a leitura devolve.
+
+**Medido em 20/09/2026, 3 repetições, mesmo prompt:**
+
+| modelo | acerto | p50 | p95 | o que erra |
+|---|---|---|---|---|
+| **qwen2.5:7b** | **48/60 (80%)** | **1,0 s** | 2,6 s | condicionais (age sem olhar), "tudo menos o VS Code", inventa clima para "horas em Tóquio" |
+| llama3.1:8b | 44/60 (73%) | 2,1 s | 3,2 s | os mesmos, mais `lembrar_fato` que não chama e "print e manda" pela metade |
+| llama3.2:3b | 24/40 (60%) | 1,0 s | 1,5 s | **age em conversa** ("quanto é 15% de 200" → `volume`; "Alan Turing" → `olhar_a_tela`) — descartado |
+
+Pelo critério do plano (ganhar nos casos novos **e** no tempo), o padrão local passou a
+**`qwen2.5:7b`** (`ollamaRouterModel`, `ollamaChatModel`, primeiro em
+`CANDIDATOS_OLLAMA`; textos de Ajustes e `config.html` atualizados). Conversa em
+português conferida a olho (Santos Dumont, RAM, "e onde ele nasceu?" com contexto). ⚠️
+**O override do Zak também foi trocado** (era `llama3.1 8b` no roteador e `llama3.2`,
+morto, na conversa) — voltar é Ajustes → Cérebro → Modelo local.
+
+**O que NÃO funcionou, e fica registrado para ninguém tentar de novo:** duas regras a mais
+no prompt ("pedido com condição: olhe primeiro e só aja se for verdade"; "fecha tudo menos
+X: um fechar_programa por programa da lista, nunca o X") **pioraram os dois** — o 8B caiu
+para 70% e entrou num laço fechando "outro programa" **26 vezes** (em produção o
+`MAX_CHAMADAS` = 8 segura, mas ainda seria 8 fechamentos), e as condicionais viraram
+excesso de cautela ("se o Chrome estiver aberto, fecha" → não fechou com ele aberto).
+Revertidas. Condicional e exclusão são o limite dos 7-8B, não do prompt; a saída é o
+`avaliarCondicao` na Groq (bloco 79) para o que importa (rotinas), e aceitar o erro no
+chat.
+
+**Sobrou do bloco:** `agir()` aceita `CHAT` seguido de texto ("CHAT Alan Turing foi…", o
+qwen faz isso) como conversa — antes caía como resposta literal.

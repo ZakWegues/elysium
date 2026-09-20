@@ -24,21 +24,21 @@ const AJUSTES = [
   {
     grupo: "Cérebro",
     nota: "O local é o padrão porque o prompt de roteamento tem ~3,4 mil tokens e o plano " +
-          "gratuito da Groq devolve 429 já na segunda chamada seguida. Medido em 20/08/2026, o " +
-          "llama3.1:8b acertou os 5 casos difíceis, inclusive pedido composto " +
-          "(“fecha o Chrome e abre o VS Code”) — o ponto fraco do llama3.2 anterior.",
+          "gratuito da Groq devolve 429 já na segunda chamada seguida. Medido em 20/09/2026 na " +
+          "bancada do agente (20 pedidos compostos e condicionais × 3): qwen2.5:7b acertou 80% em " +
+          "1,0 s, llama3.1:8b 73% em 2,1 s, llama3.2:3b 60% e age em conversa.",
     campos: [
       { chave: "routerProvider", rotulo: "Quem decide a ação", tipo: "select", opcoes: [
         ["ollama", "Local — Ollama nesta máquina"], ["groq", "Nuvem — Groq"]] },
       { chave: "chatProvider", rotulo: "Quem escreve a resposta", tipo: "select", opcoes: [
         ["ollama", "Local — Ollama nesta máquina"], ["groq", "Nuvem — Groq"]] },
-      { chave: "ollamaRouterModel", rotulo: "Modelo local", tipo: "texto", dica: "ollama pull llama3.1:8b" },
+      { chave: "ollamaRouterModel", rotulo: "Modelo local", tipo: "texto", dica: "ollama pull qwen2.5:7b" },
       { chave: "cerebroFerramentas", rotulo: "Agir em etapas (ferramentas)", tipo: "bool",
         dica: "O modelo olha o PC (o que está aberto, clima, estado) antes de agir e encadeia ações. Desligado, volta ao roteador de uma lista só." },
       { chave: "fallbackToGroq", rotulo: "Cair na Groq se o local falhar", tipo: "bool",
         dica: "Cobre JSON quebrado e Ollama fora do ar. Não cobre pedido composto pela metade — aquilo é JSON válido." },
       { chave: "evitarGpuOcupada", rotulo: "Usar a nuvem com jogo aberto", tipo: "bool",
-        dica: "O llama3.1:8b ocupa ~4,9 GB de VRAM enquanto carregado, e leva ~18 s para carregar a frio." },
+        dica: "Um modelo de 7-8B ocupa ~4,7 GB de VRAM enquanto carregado, e leva até 18 s para carregar a frio." },
     ],
   },
   {

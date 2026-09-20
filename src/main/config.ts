@@ -146,8 +146,12 @@ const DEFAULTS: AppConfig = {
   routerProvider: "ollama",
   chatProvider: "ollama",
   ollamaBaseUrl: "http://127.0.0.1:11434",
-  ollamaRouterModel: "llama3.1:8b",
-  ollamaChatModel: "llama3.1:8b",
+  // Bloco 82 (20/09/2026): medido na bancada do agente (scripts/bench-agente.mjs, 20 casos
+  // compostos e condicionais × 3), o qwen2.5:7b acertou 80% em 1,0 s (p50) contra 73% em
+  // 2,1 s do llama3.1:8b, com o mesmo prompt e as mesmas 33 ferramentas. O llama3.2:3b
+  // ficou em 60% e AGE em conversa ("quanto é 15% de 200" → volume): descartado.
+  ollamaRouterModel: "qwen2.5:7b",
+  ollamaChatModel: "qwen2.5:7b",
   // 🔴 Era "60s", pensado para o llama3.2 (3B, ~2 GB), que recarregava em 2-4 s. O
   // llama3.1:8b ocupa ~4,9 GB e **medimos 18,3 s de carregamento a frio**. Com 60 s,
   // qualquer pausa de um minuto na conversa fazia o comando seguinte esperar 18 s sem
@@ -254,7 +258,7 @@ const CANDIDATOS_GROQ: Record<string, string[]> = {
 };
 
 /** Mesma ideia do lado local. Vale para roteamento e conversa. */
-const CANDIDATOS_OLLAMA = ["llama3.1:8b", "llama3.2", "llama3.1", "qwen2.5:7b"];
+const CANDIDATOS_OLLAMA = ["qwen2.5:7b", "llama3.1:8b", "llama3.1", "llama3.2"];
 
 function primeiroVivo(candidatos: string[], mortos: Set<string>): string | null {
   return candidatos.find(m => !mortos.has(m)) ?? null;
