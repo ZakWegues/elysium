@@ -121,3 +121,124 @@ describe("rotinas — executar", () => {
 });
 
 beforeEach(() => { vi.useRealTimers(); });
+
+/**
+ * Bloco 79 — gatilho por evento e condição. O barramento (`eventos.ts`) é importado no
+ * MESMO ciclo de `resetModules` que o `rotinas.ts`, senão o listener fica preso a outra
+ * instância do EventEmitter e nada dispara.
+ */
+async function carregarComEventos() {
+  vi.resetModules();
+  const r = await import("../src/services/rotinas");
+  const ev = await import("../src/services/eventos");
+  return { r, ev };
+}
+// O listener é `async` e disparado sem await: dá alguns tiques para ele terminar.
+const esperar = () => new Promise(res => setTimeout(res, 20));
+
+describe("rotinas — gatilho por evento", () => {
+  it("valida o gatilho: evento desconhecido recusa, números são limitados, hora vira 00:00", async () => {
+    const { r } = await carregarComEventos();
+    expect(() => r.salvarRotina({ nome: "x", texto: "y", hora: "", gatilho: { tipo: "evento", evento: "nada" as never } })).toThrow(/evento desconhecido/);
+    const rot = r.salvarRotina({ nome: "x", texto: "y", hora: "", gatilho: { tipo: "evento", evento: "pc.ocioso", minutos: 9999, limite: 3, cada: -5 } });
+    expect(rot.hora).toBe("00:00");
+    expect(rot.gatilho).toEqual({ tipo: "evento", evento: "pc.ocioso", app: undefined, minutos: 720, limite: 50, cada: 0 });
+    expect(r.proximoDisparo(rot, SEXTA_14H)).toBeNull();
+    expect(r.descreverGatilho(rot)).toBe("quando o PC ficar ocioso por 720 min");
+    const porHora = r.salvarRotina({ nome: "h", texto: "y", hora: "7:00", gatilho: { tipo: "hora" } });
+    expect(porHora.gatilho).toBeUndefined();
+    expect(r.descreverGatilho(porHora)).toBe("às 07:00");
+  });
+
+  it("dispara no evento certo, filtra por app (nome ou título) e respeita o `cada`", async () => {
+    const { r, ev } = await carregarComEventos();
+    const rodou: string[] = [];
+    r.iniciarRotinas(async rot => { rodou.push(rot.nome); return "ok"; }, () => {});
+    r.salvarRotina({ nome: "chrome", texto: "t", hora: "", gatilho: { tipo: "evento", evento: "app.abriu", app: "Chrome", cada: 60 } });
+    r.salvarRotina({ nome: "qualquer", texto: "t", hora: "", gatilho: { tipo: "evento", evento: "app.abriu", cada: 0 } });
+    r.salvarRotina({ nome: "fechou", texto: "t", hora: "", gatilho: { tipo: "evento", evento: "app.fechou" } });
+
+    ev.emitirEvento("app.abriu", { app: "notepad", titulo: "Sem título - Bloco de Notas" });
+    await esperar();
+    expect(rodou).toEqual(["qualquer"]);
+
+    ev.emitirEvento("app.abriu", { app: "chrome#2", titulo: "GitHub - Google Chrome" });
+    await esperar();
+    expect(rodou).toEqual(["qualquer", "chrome", "qualquer"]);
+
+    // Segundo Chrome dentro de 60 min: "chrome" segura, "qualquer" (cada 0) roda de novo.
+    ev.emitirEvento("app.abriu", { app: "ApplicationFrameHost", titulo: "YouTube - Google Chrome" });
+    await esperar();
+    expect(rodou).toEqual(["qualquer", "chrome", "qualquer", "qualquer"]);
+    r.pararRotinas();
+
+    // Depois de parar, nada mais escuta.
+    ev.emitirEvento("app.fechou", { app: "chrome" });
+    await esperar();
+    expect(rodou).toHaveLength(4);
+  });
+
+  it("ocioso dispara só no menor marco que cobre os minutos; CPU alta respeita o limite", async () => {
+    const { r, ev } = await carregarComEventos();
+    const rodou: string[] = [];
+    r.iniciarRotinas(async rot => { rodou.push(rot.nome); return "ok"; }, () => {});
+    r.salvarRotina({ nome: "ocioso20", texto: "t", hora: "", gatilho: { tipo: "evento", evento: "pc.ocioso", minutos: 20, cada: 0 } });
+    r.salvarRotina({ nome: "cpu", texto: "t", hora: "", gatilho: { tipo: "evento", evento: "cpu.alta", limite: 90, cada: 0 } });
+
+    for (const m of [5, 15, 30, 60, 120]) ev.emitirEvento("pc.ocioso", { minutos: m });
+    await esperar();
+    expect(rodou).toEqual(["ocioso20"]); // só no marco 30
+
+    ev.emitirEvento("cpu.alta", { valor: 87 });
+    ev.emitirEvento("cpu.alta", { valor: 95 });
+    await esperar();
+    expect(rodou).toEqual(["ocioso20", "cpu"]);
+    r.pararRotinas();
+  });
+
+  it("rotina pausada não reage a evento", async () => {
+    const { r, ev } = await carregarComEventos();
+    const rodou: string[] = [];
+    r.iniciarRotinas(async rot => { rodou.push(rot.nome); return "ok"; }, () => {});
+    const rot = r.salvarRotina({ nome: "cel", texto: "t", hora: "", gatilho: { tipo: "evento", evento: "celular.conectou" } });
+    r.alternarRotina(rot.id, false);
+    ev.emitirEvento("celular.conectou");
+    await esperar();
+    expect(rodou).toEqual([]);
+    r.pararRotinas();
+  });
+});
+
+describe("rotinas — condição", () => {
+  it("condição falsa não executa nem entrega, e fica registrada; `forcar` pula a condição", async () => {
+    const { r } = await carregarComEventos();
+    const entregas: string[] = [];
+    const perguntas: string[] = [];
+    r.iniciarRotinas(async () => "feito", (_, res) => entregas.push(res), async (cond, ctx) => { perguntas.push(`${cond}|${ctx}`); return false; });
+    const rot = r.salvarRotina({ nome: "c", texto: "t", hora: "08:00", condicao: "  se o Spotify estiver aberto " });
+    expect(rot.condicao).toBe("se o Spotify estiver aberto");
+
+    expect(await r.executarRotina(rot.id, { contexto: "Evento: x" })).toMatch(/Condição não valeu/);
+    expect(entregas).toEqual([]);
+    expect(perguntas).toEqual(["se o Spotify estiver aberto|Evento: x"]);
+    expect(r.listarRotinas()[0].ultimoResultado).toMatch(/não executei/);
+
+    expect(await r.executarRotina(rot.id, { forcar: true })).toBe("feito");
+    expect(entregas).toEqual(["feito"]);
+    expect(perguntas).toHaveLength(1);
+    r.pararRotinas();
+  });
+
+  it("condição verdadeira, indecisa (null) ou avaliador que estoura deixam a rotina rodar", async () => {
+    const { r } = await carregarComEventos();
+    let resposta: (() => Promise<boolean | null>) = async () => true;
+    r.iniciarRotinas(async () => "feito", () => {}, () => resposta());
+    const rot = r.salvarRotina({ nome: "c", texto: "t", hora: "08:00", condicao: "se chover" });
+    expect(await r.executarRotina(rot.id)).toBe("feito");
+    resposta = async () => null;
+    expect(await r.executarRotina(rot.id)).toBe("feito");
+    resposta = async () => { throw new Error("modelo fora"); };
+    expect(await r.executarRotina(rot.id)).toBe("feito");
+    r.pararRotinas();
+  });
+});

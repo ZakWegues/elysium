@@ -34,6 +34,7 @@ import {
 } from "./mailboxStore";
 import { completeLogin as completeSpotifyLogin } from "./spotify";
 import { handleRpc, listRpcMethods, RpcError } from "./rpc";
+import { emitirEvento } from "./eventos";
 
 const WS_MAGIC = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 const PKG_VERSION = "1.0.0";
@@ -536,6 +537,9 @@ function handleUpgrade(
 
   const client: WSClient = { socket, buf: head };
   wsClients.add(client);
+  // Gatilho "quando o celular conectar" (bloco 79). Só o primeiro cliente conta: dois
+  // apps abertos não são dois "conectou".
+  if (wsClients.size === 1) emitirEvento("celular.conectou");
 
   // Accumulate audio binary blobs from mobile; process each complete message independently.
   const audioAccum: Buffer[] = [];

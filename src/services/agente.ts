@@ -183,3 +183,73 @@ function falasDasChamadas(lista: ResultadoAgente["chamadas"]): string {
   }
   return falas.join(" ") || "Feito.";
 }
+
+/**
+ * Avalia uma condição em português (bloco 79): "se o Spotify estiver aberto", "se for
+ * chover amanhã", "se a memória estiver acima de 90%". Só ferramentas de LEITURA entram —
+ * uma condição nunca age. Devolve `null` quando não deu para decidir (provedor fora, resposta
+ * sem sim/não): a rotina executa mesmo assim e registra o aviso.
+ */
+export async function avaliarCondicao(condicao: string, contexto = ""): Promise<boolean | null> {
+  const cfg = getConfig();
+  // 🔴 Aqui a nuvem vem PRIMEIRO, ao contrário do resto do cérebro. Medido em bancada
+  // (llama3.1:8b, 24 casos): com "SIM ou NÃO" 7/12; com Dado+Veredito 21/24; com
+  // Dado+Comparação+Veredito 21/24 de novo, só que errando OUTROS casos ("nada tocando" →
+  // VERDADEIRO). É o 8B comparando número e negação — não é prompt. Uma condição roda
+  // poucas vezes por dia e um veredito errado pula (ou dispara) uma rotina em silêncio, então
+  // vale gastar ~1,5k tokens da Groq. Sem chave, ou com a Groq fora, o local decide.
+  const temGroq = Boolean(getApiKey());
+  let prov: Provider = temGroq ? "groq" : "ollama";
+  let mod = temGroq ? cfg.routerModel : cfg.ollamaRouterModel;
+  const tools = definicoesDeFerramentas().filter(t => LEITURA.has(t.name));
+  // O estado do PC e os programas abertos já vão no prompt: são leituras locais e baratas, e
+  // o 8B pulava a ferramenta e chutava ("Spotify aberto?" → FALSO sem olhar). As ferramentas
+  // ficam para o resto (clima, lembretes, o que está tocando). A hora vai na pergunta, não no
+  // system: no system ele ignorava.
+  const [estado, programas] = await Promise.all([
+    executarFerramenta("estado_do_pc", {}).catch(() => ""),
+    executarFerramenta("programas_abertos", {}).catch(() => ""),
+  ]);
+  const agora = new Date().toLocaleString("pt-BR", { weekday: "long", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  const messages: ChatMessage[] = [
+    { role: "system", content: `Você verifica se uma condição sobre o PC do Zak é verdadeira agora.
+O que o PC mostra neste momento:
+- Estado: ${estado || "(não deu para ler)"}
+- Programas abertos: ${programas || "(não deu para ler)"}
+Se a condição falar de outra coisa (clima, lembretes, o que está tocando), use as ferramentas. Hora e data já estão na pergunta.${contexto ? `
+${contexto}` : ""}
+Responda sempre em três linhas, nesta ordem:
+Dado: <o valor ou o item exato que você observou>
+Comparação: <o dado comparado com o que a condição pede, em uma frase>
+Veredito: VERDADEIRO ou FALSO` },
+    { role: "user", content: `Agora: ${agora}.
+Condição: ${condicao}` },
+  ];
+  console.log(`[agente] condição "${condicao}" via ${prov}/${mod}`);
+  for (let rodada = 0; rodada < 3; rodada++) {
+    let resposta;
+    try {
+      resposta = await callChatComFerramentas({ provider: prov, model: mod, messages, tools, temperature: 0, maxTokens: 200 });
+    } catch (e) {
+      if (prov === "groq") { console.warn(`[agente] condição: a Groq falhou (${(e as Error).message}); tentando o local.`); prov = "ollama"; mod = cfg.ollamaRouterModel; rodada--; continue; }
+      console.warn("[agente] condição sem provedor:", (e as Error).message);
+      return null;
+    }
+    if (!resposta.toolCalls.length) {
+      const t = resposta.content.trim().toLowerCase();
+      console.log(`[agente] condição "${condicao}" → "${t.slice(0, 120)}"`);
+      // O veredito é a ÚLTIMA palavra-chave: a linha "Dado:" pode dizer "não está tocando".
+      const vereditos = [...t.matchAll(/\b(verdadeir[oa]|fals[oa]|sim|n[aã]o|true|false)\b/g)].map(m => m[1]);
+      const ultimo = vereditos.at(-1);
+      if (!ultimo) return null;
+      return /^(verdadeir|sim|true)/.test(ultimo);
+    }
+    messages.push({ role: "assistant", content: resposta.content ?? "", tool_calls: resposta.toolCalls });
+    for (const c of resposta.toolCalls) {
+      console.log(`[agente] condição olhou ${c.name}(${JSON.stringify(c.args)})`);
+      const resultado = LEITURA.has(c.name) ? await executarFerramenta(c.name, c.args) : "Ferramenta não permitida numa condição.";
+      messages.push({ role: "tool", tool_call_id: c.id, name: c.name, content: resultado });
+    }
+  }
+  return null;
+}

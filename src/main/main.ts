@@ -3,7 +3,7 @@
 // rodasse depois, o primeiro store já teria criado o arquivo novo vazio e a cópia seria
 // descartada pela própria guarda dela. Ver src/main/migrateUserData.ts.
 import "./migrateUserData";
-import { app, BrowserWindow, globalShortcut, ipcMain, clipboard, nativeImage, dialog, shell } from "electron";
+import { app, BrowserWindow, globalShortcut, ipcMain, clipboard, nativeImage, dialog, shell, powerMonitor } from "electron";
 import * as path from "node:path";
 import * as fs from "node:fs";
 import * as os from "node:os";
@@ -39,6 +39,9 @@ import { ElysiumError } from "../services/errors";
 import { processCommand, processCommandStream, executarComando } from "../services/command";
 import { startServer, setActiveToken, broadcastMailboxEvent, broadcastNotify } from "../services/server";
 import { iniciarRotinas, pararRotinas, enfileirarEntrega } from "../services/rotinas";
+import { avaliarCondicao } from "../services/agente";
+import { emitirEvento, MARCOS_OCIOSO } from "../services/eventos";
+import { getRunningApps } from "../actions/systemInfo";
 import { ollamaDisponivel } from "../services/llm";
 import { registerRpcBridge } from "./rpcBridge";
 import { startMonitor, getDashboardTelemetry, killProcess } from "../actions/systemInfo";
@@ -209,6 +212,8 @@ function getActionsLabel(actions: BrainAction[]): string {
 
 let _cpuHighCount  = 0;
 let _prevCpuPct    = 0;
+let _cpuAltaTiques = 0;
+let _ramAltaTiques = 0;
 let _ramAlertedAt  = 0;
 const ANOM_COOLDOWN = 5 * 60_000; // 5 min between same-type RAM alerts
 
@@ -263,11 +268,52 @@ function startTelemetryLoop(): void {
         );
       }
 
+      // Gatilhos de rotina (bloco 79): CPU e RAM acima de 85% por 2 minutos seguidos (40
+      // tiques). O limite fino é da rotina (`gatilho.limite`); aqui só se garante que é
+      // sustentado, não um pico. Dispara uma vez por episódio: zera ao cair.
+      _cpuAltaTiques = t.cpu_pct >= 85 ? _cpuAltaTiques + 1 : 0;
+      _ramAltaTiques = t.ram_pct >= 85 ? _ramAltaTiques + 1 : 0;
+      if (_cpuAltaTiques === 40) emitirEvento("cpu.alta", { valor: Math.round(t.cpu_pct), maior: t.processes[0]?.name?.replace(/#\d+$/, "") });
+      if (_ramAltaTiques === 40) emitirEvento("ram.alta", { valor: Math.round(t.ram_pct), maior: t.processes[0]?.name?.replace(/#\d+$/, "") });
+
       if (!dashWin || dashWin.isDestroyed() || !dashWin.isVisible()) return;
       dashWin.webContents.send("dash:telemetry", t);
     } catch { /* best-effort */ }
   };
   setInterval(() => { tick().catch(() => {}); }, 3_000);
+
+  // Janelas que abrem e fecham (bloco 79): a cada 15 s compara a lista de programas com
+  // janela. Só nomes de processo; o título vai junto para o filtro ("o Chrome") casar
+  // também com apps da loja hospedados no ApplicationFrameHost.
+  let _janelas: Map<string, string> | null = null;
+  setInterval(async () => {
+    try {
+      const agora = new Map<string, string>();
+      for (const a of await getRunningApps()) {
+        const nome = a.name.replace(/#\d+$/, "");
+        if (!agora.has(nome)) agora.set(nome, a.title ?? "");
+      }
+      if (_janelas) {
+        for (const [nome, titulo] of agora) if (!_janelas.has(nome)) emitirEvento("app.abriu", { app: nome, titulo });
+        for (const nome of _janelas.keys()) if (!agora.has(nome)) emitirEvento("app.fechou", { app: nome });
+      }
+      _janelas = agora;
+    } catch { /* best-effort */ }
+  }, 15_000);
+
+  // Ociosidade (bloco 79): sem mouse/teclado. Dispara nos marcos de 5, 15, 30, 60 e 120
+  // minutos, uma vez cada; a rotina escolhe o seu (`gatilho.minutos`). Volta a zero com
+  // atividade.
+  let _marcoOcioso = 0;
+  setInterval(() => {
+    try {
+      const min = Math.floor(powerMonitor.getSystemIdleTime() / 60);
+      if (min < 1) { _marcoOcioso = 0; return; }
+      for (const m of MARCOS_OCIOSO) if (min >= m && _marcoOcioso < m) { _marcoOcioso = m; emitirEvento("pc.ocioso", { minutos: m }); }
+    } catch { /* powerMonitor indisponível */ }
+  }, 60_000);
+  powerMonitor.on("resume", () => emitirEvento("pc.voltou", { de: "suspensão" }));
+  powerMonitor.on("unlock-screen", () => emitirEvento("pc.voltou", { de: "tela bloqueada" }));
 }
 
 // ── recording flow ────────────────────────────────────────────────────────────
@@ -740,6 +786,9 @@ app.on("ready", async () => {
       }
       dashWin?.webContents.send("rotina:executada", { id: rotina.id, nome: rotina.nome, resultado });
     },
+    // A condição em português ("se o Spotify estiver aberto") é o cérebro com ferramentas
+    // de leitura respondendo SIM ou NÃO (bloco 79).
+    avaliarCondicao,
   );
 
   // Antes de registrar o nome novo: senão sobram duas entradas em HKCU\...\Run, e a

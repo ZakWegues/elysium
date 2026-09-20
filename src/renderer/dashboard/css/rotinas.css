@@ -39,6 +39,17 @@
 .rotina.pausada { opacity: 0.55; }
 .rotina-hora { font-size: 24px; font-weight: 700; color: var(--purple-bright); font-variant-numeric: tabular-nums; line-height: 1; }
 .rotina-proxima { font-size: 10.5px; color: var(--muted); margin-top: 5px; }
+/* Rotina por evento (bloco 79): no lugar da hora, o ícone do gatilho. */
+.rotina-hora.rotina-evento { width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; background: rgba(var(--purple-rgb),0.14); }
+.rotina-hora.rotina-evento .ico { width: 20px; height: 20px; }
+.rotina-condicao { display: flex; align-items: center; gap: 5px; margin-top: 6px; font-size: 11px; color: var(--muted); }
+.rotina-condicao .ico { color: var(--yellow); }
+.rot-form label.hidden, .rot-form [hidden] { display: none !important; }
+.rot-form select { padding: 9px 12px; border-radius: var(--radius-7); background: rgba(0,0,0,0.2); border: 1px solid var(--border); color: var(--text); font-family: inherit; font-size: 12.5px; outline: none; font-weight: 400; }
+.theme-lg .rot-form select { background: rgba(255,255,255,0.9); }
+.rot-form input[type="number"] { padding: 9px 12px; border-radius: var(--radius-7); background: rgba(0,0,0,0.2); border: 1px solid var(--border); color: var(--text); font-family: inherit; font-size: 12.5px; outline: none; font-weight: 400; }
+.theme-lg .rot-form input[type="number"] { background: rgba(255,255,255,0.9); }
+.rot-por-hora, .rot-por-evento { display: flex; flex-direction: column; gap: 14px; }
 .rotina-nome { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 3px; }
 .rotina-texto { font-size: 12px; color: var(--muted); font-style: italic; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rotina-dias { display: flex; gap: 3px; margin-top: 8px; }

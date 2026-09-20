@@ -38,9 +38,10 @@ import { inputHost, MouseButton } from "./inputHost";
 import { addFact, listFacts, removeFactById } from "./memoryStore";
 import { cancelReminder, createReminder, listAll, ReminderKind } from "./scheduler";
 import {
-  listarRotinas, salvarRotina, apagarRotina, alternarRotina, executarRotina, proximoDisparo,
+  listarRotinas, salvarRotina, apagarRotina, alternarRotina, executarRotina, proximoDisparo, descreverGatilho,
   entregasPendentes, historicoEntregas, confirmarEntregas, Rotina,
 } from "./rotinas";
+import { ROTULO_EVENTO } from "./eventos";
 import { getPushPrefs, registerToken, setPushPrefs, unregisterToken, PushCategory } from "./push";
 import { askAboutImage, askAboutScreen } from "./vision";
 import { searchWeb } from "./webSearch";
@@ -702,7 +703,9 @@ const METHODS: Record<string, MethodDef> = {
   // — rotinas (automações agendadas) e entregas para o celular — bloco 68 —
   "rotinas.list": {
     handler: async () => ({
-      rotinas: listarRotinas().map(r => ({ ...r, proxima: proximoDisparo(r) })),
+      rotinas: listarRotinas().map(r => ({ ...r, proxima: proximoDisparo(r), quando: descreverGatilho(r) })),
+      // Os gatilhos possíveis, com rótulo, para o formulário do celular não hardcodar.
+      eventos: Object.entries(ROTULO_EVENTO).map(([id, rotulo]) => ({ id, rotulo })),
     }),
   },
   "rotinas.save": {
@@ -718,8 +721,10 @@ const METHODS: Record<string, MethodDef> = {
         entregar: entregar as Rotina["entregar"],
         falar: params.falar === true,
         ativa: typeof params.ativa === "boolean" ? params.ativa : undefined,
+        gatilho: params.gatilho as Rotina["gatilho"],
+        condicao: optionalString(params, "condicao"),
       });
-      return { rotina: { ...rotina, proxima: proximoDisparo(rotina) } };
+      return { rotina: { ...rotina, proxima: proximoDisparo(rotina), quando: descreverGatilho(rotina) } };
     },
   },
   "rotinas.delete": {
@@ -729,11 +734,12 @@ const METHODS: Record<string, MethodDef> = {
     handler: async (params) => {
       const r = alternarRotina(requireString(params, "id"), typeof params.ativa === "boolean" ? params.ativa : undefined);
       if (!r) throw new RpcError(404, "rotina não encontrada");
-      return { rotina: { ...r, proxima: proximoDisparo(r) } };
+      return { rotina: { ...r, proxima: proximoDisparo(r), quando: descreverGatilho(r) } };
     },
   },
   "rotinas.run": {
-    handler: async (params) => ({ resultado: await executarRotina(requireString(params, "id")) }),
+    // "Rodar agora" pula a condição: quem clica quer ver o resultado.
+    handler: async (params) => ({ resultado: await executarRotina(requireString(params, "id"), { forcar: true }) }),
   },
   "notify.pending": {
     handler: async () => ({ entregas: entregasPendentes() }),

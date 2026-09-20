@@ -735,8 +735,8 @@ regra. `shutdown.exe /a` devolve 1116 quando não há nada agendado; tratado com
 
 | método | params | retorno |
 |---|---|---|
-| `rotinas.list` | — | `{rotinas:[{id, nome, texto, hora "HH:MM", dias[0-6], entregar["pc"\|"celular"], falar, ativa, criadaEm, ultimaExecucao?, ultimoResultado?, proxima: epoch\|null}]}` |
-| `rotinas.save` | `{id?, nome, texto, hora, dias?, entregar?, falar?, ativa?}` | `{rotina}` — sem `id` cria |
+| `rotinas.list` | — | `{rotinas:[{id, nome, texto, hora "HH:MM", dias[0-6], entregar["pc"\|"celular"], falar, ativa, gatilho?, condicao?, quando, criadaEm, ultimaExecucao?, ultimoResultado?, proxima: epoch\|null}], eventos:[{id, rotulo}]}` — `gatilho`, `condicao`, `quando` e `eventos` do bloco 79 |
+| `rotinas.save` | `{id?, nome, texto, hora, dias?, entregar?, falar?, ativa?, gatilho?, condicao?}` | `{rotina}` — sem `id` cria; `gatilho` = `{tipo:"evento", evento, app?, minutos?, limite?, cada?}` |
 | `rotinas.delete` | `{id}` | `{deleted}` |
 | `rotinas.toggle` | `{id, ativa?}` | `{rotina}` — sem `ativa` inverte |
 | `rotinas.run` | `{id}` | `{resultado}` — executa agora pelo pipeline de comando |
@@ -4193,3 +4193,64 @@ motivo de a Groq viver em 429.
 (`clima` para "que horas em Tóquio"); pedido composto nem sempre completa a segunda parte;
 `quemOcupaGpu` não reconhece o Dark Souls III (o local rodou com o jogo aberto). Bloco 82
 mede alternativas.
+
+
+
+### Bloco 79 — rotinas com gatilho e condição ✅
+
+Uma rotina agora dispara **numa hora** (o de sempre) ou **num evento do PC**, e pode ter
+uma **condição em português** que o cérebro confere antes de rodar.
+
+**`src/services/eventos.ts`** (novo) — barramento `EventEmitter` entre quem emite (`main.ts`,
+`server.ts`) e quem escuta (`rotinas.ts`); existe para os dois não se importarem. Sete
+eventos, com `ROTULO_EVENTO` para as telas: `celular.conectou` (1º cliente do WS),
+`pc.ocioso` (`powerMonitor.getSystemIdleTime` a cada 60 s, emitido nos marcos
+`MARCOS_OCIOSO = 5/15/30/60/120` min, um por marco até voltar), `pc.voltou` (`resume` /
+`unlock-screen`), `app.abriu` / `app.fechou` (diff do `getRunningApps` a cada 15 s, com
+`{app, titulo}`), `cpu.alta` / `ram.alta` (telemetria ≥ 85% por 40 tiques ≈ 2 min).
+
+**`rotinas.ts`:** `gatilho?: {tipo:"hora"} | {tipo:"evento", evento, app?, minutos?,
+limite?, cada?}` e `condicao?: string`. `validarGatilho` recusa evento desconhecido e limita
+os números (minutos 1–720, limite 50–100, cada 0–1440). Por evento a `hora` vira `"00:00"`
+e `proximoDisparo` é `null`. `aoEvento` filtra: app por nome OU título de janela
+(`ApplicationFrameHost (Calculadora)` casa com "calculadora"); ocioso dispara **só no menor
+marco que cobre os minutos** (senão "30 min" dispararia de novo aos 60 e 120); CPU/RAM
+respeitam `limite`; `cada` (padrão 60 min, 0 = sem limite) segura o "quando o Chrome abrir"
+de rodar a cada alt-tab. `executarRotina(id, {forcar, contexto})`: condição falsa registra
+"Condição não valeu (…); não executei." e **não entrega** — o Zak vê no histórico que ela
+olhou e decidiu não agir. "Rodar agora" passa `forcar` e pula a condição. Avaliador que
+estoura ou devolve `null` deixa rodar (melhor rodar a mais que engolir).
+
+**`avaliarCondicao()` em `agente.ts`** — o cérebro com as ferramentas de LEITURA responde
+`Dado / Comparação / Veredito`. 🔴 **Aqui a nuvem vem PRIMEIRO**, ao contrário do resto do
+cérebro. Medido em bancada (`cond-bench.mjs`, llama3.1:8b, 6 casos × 3): "responda SIM ou
+NÃO" → 7/12, e escrevia literalmente *"RAM em 50%, abaixo de 95%: NÃO"*; Dado+Veredito →
+10/12 (pulava a ferramenta e chutava "Spotify aberto? FALSO"); estado do PC e programas
+abertos pré-injetados no prompt → 18/18 com strings curtas, mas 21/24 com as strings REAIS
+(errava "abaixo de 95%"); a linha de Comparação consertou o número e quebrou a negação
+("nada tocando → VERDADEIRO"). Não é prompt: é o 8B comparando número e negação. Uma
+condição roda poucas vezes por dia e um veredito errado pula (ou dispara) uma rotina em
+silêncio, então `gpt-oss-120b` na Groq decide quando há chave, e o local só se a Groq
+falhar. Verificado ao vivo pelo caminho real (WS cru → `celular.conectou` → condição →
+rotina): "RAM abaixo de 95%" → executou; "calculadora aberta" e "tocando alguma coisa" →
+não executou, com `programas_abertos` / `tocando_agora` consultados. A hora vai na
+**pergunta**, não no system: no system o modelo ignorava.
+
+**RPC:** `rotinas.list` devolve `{rotinas: [... + quando], eventos: [{id, rotulo}]}`;
+`rotinas.save` aceita `gatilho` e `condicao`. **Desktop:** formulário com chips "Numa hora
+/ Num evento", select de evento, campos que aparecem só para o evento certo (programa,
+minutos parado, limite %, intervalo mínimo), campo "Só se…"; cartão por evento mostra o
+ícone do evento e "quando o celular conectar" no lugar da hora, e a condição com lâmpada.
+Três exemplos novos (Celular chegou, PC pesado, Boa noite com condição). **Celular:**
+`Rotina.gatilho/condicao/quando` no `rpc.ts`; `RotinasScreen` com os mesmos chips e campos,
+cartão com raio no lugar da hora.
+
+**Testes:** +6 em `rotinas.test.ts` (validação do gatilho, filtro por app/título e `cada`,
+marco de ocioso e limite de CPU, rotina pausada, condição falsa/forçada, avaliador nulo ou
+estourando). O barramento é importado no MESMO `resetModules` que o `rotinas`, senão o
+listener fica preso a outra instância do emitter.
+
+**Armadilha nova:** o PC reiniciou no meio e o **ELYSIUM instalado subiu sozinho** — pegou
+o lock e a instância de dev morria em silêncio (bloco 48, de novo). E a rotina de teste
+apareceu **pausada** sem ninguém tocar no código: foi clicada no app instalado. Conferir
+`ativa` antes de investigar "o evento não dispara".
