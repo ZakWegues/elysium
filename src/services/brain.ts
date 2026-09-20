@@ -7,6 +7,7 @@ import type { WinOperation }   from "../actions/windowManagement";
 import type { PowerOperation } from "../actions/powerControl";
 import { buildMemoryBlock } from "./memoryStore";
 import { buildRouterPromptBase } from "./routerPrompt";
+import { blocoDoResumo, guardarTurnosPodados, limparResumo } from "./resumoHistorico";
 
 
 export type BrainAction =
@@ -81,7 +82,28 @@ let lastActivity = Date.now();
 
 export function clearHistory(): void {
   history = [];
+  limparResumo();
   lastActivity = Date.now();
+}
+
+/**
+ * Mantém os últimos `chatHistoryTurns` turnos; o que cai vai para o resumo (bloco 80) em
+ * vez de sumir. Único lugar que corta o histórico — antes eram três cópias da mesma conta.
+ */
+function podarHistorico(): void {
+  const maxMsgs = getConfig().chatHistoryTurns * 2;
+  // Só no fim de um turno (última mensagem é a resposta): a pergunta e a resposta que caem
+  // vão juntas para o resumo, numa chamada só. Entre a pergunta e a resposta passam
+  // segundos de modelo, e a espera do resumo não cobria isso.
+  if (history.length <= maxMsgs || history[history.length - 1]?.role !== "assistant") return;
+  guardarTurnosPodados(history.slice(0, history.length - maxMsgs));
+  history = history.slice(history.length - maxMsgs);
+}
+
+/** Reset por inatividade: conversa velha não vale como contexto, nem no resumo. */
+function zerarSeOcioso(now: number): void {
+  if (now - lastActivity > getConfig().chatIdleResetMs) { history = []; limparResumo(); }
+  lastActivity = now;
 }
 
 /**
@@ -91,15 +113,10 @@ export function clearHistory(): void {
  * resolvido no atalho, um "continua" seguido de "e aumenta" ficaria sem contexto.
  */
 export function noteFastRouted(text: string, actions: BrainAction[]): void {
-  const now = Date.now();
-  if (now - lastActivity > getConfig().chatIdleResetMs) history = [];
-  lastActivity = now;
-
+  zerarSeOcioso(Date.now());
   history.push({ role: "user", content: text });
   history.push({ role: "assistant", content: actions.map(actionSummary).join(" | ") });
-
-  const maxMsgs = getConfig().chatHistoryTurns * 2;
-  if (history.length > maxMsgs) history = history.slice(history.length - maxMsgs);
+  podarHistorico();
 }
 
 function actionSummary(action: BrainAction): string {
@@ -184,8 +201,7 @@ export function interpretarAcoes(content: string): BrainAction[] | null {
  */
 export function recordAssistantReply(text: string): void {
   history.push({ role: "assistant", content: text });
-  const maxMsgs = getConfig().chatHistoryTurns * 2;
-  if (history.length > maxMsgs) history = history.slice(history.length - maxMsgs);
+  podarHistorico();
 }
 
 /**
@@ -211,20 +227,18 @@ export async function provedorDoRoteador(cfg: AppConfig): Promise<{ provider: Pr
  * por pedido — o agente e o roteador clássico nunca rodam os dois no mesmo pedido.
  */
 export function registrarTurnoUsuario(text: string): void {
-  const cfg = getConfig();
-  const now = Date.now();
-  if (now - lastActivity > cfg.chatIdleResetMs) history = [];
-  lastActivity = now;
+  zerarSeOcioso(Date.now());
   history.push({ role: "user", content: text });
-  const maxMsgs = cfg.chatHistoryTurns * 2;
-  if (history.length > maxMsgs) history = history.slice(history.length - maxMsgs);
+  podarHistorico();
 }
 
 /** A conversa recente como bloco de texto (sem o pedido atual), para o system prompt. */
 export function contextoRecente(): string {
-  return history.slice(0, -1)
+  const antes = blocoDoResumo();
+  const recente = history.slice(0, -1)
     .map(m => (m.role === "user" ? `Usuário: ${m.content}` : `ELYSIUM: ${m.content}`))
     .join("\n");
+  return antes ? `(antes disso: ${antes})\n${recente}` : recente;
 }
 
 export async function decideBrain(text: string, jaRegistrado = false): Promise<BrainAction[]> {
@@ -308,7 +322,7 @@ export async function composeChatReply(
   const recent = history.slice(-cfg.chatHistoryTurns * 2);
   const ultimo = recent[recent.length - 1];
   const messages: ChatMessage[] = [
-    { role: "system", content: CHAT_SYSTEM_PROMPT + buildMemoryBlock() },
+    { role: "system", content: CHAT_SYSTEM_PROMPT + buildMemoryBlock() + (blocoDoResumo() ? `\n\n[O QUE VEIO ANTES NESTA CONVERSA]\n${blocoDoResumo()}` : "") },
     ...recent.map(m => ({ role: m.role, content: m.content })),
     // Rede de segurança: se alguém chamar a composição sem passar pelo roteador, o
     // pedido não estaria no histórico e o modelo responderia ao turno anterior.

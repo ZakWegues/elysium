@@ -4254,3 +4254,47 @@ listener fica preso a outra instância do emitter.
 o lock e a instância de dev morria em silêncio (bloco 48, de novo). E a rotina de teste
 apareceu **pausada** sem ninguém tocar no código: foi clicada no app instalado. Conferir
 `ativa` antes de investigar "o evento não dispara".
+
+
+
+### Bloco 80 — o histórico que não estoura, e a fala do modelo depois de ler ✅
+
+A memória como ferramenta já tinha saído no bloco 78 (`lembrar_fato`, `esquecer_fato`,
+`memoria`). O que faltava era o histórico: `chatHistoryTurns` (6) turnos e o resto era
+**cortado** — vinte turnos depois, "e onde ele nasceu?" não tinha mais o "ele".
+
+**`src/services/resumoHistorico.ts`** (novo). O que cai do histórico vira um parágrafo
+curto escrito pelo modelo de conversa (≤ 80 palavras, temperatura 0,2, 180 tokens), que
+entra no prompt como "o que veio antes" — no `contextoRecente()` do agente e do roteador
+(`(antes disso: …)`) e no system da `composeChatReply` (`[O QUE VEIO ANTES NESTA
+CONVERSA]`). A compactação roda **em segundo plano**: o pedido que causou a poda não
+espera. Estado: `resumo` + `pendentes` (caíram, ainda não dobrados) + `emVoo` (lote na
+chamada). Enquanto o modelo não devolve, pendentes e em voo vão **crus** no prompt — nada
+fica de fora nem por um pedido. Falhou o modelo → os últimos 4 turnos ficam crus, sem
+sumir. Reset por inatividade (`chatIdleResetMs`) e `clearHistory()` zeram o resumo junto.
+
+**`brain.ts`:** `podarHistorico()` é o único lugar que corta o histórico — eram três cópias
+da mesma conta (`noteFastRouted`, `recordAssistantReply`, `registrarTurnoUsuario`). 🔴 **A
+poda só acontece no fim do turno** (última mensagem é a resposta): a pergunta e a resposta
+que caem vão juntas, numa chamada só. A primeira versão podava na chegada da pergunta e de
+novo na resposta, e como entre as duas passam segundos de modelo, a espera de 100 ms do
+compactador não cobria — duas chamadas por turno. Medido ao vivo: 8 turnos de assunto
+variado e depois "onde meu primo mora mesmo?" → *"Seu primo Rafael mora em Recife, como
+mencionado anteriormente."* (o Rafael estava no 1º turno, fora do histórico).
+
+**Achado no caminho — a política do bloco 78 comia a resposta certa.** "Depois de só ler, a
+resposta É o que as ferramentas devolveram" foi escrita contra o 8B que contradizia a
+lista; mas para "onde minha irmã mora?" o modelo lia a `memoria` e respondia "Em
+Curitiba" — e a política trocava isso pela lista crua de fatos. Agora `textoConfiavel()`:
+o texto do modelo vale, salvo quando é JSON solto (`{"name": "clima"}`), fala de
+"ferramenta"/"função", ou **nega** ("não achei", "nenhum") enquanto alguma leitura devolveu
+lista cheia. `{"name": "CHAT", "parameters": {}}` embrulhado (o 8B faz isso para "me diz
+uma cor") agora é conversa, não resposta literal.
+
+**Testes:** `resumoHistorico.test.ts` (4: poda → resumo → contexto, lote em voo continua
+no prompt, compactador estourando não perde turnos, resumo cresce em lotes) e +1 em
+`agente.test.ts` (texto coerente após leitura, JSON solto, CHAT embrulhado). 47 no total.
+
+⚠️ Um teste ao vivo deixou o fato "Meu cachorro se chama Bolt…" na memória do Zak (o 8B
+chamou `lembrar_fato` sozinho ao ouvir a frase) — removido pelo `memory.remove`. Ao testar
+o agente com frases pessoais, conferir `memory.list` depois.

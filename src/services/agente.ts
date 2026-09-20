@@ -59,6 +59,20 @@ function alegaAcao(texto: string): boolean {
   return ALEGA_ACAO.test(texto);
 }
 
+/**
+ * Depois de só LER, o texto do modelo vale como resposta? Não quando ele nega o que a
+ * ferramenta devolveu ("não achei" com a lista cheia), fala de "ferramenta"/"função", ou
+ * devolve JSON solto (`{"name": "CHAT"}` do 8B). Fora isso, o texto é dele: "onde minha
+ * irmã mora?" depois de ler a memória tem que ser "Em Curitiba", não a lista de fatos.
+ */
+function textoConfiavel(content: string, leituras: { resultado: string }[]): boolean {
+  if (/^\s*[{[]/.test(content)) return false;
+  if (/\b(ferramenta|função|function|tool)\b/i.test(content)) return false;
+  const nega = /\bn[ãa]o (achei|encontrei|tenho|há|existe|consta|vejo|localizei)\b|\bnenhum[a]?\b|\bnada (aberto|tocando|cadastrad[oa]|registrad[oa])\b/i.test(content);
+  const algumaCheia = leituras.some(l => l.resultado && !/^(nenhum|nada|sem |vazi|não há|não tem)/i.test(l.resultado.trim()));
+  return !(nega && algumaCheia);
+}
+
 /** Ferramentas que só OLHAM. Chamá-las não conta como "ter feito" alguma coisa. */
 const LEITURA = new Set(["programas_abertos", "estado_do_pc", "processos_pesados", "clima", "lembretes", "memoria", "rotinas", "presets", "tocando_agora", "area_de_transferencia"]);
 
@@ -117,7 +131,8 @@ export async function agir(
       console.log(`[agente] ${prov}/${mod} sem ferramentas: "${content.slice(0, 80)}"`);
       // "CHAT" (antes ou depois de olhar alguma coisa) é conversa: o modelo de 8B às vezes
       // consulta uma ferramenta irrelevante e só então percebe que era papo.
-      if (/^\W*chat\W*$/i.test(content)) return { modo: "chat", reply: "", acoes: [{ action: "chat" }], chamadas };
+      // "CHAT" solto ou embrulhado em JSON (`{"name": "CHAT", "parameters": {}}`, o 8B faz isso).
+      if (/^\W*chat\W*$/i.test(content) || /^\s*\{[^}]*"chat"/i.test(content)) return { modo: "chat", reply: "", acoes: [{ action: "chat" }], chamadas };
       if (!chamadas.length) return content ? { modo: "ferramentas", reply: content, acoes, chamadas } : null;
       // 🔴 Já houve leitura e o modelo respondeu em texto. O 8B narra ("fechei a
       // calculadora") sem ter agido, ecoa o prompt ("CHAME rotinas") ou contradiz o que
@@ -129,6 +144,10 @@ export async function agir(
         messages.push({ role: "assistant", content });
         messages.push({ role: "user", content: "Você disse que fez isso, mas não chamou nenhuma ferramenta de ação. Se é para fazer, chame a ferramenta agora; se não é, responda o que realmente aconteceu." });
         continue;
+      }
+      // Só leituras, e o texto não contradiz o que leu: a resposta é dele (bloco 80).
+      if (inicioFala < 0 && content && !alegaAcao(content) && textoConfiavel(content, chamadas)) {
+        return { modo: "ferramentas", reply: content, acoes, chamadas };
       }
       return { modo: "ferramentas", reply: falasDasChamadas(inicioFala >= 0 ? chamadas.slice(inicioFala) : chamadas), acoes, chamadas };
     }

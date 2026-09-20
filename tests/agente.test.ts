@@ -75,6 +75,20 @@ describe("agente — política do laço", () => {
     expect(r?.reply).toBe("Em São Paulo, 22 graus e nublado.");
   });
 
+  it("olhar e responder em texto coerente: a fala é a do modelo (bloco 80)", async () => {
+    respostas.push({ content: "", toolCalls: [{ id: "1", name: "clima", args: {} }] });
+    respostas.push({ content: "Está nublado em São Paulo, 22 graus — leva um casaco.", toolCalls: [] });
+    const r = await agir("preciso de casaco hoje?");
+    expect(r?.reply).toBe("Está nublado em São Paulo, 22 graus — leva um casaco.");
+    // JSON solto e menção a "ferramenta" não valem como resposta: volta o que foi lido.
+    respostas.push({ content: "", toolCalls: [{ id: "1", name: "clima", args: {} }] });
+    respostas.push({ content: '{"name": "clima", "parameters": {}}', toolCalls: [] });
+    expect((await agir("e o tempo?"))?.reply).toBe("Em São Paulo, 22 graus e nublado.");
+    // `{"name": "CHAT"}` embrulhado é conversa.
+    respostas.push({ content: '{"name": "CHAT", "parameters": {}}', toolCalls: [] });
+    expect((await agir("me diz uma cor"))?.modo).toBe("chat");
+  });
+
   it("alegar ação sem ter agido leva uma cutucada, e a ação acontece", async () => {
     respostas.push({ content: "", toolCalls: [{ id: "1", name: "programas_abertos", args: {} }] });
     respostas.push({ content: "Fechei a calculadora.", toolCalls: [] });
