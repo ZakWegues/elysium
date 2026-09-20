@@ -4,7 +4,7 @@
 > `CONTRATO_RPC.md` e o `CONTEXTO_NEUROAXIS.md`. Se alguma coisa aqui divergir de outro
 > arquivo do repositório, **este aqui vale**.
 >
-> Última atualização: **18/09/2026**.
+> Última atualização: **20/09/2026**.
 
 ---
 
@@ -185,16 +185,17 @@ pedir de novo.**
 
 ### Git
 
-| Repo | HEAD (18/09/2026) | Estado |
+| Repo | HEAD (20/09/2026) | Estado |
 |---|---|---|
-| `elysium` | fase 8 completa (blocos 64–69 + 75, §25) | limpo, pusheado |
-| `elysium-m` | fase 8 completa (blocos 70–75, §25) | limpo, pusheado |
+| `elysium` | fase 9 completa (blocos 76–83, §27) | limpo, pusheado |
+| `elysium-m` | fase 9 completa (blocos 79, 81, 83, §27) | limpo, pusheado |
 
-> **Versão 1.2.0 nos dois lados** (celular `versionCode` 11). Instalador em
-> `elysium/release/ELYSIUM-Setup-1.2.0.exe`, APK em `elysium-m/dist-apk/elysium-m.apk` —
-> os dois gerados em 18/09/2026 ao fim da fase 8. Ver §25 para o que mudou. **O APK tem
-> módulos nativos novos** (background-task, task-manager, android-widget): OTA não alcança
-> o anterior, tem que instalar o APK.
+> **Versão 1.3.0 nos dois lados** (celular `versionCode` 12). Instalador em
+> `elysium/release/ELYSIUM-Setup-1.3.0.exe`, APK em `elysium-m/dist-apk/elysium-m.apk` —
+> os dois gerados em 20/09/2026 ao fim da fase 9. Ver §27 para o que mudou. O APK não tem
+> módulo nativo novo nesta fase (só JS), mas o `versionCode` subiu; instalar por cima.
+> **O cérebro local padrão agora é `qwen2.5:7b`** (`ollama pull qwen2.5:7b` numa máquina
+> nova; nesta já está baixado).
 
 A fase 5 inteira (§22) está nesses dois. Verificado antes de subir: `npm run build` no
 desktop, `npm run typecheck` **e** `npx expo export --platform android` no Portal — o
@@ -4360,3 +4361,52 @@ chat.
 
 **Sobrou do bloco:** `agir()` aceita `CHAT` seguido de texto ("CHAT Alan Turing foi…", o
 qwen faz isso) como conversa — antes caía como resposta literal.
+
+
+
+### Bloco 83 — fechamento da fase 9: instalador 1.3.0 e APK versionCode 12 ✅
+
+**Gerados em 20/09/2026:**
+
+| artefato | onde | como instalar |
+|---|---|---|
+| Desktop **1.3.0** | `elysium/release/ELYSIUM-Setup-1.3.0.exe` (79,3 MB) | Rodar por cima da 1.2.0. O `app.asar` foi conferido por dentro (`eventos.js`, `resumoHistorico.js`, `avaliarCondicao`, `textoConfiavel`, `rot-por-evento`, `qwen2.5:7b` no config). `/api/health` passa a dizer `1.3.0` (dizia `1.0.0` desde sempre — `PKG_VERSION` era fixo) |
+| Celular **1.3.0**, `versionCode` 12 | `elysium-m/dist-apk/elysium-m.apk` (109,3 MB) | `adb install -r` ou copiar pro celular. Mesma chave; instala por cima. Sem módulo nativo novo, mas a versão muda o fingerprint (`040b2f26…`): o OTA do canal `preview` não alcança o APK 11 |
+
+**A fase 9 inteira, bloco a bloco:**
+
+| bloco | o quê | prova |
+|---|---|---|
+| 76 | `dashboard.html` em 12 CSS + 14 JS | capturas das 5 abas iguais às de antes |
+| 77 | vitest nos dois repos, `npm run check` antes de todo commit | 47 testes no desktop, 17 no celular |
+| 78 | o cérebro com ferramentas (33), `agir()` | "que programas estão abertos", "se a calculadora estiver aberta, fecha", criar/apagar rotina, lembrete em 20 min — ao vivo |
+| 79 | rotinas por evento (7 eventos) e condição em português | WS cru → `celular.conectou` → condição na Groq → rotina rodou/não rodou certo, 3 casos |
+| 80 | resumo do histórico em segundo plano; a fala do modelo depois de ler | "onde meu primo mora mesmo?" respondido 9 turnos depois |
+| 81 | `HomeScreen.tsx` em 4 arquivos | `npm run check`; visual é o Zak |
+| 82 | bancada do agente; qwen2.5:7b vira o padrão local (80% / 1,0 s contra 73% / 2,1 s) | 3 modelos × 20 casos × 3 |
+| 83 | este | — |
+
+**Só o Zak consegue validar:**
+
+- [ ] Instalar os dois. O desktop pede `ollama pull qwen2.5:7b` só numa máquina nova (aqui já está).
+- [ ] Desktop: Rotinas → Nova rotina → "Num evento" → "quando um programa abrir", programa
+      "chrome", "Só se…" vazio → abrir o Chrome → a rotina roda em até 15 s.
+- [ ] Desktop: uma rotina com "Só se estiver tocando alguma coisa" com o Spotify parado →
+      "Condição não valeu" no cartão, sem entrega.
+- [ ] Desktop: conversar 10 turnos e perguntar algo do 1º ("e aquele filme que eu falei?").
+- [ ] Desktop: "fecha o que estiver aberto menos o VS Code" — é o caso que os 7-8B erram
+      (bloco 82); se fechar o VS Code, é o limite do modelo, não bug novo. Com jogo aberto
+      vai pela Groq, que acerta.
+- [ ] Celular: Rotinas → o formulário com "Num evento" e "Só se…"; cartão de rotina por
+      evento mostra o raio no lugar da hora.
+- [ ] Celular: Início igual à de antes (bloco 81 não deveria mudar um pixel).
+
+**Ideias que ficaram** (a fase 10 começa no bloco 84, §26):
+
+- `avaliarCondicao` na Groq gasta ~1,5k tokens por disparo; se um dia o plano gratuito
+  reclamar, o caminho é um modelo local maior (14B) só para condições, não voltar o 7B.
+- "Fecha tudo menos X" e condicionais no chat: os 7-8B não fazem; medir `qwen2.5:14b` se
+  couber na VRAM (8 GB — apertado) antes de tentar prompt de novo.
+- `que horas em Tóquio` responde a hora local nos dois modelos; um `fuso_horario` de
+  leitura resolveria barato.
+- A bancada do agente não cobre a voz (STT) nem o streaming — só a decisão.
