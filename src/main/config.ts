@@ -86,6 +86,8 @@ export interface AppConfig {
    * volta ao roteador clássico de uma lista de ações — a rede de segurança.
    */
   cerebroFerramentas: boolean;
+  /** Dizer "Elysium" acorda o assistente (bloco 88, reconhecedor offline do Windows). */
+  palavraDeAtivacao: boolean;
   /** Com jogo aberto, rotear pela nuvem em vez de disputar VRAM. Ver `gpuGuard.ts`. */
   evitarGpuOcupada: boolean;
   spotifyClientId: string;
@@ -171,6 +173,8 @@ const DEFAULTS: AppConfig = {
   ollamaNumCtx: 8192,
   fallbackToGroq: true,
   cerebroFerramentas: true,
+  // Microfone sempre aberto é escolha do dono, não padrão de fábrica.
+  palavraDeAtivacao: false,
   evitarGpuOcupada: true,
   spotifyClientId: "042904fef8cc41f0bf05b7abeda2d66f",
   chatHistoryTurns: 6,

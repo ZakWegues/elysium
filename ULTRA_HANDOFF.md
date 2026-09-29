@@ -4552,3 +4552,47 @@ texto do cliente de virar PowerShell.
 Testado ao vivo só na janela de dev (minimizar → `minimizada: true` → restaurar), sem tocar
 nas janelas do Zak. `janelas.test.ts` (2): hwnd com texto é recusado; a leitura da saída do
 EnumWindows respeita flags e filtros.
+
+### Bloco 88 — "Elysium" em voz alta acorda o assistente ✅ (desligado por padrão)
+
+O §26 previa um spike entre Porcupine (chave da Picovoice), openWakeWord (baixar modelos
+ONNX + compilar `onnxruntime` para o Electron) e VAD + Whisper (Groq paga a cada frase
+perto do microfone). **Nenhum dos três foi preciso.** Achado: o Windows desta máquina já
+tem um reconhecedor de fala **offline em pt-BR** — `MS-1046-110-WINMO-DNN`, do OneCore
+(`HKLM\SOFTWARE\Microsoft\Speech_OneCore\Recognizers\Tokens`; o `System.Speech` clássico
+não enxerga nenhum) — exposto pela API WinRT `Windows.Media.SpeechRecognition`.
+
+Medido com uma **lista fechada** de frases ("elysium", "ei elysium", "ok elysium",
+"oi elysium"):
+
+| pergunta | resposta |
+|---|---|
+| precisa da "política de fala online" do Windows? | **Não** para lista fechada (a ditação livre exige e dá erro) |
+| manda áudio para fora? | Não — o reconhecedor é local |
+| custo escutando (30 s, silêncio) | **0,3% de um núcleo, ~94 MB** |
+| resultado sem ninguém falar | `Success` com confiança `Rejected` a cada ~10 s (o laço segue) |
+
+**`src/services/palavraAtivacao.ts`** (novo): um PowerShell em laço (`RecognizeAsync`, 10 s
+de silêncio inicial, 400 ms para fechar, 4 s de falatório no máximo) escreve uma linha por
+tentativa; só **High/Medium** com "elysium" no texto acorda (`linhaAcorda`, testado) —
+`Low` é o reconhecedor forçando barulho na frase mais parecida. Caiu sozinho → sobe de
+novo, no máximo 5 vezes em 10 min. `before-quit` mata o filho (senão ficaria escutando
+órfão depois de "Sair").
+
+**`main.ts` → `acordarPorVoz()`**: só com o assistente ocioso e passados 2,5 s desde a
+última volta ao ocioso (a própria fala dizendo "Elysium" não pode acordá-lo), e **sem
+roubar o foco** — ao contrário do atalho: quem fala de longe pode estar num jogo em tela
+cheia. Começa a gravação direto (`startListening`).
+
+**Ajustes → Voz → "Acordar ao ouvir 'Elysium'"** (`palavraDeAtivacao`, padrão **desligado**:
+microfone sempre aberto é escolha do dono). Liga e desliga na hora, sem reiniciar.
+
+Três armadilhas da ponte PowerShell 5.1 ↔ WinRT, registradas no cabeçalho do arquivo:
+`IAsyncOperation<T>` vira Task pelo `AsTask` genérico por reflexão; o construtor da lista
+só aceita `[string[]]` via `::new`; e `Constraints.Add` não existe para o PowerShell no
+`__ComObject` — só funciona chamado pelo `ICollection<ISpeechRecognitionConstraint>` por
+reflexão.
+
+⚠️ **Só o Zak valida a precisão** (sem ninguém falando perto do PC nesta sessão): ligar,
+dizer "Elysium" a 1–3 m, e deixar uma hora de música/jogo tocando para ver se acorda
+sozinho. Se acordar demais, o próximo passo é exigir só `High`.

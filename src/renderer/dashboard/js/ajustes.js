@@ -60,6 +60,8 @@ const AJUSTES = [
         ["pt-BR-FranciscaNeural", "Francisca — feminina"],
         ["pt-BR-ThalitaNeural", "Thalita — feminina, mais jovem"],
         ["pt-BR-MacerioMultilingualNeural", "Macerio — masculina, multilíngue"]] },
+      { chave: "palavraDeAtivacao", rotulo: "Acordar ao ouvir “Elysium”", tipo: "bool",
+        dica: "Diga “Elysium” (ou “ei Elysium”) e ele começa a ouvir, sem o atalho. Reconhecimento do próprio Windows, offline: nenhum áudio sai do PC. Deixa o microfone aberto o tempo todo (~0,3% de CPU)." },
       { chave: "silenceMs", rotulo: "Silêncio para parar", tipo: "faixa", min: 500, max: 5000, passo: 100, unidade: "ms" },
       { chave: "maxRecordMs", rotulo: "Gravação máxima", tipo: "faixa", min: 10000, max: 300000, passo: 5000, unidade: "ms" },
     ],

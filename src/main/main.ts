@@ -33,6 +33,7 @@ import { createTray, refreshTray, updateLastCommand, buildIcon as iconePadrao } 
 import { transcribe } from "../services/stt";
 import { clearHistory, desfazerUltimoTurno } from "../services/brain";
 import { modelosDaGroq } from "../services/catalogoGroq";
+import { desligarPalavraDeAtivacao, ligarPalavraDeAtivacao } from "../services/palavraAtivacao";
 import { getTopHistory } from "../services/history";
 import { registrarPergunta, bolhasDoChat } from "../services/perguntas";
 import { synthesize, cancelSpeak } from "../services/tts";
@@ -523,6 +524,10 @@ ipcMain.handle("config:set-all", async (_e, patch: Partial<AppConfig>) => {
     if (!ok) notify("ELYSIUM — Aviso", `Atalho "${patch.shortcut}" não pôde ser registrado.`);
   }
 
+  if (patch.palavraDeAtivacao !== undefined && patch.palavraDeAtivacao !== prev.palavraDeAtivacao) {
+    if (patch.palavraDeAtivacao) ligarPalavraDeAtivacao(acordarPorVoz); else desligarPalavraDeAtivacao();
+  }
+
   if (patch.autoLaunch !== undefined && patch.autoLaunch !== prev.autoLaunch) {
     await sincronizarInicioAutomatico(patch.autoLaunch);
   }
@@ -696,6 +701,19 @@ ipcMain.handle("pairing:regenerate-token", async () => {
 
 // ── shortcut handler ──────────────────────────────────────────────────────────
 
+// ── palavra de ativação (bloco 88) ─────────────────────────────────────────────
+// Só acorda com o assistente ocioso e passado um respiro da última fala: a caixa de som
+// dizendo "Elysium" numa resposta não pode acordar o próprio ELYSIUM. Não rouba o foco
+// (ao contrário do atalho): quem fala de longe pode estar num jogo em tela cheia; a
+// bandeja e o som de gravação já dizem que ele está ouvindo.
+let ultimoOcioso = Date.now();
+state.on("change", (s) => { if (s === "idle") ultimoOcioso = Date.now(); });
+function acordarPorVoz(): void {
+  if (!hasApiKey() || !state.is("idle")) return;
+  if (Date.now() - ultimoOcioso < 2500) return;
+  startListening().catch((e) => console.error("[palavra] não consegui começar a ouvir:", e));
+}
+
 function handleShortcut(): void {
   if (!hasApiKey()) { openConfigWindow(); return; }
   if (!state.is("idle")) {
@@ -821,6 +839,10 @@ app.on("ready", async () => {
   if (!hasApiKey()) openConfigWindow();
 
   const ok = globalShortcut.register(cfg.shortcut, handleShortcut);
+  if (cfg.palavraDeAtivacao) ligarPalavraDeAtivacao(acordarPorVoz);
+  // O PowerShell da escuta é filho do app; sem isto ele ficaria órfão escutando depois
+  // de "Sair" na bandeja.
+  app.on("before-quit", () => desligarPalavraDeAtivacao());
   if (!ok) notify("ELYSIUM — Aviso", `Atalho ${cfg.shortcut} não pôde ser registrado. Tente via bandeja.`);
 
   notify("ELYSIUM", "Pronto! Pressione Ctrl+Shift+J para falar.");
