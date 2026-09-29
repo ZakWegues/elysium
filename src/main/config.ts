@@ -359,6 +359,11 @@ export function getConfig(): AppConfig {
   };
 }
 
+/** Só o que o usuário mudou (sem os padrões) — é o que o backup leva (bloco 96). */
+export function getOverrides(): Partial<AppConfig> {
+  return { ...store.get("overrides", {} as Partial<AppConfig>) };
+}
+
 export function setOverride(patch: Partial<AppConfig>): void {
   const current = store.get("overrides", {} as Partial<AppConfig>);
   store.set("overrides", { ...current, ...patch });

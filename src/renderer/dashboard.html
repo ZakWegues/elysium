@@ -398,6 +398,21 @@
           <div id="quick-wrap"></div>
         </section>
 
+        <!-- Dados e diagnóstico (blocos 96 e 97). -->
+        <section class="cfg-grupo" id="sec-dados">
+          <p class="cfg-nota">Leva memória, lembretes, presets, rotinas, conversas e ajustes. Não leva a chave da Groq, o token do celular nem a Caixa (os anexos pesam). Importar soma ao que já existe.</p>
+          <div class="home-acoes" style="margin-top:0">
+            <button type="button" id="dados-exportar">Exportar tudo…</button>
+            <button type="button" id="dados-importar">Importar um backup…</button>
+          </div>
+          <p class="cfg-nota" style="margin-top:16px">O diagnóstico junta versão, modelos, Ollama, catálogo da Groq, rotinas e as últimas linhas do log — sem chave nem token. É o que colar numa conversa quando algo der errado.</p>
+          <div class="home-acoes" style="margin-top:0">
+            <button type="button" id="dados-diagnostico">Copiar diagnóstico</button>
+            <button type="button" id="dados-logs">Abrir a pasta de logs</button>
+          </div>
+          <pre id="dados-saida" hidden></pre>
+        </section>
+
         <section class="cfg-grupo" id="sec-sobre">
           <div id="sobre-corpo"></div>
         </section>

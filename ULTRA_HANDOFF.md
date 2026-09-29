@@ -702,6 +702,7 @@ regra. `shutdown.exe /a` devolve 1116 quando não há nada agendado; tratado com
 | `media.control` | `{operation: play\|pause\|skip\|previous\|volume_up\|volume_down}` | `{ok, message}` |
 | `volume.set` | `{level: 0-100 \| up\|down\|mute\|unmute}` | `{ok, message}` |
 | `volume.get` | — | `{nivel: 0-100, mudo}` — Core Audio, bloco 86 |
+| `system.diagnostico` | — | `{texto}` — versão, modelos, Ollama, catálogo da Groq, rotinas, log; sem segredos (bloco 97) |
 | `window.list` | — | `{janelas:[{hwnd, pid, processo, titulo, minimizada, maximizada, emFoco}]}` — EnumWindows, bloco 87 |
 | `window.control` | `{hwnd, operacao: focar\|minimizar\|maximizar\|restaurar\|fechar\|so_esta}` | `{ok, message}` — fechar é WM_CLOSE |
 **Tela**
@@ -4673,3 +4674,45 @@ JS: vai por OTA.
   O incômodo previsto (a TabBar reaparecendo durante a saída animada da gaveta) é de
   ~140 ms e a solução mexeria no dono de três gavetas. Sem o Zak ter reclamado, o risco não
   compensa.
+
+---
+
+## 29. Fase 11 — fora de casa e para sempre (blocos 94+)
+
+> Blocos **94 (push pelo FCM)** e **95 (auto-update por releases no GitHub)** ficam para
+> quando o Zak puder: o 94 exige criar o projeto no Firebase e colar o
+> `google-services.json` (§26), e o 95 exige **publicar releases** — ação pública que
+> ninguém faz sem ele pedir, e o repositório é privado (o app precisaria de um token do
+> GitHub para ler a release). Os outros três foram feitos na sequência.
+
+### Blocos 96 e 97 — exportar/importar tudo, log em arquivo e "copiar diagnóstico" ✅
+
+**Backup (`src/services/backup.ts`).** Ajustes → **Dados e diagnóstico** → "Exportar
+tudo…" grava `elysium-backup-AAAA-MM-DD.json` (em Documentos, pelo diálogo do Windows):
+memória, lembretes pendentes, presets, rotinas, conversas com a IA e os ajustes que você
+mudou (`getOverrides()`, novo no `config.ts`). **Não leva, de propósito**: chave da Groq e
+token do servidor (o arquivo costuma parar em pendrive e nuvem), a Caixa (anexos de até
+5 MB cada), o login do Spotify, e ajustes desta máquina (`ollamaBaseUrl`, `serverPort`).
+"Importar um backup…" mostra o resumo num diálogo do sistema e **soma, não substitui**:
+fato repetido, lembrete igual (texto+hora) e preset/rotina de mesmo nome são pulados;
+lembrete único que já passou não volta; conversas passam pelo `mergeSession` (vence a
+mais nova). Importar duas vezes não duplica — testado (`backup.test.ts`: ida e volta
+entre dois "PCs", e a segunda importação soma zero).
+
+**Log (`src/main/logArquivo.ts`).** Todo `console.*` do main vai também para
+`%APPDATA%\elysium\logs\elysium-AAAA-MM-DD.log`, com hora, escrito em lote a cada 250 ms
+(um log por quadro de telemetria não pode virar escrita síncrona no processo do
+microfone), 7 dias de retenção. **`mascarar()` antes de escrever**: `gsk_…`, qualquer hex
+de 64 caracteres (token do servidor, do Spotify) e `Bearer …` viram `[oculto]` — testado.
+Antes, no app instalado, o console ia para lugar nenhum.
+
+**Diagnóstico (`src/services/diagnostico.ts`).** "Copiar diagnóstico" monta um texto só:
+versão/Electron/Windows/CPU, quem decide e com qual modelo (local/nuvem), `num_ctx`,
+Ollama respondendo, **o catálogo atual da Groq**, visão e busca em uso, voz e palavra de
+ativação, as rotinas, as chaves de ajuste alteradas, e as últimas 60 linhas do log. Passa
+pelo mesmo `mascarar` — conferido ao vivo: nem a chave nem o token aparecem. Também pelo
+RPC **`system.diagnostico`**: o "Copiar diagnóstico" do Sobre do celular agora junta o do
+aparelho e o do PC num texto só. "Abrir a pasta de logs" abre o Explorer nela.
+
+De quebra: o seletor de modelo da Groq em Ajustes e no `config.html` ainda oferecia o
+`qwen3.6` morto — virou `qwen3.8`.

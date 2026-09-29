@@ -33,6 +33,7 @@ import { powerControl, PowerOperation } from "../actions/powerControl";
 import { mediaControl, MediaOperation } from "../actions/mediaControl";
 import { lerVolume, volumeControl } from "../actions/volumeControl";
 import { controlarJanela, listarJanelas } from "../actions/janelas";
+import { montarDiagnostico } from "./diagnostico";
 import { captureScreen, listScreens } from "./screenCapture";
 import { screenshot } from "../actions/screenshot";
 import { inputHost, MouseButton } from "./inputHost";
@@ -801,6 +802,10 @@ const METHODS: Record<string, MethodDef> = {
       const operacao = requireEnum(params, "operacao", ["focar", "minimizar", "maximizar", "restaurar", "fechar", "so_esta"] as const);
       return { ok: true, message: await controlarJanela(hwnd, operacao) };
     },
+  },
+  // O mesmo "copiar diagnóstico" dos Ajustes do PC, para o Sobre do celular (bloco 97).
+  "system.diagnostico": {
+    handler: async () => ({ texto: await montarDiagnostico() }),
   },
   // Leitura real do volume (bloco 86) — o que torna possível um slider honesto.
   "volume.get": {

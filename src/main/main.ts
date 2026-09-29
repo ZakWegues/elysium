@@ -8,6 +8,9 @@ import * as path from "node:path";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import { sincronizarInicioAutomatico, removerEntradaLegada } from "./autoLaunch";
+import { iniciarLogEmArquivo, pastaDeLogs } from "./logArquivo";
+import { aplicarBackup, lerBackup, montarBackup } from "../services/backup";
+import { montarDiagnostico } from "../services/diagnostico";
 import * as QRCode from "qrcode";
 import { getConfig, getApiKey, setApiKey, hasApiKey, setOverride, getOrCreateServerToken, regenerateServerToken, AppConfig } from "./config";
 import { limparCacheClima } from "../services/clima";
@@ -34,6 +37,9 @@ import { transcribe } from "../services/stt";
 import { clearHistory, desfazerUltimoTurno } from "../services/brain";
 import { modelosDaGroq } from "../services/catalogoGroq";
 import { desligarPalavraDeAtivacao, ligarPalavraDeAtivacao } from "../services/palavraAtivacao";
+
+// O log em arquivo entra antes de tudo que escreve no console (bloco 97).
+iniciarLogEmArquivo();
 import { getTopHistory } from "../services/history";
 import { registrarPergunta, bolhasDoChat } from "../services/perguntas";
 import { synthesize, cancelSpeak } from "../services/tts";
@@ -615,6 +621,44 @@ ipcMain.handle("mailbox:send-file", (_e, texto: string, anexo: { name: string; m
 
 // Link clicado numa resposta do chat (bloco 84). Só http(s): o markdown vem do modelo, e um
 // "file:" ou protocolo de app numa resposta não pode virar execução com um clique.
+// ── Dados e diagnóstico (blocos 96 e 97) ─────────────────────────────────────
+ipcMain.handle("backup:exportar", async () => {
+  const hoje = new Date().toISOString().slice(0, 10);
+  const alvo = BrowserWindow.getFocusedWindow() ?? dashWin ?? undefined;
+  const escolha = await dialog.showSaveDialog(alvo as BrowserWindow, {
+    title: "Exportar tudo do ELYSIUM",
+    defaultPath: path.join(app.getPath("documents"), `elysium-backup-${hoje}.json`),
+    filters: [{ name: "Backup do ELYSIUM", extensions: ["json"] }],
+  });
+  if (escolha.canceled || !escolha.filePath) return { cancelado: true };
+  const b = montarBackup();
+  fs.writeFileSync(escolha.filePath, JSON.stringify(b, null, 2), "utf8");
+  return { arquivo: escolha.filePath, memoria: b.memoria.length, lembretes: b.lembretes.length, presets: Object.keys(b.presets).length, rotinas: b.rotinas.length, conversas: b.conversas.length };
+});
+ipcMain.handle("backup:importar", async () => {
+  const alvo = BrowserWindow.getFocusedWindow() ?? dashWin ?? undefined;
+  const escolha = await dialog.showOpenDialog(alvo as BrowserWindow, {
+    title: "Importar um backup do ELYSIUM",
+    defaultPath: app.getPath("documents"),
+    filters: [{ name: "Backup do ELYSIUM", extensions: ["json"] }],
+    properties: ["openFile"],
+  });
+  if (escolha.canceled || !escolha.filePaths[0]) return { cancelado: true };
+  const b = lerBackup(JSON.parse(fs.readFileSync(escolha.filePaths[0], "utf8")));
+  // Confirmação no main, como os destrutivos do rpcBridge: importar muda ajustes e soma
+  // rotinas — quem decide é o diálogo do sistema, não um clique perdido na tela.
+  const { response } = await dialog.showMessageBox(alvo as BrowserWindow, {
+    type: "question", buttons: ["Importar", "Cancelar"], defaultId: 0, cancelId: 1,
+    title: "Importar backup",
+    message: `Backup de ${new Date(b.criadoEm).toLocaleString("pt-BR")} (ELYSIUM ${b.app})`,
+    detail: `${b.memoria.length} fatos de memória, ${b.lembretes.length} lembretes, ${Object.keys(b.presets).length} presets, ${b.rotinas.length} rotinas, ${b.conversas.length} conversas e os ajustes.\n\nSoma ao que já existe; nada é apagado. O que já existe com o mesmo nome fica como está.`,
+  });
+  if (response !== 0) return { cancelado: true };
+  return aplicarBackup(b);
+});
+ipcMain.handle("diagnostico:texto", () => montarDiagnostico());
+ipcMain.handle("diagnostico:abrir-logs", async () => { const p = pastaDeLogs(); if (p) await shell.openPath(p); return p; });
+
 // Catálogo da Groq para Ajustes e para diagnóstico: só os ids, a chave fica no main.
 ipcMain.handle("groq:modelos", (_e, forcar?: boolean) => modelosDaGroq(Boolean(forcar)));
 

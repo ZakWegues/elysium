@@ -82,6 +82,10 @@ contextBridge.exposeInMainWorld("nx", {
   mailboxSendFile:      (text: string, anexo: { name: string; mimeType: string; base64: string }, sessionId?: string | null) => ipcRenderer.invoke("mailbox:send-file", text, anexo, sessionId ?? null),
   abrirLink:            (url: string) => ipcRenderer.send("link:abrir", url),
   modelosGroq:          (forcar?: boolean) => ipcRenderer.invoke("groq:modelos", forcar),
+  backupExportar:       () => ipcRenderer.invoke("backup:exportar"),
+  backupImportar:       () => ipcRenderer.invoke("backup:importar"),
+  diagnostico:          () => ipcRenderer.invoke("diagnostico:texto"),
+  abrirLogs:            () => ipcRenderer.invoke("diagnostico:abrir-logs"),
 
   // Conversas da Caixa (lado PC do switch) — o par do bloco chatSessions* acima.
   mailboxSessionsList:     ()                        => ipcRenderer.invoke("mailbox:sessions-list"),

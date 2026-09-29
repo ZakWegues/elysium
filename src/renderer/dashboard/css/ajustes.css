@@ -197,3 +197,10 @@
 }
 #conv-btn:hover { background: rgba(var(--purple-rgb),0.16); color: var(--purple-bright); }
 /* `position` da faixa esta no bloco dela, la em cima. Aqui so o que e do popover. */
+/* Saída do diagnóstico (bloco 97): texto pronto para colar, rolável. */
+#dados-saida {
+  margin-top: 12px; max-height: 280px; overflow: auto; white-space: pre-wrap; word-break: break-word;
+  font-family: var(--mono); font-size: 10.5px; line-height: 1.5; color: var(--muted);
+  padding: 10px 12px; border-radius: var(--radius-8); border: 1px solid var(--border); background: rgba(0,0,0,0.12);
+}
+.theme-lg #dados-saida { background: rgba(17,17,26,0.04); }

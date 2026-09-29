@@ -80,10 +80,10 @@ const AJUSTES = [
       { chave: "sttModel", rotulo: "Transcrição", tipo: "select", opcoes: [
         ["whisper-large-v3", "Whisper Large v3"], ["whisper-large-v3-turbo", "Whisper Large v3 Turbo"]] },
       { chave: "routerModel", rotulo: "Decide a ação", tipo: "select", opcoes: [
-        ["openai/gpt-oss-120b", "GPT-OSS 120B"], ["openai/gpt-oss-20b", "GPT-OSS 20B"], ["qwen/qwen3.6-27b", "Qwen3.6 27B"]],
+        ["openai/gpt-oss-120b", "GPT-OSS 120B"], ["openai/gpt-oss-20b", "GPT-OSS 20B"], ["qwen/qwen3.8-27b", "Qwen3.8 27B"]],
         dica: "A família Llama foi aposentada pela Groq. Medido: só o 120B devolve o nome da ação no formato certo." },
       { chave: "brainModel", rotulo: "Escreve a resposta", tipo: "select", opcoes: [
-        ["openai/gpt-oss-120b", "GPT-OSS 120B"], ["openai/gpt-oss-20b", "GPT-OSS 20B"], ["qwen/qwen3.6-27b", "Qwen3.6 27B"]] },
+        ["openai/gpt-oss-120b", "GPT-OSS 120B"], ["openai/gpt-oss-20b", "GPT-OSS 20B"], ["qwen/qwen3.8-27b", "Qwen3.8 27B"]] },
     ],
   },
   {
@@ -126,6 +126,8 @@ const SECOES_AJUSTES = [
     resumo: (c) => c.autoLaunch ? "Inicia com o Windows" : "Não inicia com o Windows" },
   { id: "recentes", titulo: "Comandos recentes", icone: "clock", nos: ["#sec-recentes"],
     resumo: () => "O que você mais pede" },
+  { id: "dados", titulo: "Dados e diagnóstico", icone: "download", nos: ["#sec-dados"],
+    resumo: () => "Backup, importar, log" },
   { id: "sobre", titulo: "Sobre", icone: "info", nos: ["#sec-sobre"],
     resumo: () => "Versão, porta e pastas", aoAbrir: () => desenharSobre() },
 ];
@@ -380,3 +382,35 @@ document.addEventListener("click", () => abrirConversas(false));
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && convPop?.classList.contains("aberto")) { e.stopPropagation(); abrirConversas(false); }
 }, true);
+
+// ── Dados e diagnóstico (blocos 96 e 97) ────────────────────────────────────
+// Os ouvintes vão direto nos botões: a seção é MOVIDA para a gaveta (os nós são os mesmos),
+// então o ouvinte viaja junto.
+document.getElementById("dados-exportar")?.addEventListener("click", async () => {
+  try {
+    const r = await window.nx.backupExportar();
+    if (r?.cancelado) return;
+    showToast(`Exportado: ${r.memoria} fatos, ${r.lembretes} lembretes, ${r.presets} presets, ${r.rotinas} rotinas, ${r.conversas} conversas.`);
+  } catch (e) { showToast(`Não consegui exportar: ${e?.message ?? e}`, true); }
+});
+document.getElementById("dados-importar")?.addEventListener("click", async () => {
+  try {
+    const r = await window.nx.backupImportar();
+    if (r?.cancelado) return;
+    showToast(`Importado: +${r.memoria} fatos, +${r.lembretes} lembretes, +${r.presets} presets, +${r.rotinas} rotinas, ${r.conversas} conversas, ${r.ajustes} ajustes.`);
+    loadConfig?.();
+  } catch (e) { showToast(`Não consegui importar: ${String(e?.message ?? e).replace(/^Error invoking remote method '[^']+': (Error: )?/, "")}`, true); }
+});
+document.getElementById("dados-diagnostico")?.addEventListener("click", async (ev) => {
+  const b = ev.currentTarget;
+  b.disabled = true;
+  try {
+    const texto = await window.nx.diagnostico();
+    try { await navigator.clipboard.writeText(texto); } catch { await window.nx.rpc("clipboard.set", { text: texto }); }
+    const saida = document.getElementById("dados-saida");
+    if (saida) { saida.hidden = false; saida.textContent = texto; }
+    showToast("Diagnóstico copiado.");
+  } catch (e) { showToast(`Não consegui montar o diagnóstico: ${e?.message ?? e}`, true); }
+  finally { b.disabled = false; }
+});
+document.getElementById("dados-logs")?.addEventListener("click", () => window.nx.abrirLogs());

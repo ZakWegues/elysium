@@ -9,7 +9,7 @@ export interface PresetEntry {
   actions: BrainAction[];
 }
 
-type PresetsMap = Record<string, PresetEntry>;
+export type PresetsMap = Record<string, PresetEntry>;
 
 const store = new Store<{ presets: PresetsMap }>({
   name: "presets",
