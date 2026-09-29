@@ -190,7 +190,7 @@ pedir de novo.**
 
 | Repo | HEAD (29/09/2026) | Estado |
 |---|---|---|
-| `elysium` | fase 12 (§30) — desktop **1.5.2** | limpo, pusheado, releases `v1.4.0`…`v1.5.2` |
+| `elysium` | fase 12 (§30) — desktop **1.5.4** | limpo, pusheado, releases `v1.4.0`…`v1.5.4` |
 | `elysium-m` | fase 12 (§30) — celular **1.5.1** (`versionCode` 15) | limpo, pusheado, releases `v1.4.0`…`v1.5.1` |
 
 > **Desde 29/09/2026 as versões saem como releases do GitHub e se atualizam sozinhas**
@@ -720,6 +720,8 @@ regra. `shutdown.exe /a` devolve 1116 quando não há nada agendado; tratado com
 | `storage.info` | `{forcar?: true}` | `{discos, downloads, temp, lixeira, grandes:[{nome, bytes, em}], medidoEm}` — cache de 5 min (§30) |
 | `storage.clean` | `{alvo: lixeira\|temp}` | `{liberado, message}` — **destrutivo**; temp só apaga o que tem mais de 2 dias |
 | `storage.open` | `{alvo: downloads\|temp\|limpeza\|configuracoes\|arquivo, nome?}` | `{ok, message}` — `arquivo` só dentro de Downloads |
+| `system.saude` | — | `{itens:[{id, titulo, nivel: ok\|aviso\|erro, detalhe, conserto?}]}` — card "Saúde" (§30, bloco 107) |
+| `system.saude.consertar` | `{item: ollama\|inicio}` | `{message}` |
 **Tela**
 
 | método | params | retorno |
@@ -4827,6 +4829,8 @@ fila local (bloco 72) vira só a rede de segurança.
 | 1.5.0 | os dois | bloco 95 — atualização automática (+ `update.install`) |
 | 1.5.1 | os dois | blocos 100–102 — armazenamento, novidades, início automático certo |
 | 1.5.2 | desktop | blocos 103–104 — Ollama que se levanta, falha dita em português, madrugada, 2 ferramentas |
+| 1.5.3 | desktop | bloco 105 — download em segundo plano |
+| 1.5.4 | desktop (+ OTA no celular) | blocos 106–107 — `gpu-heavy.json` no build, cura gravada, card "Saúde" |
 
 ### Bloco 95 — atualização automática pelas releases do GitHub ✅
 
@@ -4995,3 +4999,55 @@ de folga e podia ser recusado como passado) — folga subiu para 400 ms.
 - [ ] Celular: aba PC → Armazenamento; "Atualizar o PC" em Sobre quando houver versão.
 - [ ] PC: Início mostra "Novidades da 1.5.2" uma vez; aba PC → Armazenamento.
 - [ ] Reiniciar o PC e conferir que sobe a 1.5.2 (Ajustes → Sobre), não a cópia velha.
+
+### Bloco 105 — download em segundo plano (1.5.3) ✅
+
+Revisão minha do `atualizacao.ts` achou dois defeitos. **"Verificar agora" esperava o
+download inteiro** (80 + 115 MB): a tela ficava em "Procurando…" durante todo ele e o
+"Procurar versão nova" do celular (30 s de prazo) estourava. E **uma verificação durante um
+download limpava a pasta** — o `.parcial` em curso não está na lista de quem fica e seria
+apagado debaixo do próprio download. Agora a verificação responde na hora
+(`baixarPendentes` corre solto, progresso pelos eventos), não limpa nada com download em
+curso e não zera a barra de quem está baixando. `update.status {aguardar: true}` espera o
+download — só para diagnóstico e teste. No celular, Ajustes → Sobre diz "o PC está
+baixando … N%" em vez de "versão mais nova" (OTA, runtime `e9f21d09…`).
+
+### Bloco 106 — o que o log do app instalado contava (1.5.4) ✅
+
+Olhar o log real (`%APPDATA%\elysium\logs`) achou duas coisas:
+
+- 🔴 **`gpu-heavy.json` nunca foi copiado para o `dist`, desde o bloco 14.** O `gpuGuard`
+  seguia "sem lista" em silêncio em todo build: com jogo aberto, o modelo local carregava
+  na GPU mesmo assim. `copy-assets.mjs` corrigido; `tests/assets.test.ts` exige que todo
+  JSON de `src/config` e todo HTML do renderer estejam lá (o teste pega o bug sem a
+  correção). Conferido no `app.asar` da 1.5.4.
+- **Modelo aposentado escolhido pelo usuário agora é trocado no disco.** As sobreposições
+  do Zak guardavam `llama-3.1-8b-instant` (morto): o Ajustes mostrava um modelo que não
+  existe e a cura rodava 65 vezes por dia no log. Padrões continuam fora do disco.
+
+### Bloco 107 — card "Saúde do ELYSIUM" (desktop 1.5.4, celular por OTA) ✅
+
+As falhas desta noite tinham uma coisa em comum: **nenhuma aparecia na tela**. O card
+confere e diz, com o conserto de um clique quando existe:
+
+| item | vermelho/amarelo quando | conserto |
+|---|---|---|
+| Cérebro local | Ollama parado / modelo não baixado | "Subir o Ollama" (fura a trava de 1/min) |
+| Groq | sem chave / 429 nos últimos 10 min | — |
+| Início com o Windows | a entrada aponta para outra cópia | "Corrigir" (`sincronizarInicioAutomatico`) |
+| Versão | nova baixada / sem token / verificação falhou | "Instalar" (`update.install`) |
+| Disco | ≥ 88% (aviso) ou ≥ 95% / < 10 GB (erro) | abre o painel Armazenamento |
+| Celular | nunca pareado / sem falar há 3 dias | — |
+
+Com tudo certo mostra só "Tudo certo." (a lista inteira seria ruído). `system.saude` e
+`system.saude.consertar` no RPC; `avaliarSaude` é pura e testada, inclusive com o cenário
+exato desta noite. Testado ao vivo: Ollama derrubado de propósito → card vermelho → botão →
+Ollama de pé em segundos. No celular é o mesmo card, na ordem de fábrica depois de
+"Este computador"; com PC anterior à 1.5.4 diz só que o PC não respondeu.
+
+Números à brasileira (24,8 GB) nos cards de discos e do computador.
+
+⏰ **Teste armado para a madrugada de 30/09**: o instalado (1.5.2) está com a 1.5.4 baixada.
+Entre 3 e 5 h, com o PC parado, ele deve instalar sozinho — de manhã, Ajustes → Sobre
+tem de mostrar 1.5.4 e a Início, "Novidades da 1.5.4". Se o PC dormir antes, instala na
+madrugada seguinte (ou pelo botão).
