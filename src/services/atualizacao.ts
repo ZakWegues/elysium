@@ -225,6 +225,34 @@ function limparAntigos(manter: string[]): void {
 
 let baixando = false;
 
+async function baixarPendentes(tk: string, assetPc?: AssetGitHub, assetCel?: AssetGitHub): Promise<void> {
+  baixando = true;
+  try {
+    const d = estado.desktop;
+    if (d && !d.pronto && assetPc) {
+      await baixarAsset(REPO_DESKTOP, assetPc, d.arquivo, tk, p => mudar({ desktop: { ...estado.desktop!, progresso: p } }));
+      mudar({ desktop: { ...estado.desktop!, progresso: 1, pronto: true } });
+      console.log(`[atualizacao] ELYSIUM ${d.versao} baixado.`);
+    }
+    const c = estado.celular;
+    if (c && !c.pronto && assetCel) {
+      await baixarAsset(REPO_CELULAR, assetCel, c.arquivo, tk, p => mudar({ celular: { ...estado.celular!, progresso: p } }));
+      mudar({ celular: { ...estado.celular!, progresso: 1, pronto: true } });
+      console.log(`[atualizacao] ELYSIUM-M ${c.versao} guardado para o celular.`);
+    }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.warn("[atualizacao] download falhou:", msg);
+    mudar({ erro: `download: ${msg}` });
+  } finally { baixando = false; }
+}
+
+/** Espera o download em curso acabar (para quem precisa do arquivo pronto, como um teste). */
+export async function aguardarDownloads(prazoMs = 10 * 60 * 1000): Promise<void> {
+  const limite = Date.now() + prazoMs;
+  while (baixando && Date.now() < limite) await new Promise(r => setTimeout(r, 500));
+}
+
 export async function verificarAtualizacoes(): Promise<EstadoAtualizacao> {
   if (estado.verificando) return estadoAtualizacao();
   mudar({ verificando: true, erro: undefined });
@@ -240,23 +268,22 @@ export async function verificarAtualizacoes(): Promise<EstadoAtualizacao> {
     const desktop = relPc && assetPc && compararVersoes(relPc.tag_name, estado.atual) > 0 ? pacoteDe(relPc, assetPc) : undefined;
     // O APK é guardado sempre (o PC não sabe a versão do celular; quem compara é o app).
     const celular = relCel && assetCel ? pacoteDe(relCel, assetCel) : undefined;
-    mudar({ semToken: false, desktop, celular, verificadoEm: Date.now() });
-    limparAntigos([desktop?.arquivo, celular?.arquivo].filter((x): x is string => !!x));
-
+    // Durante um download, o estado de quem está baixando fica como está: recriar o pacote
+    // zeraria a barra até o próximo aviso de progresso.
+    mudar({
+      semToken: false,
+      desktop: baixando && desktop && estado.desktop?.versao === desktop.versao ? estado.desktop : desktop,
+      celular: baixando && celular && estado.celular?.versao === celular.versao ? estado.celular : celular,
+      verificadoEm: Date.now(),
+    });
+    // Nunca com download em curso: o `.parcial` que está sendo escrito não está na lista de
+    // quem fica, e seria apagado debaixo do próprio download.
     if (!baixando) {
-      baixando = true;
-      try {
-        if (desktop && !desktop.pronto && assetPc) {
-          await baixarAsset(REPO_DESKTOP, assetPc, desktop.arquivo, tk, p => mudar({ desktop: { ...estado.desktop!, progresso: p } }));
-          mudar({ desktop: { ...estado.desktop!, progresso: 1, pronto: true } });
-          console.log(`[atualizacao] ELYSIUM ${desktop.versao} baixado.`);
-        }
-        if (celular && !celular.pronto && assetCel) {
-          await baixarAsset(REPO_CELULAR, assetCel, celular.arquivo, tk, p => mudar({ celular: { ...estado.celular!, progresso: p } }));
-          mudar({ celular: { ...estado.celular!, progresso: 1, pronto: true } });
-          console.log(`[atualizacao] ELYSIUM-M ${celular.versao} guardado para o celular.`);
-        }
-      } finally { baixando = false; }
+      limparAntigos([desktop?.arquivo, celular?.arquivo].filter((x): x is string => !!x));
+      // Em segundo plano: quem pediu a verificação (a tela, o celular) recebe a resposta na
+      // hora e acompanha o progresso pelos eventos — esperar 80 + 115 MB aqui estourava o
+      // prazo do celular e deixava a tela em "Procurando…" durante o download inteiro.
+      void baixarPendentes(tk, assetPc, assetCel);
     }
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);

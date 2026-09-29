@@ -35,7 +35,7 @@ import { lerVolume, volumeControl } from "../actions/volumeControl";
 import { controlarJanela, listarJanelas } from "../actions/janelas";
 import { montarDiagnostico } from "./diagnostico";
 import { abrirNoPc, AlvoAbrir, AlvoLimpeza, lerArmazenamento, limpar } from "../actions/armazenamento";
-import { estadoAtualizacao, instalarAtualizacaoDesktop, verificarAtualizacoes } from "./atualizacao";
+import { aguardarDownloads, estadoAtualizacao, instalarAtualizacaoDesktop, verificarAtualizacoes } from "./atualizacao";
 import { captureScreen, listScreens } from "./screenCapture";
 import { screenshot } from "../actions/screenshot";
 import { inputHost, MouseButton } from "./inputHost";
@@ -811,6 +811,8 @@ const METHODS: Record<string, MethodDef> = {
   "update.status": {
     handler: async (params) => {
       if (params["verificar"] === true) await verificarAtualizacoes();
+      // `aguardar`: só para diagnóstico e teste — espera o download terminar antes de responder.
+      if (params["aguardar"] === true) await aguardarDownloads();
       const e = estadoAtualizacao();
       const resumo = (x?: { versao: string; notas: string; publicadaEm: string; tamanho: number; pronto: boolean; progresso: number }) =>
         x ? { versao: x.versao, notas: x.notas, publicadaEm: x.publicadaEm, tamanho: x.tamanho, pronto: x.pronto, progresso: x.progresso } : null;
