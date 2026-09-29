@@ -4638,3 +4638,21 @@ celular ganhou `sensacao`, `horas` e `amanha` opcionais (PC antigo não manda).
 
 ⚠️ **Widget novo mexe no manifesto** (o plugin gera um receiver por widget): só chega com
 **APK novo** — não vai por OTA. Fica para o fechamento da fase (bloco 93).
+
+### Bloco 91 — Ajustes do celular em azulejos ✅
+
+A gaveta de Ajustes era uma lista corrida (estilo, cor, voz, notificações, "Sobre" e
+"Desparear" no fim). Virou o mesmo desenho do desktop (bloco 65): um **hub de 5
+azulejos**, cada um com o valor que está valendo como resumo, e uma seção por vez com
+"‹ voltar".
+
+| azulejo | resumo | dentro |
+|---|---|---|
+| Aparência | "ELYSIUM · Campos Elísios" | família (Vidro / ELYSIUM / seguir o aparelho) e as três cores |
+| Voz | "Voz do PC" | voz neural do PC ou do celular (bloco 85) |
+| Notificações | "Avisando neste celular" | o interruptor de avisos locais (antes só na aba Rotinas) + o push da Expo |
+| Pareamento | "192.168.15.22:4200" | todos os endereços conhecidos, o ativo marcado, o do túnel identificado, e Desparear |
+| Sobre | "Versão 1.3.0" | versão, runtime, canal e atualização OTA em uso (`expo-updates`), PC e endereço ativo, e **"Copiar diagnóstico"** |
+
+`expo-constants` é importado direto (é dependência do próprio `expo`, sempre presente). Só
+JS: vai por OTA.
