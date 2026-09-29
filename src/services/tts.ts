@@ -43,6 +43,39 @@ export function cleanTextForSpeech(raw: string): string {
     .substring(0, 2000);
 }
 
+// ── Voz para o celular (bloco 85) ────────────────────────────────────────────
+// O celular falava com o `expo-speech` (a voz do Android, bem pior que a neural daqui).
+// Agora ele pede o MP3 ao PC. Instância própria do MsEdgeTTS: a do `synthesize` pode estar
+// no meio de uma fala na caixa de som, e `setMetadata` na mesma instância trocaria a voz
+// dela no meio. Cache das últimas 20 falas: tocar de novo a mesma resposta não sintetiza.
+let _ttsCelular: MsEdgeTTS | null = null;
+const cacheMp3 = new Map<string, Buffer>();
+
+export async function sintetizarMp3(texto: string): Promise<Buffer> {
+  const limpo = cleanTextForSpeech(texto);
+  if (!limpo) throw new Error("nada para falar");
+  const voz = getConfig().voice?.trim() || VOICE;
+  const chave = `${voz}|${limpo}`;
+  const guardado = cacheMp3.get(chave);
+  if (guardado) return guardado;
+
+  if (!_ttsCelular) _ttsCelular = new MsEdgeTTS();
+  await _ttsCelular.setMetadata(voz, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3, {});
+  const { audioStream } = _ttsCelular.toStream(limpo, PROSODY);
+  const pedacos: Buffer[] = [];
+  await new Promise<void>((ok, falha) => {
+    const t = setTimeout(() => falha(new Error("síntese demorou demais")), TTS_TIMEOUT_MS);
+    audioStream.on("data", (c: Buffer) => pedacos.push(c));
+    audioStream.on("end", () => { clearTimeout(t); ok(); });
+    audioStream.on("error", (e) => { clearTimeout(t); falha(e); });
+  }).catch((e) => { _ttsCelular = null; throw e; });
+  const mp3 = Buffer.concat(pedacos);
+  if (!mp3.length) throw new Error("síntese vazia");
+  cacheMp3.set(chave, mp3);
+  if (cacheMp3.size > 20) cacheMp3.delete(cacheMp3.keys().next().value as string);
+  return mp3;
+}
+
 export async function synthesize(text: string): Promise<void> {
   if (!text?.trim()) return;
   const clean = cleanTextForSpeech(text);

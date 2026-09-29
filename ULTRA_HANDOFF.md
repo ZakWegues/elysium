@@ -4479,3 +4479,24 @@ qwen faz isso) como conversa — antes caía como resposta literal.
 ao vivo no app de dev: arquivo de texto ("a cor preferida segundo o arquivo" → verde-musgo),
 imagem, refazer (morango → maçã), editar (vermelha → amarela, conversa gravada com só o
 turno novo), Ctrl+F (1/1), capturas nos temas Vidro e ELYSIUM.
+
+### Bloco 85 — a voz do PC no celular ✅
+
+O celular respondia com o `expo-speech` (a voz do Android). Agora pede o MP3 ao PC:
+
+- **`GET /api/tts?text=`** (`server.ts`, com token) → `audio/mpeg` na voz de Ajustes → Voz
+  do PC. GET porque é o formato que um player sabe buscar. `sintetizarMp3()` em `tts.ts`
+  usa uma **instância própria** do `MsEdgeTTS` — a do `synthesize` pode estar falando na
+  caixa de som, e `setMetadata` nela trocaria a voz no meio — e guarda as últimas 20 falas.
+  Medido: **14 s na primeira síntese** depois de o PC ligar (conexão com o serviço do Edge),
+  ~0,5–0,8 s nas seguintes, 3 ms no cache. Sem token → 401.
+- **`src/lib/falar.ts`** (celular): `falar(texto, pairing)` baixa o MP3 com prazo de **8 s**
+  para um arquivo no cache (`expo-file-system`) e toca com `expo-audio`; sem PC, sem rede,
+  ou passou do prazo → `expo-speech`. Baixar em vez de dar a URL ao player é o que torna o
+  prazo nosso: player com URL remota fica mudo esperando, sem fallback. Troca as três
+  chamadas de `Speech.speak` (resposta do chat, foto pela câmera, "o que tem na tela").
+- **Ajustes do celular → "Voz das respostas"**: Voz do PC (padrão) / Voz do celular, com
+  uma frase de amostra ao tocar. Chave `elysium_voz_do_pc_v1`.
+
+Só JS no celular (`expo-audio` e `expo-file-system` já estavam no APK): vai por OTA ou no
+próximo APK. ⚠️ Não testado no aparelho (sem `adb`); a rota foi testada de fora.

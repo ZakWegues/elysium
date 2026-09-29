@@ -8,6 +8,7 @@
  *
  * Routes:
  *   GET  /api/health            → { status, version }
+ *   GET  /api/tts?text=         → audio/mpeg na voz neural do PC (bloco 85)
  *   POST /api/command           → { text } → { reply }     (linguagem natural → cérebro)
  *   GET  /api/rpc               → { methods }              (descoberta)
  *   POST /api/rpc               → { method, params } → { result }  (chamada tipada)
@@ -35,6 +36,7 @@ import {
 import { completeLogin as completeSpotifyLogin } from "./spotify";
 import { handleRpc, listRpcMethods, RpcError } from "./rpc";
 import { emitirEvento } from "./eventos";
+import { sintetizarMp3 } from "./tts";
 
 const WS_MAGIC = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 const PKG_VERSION = "1.3.0";
@@ -332,6 +334,22 @@ function makeHandler(
     if (req.method === "GET" && url === "/api/health") {
       res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
       res.end(JSON.stringify({ status: "ok", version: PKG_VERSION, wsClients: wsClients.size }));
+      return;
+    }
+
+    // GET /api/tts?text=… — a mesma voz neural do PC, em MP3, para o celular tocar (bloco 85).
+    // GET e não POST porque quem busca é o player do expo-audio, que só sabe fazer GET com
+    // cabeçalhos. O texto passa pelo mesmo limpador da fala (teto de 2000 caracteres).
+    if (req.method === "GET" && url === "/api/tts") {
+      const texto = new URL(req.url ?? "/", "http://x").searchParams.get("text") ?? "";
+      if (!texto.trim()) { sendJson(res, 400, { error: "text vazio" }); return; }
+      try {
+        const mp3 = await sintetizarMp3(texto);
+        res.writeHead(200, { "Content-Type": "audio/mpeg", "Content-Length": mp3.length, "Cache-Control": "no-store" });
+        res.end(mp3);
+      } catch (e) {
+        sendJson(res, 502, { error: `síntese falhou: ${e instanceof Error ? e.message : String(e)}` });
+      }
       return;
     }
 
