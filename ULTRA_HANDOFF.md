@@ -4596,3 +4596,28 @@ reflexão.
 ⚠️ **Só o Zak valida a precisão** (sem ninguém falando perto do PC nesta sessão): ligar,
 dizer "Elysium" a 1–3 m, e deixar uma hora de música/jogo tocando para ver se acorda
 sozinho. Se acordar demais, o próximo passo é exigir só `High`.
+
+### Bloco 89 — conversa mão livre no celular ✅
+
+No chat do celular, **com o campo vazio o botão de enviar vira um fone** 🎧: toque e a
+conversa segue sozinha — grava, manda, a resposta é falada, e volta a ouvir. Uma faixa acima
+da barra diz a fase ("pode falar" / "pensando" / "respondendo") e tem o × para sair.
+
+- **Fim da fala detectado no aparelho**: o gravador passou a medir nível
+  (`isMeteringEnabled`), e um laço de 120 ms decide com **dois limiares** (voz acima de
+  −38 dBFS, silêncio abaixo de −46) — a folga entre eles evita que ruído no meio alterne
+  "falou/calou". Fecha a frase após **1,3 s** de silêncio depois de ter havido voz; sem voz
+  em **20 s**, a mão livre desliga sozinha com um aviso; teto de 30 s por frase.
+- **Sair falando**: "chega", "pode parar", "tchau", "até mais", "obrigado, é só",
+  "encerrar". **Nunca "para" sozinho** — "para a música" é um pedido, não um tchau. (A
+  regex usa `(?=\W|$)` no fim e não `\b`: em JS sem `u`, `\b` depois de "só" não casa.)
+- **`falar()` agora só resolve quando a fala termina** (evento `didJustFinish` do player, ou
+  `onDone` do `expo-speech`, com teto de segurança pelo tamanho do texto): era o que faltava
+  para o microfone não gravar a própria resposta. `pararDeFalar()` resolve a fala em curso.
+- O aperta-e-fala fica desabilitado durante a mão livre (os dois usam o mesmo gravador), e
+  sair da tela desliga tudo.
+
+Só JS (o `expo-audio` já estava no APK). ⚠️ Os limiares em dB são estimativa para um
+celular na mão; **só o Zak calibra** — se cortar no meio da frase, subir
+`SILENCIO_PARA_FECHAR_MS`; se não fechar nunca num lugar barulhento, subir
+`LIMIAR_SILENCIO_DB` (os dois no topo do bloco "Mão livre" do `ChatScreen.tsx`).
