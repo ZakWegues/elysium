@@ -141,6 +141,15 @@ async function fetchOllama(url: string, init: RequestInit): Promise<Response> {
   }
 }
 
+/**
+ * Quando a Groq recusou por limite (429) pela última vez. O card "Saúde" usa: limite
+ * recente com o Ollama fora do ar é exatamente o "não responde" de 29/09/2026.
+ */
+let ultimoLimiteGroq = 0;
+export function momentoDoUltimoLimiteGroq(): number {
+  return ultimoLimiteGroq;
+}
+
 export function baseDoOllama(): string {
   return baseOllama();
 }
@@ -179,6 +188,7 @@ async function chamarGroq(p: ChatPedido): Promise<string> {
     if (res.status === 404 && /model_not_found|does not exist/i.test(corpo)) {
       marcarModeloMorto("groq", p.model);
     }
+    if (res.status === 429) ultimoLimiteGroq = Date.now();
     throw new ProviderError("groq", `HTTP ${res.status} ${corpo}`);
   }
 
@@ -360,7 +370,8 @@ export async function callChatComFerramentas(p: PedidoComFerramentas): Promise<R
     if (!res.ok) {
       const corpo = await corpoCurto(res);
       if (res.status === 404 && /model_not_found|does not exist/i.test(corpo)) marcarModeloMorto("groq", p.model);
-      throw new ProviderError("groq", `HTTP ${res.status} ${corpo}`);
+      if (res.status === 429) ultimoLimiteGroq = Date.now();
+    throw new ProviderError("groq", `HTTP ${res.status} ${corpo}`);
     }
     const dados = await res.json() as { choices?: { message?: { content?: string | null; tool_calls?: unknown } }[] };
     const msg = dados.choices?.[0]?.message;

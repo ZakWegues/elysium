@@ -34,6 +34,7 @@ import { mediaControl, MediaOperation } from "../actions/mediaControl";
 import { lerVolume, volumeControl } from "../actions/volumeControl";
 import { controlarJanela, listarJanelas } from "../actions/janelas";
 import { montarDiagnostico } from "./diagnostico";
+import { consertarSaude, verificarSaude } from "./saude";
 import { abrirNoPc, AlvoAbrir, AlvoLimpeza, lerArmazenamento, limpar } from "../actions/armazenamento";
 import { aguardarDownloads, estadoAtualizacao, instalarAtualizacaoDesktop, verificarAtualizacoes } from "./atualizacao";
 import { captureScreen, listScreens } from "./screenCapture";
@@ -843,6 +844,13 @@ const METHODS: Record<string, MethodDef> = {
   "update.install": {
     destructive: true,
     handler: async () => instalarAtualizacaoDesktop(),
+  },
+  // "Saúde do ELYSIUM" (fase 12): o que está quebrado, com o conserto de um clique.
+  "system.saude": {
+    handler: async () => ({ itens: await verificarSaude() }),
+  },
+  "system.saude.consertar": {
+    handler: async (params) => ({ message: await consertarSaude(requireEnum(params, "item", ["ollama", "inicio"] as const)) }),
   },
   // O mesmo "copiar diagnóstico" dos Ajustes do PC, para o Sobre do celular (bloco 97).
   "system.diagnostico": {

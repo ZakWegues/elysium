@@ -393,3 +393,20 @@ body.redimensionando, body.redimensionando * { user-select: none !important; cur
   color: var(--text); font-family: inherit; font-size: 12px;
 }
 .novidades-topo button:hover { background: rgba(var(--purple-rgb), 0.24); }
+
+/* ── Saúde do ELYSIUM (fase 12) ─────────────────────────────────────────── */
+.saude-resumo { font-size: 13px; font-weight: 600; margin-bottom: 8px; color: var(--text); }
+.saude-resumo.ruim { color: #d99a2b; }
+.saude-lista { display: flex; flex-direction: column; gap: 6px; }
+.saude-item { display: flex; align-items: center; gap: 10px; font-size: 12px; }
+.saude-ponto { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; background: #3fae6a; }
+.saude-item.aviso .saude-ponto { background: #d99a2b; }
+.saude-item.erro .saude-ponto { background: #d9534f; }
+.saude-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.saude-txt em { font-style: normal; font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
+.saude-item button {
+  height: 24px; padding: 0 10px; border-radius: var(--radius-20); cursor: pointer; flex-shrink: 0;
+  border: 1px solid rgba(var(--purple-rgb), 0.40); background: rgba(var(--purple-rgb), 0.12);
+  color: var(--text); font-family: inherit; font-size: 11px;
+}
+.saude-item button:hover { background: rgba(var(--purple-rgb), 0.22); }

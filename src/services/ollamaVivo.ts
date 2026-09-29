@@ -42,13 +42,17 @@ function executaveis(): { exe: string; args: string[] }[] {
   return lista;
 }
 
-/** `true` se o Ollama estiver respondendo (já estava, ou acabou de subir). */
-export function garantirOllama(base: string): Promise<boolean> {
+/**
+ * `true` se o Ollama estiver respondendo (já estava, ou acabou de subir). `forcar` fura a
+ * trava de uma tentativa por minuto: é o clique do Zak em "Subir o Ollama", não um pedido
+ * automático repetido.
+ */
+export function garantirOllama(base: string, forcar = false): Promise<boolean> {
   if (!enderecoLocal(base)) return responde(base, 1500);
   if (subindo) return subindo;
   subindo = (async () => {
     if (await responde(base, 1500)) return true;
-    if (Date.now() - ultimaTentativa < INTERVALO_TENTATIVAS_MS) return false;
+    if (!forcar && Date.now() - ultimaTentativa < INTERVALO_TENTATIVAS_MS) return false;
     ultimaTentativa = Date.now();
     for (const { exe, args } of executaveis()) {
       try {

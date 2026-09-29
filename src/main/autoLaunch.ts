@@ -69,6 +69,22 @@ function executavelDoValor(valor: string): string | null {
   return semAspas ? semAspas[1] : null;
 }
 
+/**
+ * A entrada do Registro aponta para ESTE executável? Para o card "Saúde" (fase 12) — foi
+ * apontando para a cópia velha que o Windows subiu a 1.0.2 a cada boot, sem ninguém ver.
+ */
+export async function inicioAutomaticoConfere(): Promise<{ ok: boolean; detalhe: string }> {
+  if (process.platform !== "win32") return { ok: true, detalhe: "fora do Windows" };
+  if (!app.isPackaged) return { ok: true, detalhe: "desenvolvimento: não sobe com o Windows" };
+  const valor = await consultarRegistro(nomeRegistrado());
+  const exe = valor ? executavelDoValor(valor) : null;
+  if (!exe) return { ok: false, detalhe: "não está registrado para subir com o Windows" };
+  if (path.resolve(exe).toLowerCase() !== path.resolve(process.execPath).toLowerCase()) {
+    return { ok: false, detalhe: `o Windows sobe outra cópia: ${exe}` };
+  }
+  return { ok: true, detalhe: "sobe com o Windows, esta versão" };
+}
+
 /** Remove a entrada deixada pela instalação NEUROAXIS, se houver. Ver armadilha 1. */
 export async function removerEntradaLegada(): Promise<void> {
   if (process.platform !== "win32") return;

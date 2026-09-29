@@ -135,7 +135,7 @@ const CARDS = {
       const disco = (t.disks ?? [])[0];
       let html = linhaMetrica("Processador", `${Math.round(t.cpu_pct ?? 0)}%`, t.cpu_pct ?? 0, "home-cpu")
                + linhaMetrica("Memória", t.ram_total_gb ? `${Math.round(t.ram_pct ?? 0)}% · ${t.ram_used_gb} de ${t.ram_total_gb} GB` : `${Math.round(t.ram_pct ?? 0)}%`, t.ram_pct ?? 0, "home-ram");
-      if (disco) html += linhaMetrica(`Disco ${escHtml(disco.name ?? "principal")}`, `${disco.freeGB} GB livres`, disco.usedPct ?? 0);
+      if (disco) html += linhaMetrica(`Disco ${escHtml(disco.name ?? "principal")}`, `${String(disco.freeGB).replace(".", ",")} GB livres`, disco.usedPct ?? 0);
       // A faísca da aba PC, quando já há histórico — os dois compartilham o pulso.
       if (pcHistorico.cpu.length > 2) html += `<div class="home-metric">${faisca(pcHistorico.cpu)}</div>`;
       const extras = [];
@@ -239,7 +239,8 @@ const CARDS = {
     render: (d) => {
       const discos = d.telemetria?.disks ?? [];
       if (!discos.length) return vazio("Sem leitura de discos.");
-      return discos.map(x => linhaMetrica(`Disco ${x.name}`, `${x.freeGB} GB livres de ${x.totalGB}`, x.usedPct ?? 0)).join("");
+      // Só o livre: "de 475.8" não cabia e cortava o GB. Vírgula, como o resto da tela.
+      return discos.map(x => linhaMetrica(`Disco ${x.name}`, `${String(x.freeGB).replace(".", ",")} GB livres`, x.usedPct ?? 0)).join("");
     },
   },
 
@@ -303,6 +304,27 @@ const CARDS = {
       if (!l.length) return vazio("Nenhuma rotina ativa.") + `<button class="home-ver-tudo" data-ir="rotinas">Criar uma rotina →</button>`;
       return `<div class="home-list mov-lista">` + l.map(r =>
         `<div class="home-item clicavel" data-ir="rotinas">${ico("calendar", "ico-sm")}<div class="home-item-txt"><span>${escHtml(r.nome)}</span><em>${escHtml(quandoTexto(r.proxima))} · ${escHtml(diasTexto(r.dias))}</em></div></div>`).join("") + `</div>`;
+    },
+  },
+
+  // Fase 12: o que está quebrado antes de o Zak descobrir falando com o assistente.
+  saude: {
+    titulo: "Saúde do ELYSIUM", icone: "activity", span: 1, precisa: ["saude"],
+    render: (d) => {
+      const itens = d.saude;
+      if (!itens) return vazio("Não consegui conferir agora.");
+      const ruins = itens.filter(i => i.nivel !== "ok");
+      const resumo = ruins.length
+        ? `<div class="saude-resumo ruim">${ruins.length === 1 ? "1 ponto de atenção" : `${ruins.length} pontos de atenção`}</div>`
+        : `<div class="saude-resumo">Tudo certo.</div>`;
+      // Com tudo certo, a lista inteira seria ruído: só os que pedem atenção, mais o resumo.
+      const mostrar = ruins.length ? ruins : itens;
+      return resumo + `<div class="saude-lista">` + mostrar.map(i => `
+        <div class="saude-item ${i.nivel}">
+          <span class="saude-ponto"></span>
+          <div class="saude-txt"><span>${escHtml(i.titulo)}</span><em>${escHtml(i.detalhe)}</em></div>
+          ${i.conserto ? `<button data-saude-tipo="${escHtml(i.conserto.tipo)}" data-saude-valor="${escHtml(i.conserto.valor)}">${escHtml(i.conserto.rotulo)}</button>` : ""}
+        </div>`).join("") + `</div>`;
     },
   },
 
@@ -399,7 +421,7 @@ const CARDS = {
 };
 
 /** Ordem de fábrica. Cards fora desta lista existem mas nascem desligados. */
-const CARDS_PADRAO = ["sugestoes", "clima", "computador", "musica", "lembretes", "rotinas", "atalhos", "conversas", "timer", "notas", "caixa", "memoria", "discos"];
+const CARDS_PADRAO = ["sugestoes", "clima", "computador", "saude", "musica", "lembretes", "rotinas", "atalhos", "conversas", "timer", "notas", "caixa", "memoria", "discos"];
 
 /**
  * `fixos` são desenhados antes de todos os outros e não saem do lugar quando você arrasta
@@ -448,6 +470,7 @@ async function carregarDadosInicio() {
     r => agruparCatalogo(r?.apps ?? []).map(p => p.nome)));
   if (precisa.has("memoria")) jobs.push(rpc("memoria", "memory.list", undefined, r => r?.facts ?? []));
   if (precisa.has("rotinas")) jobs.push(rpc("rotinas", "rotinas.list", undefined, r => r?.rotinas ?? []));
+  if (precisa.has("saude")) jobs.push(rpc("saude", "system.saude", undefined, r => r?.itens ?? null));
   if (precisa.has("conversas")) jobs.push((async () => {
     try { d.conversas = (await window.nx.chatSessionsList()).slice().sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0)); } catch { d.conversas = []; }
   })());
@@ -984,6 +1007,21 @@ document.getElementById("view-inicio")?.addEventListener("click", async (e) => {
     else if (onde === "caixa") { switchView("chat"); switchChatMode("self"); }
     else if (onde === "nova-conversa") { switchView("chat"); switchChatMode("ai"); startNewConversation(); }
     else if (onde === "paleta") abrirPaleta();
+    return;
+  }
+
+  // Os consertos do card Saúde (fase 12).
+  const sd = alvo("[data-saude-tipo]");
+  if (sd) {
+    const { saudeTipo: tipo, saudeValor: valor } = sd.dataset;
+    if (tipo === "painel") { switchView("pc"); setTimeout(() => abrirPainelPc(valor), 60); return; }
+    sd.disabled = true;
+    try {
+      const r = tipo === "rpc" ? await window.nx.rpc(valor) : await window.nx.rpc("system.saude.consertar", { item: valor });
+      if (r?.result?.cancelado) return;
+      showToast(r?.result?.message ?? r?.result?.mensagem ?? "Feito.");
+    } catch (err) { showToast(err?.message || "Não deu certo.", true); }
+    finally { sd.disabled = false; await atualizarInicio(); }
     return;
   }
 
