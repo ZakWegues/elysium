@@ -22,3 +22,16 @@ describe("atualização automática (bloco 95)", () => {
     expect(t).toContain("ghp_[oculto]");
   });
 });
+
+describe("instalar sozinho de madrugada", async () => {
+  const { horaDeInstalarSozinho } = await import("../src/services/atualizacao");
+  const as = (h: number) => new Date(2026, 8, 30, h, 20);
+  it("só entre 3 e 5 h, com o PC parado e o app ocioso", () => {
+    expect(horaDeInstalarSozinho(as(3), 20 * 60, false)).toBe(true);
+    expect(horaDeInstalarSozinho(as(4), 20 * 60, false)).toBe(true);
+    expect(horaDeInstalarSozinho(as(5), 20 * 60, false)).toBe(false);
+    expect(horaDeInstalarSozinho(as(2), 20 * 60, false)).toBe(false);
+    expect(horaDeInstalarSozinho(as(3), 5 * 60, false)).toBe(false);   // alguém mexeu no PC
+    expect(horaDeInstalarSozinho(as(3), 20 * 60, true)).toBe(false);   // ELYSIUM falando
+  });
+});

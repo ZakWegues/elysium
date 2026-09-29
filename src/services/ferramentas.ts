@@ -9,6 +9,8 @@ import { listFacts } from "./memoryStore";
 import { getAllPresets } from "./presetsStore";
 import { alternarRotina, apagarRotina, executarRotina, listarRotinas, proximoDisparo, salvarRotina } from "./rotinas";
 import { getNowPlaying } from "./spotify";
+import { formatarBytes, lerArmazenamento } from "../actions/armazenamento";
+import { estadoAtualizacao } from "./atualizacao";
 
 /**
  * As ferramentas do cérebro (bloco 78).
@@ -82,6 +84,32 @@ export const FERRAMENTAS: Ferramenta[] = [
         t.uptime_sec ? `ligado há ${h} h ${m} min` : "",
         top ? `maiores consumos: ${top}` : "",
       ].filter(Boolean).join("; ") + ".";
+    },
+  },
+  {
+    name: "espaco_em_disco",
+    description: "O que está ocupando o disco: Downloads, temporários, Lixeira e os maiores arquivos de Downloads. Use para 'o que está enchendo o disco', 'onde libero espaço'.",
+    parameters: obj({}),
+    executar: async () => {
+      const a = await lerArmazenamento();
+      const d = a.discos.find(x => /^c/i.test(x.name)) ?? a.discos[0];
+      const grandes = a.grandes.slice(0, 3).map(g => `${g.nome.split(/[\\/]/).pop()} (${formatarBytes(g.bytes)})`).join(", ");
+      return [
+        d ? `Disco ${d.name}: ${d.freeGB} GB livres de ${d.totalGB} (${d.usedPct}% usado)` : "",
+        `Downloads ${formatarBytes(a.downloads)}, temporários ${formatarBytes(a.temp)}, Lixeira ${formatarBytes(a.lixeira)}`,
+        grandes ? `maiores em Downloads: ${grandes}` : "",
+        "limpar é pela aba PC → Armazenamento",
+      ].filter(Boolean).join("; ") + ".";
+    },
+  },
+  {
+    name: "versao_do_elysium",
+    description: "A versão do ELYSIUM instalada e se há versão nova baixada. Use para 'tem atualização', 'qual a versão'.",
+    parameters: obj({}),
+    executar: async () => {
+      const e = estadoAtualizacao();
+      const pc = e.desktop?.pronto ? `a ${e.desktop.versao} já está baixada e instala em Ajustes → Sobre` : e.desktop ? `a ${e.desktop.versao} está baixando` : "é a mais nova publicada";
+      return `O ELYSIUM do PC está na versão ${e.atual}; ${pc}.${e.celular ? ` O APK mais novo do celular é o ${e.celular.versao}.` : ""}`;
     },
   },
   {

@@ -17,7 +17,9 @@ describe("backup (bloco 96)", () => {
     const a = await carregar();
     a.memoria.addFact("meu carro é um civic prata");
     a.lembretes.createReminder({ text: "dentista", dueAt: Date.now() + 86_400_000 });
-    a.lembretes.createReminder({ text: "já passou", dueAt: Date.now() + 50 });
+    // Folga larga: com a CPU ocupada (um build do APK ao lado), 50 ms não bastavam e o
+    // lembrete era recusado como "no passado" antes mesmo de existir — teste intermitente.
+    a.lembretes.createReminder({ text: "já passou", dueAt: Date.now() + 400 });
     a.rotinas.salvarRotina({ nome: "Bom dia", texto: "como está o tempo", hora: "07:30" });
     a.conversas.saveSession({ id: "s1", title: "Oi", createdAt: 1, updatedAt: 2, favorite: false, messages: [{ id: "m1", from: "me", text: "oi", ts: 1 }] });
     a.config.setOverride({ voice: "pt-BR-FranciscaNeural", ollamaBaseUrl: "http://outra:11434" } as never);
@@ -27,7 +29,7 @@ describe("backup (bloco 96)", () => {
     expect(b.ajustes).toEqual({ voice: "pt-BR-FranciscaNeural" }); // o endereço do Ollama é desta máquina
     expect(JSON.stringify(b)).not.toMatch(/apiKey|serverToken/);
 
-    await new Promise(r => setTimeout(r, 80)); // o lembrete "já passou" vence
+    await new Promise(r => setTimeout(r, 450)); // o lembrete "já passou" vence
     const novo = await carregar();
     const lido = novo.backup.lerBackup(JSON.parse(JSON.stringify(b)));
     const r1 = novo.backup.aplicarBackup(lido);

@@ -88,6 +88,8 @@ export interface AppConfig {
   cerebroFerramentas: boolean;
   /** Dizer "Elysium" acorda o assistente (bloco 88, reconhecedor offline do Windows). */
   palavraDeAtivacao: boolean;
+  /** Versão nova já baixada instala sozinha entre 3 e 5 h, com o PC parado (fase 12). */
+  atualizarDeMadrugada: boolean;
   /** Com jogo aberto, rotear pela nuvem em vez de disputar VRAM. Ver `gpuGuard.ts`. */
   evitarGpuOcupada: boolean;
   spotifyClientId: string;
@@ -175,6 +177,7 @@ const DEFAULTS: AppConfig = {
   cerebroFerramentas: true,
   // Microfone sempre aberto é escolha do dono, não padrão de fábrica.
   palavraDeAtivacao: false,
+  atualizarDeMadrugada: true,
   evitarGpuOcupada: true,
   spotifyClientId: "042904fef8cc41f0bf05b7abeda2d66f",
   chatHistoryTurns: 6,
@@ -284,6 +287,8 @@ function primeiroVivo(candidatos: string[], mortos: Set<string>): string | null 
   return candidatos.find(m => !mortos.has(m)) ?? null;
 }
 
+const avisados = new Set<string>();
+
 function healModel(value: string, fallback: string, key: string): string {
   if (!DECOMMISSIONED_MODELS.has(value)) return value;
 
@@ -292,7 +297,13 @@ function healModel(value: string, fallback: string, key: string): string {
     console.error(`[config] ${key}="${value}" morreu e NENHUM candidato da Groq sobrou. Escolha um modelo em Ajustes → Cérebro.`);
     return value;
   }
-  console.warn(`[config] ${key}="${value}" foi desativado pela Groq; usando "${vivo}".`);
+  // Uma vez por modelo: o getConfig() roda a cada pedido, e o log de um dia virava esta
+  // mesma linha repetida milhares de vezes, soterrando o que importava.
+  const aviso = `${key}=${value}`;
+  if (!avisados.has(aviso)) {
+    avisados.add(aviso);
+    console.warn(`[config] ${key}="${value}" foi desativado pela Groq; usando "${vivo}".`);
+  }
   return vivo;
 }
 

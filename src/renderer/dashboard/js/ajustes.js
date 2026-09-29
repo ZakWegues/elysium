@@ -94,6 +94,8 @@ const AJUSTES = [
     grupo: "Sistema",
     campos: [
       { chave: "autoLaunch", rotulo: "Iniciar com o Windows", tipo: "bool" },
+      { chave: "atualizarDeMadrugada", rotulo: "Atualizar sozinho de madrugada", tipo: "bool",
+        dica: "Versão nova já baixada instala entre 3 e 5 h, só com o PC parado há 15 minutos e o ELYSIUM ocioso. Desligado, ela espera o botão em Ajustes → Sobre." },
     ],
   },
 ];

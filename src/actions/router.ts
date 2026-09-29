@@ -56,7 +56,7 @@ export async function routeAction(action: BrainAction): Promise<string> {
     // Normalmente a conversa nem chega aqui: `command.ts` intercepta e chama o modelo
     // bom. Este caminho cobre quem invoca `routeAction` direto, como o `runPreset`.
     case "chat":              return action.reply ?? "";
-    case "unknown":           return "Não entendi o que você pediu. Pode repetir?";
+    case "unknown":           return action.motivo ?? "Não entendi o que você pediu. Pode repetir?";
   }
 }
 

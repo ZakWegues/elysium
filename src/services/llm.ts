@@ -1,3 +1,4 @@
+import { falhaDeConexao, garantirOllama } from "./ollamaVivo";
 import { getApiKey, getConfig, marcarModeloMorto } from "../main/config";
 import { apiKeyError, networkError } from "./errors";
 
@@ -127,6 +128,23 @@ function baseOllama(): string {
   return bruto.replace(/\/+$/, "").replace(/\/v1$/, "");
 }
 
+/**
+ * `fetch` para o Ollama que, se o servidor estiver fora do ar, tenta subi-lo uma vez e
+ * repete o pedido (ver `ollamaVivo.ts`). Erro HTTP do Ollama passa direto: esse não se
+ * resolve ligando nada.
+ */
+async function fetchOllama(url: string, init: RequestInit): Promise<Response> {
+  try { return await fetch(url, init); }
+  catch (e) {
+    if (!falhaDeConexao(e) || !(await garantirOllama(baseOllama()))) throw e;
+    return fetch(url, init);
+  }
+}
+
+export function baseDoOllama(): string {
+  return baseOllama();
+}
+
 async function chamarGroq(p: ChatPedido): Promise<string> {
   const apiKey = getApiKey();
   if (!apiKey) throw apiKeyError();
@@ -187,7 +205,7 @@ async function chamarOllama(p: ChatPedido): Promise<string> {
   let res: Response;
   const conexao = sinalDeConexao(p);
   try {
-    res = await fetch(`${baseOllama()}/api/chat`, {
+    res = await fetchOllama(`${baseOllama()}/api/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -352,7 +370,7 @@ export async function callChatComFerramentas(p: PedidoComFerramentas): Promise<R
   const cfg = getConfig();
   let res: Response;
   try {
-    res = await fetch(`${baseOllama()}/api/chat`, {
+    res = await fetchOllama(`${baseOllama()}/api/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

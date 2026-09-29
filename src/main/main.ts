@@ -51,7 +51,8 @@ import { iniciarRotinas, pararRotinas, enfileirarEntrega } from "../services/rot
 import { avaliarCondicao } from "../services/agente";
 import { emitirEvento, MARCOS_OCIOSO } from "../services/eventos";
 import { getRunningApps } from "../actions/systemInfo";
-import { ollamaDisponivel } from "../services/llm";
+import { baseDoOllama, ollamaDisponivel } from "../services/llm";
+import { garantirOllama } from "../services/ollamaVivo";
 import { registerRpcBridge } from "./rpcBridge";
 import { vigiarDisco } from "../actions/armazenamento";
 import {
@@ -860,7 +861,9 @@ app.on("ready", async () => {
   const serverToken = getOrCreateServerToken();
   const cfg = getConfig();
   startServer(serverToken, processCommand, cfg.serverPort ?? 4200, processCommandStream);
-  iniciarAtualizacoes({ sair: quit });
+  iniciarAtualizacoes({ sair: quit, ocupado: () => state.get() !== "idle" });
+  // Cérebro local: se o Ollama estiver parado, sobe já — antes do primeiro pedido pagar a espera.
+  if (cfg.routerProvider === "ollama" || cfg.chatProvider === "ollama") void garantirOllama(baseDoOllama());
   // Disco quase cheio (fase 12): no máximo um aviso por dia, no PC e no celular.
   vigiarDisco((titulo, corpo) => {
     notify(titulo, corpo);

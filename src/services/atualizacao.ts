@@ -1,10 +1,10 @@
-import { app } from "electron";
+import { app, powerMonitor } from "electron";
 import { execFile, spawn } from "node:child_process";
 import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { Readable } from "node:stream";
-import { getGithubToken } from "../main/config";
+import { getConfig, getGithubToken } from "../main/config";
 
 /**
  * Atualização automática (bloco 95).
@@ -330,10 +330,39 @@ export function marcarNovidadesVistas(): void {
   gravarNovidades({ ...lerNovidades(), vista: app.getVersion() });
 }
 
-export function iniciarAtualizacoes(opcoes: { sair: () => void }): void {
+// ── De madrugada ─────────────────────────────────────────────────────────────
+//
+// O botão "instalar" quase nunca é clicado: o app vive na bandeja e a versão nova ficava
+// baixada esperando. Com `atualizarDeMadrugada` (padrão ligado), ela instala sozinha entre
+// 3 e 5 h — só com o PC parado há 15 min e o ELYSIUM sem ouvir, pensar ou falar. Instalar
+// fecha o app por uns segundos; é a hora em que isso não atrapalha ninguém.
+
+const OCIOSO_MIN_SEG = 15 * 60;
+
+/** A janela de instalação automática. Pura, para teste. */
+export function horaDeInstalarSozinho(agora: Date, pcParadoSeg: number, appOcupado: boolean): boolean {
+  const h = agora.getHours();
+  return h >= 3 && h < 5 && pcParadoSeg >= OCIOSO_MIN_SEG && !appOcupado;
+}
+
+let ocupado: () => boolean = () => false;
+let timerMadrugada: NodeJS.Timeout | null = null;
+
+function conferirMadrugada(): void {
+  try {
+    if (!estado.desktop?.pronto || !app.isPackaged || getConfig().atualizarDeMadrugada === false) return;
+    if (!horaDeInstalarSozinho(new Date(), powerMonitor.getSystemIdleTime(), ocupado())) return;
+    console.log("[atualizacao] madrugada e PC parado: instalando sozinho.");
+    instalarAtualizacaoDesktop();
+  } catch (e) { console.warn("[atualizacao] madrugada falhou:", e); }
+}
+
+export function iniciarAtualizacoes(opcoes: { sair: () => void; ocupado?: () => boolean }): void {
   sair = opcoes.sair;
+  if (opcoes.ocupado) ocupado = opcoes.ocupado;
   estado = { atual: app.getVersion(), verificando: false };
   if (timer) return;
   setTimeout(() => { void verificarAtualizacoes(); }, PRIMEIRA_VERIFICACAO_MS);
   timer = setInterval(() => { void verificarAtualizacoes(); }, INTERVALO_MS);
+  timerMadrugada = setInterval(conferirMadrugada, 10 * 60 * 1000);
 }

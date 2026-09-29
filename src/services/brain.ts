@@ -42,7 +42,9 @@ export type BrainAction =
   // resposta é `composeChatReply`. O campo sobrevive como rede de segurança para
   // quando o modelo pequeno responde mesmo assim.
   | { action: "chat";              reply?: string }
-  | { action: "unknown" };
+  // `motivo`: quando não é o pedido que foi mal entendido, e sim o cérebro que está fora
+  // do ar — dizer "não entendi" aí mandava o usuário repetir algo que estava certo.
+  | { action: "unknown"; motivo?: string };
 
 interface Message {
   role: "user" | "assistant";
@@ -251,6 +253,16 @@ export function contextoRecente(): string {
   return antes ? `(antes disso: ${antes})\n${recente}` : recente;
 }
 
+/** A falha técnica em português de gente — a fala que substitui o "não entendi". */
+export function motivoDaFalha(falha: string): string {
+  if (/\b429\b|rate limit/i.test(falha)) {
+    const s = /try again in ([\d.]+)s/i.exec(falha)?.[1];
+    return `O cérebro local está fora do ar e a Groq pediu uma pausa${s ? ` de ${Math.ceil(Number(s))} segundos` : ""}. Tente de novo daqui a pouco.`;
+  }
+  if (/ollama/i.test(falha)) return "Não consegui falar com o Ollama, o cérebro local. Confira se ele está aberto e tente de novo.";
+  return "Não consegui pensar agora: o cérebro não respondeu. Tente de novo em instantes.";
+}
+
 export async function decideBrain(text: string, jaRegistrado = false): Promise<BrainAction[]> {
   const cfg = getConfig();
   if (!jaRegistrado) registrarTurnoUsuario(text);
@@ -303,7 +315,7 @@ export async function decideBrain(text: string, jaRegistrado = false): Promise<B
   if (!actions) {
     console.error(`[brain] nenhum provedor entregou ação: ${falha}`);
     if (provider === "ollama" && !getApiKey()) throw apiKeyError();
-    actions = [{ action: "unknown" }];
+    actions = [{ action: "unknown", motivo: motivoDaFalha(falha) }];
   }
 
   // Nada vai pro histórico aqui: a resposta de verdade entra pelo `recordAssistantReply`,
