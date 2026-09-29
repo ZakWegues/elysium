@@ -37,6 +37,9 @@
 | 25 | [Fase 8 — Início cheia, Ajustes em gavetas, temas do celular e rotinas](#25-fase-8--a-início-cheia-ajustes-em-gavetas-temas-do-celular-e-rotinas-blocos-64) |
 | 26 | [O plano do que falta — fases 9, 10 e 11](#26-o-plano-do-que-falta--fases-9-10-e-11-blocos-76) |
 | 27 | [Fase 9 — o cérebro com ferramentas, e a base que aguenta](#27-fase-9--o-cérebro-com-ferramentas-e-a-base-que-aguenta-blocos-76) |
+| 28 | [Fase 10 — a experiência diária](#28-fase-10--a-experiência-diária-blocos-84) |
+| 29 | [Fase 11 — fora de casa e para sempre](#29-fase-11--fora-de-casa-e-para-sempre-blocos-94) |
+| 30 | [Fase 12 — atualização automática e o que veio depois](#30-fase-12--atualização-automática-e-o-que-veio-depois-blocos-95-100) |
 
 ---
 
@@ -187,13 +190,19 @@ pedir de novo.**
 
 | Repo | HEAD (29/09/2026) | Estado |
 |---|---|---|
-| `elysium` | fases 10 e 11 (blocos 84–98, §28 e §29) | limpo, pusheado |
-| `elysium-m` | fases 10 e 11 (blocos 85–97, §28 e §29) | limpo, pusheado |
+| `elysium` | fase 12 (§30) — desktop **1.5.2** | limpo, pusheado, releases `v1.4.0`…`v1.5.2` |
+| `elysium-m` | fase 12 (§30) — celular **1.5.1** (`versionCode` 15) | limpo, pusheado, releases `v1.4.0`…`v1.5.1` |
 
-> **Versão 1.4.0 nos dois lados** (celular `versionCode` 13). Instalador em
-> `elysium/release/ELYSIUM-Setup-1.4.0.exe`, APK em `elysium-m/dist-apk/elysium-m.apk` —
-> gerados em 29/09/2026. **O APK é obrigatório** (widgets de Clima e Rotinas e o Firebase
-> mudam o manifesto). O push agora tem FCM (projeto `elysium-ac53f`, §29 bloco 94); o
+> **Desde 29/09/2026 as versões saem como releases do GitHub e se atualizam sozinhas**
+> (§30, bloco 95). O desktop **instalado nesta máquina já é o 1.5.2**, em
+> `%LOCALAPPDATA%\Programs\ELYSIUM` — atualizado pelo próprio atualizador, 1.5.0 → 1.5.1 →
+> 1.5.2. O celular precisa de **um** salto manual para o APK 1.5.1 (o vc13 não tem o
+> atualizador); dali em diante o cartão "versão nova" da Início cuida. ⚠️ A pasta
+> `elysium baixado` é uma cópia **1.0.2 antiga** que o Windows subia no boot até a 1.5.1
+> (§30); não é mais usada por nada.
+>
+> Histórico: a 1.4.0 (vc13) foi gerada em 29/09/2026 com os widgets de Clima e Rotinas e o
+> Firebase, que mudam o manifesto. O push agora tem FCM (projeto `elysium-ac53f`, §29 bloco 94); o
 > `google-services.json` fica só em `elysium-m/` (fora do git). Cérebro local padrão:
 > `qwen2.5:7b` com `num_ctx` 8192. Na Groq: visão `qwen/qwen3.8-27b`, busca
 > `openai/gpt-oss-120b` + `browser_search`.
@@ -706,6 +715,11 @@ regra. `shutdown.exe /a` devolve 1116 quando não há nada agendado; tratado com
 | `system.diagnostico` | — | `{texto}` — versão, modelos, Ollama, catálogo da Groq, rotinas, log; sem segredos (bloco 97) |
 | `window.list` | — | `{janelas:[{hwnd, pid, processo, titulo, minimizada, maximizada, emFoco}]}` — EnumWindows, bloco 87 |
 | `window.control` | `{hwnd, operacao: focar\|minimizar\|maximizar\|restaurar\|fechar\|so_esta}` | `{ok, message}` — fechar é WM_CLOSE |
+| `update.status` | `{verificar?: true}` | `{pc, verificadoEm, erro, desktop, celular}` — cada pacote `{versao, notas, publicadaEm, tamanho, pronto, progresso}` ou `null` (§30, bloco 95) |
+| `update.install` | — | `{ok, mensagem}` — **destrutivo**: instala no PC a versão já baixada; o app fecha e volta sozinho |
+| `storage.info` | `{forcar?: true}` | `{discos, downloads, temp, lixeira, grandes:[{nome, bytes, em}], medidoEm}` — cache de 5 min (§30) |
+| `storage.clean` | `{alvo: lixeira\|temp}` | `{liberado, message}` — **destrutivo**; temp só apaga o que tem mais de 2 dias |
+| `storage.open` | `{alvo: downloads\|temp\|limpeza\|configuracoes\|arquivo, nome?}` | `{ok, message}` — `arquivo` só dentro de Downloads |
 **Tela**
 
 | método | params | retorno |
@@ -4792,9 +4806,192 @@ fila local (bloco 72) vira só a rede de segurança.
 
 **Fica para depois (§26 atualizado):**
 
-- **Bloco 95 (auto-update)**: depende de publicar releases no GitHub — ação pública, só com
-  pedido do Zak — e de um token para o app ler releases de repositório privado.
+- ~~**Bloco 95 (auto-update)**~~ — **feito em 29/09/2026**, com a liberação do Zak (§30).
 - Conversas como coluna no chat do desktop (bloco 84, adiado por decisão).
 - Slider de volume no celular (precisa de módulo nativo).
 - Calibrar os limiares da mão livre e a confiança da palavra de ativação com uso real.
 - C: com 97% usado nesta máquina — o card de insights poderia avisar disco quase cheio.
+
+---
+
+## 30. Fase 12 — atualização automática e o que veio depois (blocos 95, 100+)
+
+> Em 29/09/2026, com as fases 10 e 11 fechadas, o Zak liberou publicar releases no GitHub:
+> *"te dou permissão pra fazer o negocio do github e tudo mais, pode fazer o que for
+> melhor"*. Era o único bloco do plano (§26) que dependia dele. Depois, de noite: *"faz o
+> que der ai"* — os blocos 100+ são ideias minhas, cada uma nascida de um problema visto
+> nesta máquina.
+
+| versão | lado | o que trouxe |
+|---|---|---|
+| 1.5.0 | os dois | bloco 95 — atualização automática (+ `update.install`) |
+| 1.5.1 | os dois | blocos 100–102 — armazenamento, novidades, início automático certo |
+| 1.5.2 | desktop | blocos 103–104 — Ollama que se levanta, falha dita em português, madrugada, 2 ferramentas |
+
+### Bloco 95 — atualização automática pelas releases do GitHub ✅
+
+**Como funciona.** Cada versão sai como release nos dois repositórios (`v1.5.0` etc.): o
+instalador `ELYSIUM-Setup-x.y.z.exe` em `ZakWegues/elysium` e o `elysium-m-x.y.z.apk` em
+`ZakWegues/elysium-m`. O PC (`src/services/atualizacao.ts`) confere as duas 90 s depois de
+abrir e a cada 6 h, e baixa sozinho o que for novo para `%APPDATA%\elysium\atualizacoes\`,
+apagando o que sobrou de versões antigas.
+
+| lado | o que acontece |
+|---|---|
+| **PC** | Instalador baixado → balão uma vez por versão, pílula **"Atualizar"** na barra de abas e o botão **"Instalar e reabrir"** em Ajustes → Sobre (mais a madrugada, bloco 104). Instala com `/S --updated --force-run`: o NSIS roda em silêncio na mesma pasta da instalação e reabre o ELYSIUM sozinho. Em desenvolvimento (`!app.isPackaged`) recusa — substituiria a versão instalada |
+| **Celular** | O PC guarda o APK da release mais nova e serve em `GET /api/update/apk` (token de sempre). O app pergunta `update.status`, compara com a versão **nativa** (`expo-application` — a do `app.json` embutido no JS mente depois de um OTA) e mostra o cartão "ELYSIUM-M x.y.z disponível" na Início (com "agora não", que vale só para aquela versão) e em Ajustes → Sobre ("Procurar versão nova" pede ao PC conferir na hora). "Baixar e instalar" puxa do PC com barra de progresso e abre o instalador do Android (`expo-intent-launcher`, `content://` com `FLAG_GRANT_READ_URI_PERMISSION`). Na primeira vez o Android pede "instalar apps desconhecidos" para o ELYSIUM-M — é do sistema, não tem como pular |
+| **PC pelo celular** | `update.install` (destrutivo → biometria): Ajustes → Sobre do celular mostra a versão nova do PC já baixada, com **"Atualizar o PC"** |
+
+**Por que sem `electron-updater`.** Ele exigiria `latest.yml` + blockmap em cada release e,
+com repositório privado, um token gravado no `app-update.yml` dentro do instalador. O módulo
+próprio tem ~350 linhas, nenhuma dependência nova, e o token nunca sai do userData.
+
+**O token.** Os dois repositórios são privados. Vale, nesta ordem: o token colado em Ajustes
+→ Sobre → "Token do GitHub" (guardado no `elysium-config.json` **ao lado da chave da Groq,
+fora dos `overrides`** — por isso não viaja no backup nem aparece no diagnóstico) e, sem ele,
+o login do `gh` desta máquina (`gh auth token`, cache de 1 h). Nesta máquina o `gh` está
+logado, então **funciona sem configurar nada**. Para outro PC: token *fine-grained* só com
+leitura de Contents nos dois repositórios. O risco de vazar é pequeno por construção: ele
+dá leitura a um código que já está dentro do próprio instalador (o `app.asar` é JS puro).
+
+**Integridade.** A API de download responde 302 para um endereço assinado do armazenamento
+do GitHub; o redirecionamento é seguido **à mão**, para o token não ir junto para outro
+domínio. O arquivo é conferido por tamanho e pelo **SHA-256 que o GitHub publica em cada
+asset** (`digest`); não bateu, é apagado. O download vai para `.parcial` e só ganha o nome
+final inteiro.
+
+**Publicar uma versão** (nos dois repositórios, depois do commit e do push):
+
+```
+npm run dist && npm run release -- "o que mudou"            # elysium
+npm run build:local && npm run release -- "o que mudou"     # elysium-m
+```
+
+O `publicar-release.mjs` recusa árvore suja, commit que não está no GitHub e arquivo
+faltando; cria e empurra a tag `vX.Y.Z` antes (o GitHub só aceita alvo por SHA completo ou
+branch — `--target` com SHA curto dá **422**). No celular ele ainda abre o APK com o `aapt2`
+e confere `versionName`/`versionCode` contra o `app.json`: publicar um APK velho com a tag
+nova faria todo celular "atualizar" para a mesma versão, em laço. As notas da release são o
+que aparece no "Novidades" (bloco 101): escreva para o Zak, não para o git.
+
+🔴 **Mudar `version` no `app.json` muda o fingerprint** (medido: `d33f466c…` → `92ada075…`).
+Então versão nova do celular = APK novo, sempre. Mudança só de JS **sem** subir a versão
+continua podendo ir por OTA (`npx eas-cli update --channel preview --environment preview`).
+
+**Diagnóstico** ganhou a seção "Atualização"; **o log mascara** `ghp_…`, `gho_…`,
+`github_pat_…`. `/api/health` devolve a versão do app em vez de um número escrito à mão
+no `server.ts` (que já tinha ficado para trás uma vez).
+
+**Verificado de ponta a ponta, nesta máquina, sem o Zak:**
+
+| teste | resultado |
+|---|---|
+| dev 1.4.0 → achou a release `v1.5.0` privada pelo `gh`, baixou 79 MB, SHA-256 conferido | pílula "Atualizar" acesa |
+| APK `v1.4.0` → guardado, `GET /api/update/apk` com token 200 (114,7 MB inteiro), sem token 401 | ✅ |
+| 1.5.0 instalado por `/S --updated --force-run` | código 0, reabriu sozinho |
+| **1.5.0 instalado → `update.status {verificar}` → `update.install` com confirmação** | baixou em 7,7 s; voltou como **1.5.1 em ~6 s** |
+| **1.5.1 → 1.5.2**, mesmo caminho | voltou em 6 s |
+
+⚠️ **O primeiro salto do celular é manual**: o APK vc13 não tem o atualizador. Instalar o
+`elysium-m/dist-apk/elysium-m.apk` (1.5.1, vc15) uma vez.
+
+### Bloco 100 — Armazenamento: o que ocupa o disco ✅
+
+Nasceu de um número: **o C: desta máquina estava com 95–97% usado** (25 GB livres de 476).
+A sugestão da Início já dizia "pouco espaço", mas não dizia onde nem oferecia nada.
+
+`src/actions/armazenamento.ts` mede numa passada de PowerShell só: Downloads (total e os 8
+maiores arquivos, recursivo), a pasta temporária do usuário e a Lixeira (somada por unidade,
+na pasta `$Recycle.Bin\<SID>` do usuário atual). Cache de 5 min; duas telas pedindo juntas
+esperam a mesma medição. **Medido aqui: Downloads 58,3 GB** (jogos portáteis e filmes 4K —
+o maior, 17,1 GB), temporários 324 MB, Lixeira 375 MB.
+
+| ação | como |
+|---|---|
+| Esvaziar a Lixeira | `Clear-RecycleBin -Force`, **destrutivo** (confirmação no PC, biometria no celular) |
+| Limpar temporários | só o que não é tocado há **2 dias** — instalador ou programa rodando usa a pasta; arquivo em uso é pulado pelo Windows. Destrutivo |
+| Downloads | **o app nunca apaga nada lá**: "Abrir" e, por arquivo, "mostrar na pasta" (`shell.showItemInFolder`) |
+| Limpeza de Disco / Armazenamento do Windows | `cleanmgr.exe` e `ms-settings:storagesense` — alcançam o que o app não mexe |
+
+O quanto foi liberado é medido **antes e depois**, não estimado. `storage.open {alvo:
+"arquivo"}` recebe um caminho do cliente: ele é resolvido e **tem de continuar dentro de
+Downloads** — testado com `..\..\AppData\…`, `C:\Windows\win.ini` e `../../.ssh/id_rsa`,
+todos recusados.
+
+Painel "Armazenamento" na aba PC dos dois lados. **Vigia do disco**: de hora em hora; disco
+com ≥ 95% ou < 10 GB livres avisa no PC, no celular (entrega + push `anomaly`) — no máximo
+uma vez por dia. A sugestão da Início ("Disco C com 25 GB livres") agora abre o painel
+direto (`acao.painel`).
+
+### Bloco 101 — Novidades depois de atualizar ✅
+
+A primeira abertura de uma versão nova mostra, uma vez, as notas da release no topo da
+Início (desktop: `#home-novidades`; celular: `NovidadesCelular`). As notas são guardadas na
+hora de instalar; se a versão chegou por instalação manual, o desktop lê a release da própria
+tag. `novidades.json` no userData (fora de `atualizacoes/`, que é limpa a cada verificação);
+no celular, `elysium_novidades_v1`.
+
+### Bloco 102 — o Windows subia a versão errada ✅ 🔴
+
+Achado ao preparar a instalação: a entrada `HKCU\…\Run\ELYSIUM` apontava para
+**`ELYSIUM\elysium baixado\ELYSIUM.exe` — uma cópia 1.0.2** —, enquanto o instalador (1.3.0)
+morava em `%LOCALAPPDATA%\Programs\ELYSIUM`. As duas se chamam `ELYSIUM.exe` e a antiga
+ainda existia no disco, então a regra do `autoLaunch.ts` ("reescreve se o caminho gravado
+sumiu", §14) nunca agia: **a cada boot o Windows subia a 1.0.2**, que pegava o
+single-instance lock. E havia ainda uma entrada `electron` que subia a **instância de
+desenvolvimento** do repositório junto.
+
+Agora: o app **empacotado** reivindica a entrada para o próprio `process.execPath` sempre
+que ela aponta para outro lugar; a instância de **desenvolvimento** não registra nada e
+apaga a entrada `electron` que as versões anteriores deixaram (só se ela aponta para
+`node_modules\electron\`). Conferido: depois da 1.5.1, a entrada aponta para
+`Programs\ELYSIUM\ELYSIUM.exe`; a do BlueStacks (`electron.app.BlueStacks Services`) ficou
+intacta.
+
+⚠️ **Para o Zak decidir** (não mexi — são dele): a pasta `elysium baixado` (1.0.2) não é mais
+usada por nada; e há um `Jarvis PC.lnk` na pasta Inicializar apontando para
+`C:\Users\ZAK\jarva\Iniciar Jarvis.vbs`, que não existe mais.
+
+### Bloco 103 — o cérebro não cai mais em silêncio ✅
+
+Visto ao testar: **o Ollama não estava rodando** (o atalho da Inicializar existe, mas depois
+que ele cai nada o levanta). Todo pedido ia para a Groq, que estourava o teto de 8000
+tokens/min do `gpt-oss-120b` em dois pedidos, e o app respondia **"Não entendi o que você
+pediu"** — mandando o Zak repetir algo que estava certo.
+
+- `src/services/ollamaVivo.ts`: Ollama **local** parado é levantado sozinho — no boot (se o
+  roteador ou a conversa são `ollama`) e quando um pedido falha por conexão (`fetchOllama`
+  no `llm.ts` sobe e repete uma vez). Prefere `ollama app.exe` (o mesmo do atalho, com ícone
+  na bandeja), cai no `ollama serve`. No máximo uma tentativa por minuto; endereço remoto
+  nunca é ligado. Conferido: dev aberto com o Ollama parado → `[ollama] estava parado;
+  subindo por ollama app.exe` → de pé em segundos.
+- `unknown` ganhou `motivo`: quando nenhum provedor responde, a fala é a causa ("a Groq pediu
+  uma pausa de 11 segundos", "não consegui falar com o Ollama") — `motivoDaFalha()` no
+  `brain.ts`.
+- `[config] … foi desativado pela Groq` sai **uma vez por modelo**; antes repetia a cada
+  `getConfig()` e soterrava o log (as sobreposições do Zak ainda guardam
+  `llama-3.1-8b-instant`, curado para `gpt-oss-120b` em memória).
+
+### Bloco 104 — madrugada e duas ferramentas ✅
+
+- **Atualizar sozinho de madrugada** (Ajustes → Sistema, `atualizarDeMadrugada`, padrão
+  ligado): a versão já baixada instala entre **3 e 5 h**, só com o PC parado há 15 min
+  (`powerMonitor.getSystemIdleTime`) e o ELYSIUM ocioso. O botão quase nunca é clicado — o
+  app vive na bandeja. `horaDeInstalarSozinho()` é pura e testada.
+- Ferramentas de leitura **`espaco_em_disco`** e **`versao_do_elysium`** (também valem em
+  condição de rotina). "O que está enchendo o disco?" → *"Os maiores arquivos estão na pasta
+  Downloads, ocupando cerca de 58,3 GB…"*, "tem atualização?" → *"está na versão 1.5.1; é a
+  mais nova publicada"* — os dois com o `qwen2.5:7b` local.
+
+**Testes:** desktop 66 (novos: `atualizacao`, `armazenamento`, `cerebroFora`), celular 20.
+O `backup.test.ts` era intermitente com a CPU ocupada (o lembrete "já passou" nascia com 50 ms
+de folga e podia ser recusado como passado) — folga subiu para 400 ms.
+
+**Só o Zak valida:**
+
+- [ ] Celular: instalar o APK 1.5.1 (vc15) uma vez; depois, Ajustes → Sobre mostra "Celular
+      na versão mais nova". Na próxima versão, o cartão aparece na Início e "Baixar e
+      instalar" leva ao instalador do Android (a primeira vez pede "apps desconhecidos").
+- [ ] Celular: aba PC → Armazenamento; "Atualizar o PC" em Sobre quando houver versão.
+- [ ] PC: Início mostra "Novidades da 1.5.2" uma vez; aba PC → Armazenamento.
+- [ ] Reiniciar o PC e conferir que sobe a 1.5.2 (Ajustes → Sobre), não a cópia velha.
