@@ -359,7 +359,7 @@ export function getConfig(): AppConfig {
 
   // Modelo aposentado pela Groq volta ao padrão em vez de derrubar todo comando com
   // HTTP 400 — ver DECOMMISSIONED_MODELS.
-  return {
+  const curado: AppConfig = {
     ...merged,
     routerModel: healModel(merged.routerModel, DEFAULTS.routerModel, "routerModel"),
     brainModel:  healModel(merged.brainModel,  DEFAULTS.brainModel,  "brainModel"),
@@ -368,6 +368,21 @@ export function getConfig(): AppConfig {
     ollamaRouterModel: healOllama(merged.ollamaRouterModel, DEFAULTS.ollamaRouterModel, "ollamaRouterModel"),
     ollamaChatModel:   healOllama(merged.ollamaChatModel,   DEFAULTS.ollamaChatModel,   "ollamaChatModel"),
   };
+
+  // A cura vai para o disco quando o modelo morto era uma escolha do USUÁRIO: sem isso o
+  // Ajustes mostrava para sempre um modelo que não existe (o do Zak ficou meses em
+  // "llama-3.1-8b-instant") e a cura rodava a cada leitura. Os padrões não são gravados —
+  // continuam vindo do código, e um padrão novo chega sozinho na próxima versão.
+  const MODELOS = ["routerModel", "brainModel", "visionModel", "searchModel", "ollamaRouterModel", "ollamaChatModel"] as const;
+  const corrigir: Partial<AppConfig> = {};
+  for (const k of MODELOS) {
+    if (overrides[k] !== undefined && overrides[k] !== curado[k]) (corrigir as Record<string, unknown>)[k] = curado[k];
+  }
+  if (Object.keys(corrigir).length) {
+    store.set("overrides", { ...overrides, ...corrigir });
+    console.warn(`[config] modelo aposentado trocado também no disco: ${JSON.stringify(corrigir)}`);
+  }
+  return curado;
 }
 
 /** Só o que o usuário mudou (sem os padrões) — é o que o backup leva (bloco 96). */
