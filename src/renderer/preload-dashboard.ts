@@ -18,7 +18,7 @@ contextBridge.exposeInMainWorld("nx", {
   onAudioLevel:    (cb: (v: number)    => void) => { ipcRenderer.on("voice:audio-level",  (_e, v) => cb(v)); },
 
   // ── Chat ───────────────────────────────────────────────────────────────────
-  chatSend:        (text: string)               => ipcRenderer.send("chat:send", text),
+  chatSend:        (text: string, opcoes?: { refazer?: boolean }) => ipcRenderer.send("chat:send", text, opcoes),
   chatClear:       ()                           => ipcRenderer.send("chat:clear"),
   onChatReply:     (cb: (r: string)    => void) => { ipcRenderer.on("chat:reply",         (_e, r) => cb(r)); },
   /** Pedaço da resposta conforme o modelo escreve. O reply final continua vindo inteiro. */
@@ -79,6 +79,9 @@ contextBridge.exposeInMainWorld("nx", {
   // ── Mailbox self-chat (PC ↔ celular) ─────────────────────────────────────────
   getMailboxThread:     (sessionId?: string | null)  => ipcRenderer.invoke("mailbox:get-thread", sessionId ?? null),
   mailboxSend:          (text: string, sessionId?: string | null) => ipcRenderer.send("mailbox:send", text, sessionId ?? null),
+  mailboxSendFile:      (text: string, anexo: { name: string; mimeType: string; base64: string }, sessionId?: string | null) => ipcRenderer.invoke("mailbox:send-file", text, anexo, sessionId ?? null),
+  abrirLink:            (url: string) => ipcRenderer.send("link:abrir", url),
+  modelosGroq:          (forcar?: boolean) => ipcRenderer.invoke("groq:modelos", forcar),
 
   // Conversas da Caixa (lado PC do switch) — o par do bloco chatSessions* acima.
   mailboxSessionsList:     ()                        => ipcRenderer.invoke("mailbox:sessions-list"),

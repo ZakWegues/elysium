@@ -281,6 +281,17 @@
 
   <!-- CENTER -->
   <div id="center">
+    <!-- Busca na conversa (Ctrl+F, bloco 84). Os trechos são marcados pela CSS Custom
+         Highlight API, sem tocar no DOM das bolhas. -->
+    <div id="chat-busca" hidden>
+      <svg class="ico ico-sm" aria-hidden="true"><use href="#i-search"/></svg>
+      <input id="chat-busca-input" type="text" placeholder="Buscar nesta conversa…" autocomplete="off" spellcheck="false">
+      <span id="chat-busca-conta"></span>
+      <button id="chat-busca-cima" title="Anterior (Enter)"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-chevron-up"/></svg></button>
+      <button id="chat-busca-baixo" title="Próximo (Shift+Enter)"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-chevron-down"/></svg></button>
+      <button id="chat-busca-fechar" title="Fechar (Esc)"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-x"/></svg></button>
+    </div>
+    <div id="soltar-aviso"><svg class="ico" aria-hidden="true"><use href="#i-paperclip"/></svg><span>Solte para anexar</span></div>
     <div id="timeline" role="log" aria-live="polite"></div>
     <div id="timeline-self" class="hidden" role="log" aria-live="polite"></div>
 
@@ -306,8 +317,11 @@
         </div>
       </div>
       <!-- Text input -->
+      <div id="chat-anexos" hidden></div>
       <div id="text-zone">
-        <input id="cmd-input" type="text" placeholder="Digite um comando ou pergunta…" autocomplete="off">
+        <button class="mic-btn" id="anexo-btn" title="Anexar imagem ou texto (ou arraste, ou cole)"><svg class="ico" aria-hidden="true"><use href="#i-paperclip"/></svg></button>
+        <input id="anexo-input" type="file" multiple hidden>
+        <textarea id="cmd-input" rows="1" placeholder="Digite um comando ou pergunta…" autocomplete="off" spellcheck="true"></textarea>
         <button class="mic-btn" id="mic-btn" title="Ativar voz (Ctrl+Shift+J)"><svg class="ico" aria-hidden="true"><use href="#i-mic"/></svg></button>
         <button class="send-btn" id="send-btn" title="Enviar"><svg class="ico" aria-hidden="true"><use href="#i-arrow-up"/></svg></button>
       </div>
@@ -481,6 +495,7 @@
 <script src="dashboard/js/temas.js"></script>
 <script src="dashboard/js/voz.js"></script>
 <script src="dashboard/js/conversas.js"></script>
+<script src="dashboard/js/chat-extra.js"></script>
 <script src="dashboard/js/config.js"></script>
 <script src="dashboard/js/abas.js"></script>
 <script src="dashboard/js/ajustes.js"></script>

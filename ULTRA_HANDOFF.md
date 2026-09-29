@@ -4410,3 +4410,72 @@ qwen faz isso) como conversa — antes caía como resposta literal.
 - `que horas em Tóquio` responde a hora local nos dois modelos; um `fuso_horario` de
   leitura resolveria barato.
 - A bancada do agente não cobre a voz (STT) nem o streaming — só a decisão.
+
+---
+
+## 28. Fase 10 — a experiência diária (blocos 84+)
+
+> Começou em 28/09/2026, com o Zak deixando a sessão trabalhar de noite ("pode ir até onde
+> der; se precisar de mim, invente algo novo para o ELYSIUM"). A ordem é a da §26.
+
+### Bloco 84 — o chat do desktop de verdade ✅ (e três consertos que apareceram no caminho)
+
+**`src/renderer/dashboard/js/chat-extra.js`** (novo, depois de `conversas.js`):
+
+- **Campo de texto que cresce**: `#cmd-input` virou `<textarea>` (Enter envia, Shift+Enter
+  quebra linha), até ~8 linhas; rolagem só acima disso.
+- **Anexos**: clipe na barra, **arrastar** para qualquer lugar do chat (aviso "Solte para
+  anexar"), **colar** imagem (Win+Shift+S → Ctrl+V). Chips acima da barra, com ×. No lado
+  **IA**: imagem → `vision.ask` (uma por pergunta; a bolha mostra a miniatura); texto
+  (`.txt/.md/.json/.csv/.py/…`, até 12 mil caracteres) entra no pedido como
+  `[Arquivo nome]` e a bolha mostra só o chip. Outros tipos: aviso para mandar pelo lado
+  Celular. No lado **Celular**: qualquer arquivo até 5 MB vira anexo da Caixa (IPC novo
+  `mailbox:send-file`, mesmo `addMessage` do anexo que vem do celular). Soltar arquivo
+  fora do chat não navega mais a janela para ele (era o comportamento padrão do Electron).
+- **Ações na bolha** (hover): copiar em todas; **refazer** na última resposta; **editar** na
+  última pergunta (Esc cancela). Os dois mandam `chat:send` com `{refazer: true}`, e o main
+  chama `desfazerUltimoTurno()` no `brain.ts` antes — sem isso o modelo veria a pergunta duas
+  vezes com a resposta rejeitada no meio. A conversa gravada acompanha (`chatMessages`).
+- **Markdown**: títulos (`#`–`####`, como texto forte do tamanho da bolha, não `<h1>`),
+  citação, `---`, links (`[t](url)` e URL solta, **só http(s)**, abertos pelo IPC
+  `link:abrir`, que confere o protocolo de novo no main), blocos de código com barra
+  "linguagem + Copiar". `_ênfase_` não pega mais `snake_case`.
+- 🔴 **O realce de código produzia HTML quebrado desde sempre**: eram `replace` em cadeia
+  sobre o HTML escapado, e a regex de string casava o `"kw"` do `<span class="kw">` que a de
+  palavra-chave tinha acabado de pôr. Todo bloco com `const` saía com `<span class=<span…`.
+  Reescrito como tokenizador de uma passada.
+- **Ctrl+F na conversa**: barra no canto, Enter/Shift+Enter navegam, contador "3/7". Usa a
+  **CSS Custom Highlight API** (`CSS.highlights`) — marca os trechos sem mexer no DOM das
+  bolhas, então o markdown não quebra e fechar não tem o que desfazer.
+- **Não feito, de propósito**: "Conversas como coluna" (§26). O popover já existe, abre
+  com um clique e não rouba largura do chat numa janela de 1024 px. Reavaliar se o Zak
+  pedir.
+
+**🔴 Três consertos que não eram do plano:**
+
+1. **O Ollama cortava o começo do prompt em silêncio.** Sem `num_ctx`, ele carrega com
+   **4096** tokens (`ollama ps`), e o prompt do agente — system + 33 ferramentas — mede
+   **3023** sozinho. Com histórico, resumo, memória e o resultado de uma leitura, passava do
+   teto, e o que o Ollama corta é o INÍCIO: o system prompt. `ollamaNumCtx: 8192` no
+   config, nas duas chamadas do `llm.ts` (custa ~0,3 GB de VRAM: 4,7 → 5,0 GB). A bancada
+   do bloco 82 deu o mesmo placar com 8192 (qwen 78%, llama 75%, 3×) porque cada caso é
+   curto — o ganho é no uso real, com conversa.
+2. **A visão estava morta**: `qwen/qwen3.6-27b` saiu da Groq (404 em toda imagem, inclusive
+   a câmera do celular). **E a busca na web também**: `groq/compound` e `compound-mini`
+   sumiram do catálogo. Catálogo da conta em 28/09 (via o IPC novo `groq:modelos`, que só
+   devolve ids — a chave fica no main): `gpt-oss-120b/20b/safeguard-20b`, `qwen/qwen3.8-27b`,
+   `whisper-large-v3(-turbo)`, `allam-2-7b`, `orpheus`, `llama-prompt-guard`. Visão →
+   `qwen/qwen3.8-27b` (lê "OLA 42" em branco sobre azul, conferido); busca →
+   `openai/gpt-oss-120b` com a ferramenta embutida **`browser_search`** (`tools` +
+   `tool_choice: "required"`, `max_tokens` 2000 por causa do raciocínio) — "cotação do
+   dólar" respondeu com o valor do dia. Os três ids mortos entraram em
+   `DECOMMISSIONED_MODELS`; candidatos atualizados.
+3. **A visão se cura sozinha agora** (`src/services/catalogoGroq.ts`, novo): 404 no modelo
+   de visão → marca morto, pergunta o catálogo (`modelosDaGroq`, cache de 1 h) e escolhe
+   por padrão de nome (`candidatosDeVisao`: llama-4, `qwen/qwen3.x-NNb`, `*vision*`, `*vl*`).
+   Da próxima vez que a Groq trocar o modelo, a imagem continua funcionando.
+
+**Testes:** `catalogoGroq.test.ts` (2, com o catálogo real de 28/09). 49 no total. Provado
+ao vivo no app de dev: arquivo de texto ("a cor preferida segundo o arquivo" → verde-musgo),
+imagem, refazer (morango → maçã), editar (vermelha → amarela, conversa gravada com só o
+turno novo), Ctrl+F (1/1), capturas nos temas Vidro e ELYSIUM.

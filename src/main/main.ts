@@ -31,7 +31,8 @@ import { state } from "./state";
 import { notify } from "./notify";
 import { createTray, refreshTray, updateLastCommand, buildIcon as iconePadrao } from "./tray";
 import { transcribe } from "../services/stt";
-import { clearHistory } from "../services/brain";
+import { clearHistory, desfazerUltimoTurno } from "../services/brain";
+import { modelosDaGroq } from "../services/catalogoGroq";
 import { getTopHistory } from "../services/history";
 import { registrarPergunta, bolhasDoChat } from "../services/perguntas";
 import { synthesize, cancelSpeak } from "../services/tts";
@@ -397,7 +398,7 @@ ipcMain.on("voice:start", () => {
 
 // ── chat IPC ──────────────────────────────────────────────────────────────────
 
-ipcMain.on("chat:send", async (_event, text: string) => {
+ipcMain.on("chat:send", async (_event, text: string, opcoes?: { refazer?: boolean }) => {
   // Escrever por cima da fala interrompe a fala: quem já leu a resposta na tela não quer
   // esperar o TTS terminar um parágrafo para mandar a pergunta seguinte. Só gravação e
   // processamento continuam bloqueando — aí há um pedido em andamento de verdade.
@@ -414,7 +415,10 @@ ipcMain.on("chat:send", async (_event, text: string) => {
   const meuToken = ++currentToken;
   state.set("processing");
   try {
-    registrarPergunta(text);
+    // "Refazer" e "editar a última pergunta" (bloco 84): o turno anterior sai do histórico
+    // e não conta de novo nas perguntas frequentes.
+    if (opcoes?.refazer) desfazerUltimoTurno();
+    else registrarPergunta(text);
     const { reply: combined } = await executarComando(text, {
       onActions: (actions) => {
         const label = getActionsLabel(actions);
@@ -594,6 +598,24 @@ ipcMain.handle("presets:get", () => getAllPresets());
 
 // Sem `sessionId` devolve a thread inteira — e o que os chamadores antigos esperam.
 ipcMain.handle("mailbox:get-thread", (_e, sessionId?: string | null) => listMessagesForDesktop(sessionId ?? null));
+
+// Arquivo arrastado para o lado "Celular" do chat (bloco 84). Mesmo caminho do anexo que
+// vem do celular, com o teto de 5 MB do mailboxStore.
+ipcMain.handle("mailbox:send-file", (_e, texto: string, anexo: { name: string; mimeType: string; base64: string }, sessionId?: string | null) => {
+  if (!anexo?.base64 || !anexo.name) throw new Error("anexo inválido");
+  const { id } = addMessage("pc", { kind: "file", text: (texto ?? "").trim() || null, attachment: anexo, sessionId: sessionId ?? null });
+  broadcastMailboxEvent("toMobile", id);
+  return { id };
+});
+
+// Link clicado numa resposta do chat (bloco 84). Só http(s): o markdown vem do modelo, e um
+// "file:" ou protocolo de app numa resposta não pode virar execução com um clique.
+// Catálogo da Groq para Ajustes e para diagnóstico: só os ids, a chave fica no main.
+ipcMain.handle("groq:modelos", (_e, forcar?: boolean) => modelosDaGroq(Boolean(forcar)));
+
+ipcMain.on("link:abrir", (_e, url: string) => {
+  if (typeof url === "string" && /^https?:\/\//i.test(url)) shell.openExternal(url).catch(() => {});
+});
 
 ipcMain.on("mailbox:send", (_event, text: string, sessionId?: string | null) => {
   const trimmed = (text ?? "").trim();

@@ -5,9 +5,13 @@ import { apiKeyError, networkError } from "./errors";
  * Busca na web.
  *
  * Não há chave de serviço de busca em lugar nenhum do projeto, e isso é de propósito:
- * os modelos `groq/compound*` são sistemas agênticos que pesquisam sozinhos e devolvem
- * a resposta já redigida. Uma conta a menos para o usuário criar, um segredo a menos
- * para guardar, e a mesma chave da Groq que já existe.
+ * a Groq pesquisa sozinha e devolve a resposta já redigida. Uma conta a menos para o
+ * usuário criar, um segredo a menos para guardar, e a mesma chave da Groq que já existe.
+ *
+ * 🔴 Até setembro de 2026 isso era o `groq/compound-mini`, que pesquisava sem precisar de
+ * ferramenta. Em 28/09 ele sumiu do catálogo. Hoje a busca é o `gpt-oss` com a ferramenta
+ * embutida `browser_search` (declarada em `tools`, executada no servidor da Groq). Se o
+ * modelo configurado ainda for um `compound`, ele vai sem a ferramenta, como antes.
  */
 
 const GROQ_CHAT_URL = "https://api.groq.com/openai/v1/chat/completions";
@@ -36,8 +40,10 @@ export async function searchWeb(query: string): Promise<string> {
           { role: "system", content: SEARCH_SYSTEM_PROMPT },
           { role: "user", content: query },
         ],
+        ...(cfg.searchModel.startsWith("groq/compound") ? {} : { tools: [{ type: "browser_search" }], tool_choice: "required" }),
         temperature: 0.3,
-        max_tokens: 500,
+        // Folgado: o gpt-oss raciocina antes de responder e o raciocínio conta no teto.
+        max_tokens: 2000,
       }),
       // Generoso: o modelo faz buscas de verdade antes de responder, então demora bem
       // mais que uma chamada de texto comum.
@@ -65,7 +71,7 @@ export async function searchWeb(query: string): Promise<string> {
     .replace(/\*\*/g, "")
     .trim();
 
-  if (!message?.executed_tools?.some(t => t.type === "search")) {
+  if (!message?.executed_tools?.some(t => /search/.test(t.type))) {
     console.warn("[busca] o modelo respondeu sem pesquisar — resposta pode estar desatualizada");
   }
 

@@ -77,6 +77,8 @@ export interface AppConfig {
   ollamaChatModel: string;
   /** Tempo que o modelo fica na VRAM sem uso antes de o Ollama descarregá-lo sozinho. */
   ollamaKeepAlive: string;
+  /** Janela de contexto pedida ao Ollama. Ver o comentário no DEFAULTS. */
+  ollamaNumCtx: number;
   /** Repetir na Groq quando o local devolve algo inaproveitável. Exige a API key. */
   fallbackToGroq: boolean;
   /**
@@ -141,8 +143,11 @@ const DEFAULTS: AppConfig = {
   sttModel: "whisper-large-v3",
   brainModel: "openai/gpt-oss-120b",
   routerModel: "openai/gpt-oss-120b",
-  visionModel: "qwen/qwen3.6-27b",
-  searchModel: "groq/compound-mini",
+  // 28/09/2026: o catálogo da conta (`groq:modelos`, catalogoGroq.ts) trocou o qwen3.6 pelo
+  // qwen3.8 e TIROU os groq/compound*. A busca passou para o gpt-oss com a ferramenta
+  // `browser_search` da própria Groq — ver webSearch.ts.
+  visionModel: "qwen/qwen3.8-27b",
+  searchModel: "openai/gpt-oss-120b",
   routerProvider: "ollama",
   chatProvider: "ollama",
   ollamaBaseUrl: "http://127.0.0.1:11434",
@@ -158,6 +163,12 @@ const DEFAULTS: AppConfig = {
   // explicação. 10 minutos cobre uma sessão de uso real; a GPU disputada continua
   // protegida pelo `evitarGpuOcupada`, que desvia para a nuvem sem tocar na VRAM.
   ollamaKeepAlive: "10m",
+  // 🔴 Sem isto o Ollama carrega com 4096 tokens (medido em 28/09/2026, `ollama ps`), e o
+  // prompt do agente SOZINHO — system + as 33 ferramentas — já ocupa 3023. Com histórico,
+  // resumo, memória e o resultado de uma leitura, passava do teto, e o Ollama corta o
+  // COMEÇO da conversa em silêncio: some o system prompt, não a última mensagem. 8192 custa
+  // ~0,3 GB a mais de VRAM (4,7 → 5,0 GB no qwen2.5:7b).
+  ollamaNumCtx: 8192,
   fallbackToGroq: true,
   cerebroFerramentas: true,
   evitarGpuOcupada: true,
@@ -220,6 +231,11 @@ const DECOMMISSIONED_MODELS = new Set([
   "llama-3.1-70b-versatile",
   "llama3-70b-8192",
   "llama3-8b-8192",
+  // Fora do catálogo em 28/09/2026 (bloco 84). A visão dava 404 em toda imagem e a busca
+  // na web caía em "não consegui pesquisar".
+  "qwen/qwen3.6-27b",
+  "groq/compound",
+  "groq/compound-mini",
 ]);
 
 /**
@@ -250,10 +266,10 @@ const OLLAMA_MODELS_MORTOS = new Set(["llama3.2", "llama3.2:latest", "llama3.2:3
  * ruim ainda é melhor que nenhum.
  */
 const CANDIDATOS_GROQ: Record<string, string[]> = {
-  routerModel: ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "qwen/qwen3.6-27b"],
-  brainModel:  ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "qwen/qwen3.6-27b"],
-  visionModel: ["qwen/qwen3.6-27b"],
-  searchModel: ["groq/compound-mini", "groq/compound"],
+  routerModel: ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "qwen/qwen3.8-27b"],
+  brainModel:  ["openai/gpt-oss-120b", "openai/gpt-oss-20b", "qwen/qwen3.8-27b"],
+  visionModel: ["qwen/qwen3.8-27b"],
+  searchModel: ["openai/gpt-oss-120b", "openai/gpt-oss-20b"],
   sttModel:    ["whisper-large-v3", "whisper-large-v3-turbo"],
 };
 

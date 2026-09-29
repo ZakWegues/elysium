@@ -200,6 +200,7 @@ async function chamarOllama(p: ChatPedido): Promise<string> {
         options: {
           temperature: p.temperature,
           num_predict: p.maxTokens,
+          num_ctx: cfg.ollamaNumCtx || 8192,
         },
       }),
       // Mais folgado que o da nuvem de propósito: a primeira chamada depois de o modelo
@@ -357,7 +358,7 @@ export async function callChatComFerramentas(p: PedidoComFerramentas): Promise<R
       body: JSON.stringify({
         model: p.model, messages, tools, stream: false,
         keep_alive: cfg.ollamaKeepAlive || "60s",
-        options: { temperature: p.temperature, num_predict: p.maxTokens },
+        options: { temperature: p.temperature, num_predict: p.maxTokens, num_ctx: cfg.ollamaNumCtx || 8192 },
       }),
       signal: AbortSignal.timeout(p.timeoutMs ?? 60_000),
     });

@@ -87,7 +87,7 @@ const { casos } = JSON.parse(fs.readFileSync(path.join(raiz, "scripts/bench-agen
 const tools = definicoesDeFerramentas().map(d => ({ type: "function", function: { name: d.name, description: d.description, parameters: d.parameters } }));
 
 async function chat(modelo, messages) {
-  const r = await fetch(OLLAMA, { method: "POST", body: JSON.stringify({ model: modelo, messages, tools, stream: false, options: { temperature: 0.1, num_predict: 600 }, keep_alive: "10m" }) });
+  const r = await fetch(OLLAMA, { method: "POST", body: JSON.stringify({ model: modelo, messages, tools, stream: false, options: { temperature: 0.1, num_predict: 600, num_ctx: 8192 }, keep_alive: "10m" }) });
   if (!r.ok) throw new Error(`${r.status} ${await r.text()}`);
   const j = await r.json();
   const m = j.message ?? {};

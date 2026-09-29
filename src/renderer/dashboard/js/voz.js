@@ -198,20 +198,10 @@ const cmdInput = document.getElementById("cmd-input");
 const sendBtn  = document.getElementById("send-btn");
 const micBtn   = document.getElementById("mic-btn");
 
+// O envio de verdade mora em chat-extra.js (bloco 84): anexos, edição da última pergunta e
+// o lado "Celular" com arquivos. Aqui fica só o ponto de entrada que os ouvintes já usam.
 function sendText() {
-  const text = cmdInput.value.trim();
-  if (!text) return;
-  // Fileira some assim que a conversa começa: a partir daí ela seria ruído entre a
-  // resposta e a próxima pergunta.
-  if (chatBolhas) chatBolhas.innerHTML = "";
-  if (chatMode === "self") {
-    window.nx.mailboxSend(text);
-  } else {
-    addBubble("user", text);
-    recordMessage("me", text);
-    window.nx.chatSend(text);
-  }
-  cmdInput.value = "";
+  enviarMensagem();
 }
 
 sendBtn.addEventListener("click", sendText);

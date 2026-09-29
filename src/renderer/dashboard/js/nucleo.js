@@ -68,15 +68,25 @@ function escHtml(s) {
   return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 }
 
+/**
+ * Realce em UMA passada sobre o código cru (bloco 84). A versão anterior fazia replaces em
+ * cadeia sobre o HTML já escapado: a regex de string casava o `"kw"` do <span> que a de
+ * palavra-chave tinha acabado de inserir, e todo bloco com `const` saía com HTML quebrado
+ * na tela. Aqui cada pedaço é classificado uma vez e escapado sozinho.
+ */
 function highlightCode(code, lang) {
-  let s = escHtml(code);
-  if (/^(js|ts|python|py|bash|sh|ps1|powershell)$/.test(lang || "")) {
-    s = s.replace(/(\/\/[^\n]*|#[^\n]*)/g, '<span class="cmt">$1</span>');
-    s = s.replace(/\b(function|const|let|var|return|if|else|for|while|import|export|from|class|new|async|await|def|print|echo|Write-Output)\b/g, '<span class="kw">$1</span>');
-    s = s.replace(/("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`[^`]*`)/g, '<span class="str">$1</span>');
-    s = s.replace(/\b(\d+(\.\d+)?)\b/g, '<span class="num">$1</span>');
+  const l = (lang || "").toLowerCase();
+  if (!/^(js|javascript|ts|typescript|tsx|jsx|python|py|bash|sh|ps1|powershell|json|c|cpp|cs|java|go|rs|rust)$/.test(l)) return escHtml(code);
+  const comentario = /^(py|python|bash|sh|ps1|powershell)$/.test(l) ? "#[^\\n]*" : "\\/\\/[^\\n]*|\\/\\*[\\s\\S]*?\\*\\/";
+  const re = new RegExp(`(${comentario})|("(?:[^"\\\\\\n]|\\\\.)*"|'(?:[^'\\\\\\n]|\\\\.)*'|\`[^\`]*\`)|\\b(function|const|let|var|return|if|else|elif|for|while|import|export|from|class|new|async|await|def|print|echo|true|false|null|None|True|False|in|of|try|catch|except|finally|Write-Output)\\b|\\b(\\d+(?:\\.\\d+)?)\\b`, "g");
+  let saida = "", ultimo = 0;
+  for (const m of code.matchAll(re)) {
+    saida += escHtml(code.slice(ultimo, m.index));
+    const cls = m[1] ? "cmt" : m[2] ? "str" : m[3] ? "kw" : "num";
+    saida += `<span class="${cls}">${escHtml(m[0])}</span>`;
+    ultimo = m.index + m[0].length;
   }
-  return s;
+  return saida + escHtml(code.slice(ultimo));
 }
 
 function renderMarkdown(raw) {
@@ -99,13 +109,19 @@ function renderMarkdown(raw) {
     }
     if (inCode) {
       if (ln.startsWith("```")) {
-        html += `<pre><code>${highlightCode(codeLines.join("\n"), codeLang)}</code></pre>`;
+        html += blocoDeCodigo(codeLines.join("\n"), codeLang);
         inCode = false;
       } else { codeLines.push(ln); }
       continue;
     }
     const trimmed = ln.trim();
     if (!trimmed) { flushList(); continue; }
+    // Títulos, citação e linha (bloco 84). Título vira texto forte do tamanho da bolha,
+    // não <h1>: numa bolha de chat um h1 de verdade gritaria mais que a própria resposta.
+    const titulo = trimmed.match(/^(#{1,4})\s+(.*)$/);
+    if (titulo) { flushList(); html += `<p class="md-titulo md-t${titulo[1].length}">${inlineRender(titulo[2])}</p>`; continue; }
+    if (/^>\s?/.test(trimmed)) { flushList(); html += `<blockquote>${inlineRender(trimmed.replace(/^>\s?/, ""))}</blockquote>`; continue; }
+    if (/^(-{3,}|\*{3,}|_{3,})$/.test(trimmed)) { flushList(); html += "<hr>"; continue; }
     if (/^[-*] /.test(trimmed)) {
       if (!inList) { html += "<ul>"; inList = true; }
       html += `<li>${inlineRender(trimmed.slice(2))}</li>`;
@@ -117,15 +133,28 @@ function renderMarkdown(raw) {
       html += `<p>${inlineRender(ln)}</p>`;
     }
   }
-  if (inCode) html += `<pre><code>${highlightCode(codeLines.join("\n"), codeLang)}</code></pre>`;
+  if (inCode) html += blocoDeCodigo(codeLines.join("\n"), codeLang);
   flushList();
   return html || `<p>${escHtml(raw)}</p>`;
 }
 
+/** Bloco de código com o botão de copiar — o clique é tratado em chat-extra.js. */
+function blocoDeCodigo(codigo, lang) {
+  return `<div class="codigo"><div class="codigo-topo"><span>${escHtml(lang || "código")}</span>` +
+    `<button type="button" data-copiar-codigo>Copiar</button></div>` +
+    `<pre><code>${highlightCode(codigo, lang)}</code></pre></div>`;
+}
+
 function inlineRender(s) {
-  return escHtml(s)
-    .replace(/`([^`]+)`/g, "<code>$1</code>")
+  // Código inline sai primeiro para uma lista à parte: dentro dele nada vira negrito nem
+  // link. Links só http(s) — o clique passa pelo main, que também confere o protocolo.
+  const codigos = [];
+  let t = escHtml(s).replace(/`([^`]+)`/g, (_, c) => { codigos.push(c); return `\u0000${codigos.length - 1}\u0000`; });
+  t = t
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2">$1</a>')
+    .replace(/(^|[\s(])(https?:\/\/[^\s<)]+)/g, '$1<a href="$2">$2</a>')
     .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
     .replace(/\*([^*]+)\*/g,     "<em>$1</em>")
-    .replace(/_([^_]+)_/g,       "<em>$1</em>");
+    .replace(/(^|[\s(])_([^_]+)_(?=[\s).,!?:;]|$)/g, "$1<em>$2</em>");
+  return t.replace(/\u0000(\d+)\u0000/g, (_, i) => `<code>${codigos[Number(i)]}</code>`);
 }

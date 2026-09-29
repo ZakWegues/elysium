@@ -205,6 +205,16 @@ export function recordAssistantReply(text: string): void {
 }
 
 /**
+ * Tira do histórico o último turno (a resposta e a pergunta que a gerou) — é o "refazer" e o
+ * "editar a última pergunta" do chat (bloco 84). Sem isto o modelo veria a pergunta duas
+ * vezes seguidas, com a resposta rejeitada no meio, e tenderia a repeti-la.
+ */
+export function desfazerUltimoTurno(): void {
+  while (history.length && history[history.length - 1].role === "assistant") history.pop();
+  if (history.length && history[history.length - 1].role === "user") history.pop();
+}
+
+/**
  * Decide qual provedor atende o roteamento agora.
  *
  * Com jogo aberto, o local é pulado mesmo estando configurado: carregar ~2,6 GB na GPU

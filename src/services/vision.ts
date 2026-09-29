@@ -1,4 +1,5 @@
-import { getApiKey, getConfig } from "../main/config";
+import { getApiKey, getConfig, marcarModeloMorto } from "../main/config";
+import { candidatosDeVisao, modelosDaGroq } from "./catalogoGroq";
 import { apiKeyError, networkError } from "./errors";
 import { captureScreen } from "./screenCapture";
 
@@ -37,11 +38,35 @@ function stripThinking(raw: string): string {
   return text.trim();
 }
 
+/**
+ * Modelo de visão escolhido pelo catálogo quando o configurado sumiu (bloco 84). Vale até o
+ * app reiniciar — aí o `healModel` do config já sabe, pela lista de aposentados.
+ */
+let visaoDescoberta: string | null = null;
+
 export async function askAboutImage(imageBase64: string, question: string): Promise<string> {
   const apiKey = getApiKey();
   if (!apiKey) throw apiKeyError();
   const cfg = getConfig();
+  const modelo = visaoDescoberta ?? cfg.visionModel;
+  try {
+    return await perguntarAoModelo(apiKey, modelo, imageBase64, question);
+  } catch (e) {
+    // 404 = o modelo saiu do catálogo (qwen3.6 → qwen3.8 em 28/09/2026). Em vez de a
+    // visão ficar morta até alguém editar o config, pergunta à Groq o que existe hoje.
+    if (!(e instanceof ModeloSumiu)) throw e;
+    marcarModeloMorto("groq", modelo);
+    const alternativa = candidatosDeVisao(await modelosDaGroq(true).catch(() => [])).find(m => m !== modelo);
+    if (!alternativa) throw networkError(`Visão: o modelo ${modelo} saiu da Groq e a conta não tem outro que enxergue.`);
+    console.warn(`[visão] ${modelo} sumiu da Groq; usando ${alternativa}.`);
+    visaoDescoberta = alternativa;
+    return perguntarAoModelo(apiKey, alternativa, imageBase64, question);
+  }
+}
 
+class ModeloSumiu extends Error {}
+
+async function perguntarAoModelo(apiKey: string, modelo: string, imageBase64: string, question: string): Promise<string> {
   const prompt = question.trim() || "O que aparece nesta imagem?";
 
   let res: Response;
@@ -50,7 +75,7 @@ export async function askAboutImage(imageBase64: string, question: string): Prom
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: cfg.visionModel,
+        model: modelo,
         messages: [
           { role: "system", content: VISION_SYSTEM_PROMPT },
           {
@@ -73,6 +98,7 @@ export async function askAboutImage(imageBase64: string, question: string): Prom
   }
 
   if (res.status === 401) throw apiKeyError();
+  if (res.status === 404) throw new ModeloSumiu(modelo);
   if (!res.ok) throw networkError(`Visão HTTP ${res.status} ${await safeText(res)}`);
 
   const data = await res.json() as { choices?: { message?: { content?: string } }[] };
