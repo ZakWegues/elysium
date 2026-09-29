@@ -40,7 +40,7 @@ import { sintetizarMp3 } from "./tts";
 import { registrarAcesso } from "./aparelhos";
 
 const WS_MAGIC = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
-const PKG_VERSION = "1.3.0";
+const PKG_VERSION = "1.4.0";
 
 /** Teto de corpo por requisição. Anexo do mailbox em base64 (5 MB) infla ~33%. */
 const MAX_BODY_BYTES = 8 * 1024 * 1024;

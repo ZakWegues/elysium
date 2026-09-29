@@ -4,7 +4,7 @@
 > `CONTRATO_RPC.md` e o `CONTEXTO_NEUROAXIS.md`. Se alguma coisa aqui divergir de outro
 > arquivo do repositório, **este aqui vale**.
 >
-> Última atualização: **20/09/2026**.
+> Última atualização: **29/09/2026**.
 
 ---
 
@@ -185,17 +185,18 @@ pedir de novo.**
 
 ### Git
 
-| Repo | HEAD (20/09/2026) | Estado |
+| Repo | HEAD (29/09/2026) | Estado |
 |---|---|---|
-| `elysium` | fase 9 completa (blocos 76–83, §27) | limpo, pusheado |
-| `elysium-m` | fase 9 completa (blocos 79, 81, 83, §27) | limpo, pusheado |
+| `elysium` | fases 10 e 11 (blocos 84–98, §28 e §29) | limpo, pusheado |
+| `elysium-m` | fases 10 e 11 (blocos 85–97, §28 e §29) | limpo, pusheado |
 
-> **Versão 1.3.0 nos dois lados** (celular `versionCode` 12). Instalador em
-> `elysium/release/ELYSIUM-Setup-1.3.0.exe`, APK em `elysium-m/dist-apk/elysium-m.apk` —
-> os dois gerados em 20/09/2026 ao fim da fase 9. Ver §27 para o que mudou. O APK não tem
-> módulo nativo novo nesta fase (só JS), mas o `versionCode` subiu; instalar por cima.
-> **O cérebro local padrão agora é `qwen2.5:7b`** (`ollama pull qwen2.5:7b` numa máquina
-> nova; nesta já está baixado).
+> **Versão 1.4.0 nos dois lados** (celular `versionCode` 13). Instalador em
+> `elysium/release/ELYSIUM-Setup-1.4.0.exe`, APK em `elysium-m/dist-apk/elysium-m.apk` —
+> gerados em 29/09/2026. **O APK é obrigatório** (widgets de Clima e Rotinas e o Firebase
+> mudam o manifesto). O push agora tem FCM (projeto `elysium-ac53f`, §29 bloco 94); o
+> `google-services.json` fica só em `elysium-m/` (fora do git). Cérebro local padrão:
+> `qwen2.5:7b` com `num_ctx` 8192. Na Groq: visão `qwen/qwen3.8-27b`, busca
+> `openai/gpt-oss-120b` + `browser_search`.
 
 A fase 5 inteira (§22) está nesses dois. Verificado antes de subir: `npm run build` no
 desktop, `npm run typecheck` **e** `npx expo export --platform android` no Portal — o
@@ -4750,3 +4751,50 @@ Revisado ponto a ponto o que é superfície nova:
    (`192.168.15.29`, ELYSIUM-M) e um script local com 3 recusas.
 
 `aparelhos.test.ts` (2). 58 testes no desktop.
+
+### Bloco 94 — push pelo Firebase (FCM V1) ✅ (código); validação no aparelho
+
+O Zak criou em 29/09/2026 o projeto Firebase **`elysium-ac53f`**, registrou o app Android
+`com.zak.elysium.m` e subiu a **chave da conta de serviço (FCM V1) direto no expo.dev**
+(Credentials → Android → projeto `neuroaxis-portal`) — a chave nunca passou pelo chat nem
+pelo repositório. O `google-services.json` fica em `elysium-m/google-services.json` e é
+ligado por `android.googleServicesFile` no `app.json`; está no **`.gitignore`** (não é
+segredo como a chave de serviço, mas não precisa estar no repositório — baixa de novo em
+Configurações do projeto → Seus apps no console do Firebase).
+
+⚠️ Numa máquina nova, **sem esse arquivo o `build:local` gera um APK sem FCM** (o prebuild
+não reclama). O código de push do app e do PC não mudou — ele já mandava pela Expo desde a
+fase 3 e só faltava a credencial. Depois de instalar o APK 1.4.0: Ajustes → Notificações →
+**Registrar este aparelho**. A partir daí lembrete e rotina chegam no 4G, em segundos; a
+fila local (bloco 72) vira só a rede de segurança.
+
+### Blocos 93 e 99 — fechamento das fases 10 e 11: versão 1.4.0 ✅
+
+**Gerados em 29/09/2026:**
+
+| artefato | onde | notas |
+|---|---|---|
+| Desktop **1.4.0** | `elysium/release/ELYSIUM-Setup-1.4.0.exe` (79,4 MB) | `app.asar` conferido por dentro: `chat-extra.js`, `palavraAtivacao`, `janelas`, `sintetizarMp3`, `montarBackup`, `mascarar`, `registrarAcesso`, CSP, `ollamaNumCtx`, `browser_search`, `qwen3.8-27b` |
+| Celular **1.4.0**, `versionCode` 13 | `elysium-m/dist-apk/elysium-m.apk` (109,4 MB) | Conferido por dentro: `versionCode=13`, receivers dos 5 widgets (Busca, Ações, Estado, Clima, Rotinas), `FirebaseMessagingService` e `google_app_id`. **APK obrigatório** (widgets novos e Firebase mexem no manifesto). Mesma chave de assinatura |
+
+**Só o Zak valida** (sem aparelho no `adb`):
+
+- [ ] Instalar os dois. Celular: Ajustes → Notificações → Registrar este aparelho; criar um
+      lembrete para daqui a 2 min, **desligar o Wi-Fi do celular** e esperar o push no 4G.
+- [ ] Widgets novos (Clima, Rotinas) na tela inicial.
+- [ ] Chat do celular: campo vazio → fone → conversa mão livre; dizer "chega" para sair.
+- [ ] Resposta falada no celular com a voz do PC (Ajustes → Voz).
+- [ ] PC: Ajustes → Voz → "Acordar ao ouvir Elysium", e dizer "Elysium" de longe.
+- [ ] PC: arrastar uma imagem e um `.txt` para o chat; Ctrl+F; refazer/editar.
+- [ ] PC: aba PC → Janelas → "só esta"; slider de volume.
+- [ ] PC: Ajustes → Dados e diagnóstico → Exportar tudo (guardar o arquivo fora do PC).
+- [ ] PC: Ajustes → Celular → conferir a lista "Quem usou o token".
+
+**Fica para depois (§26 atualizado):**
+
+- **Bloco 95 (auto-update)**: depende de publicar releases no GitHub — ação pública, só com
+  pedido do Zak — e de um token para o app ler releases de repositório privado.
+- Conversas como coluna no chat do desktop (bloco 84, adiado por decisão).
+- Slider de volume no celular (precisa de módulo nativo).
+- Calibrar os limiares da mão livre e a confiança da palavra de ativação com uso real.
+- C: com 97% usado nesta máquina — o card de insights poderia avisar disco quase cheio.
