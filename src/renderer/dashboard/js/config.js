@@ -212,6 +212,26 @@ async function loadPairing() {
     renderPairing(info);
     renderRemoteAccess(info);
   } catch { renderPairing(null); renderRemoteAccess(null); }
+  renderAparelhos();
+}
+
+/** Quem usou o token (bloco 98): endereço, tipo de cliente, última vez e recusas. */
+async function renderAparelhos() {
+  const alvo = document.getElementById("aparelhos-lista");
+  if (!alvo) return;
+  let lista = [];
+  try { lista = (await window.nx.aparelhos()) ?? []; } catch { /* preload antigo */ }
+  if (!lista.length) { alvo.innerHTML = ""; return; }
+  const quando = (ts) => {
+    const min = Math.round((Date.now() - ts) / 60000);
+    return min < 1 ? "agora" : min < 60 ? `há ${min} min` : min < 1440 ? `há ${Math.round(min / 60)} h` : `há ${Math.round(min / 1440)} d`;
+  };
+  alvo.innerHTML = `<div class="aparelhos-titulo">Quem usou o token</div>` + lista.slice(0, 8).map(a => `
+    <div class="aparelho${a.recusas > 5 && !a.pedidos ? " suspeito" : ""}">
+      <span class="aparelho-ip">${escHtml(a.ip === "127.0.0.1" ? "este PC" : a.ip)}</span>
+      <span class="aparelho-tipo">${escHtml(a.cliente)}</span>
+      <span class="aparelho-quando">${a.pedidos ? quando(a.ultimaVez) : "nunca entrou"}${a.recusas ? ` · ${a.recusas} recusa${a.recusas === 1 ? "" : "s"}` : ""}</span>
+    </div>`).join("");
 }
 
 /**

@@ -37,6 +37,7 @@ import { completeLogin as completeSpotifyLogin } from "./spotify";
 import { handleRpc, listRpcMethods, RpcError } from "./rpc";
 import { emitirEvento } from "./eventos";
 import { sintetizarMp3 } from "./tts";
+import { registrarAcesso } from "./aparelhos";
 
 const WS_MAGIC = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 const PKG_VERSION = "1.3.0";
@@ -324,9 +325,11 @@ function makeHandler(
     }
 
     if (!authorized(req)) {
+      registrarAcesso(req, false);
       sendJson(res, 401, { error: "Unauthorized" });
       return;
     }
+    registrarAcesso(req, true);
 
     const url = req.url?.split("?")[0] ?? "/";
 
@@ -530,6 +533,7 @@ function handleUpgrade(
 ): void {
   // Reject unauthenticated upgrades
   if (!authorized(req)) {
+    registrarAcesso(req, false);
     socket.write("HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n");
     socket.destroy();
     return;

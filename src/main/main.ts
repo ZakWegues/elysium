@@ -11,6 +11,7 @@ import { sincronizarInicioAutomatico, removerEntradaLegada } from "./autoLaunch"
 import { iniciarLogEmArquivo, pastaDeLogs } from "./logArquivo";
 import { aplicarBackup, lerBackup, montarBackup } from "../services/backup";
 import { montarDiagnostico } from "../services/diagnostico";
+import { esquecerAparelhos, listarAparelhos } from "../services/aparelhos";
 import * as QRCode from "qrcode";
 import { getConfig, getApiKey, setApiKey, hasApiKey, setOverride, getOrCreateServerToken, regenerateServerToken, AppConfig } from "./config";
 import { limparCacheClima } from "../services/clima";
@@ -736,9 +737,14 @@ async function getPairingPayload() {
 
 ipcMain.handle("pairing:get-info", () => getPairingPayload());
 
+// Quem usou o token (bloco 98) — aparece no pareamento.
+ipcMain.handle("aparelhos:lista", () => listarAparelhos());
+
 ipcMain.handle("pairing:regenerate-token", async () => {
   const token = regenerateServerToken();
   setActiveToken(token);
+  // O token velho deixou de valer agora: a lista de quem o usava vira história.
+  esquecerAparelhos();
   notify("ELYSIUM", "Token regenerado. Pareamentos antigos do ELYSIUM-M precisam escanear o QR de novo.");
   return getPairingPayload();
 });

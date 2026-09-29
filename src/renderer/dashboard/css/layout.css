@@ -215,3 +215,12 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
 }
 .chat-tab-btn.tem-novidade .chat-tab-dot { display: block; animation: pulso-uma-vez 600ms var(--mov-suave) 2; }
 @keyframes pulso-uma-vez { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.7); opacity: 0.5; } }
+/* Quem usou o token (bloco 98). */
+#aparelhos-lista { margin-top: 14px; display: flex; flex-direction: column; gap: 4px; text-align: left; }
+#aparelhos-lista .aparelhos-titulo { font-size: 11px; font-weight: 600; color: var(--muted); margin-bottom: 2px; }
+#aparelhos-lista .aparelho { display: grid; grid-template-columns: 1fr auto; gap: 0 8px; font-size: 11px; padding: 5px 8px; border-radius: 8px; background: rgba(var(--purple-rgb),0.06); }
+#aparelhos-lista .aparelho-ip { font-family: var(--mono); color: var(--text); }
+#aparelhos-lista .aparelho-tipo { color: var(--muted); text-align: right; }
+#aparelhos-lista .aparelho-quando { grid-column: 1 / -1; color: var(--muted); font-size: 10.5px; }
+#aparelhos-lista .aparelho.suspeito { background: rgba(224,82,82,0.1); }
+#aparelhos-lista .aparelho.suspeito .aparelho-ip { color: #f08080; }

@@ -2,6 +2,11 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
+<!-- Bloco 98: segunda linha de defesa. O markdown das respostas é escapado antes de virar
+     HTML (nucleo.js), mas se um dia algo escapar, esta política impede que vire script:
+     só roda JS dos arquivos do próprio app, nenhum inline e nenhum de fora. Imagens podem vir
+     de https (capa do Spotify), data:/blob: (anexos colados) e file: (anexos da Caixa). -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' file:; script-src 'self' file:; style-src 'self' file: 'unsafe-inline'; img-src 'self' file: data: blob: https:; media-src 'self' file: data: blob:; font-src 'self' file: data:; connect-src 'self' https://geocoding-api.open-meteo.com; object-src 'none'; base-uri 'none'; form-action 'none'">
 <title>ELYSIUM</title>
 <!-- O CSS e o JS moram em dashboard/css e dashboard/js (bloco 76). A ordem das tags é a
      ordem em que o código estava no arquivo único — cascata e escopo global preservados. -->
@@ -456,6 +461,9 @@
       <div id="pairing-token" class="pairing-mono">—</div>
       <button class="save-btn" id="pairing-regen-btn">Regenerar token</button>
       <div id="pairing-hint">Abra o ELYSIUM-M no celular (mesma rede Wi-Fi) e escaneie o QR.</div>
+      <!-- Quem usou o token (bloco 98). Um endereço desconhecido aqui é motivo para
+           regenerar o token. -->
+      <div id="aparelhos-lista"></div>
     </div>
 
     <div class="sc-label" style="margin-top:12px">Acesso fora de casa</div>

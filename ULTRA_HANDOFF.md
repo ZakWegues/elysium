@@ -4716,3 +4716,37 @@ aparelho e o do PC num texto só. "Abrir a pasta de logs" abre o Explorer nela.
 
 De quebra: o seletor de modelo da Groq em Ajustes e no `config.html` ainda oferecia o
 `qwen3.6` morto — virou `qwen3.8`.
+
+### Bloco 98 — revisão de segurança do que entrou desde a fase 9 ✅
+
+Revisado ponto a ponto o que é superfície nova:
+
+| o quê | como está |
+|---|---|
+| Markdown das respostas → HTML (bloco 84) | `escHtml` antes de qualquer marcação; links só `http(s)` e o clique passa pelo IPC `link:abrir`, que confere o protocolo de novo no main |
+| `window.control` (bloco 87) | `hwnd` só dígitos, conferido no RPC (400) e na ação — texto do cliente nunca vira PowerShell |
+| `GET /api/tts` (bloco 85) | atrás do token como o resto; testado sem token → 401 |
+| Condição de rotina (bloco 79) | só ferramentas de LEITURA; nunca age |
+| Importar backup (bloco 96) | confirmação num diálogo do sistema, no main; soma sem apagar |
+| Log e diagnóstico (bloco 97) | `mascarar()` antes de gravar e antes de copiar; conferido ao vivo que chave e token não aparecem |
+| `input.*` no agente | continua fora da lista de ferramentas |
+
+**Dois reforços novos:**
+
+1. **Content-Security-Policy no `dashboard.html`**: só roda JS dos arquivos do próprio app —
+   nada inline, nada de fora, `object-src 'none'`, `base-uri 'none'`. Imagens de
+   `https:`/`data:`/`blob:`/`file:` (capa do Spotify, anexos), rede só para o geocoding do
+   Open-Meteo. É a segunda linha de defesa caso algum dia o escape do markdown falhe.
+   Testado: um `<img onerror>` injetado **não executa**; clima, imagens `data:`, as 5 abas e
+   a Início (13 cards) seguem funcionando, sem erro no console.
+2. **"Quem usou o token"** (`src/services/aparelhos.ts`): cada requisição autorizada anota
+   endereço, tipo de cliente (pelo user-agent: "ELYSIUM-M (Android)", "script (Node)",
+   "linha de comando"…), primeira e última vez e quantidade; cada **401** conta à parte
+   como "recusa". A lista aparece no pareamento (Ajustes → Celular e o orbe), com
+   "este PC" para o loopback e destaque vermelho para endereço que só tem recusas.
+   **Regenerar token zera a lista** (o token velho deixa de valer na hora). Gravação no
+   disco no máximo uma vez por minuto — o trackpad manda dezenas de pedidos por segundo.
+   Só endereço e contagem: nada do que foi pedido. Conferido ao vivo: o celular do Zak
+   (`192.168.15.29`, ELYSIUM-M) e um script local com 3 recusas.
+
+`aparelhos.test.ts` (2). 58 testes no desktop.
