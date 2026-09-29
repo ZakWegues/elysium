@@ -1,4 +1,5 @@
 import AutoLaunch from "auto-launch";
+import { app } from "electron";
 import { execFile } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -25,6 +26,15 @@ import * as path from "node:path";
  *
  * Daí este módulo: em vez de perguntar "existe?", ele pergunta "o que está gravado ainda
  * existe no disco?".
+ *
+ * 🔴 3. **Existir não basta: tem de ser ESTE executável** (fase 12, 29/09/2026). Nesta
+ *    máquina a entrada "ELYSIUM" apontava para a cópia antiga em `elysium baixado`
+ *    (1.0.2), enquanto o instalador 1.3.0 morava em `%LOCALAPPDATA%\Programs\ELYSIUM`.
+ *    As duas se chamam ELYSIUM.exe, a antiga ainda existia no disco — então a regra 2 nunca
+ *    reescrevia, e **o Windows subia a versão velha a cada boot**. Agora o app empacotado
+ *    reivindica a entrada para si sempre que ela aponta para outro lugar. E a instância de
+ *    desenvolvimento não registra nada: ela gravava uma entrada "electron" que subia o
+ *    código do repositório junto com o instalado, disputando o single-instance lock.
  */
 
 const CHAVE_RUN = "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run";
@@ -80,6 +90,23 @@ export async function removerEntradaLegada(): Promise<void> {
  * Se o caminho gravado sumiu (pasta renomeada, app movido, dev → instalador), reescreve.
  */
 export async function sincronizarInicioAutomatico(desejado: boolean): Promise<void> {
+  // Desenvolvimento nunca sobe com o Windows; e limpa a entrada que versões anteriores
+  // deste módulo deixaram (só se ela aponta para o electron do node_modules — nunca apaga
+  // uma entrada "electron" de outro programa).
+  if (!app.isPackaged) {
+    if (process.platform !== "win32") return;
+    const valor = await consultarRegistro(nomeRegistrado());
+    if (valor && /node_modules[\\/]electron[\\/]/i.test(valor)) {
+      await new Promise<void>((resolve) => {
+        execFile("reg.exe", ["delete", CHAVE_RUN, "/v", nomeRegistrado(), "/f"], (err) => {
+          if (!err) console.log("[autolaunch] entrada da instância de desenvolvimento removida.");
+          resolve();
+        });
+      });
+    }
+    return;
+  }
+
   const launcher = new AutoLaunch({ name: "ELYSIUM", isHidden: true });
 
   try {
@@ -100,9 +127,9 @@ export async function sincronizarInicioAutomatico(desejado: boolean): Promise<vo
 
     const valor = await consultarRegistro(nomeRegistrado());
     const exe = valor ? executavelDoValor(valor) : null;
-    if (exe && fs.existsSync(exe)) return;
+    if (exe && fs.existsSync(exe) && path.resolve(exe).toLowerCase() === path.resolve(process.execPath).toLowerCase()) return;
 
-    console.warn(`[autolaunch] caminho gravado não existe mais (${exe ?? "ilegível"}); reescrevendo.`);
+    console.warn(`[autolaunch] a entrada aponta para ${exe ?? "(ilegível)"}, não para este executável; reescrevendo.`);
     await launcher.disable();
     await launcher.enable();
   } catch (e) {

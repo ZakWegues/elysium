@@ -93,6 +93,8 @@ contextBridge.exposeInMainWorld("nx", {
   atualizacaoInstalar:  () => ipcRenderer.invoke("atualizacao:instalar"),
   atualizacaoToken:     (token: string) => ipcRenderer.invoke("atualizacao:token", token),
   onAtualizacao:        (cb: (e: unknown) => void) => { ipcRenderer.on("atualizacao:mudou", (_e, e) => cb(e)); },
+  novidades:            () => ipcRenderer.invoke("novidades:pendentes"),
+  novidadesVistas:      () => ipcRenderer.invoke("novidades:vistas"),
 
   // Conversas da Caixa (lado PC do switch) — o par do bloco chatSessions* acima.
   mailboxSessionsList:     ()                        => ipcRenderer.invoke("mailbox:sessions-list"),

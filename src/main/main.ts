@@ -53,8 +53,10 @@ import { emitirEvento, MARCOS_OCIOSO } from "../services/eventos";
 import { getRunningApps } from "../actions/systemInfo";
 import { ollamaDisponivel } from "../services/llm";
 import { registerRpcBridge } from "./rpcBridge";
+import { vigiarDisco } from "../actions/armazenamento";
 import {
   aoMudarAtualizacao, estadoAtualizacao, iniciarAtualizacoes, instalarAtualizacaoDesktop, verificarAtualizacoes,
+  marcarNovidadesVistas, novidadesPendentes,
 } from "../services/atualizacao";
 import { startMonitor, getDashboardTelemetry, killProcess } from "../actions/systemInfo";
 import type { BrainAction } from "../services/brain";
@@ -674,6 +676,8 @@ function estadoParaTela() {
 ipcMain.handle("atualizacao:estado", () => estadoParaTela());
 ipcMain.handle("atualizacao:verificar", async () => { await verificarAtualizacoes(); return estadoParaTela(); });
 ipcMain.handle("atualizacao:instalar", () => instalarAtualizacaoDesktop());
+ipcMain.handle("novidades:pendentes", () => novidadesPendentes());
+ipcMain.handle("novidades:vistas", () => marcarNovidadesVistas());
 ipcMain.handle("atualizacao:token", async (_e, token: unknown) => {
   setGithubToken(typeof token === "string" ? token : "");
   await verificarAtualizacoes();
@@ -857,6 +861,12 @@ app.on("ready", async () => {
   const cfg = getConfig();
   startServer(serverToken, processCommand, cfg.serverPort ?? 4200, processCommandStream);
   iniciarAtualizacoes({ sair: quit });
+  // Disco quase cheio (fase 12): no máximo um aviso por dia, no PC e no celular.
+  vigiarDisco((titulo, corpo) => {
+    notify(titulo, corpo);
+    broadcastNotify(enfileirarEntrega({ tipo: "aviso", titulo, corpo }));
+    void sendPush("anomaly", titulo, corpo, {});
+  });
 
   const unseenFromMobile = checkAndMarkUnseenFromMobile();
   if (unseenFromMobile.length > 0) {

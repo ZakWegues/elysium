@@ -49,6 +49,8 @@ export interface Sugestao {
     aviso?: string;
     /** Em vez de executar, leva para uma aba. */
     aba?: string;
+    /** Com `aba: "pc"`, abre também um dos painéis dela. */
+    painel?: string;
   };
 }
 
@@ -97,9 +99,9 @@ async function candidatas(): Promise<Sugestao[]> {
       c.push({
         texto: `Disco ${disco.name} com ${disco.freeGB} GB livres`,
         icone: "hard-drive",
-        detalhe: "Pouco espaço sobrando",
+        detalhe: "Ver o que dá para liberar",
         peso: 8,
-        acao: { aba: "pc" },
+        acao: { aba: "pc", painel: "armazenamento" },
       });
     }
     if (typeof t.cpu_temp === "number" && t.cpu_temp >= 82) {

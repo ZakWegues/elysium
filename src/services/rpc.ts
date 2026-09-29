@@ -34,6 +34,7 @@ import { mediaControl, MediaOperation } from "../actions/mediaControl";
 import { lerVolume, volumeControl } from "../actions/volumeControl";
 import { controlarJanela, listarJanelas } from "../actions/janelas";
 import { montarDiagnostico } from "./diagnostico";
+import { abrirNoPc, AlvoAbrir, AlvoLimpeza, lerArmazenamento, limpar } from "../actions/armazenamento";
 import { estadoAtualizacao, instalarAtualizacaoDesktop, verificarAtualizacoes } from "./atualizacao";
 import { captureScreen, listScreens } from "./screenCapture";
 import { screenshot } from "../actions/screenshot";
@@ -814,6 +815,25 @@ const METHODS: Record<string, MethodDef> = {
       const resumo = (x?: { versao: string; notas: string; publicadaEm: string; tamanho: number; pronto: boolean; progresso: number }) =>
         x ? { versao: x.versao, notas: x.notas, publicadaEm: x.publicadaEm, tamanho: x.tamanho, pronto: x.pronto, progresso: x.progresso } : null;
       return { pc: e.atual, verificadoEm: e.verificadoEm ?? null, erro: e.erro ?? null, desktop: resumo(e.desktop), celular: resumo(e.celular) };
+    },
+  },
+  // Armazenamento (fase 12): o que ocupa o disco e o que dá para liberar sem risco.
+  "storage.info": {
+    handler: async (params) => lerArmazenamento(params["forcar"] === true),
+  },
+  // Esvaziar a Lixeira e limpar a pasta temporária não têm desfazer: destrutivo.
+  "storage.clean": {
+    destructive: true,
+    handler: async (params) => {
+      const alvo = requireEnum<AlvoLimpeza>(params, "alvo", ["lixeira", "temp"]);
+      return limpar(alvo);
+    },
+  },
+  "storage.open": {
+    handler: async (params) => {
+      const alvo = requireEnum<AlvoAbrir>(params, "alvo", ["downloads", "temp", "limpeza", "configuracoes", "arquivo"]);
+      const nome = typeof params["nome"] === "string" ? params["nome"] : undefined;
+      return abrirNoPc(alvo, nome);
     },
   },
   // Instalar no PC a versão já baixada, do celular (bloco 95). Destrutivo: fecha o app por

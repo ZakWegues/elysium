@@ -493,6 +493,72 @@ const PAINEIS_PC = {
     },
   },
 
+  // Fase 12: o que ocupa o disco e o que dá para liberar sem risco. Nada em Downloads é
+  // apagado daqui — só se abre a pasta e se mostra o arquivo.
+  armazenamento: {
+    titulo: "Armazenamento", icone: "hard-drive",
+    resumo: () => {
+      const c = (pcTelemetria?.disks ?? [])[0];
+      return c ? `${c.freeGB} GB livres no ${c.name}${c.usedPct >= 95 ? " — quase cheio" : ""}` : "O que ocupa o disco";
+    },
+    async render() {
+      let a;
+      try { a = (await window.nx.rpc("storage.info", pcArmazenamentoForcar ? { forcar: true } : {})).result; }
+      catch (err) { return `<div class="home-empty">Não consegui medir: ${escHtml(err?.message ?? "erro")}</div>`; }
+      finally { pcArmazenamentoForcar = false; }
+      const tam = (b) => b >= 1e9 ? `${(b / 1e9).toFixed(1).replace(".", ",")} GB` : b >= 1e6 ? `${Math.round(b / 1e6)} MB` : `${Math.round(b / 1e3)} kB`;
+      const discos = (a.discos ?? []).map(d => `
+        <div class="arm-disco${d.usedPct >= 95 ? " critico" : d.usedPct >= 88 ? " alto" : ""}">
+          <div class="arm-disco-topo"><strong>Disco ${escHtml(d.name)}</strong><span>${String(d.freeGB).replace(".", ",")} GB livres de ${String(d.totalGB).replace(".", ",")} GB</span></div>
+          <div class="arm-barra"><span style="transform:scaleX(${Math.min(1, (d.usedPct ?? 0) / 100)})"></span></div>
+        </div>`).join("");
+      const linha = (icone, nome, bytes, nota, botao) => `
+        <div class="gp-linha">${ico(icone, "ico-sm")}<span class="gp-nome">${escHtml(nome)}<small>${escHtml(nota)}</small></span><strong class="arm-tam">${tam(bytes)}</strong>${botao}</div>`;
+      // Nome primeiro, pasta embaixo: o que distingue um arquivo do outro é o fim do caminho.
+      const grandes = (a.grandes ?? []).map(g => {
+        const partes = String(g.nome).split(/[\\/]/);
+        const base = partes.pop();
+        const pasta = ["Downloads", ...partes].join("\\");
+        return `
+        <div class="gp-linha">${ico("file-text", "ico-sm")}<span class="gp-nome" title="${escHtml(g.nome)}">${escHtml(base)}<small>${escHtml(pasta)} · ${new Date(g.em).toLocaleDateString("pt-BR")}</small></span><strong class="arm-tam">${tam(g.bytes)}</strong><button data-arm="abrir" data-alvo="arquivo" data-nome="${escHtml(g.nome)}" title="Mostrar na pasta" class="ok">${ico("external", "ico-sm")}</button></div>`;
+      }).join("");
+      return `
+        <div class="gp-secao"><h4>Discos</h4>${discos || `<div class="home-empty">Nenhum disco lido.</div>`}</div>
+        <div class="gp-secao"><h4>O que dá para liberar</h4>
+          <div class="gp-lista gp-arm">
+            ${linha("trash", "Lixeira", a.lixeira, "Some de vez ao esvaziar", `<button class="texto" data-arm="limpar" data-alvo="lixeira"${a.lixeira ? "" : " disabled"}>Esvaziar</button>`)}
+            ${linha("rotate", "Arquivos temporários", a.temp, "Apaga só o que tem mais de 2 dias", `<button class="texto" data-arm="limpar" data-alvo="temp"${a.temp ? "" : " disabled"}>Limpar</button>`)}
+            ${linha("download", "Downloads", a.downloads, "Você decide o que sai", `<button class="texto ok" data-arm="abrir" data-alvo="downloads">Abrir</button>`)}
+          </div>
+        </div>
+        ${grandes ? `<div class="gp-secao"><h4>Maiores em Downloads</h4><div class="gp-lista gp-arm">${grandes}</div></div>` : ""}
+        <div class="home-acoes" style="margin-top:0">
+          <button data-arm="abrir" data-alvo="limpeza">${ico("sparkles", "ico-sm")}<span>Limpeza de Disco do Windows</span></button>
+          <button data-arm="abrir" data-alvo="configuracoes">${ico("settings", "ico-sm")}<span>Armazenamento do Windows</span></button>
+          <button data-arm="medir">${ico("refresh", "ico-sm")}<span>Medir de novo</span></button>
+        </div>
+        <p class="gp-nota">Medido ${new Date(a.medidoEm).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}. A Limpeza de Disco do Windows alcança o que o app não mexe (cache de atualizações, pontos antigos).</p>`;
+    },
+    async clique(e) {
+      const b = e.target.closest("[data-arm]");
+      if (!b) return;
+      if (b.dataset.arm === "medir") { pcArmazenamentoForcar = true; await redesenharPainel(); return; }
+      b.disabled = true;
+      try {
+        if (b.dataset.arm === "limpar") {
+          const r = await window.nx.rpc("storage.clean", { alvo: b.dataset.alvo });
+          if (r?.result?.cancelado) return;
+          showToast(r?.result?.message ?? "Feito.");
+          await redesenharPainel();
+        } else {
+          const r = await window.nx.rpc("storage.open", { alvo: b.dataset.alvo, nome: b.dataset.nome });
+          showToast(r?.result?.message ?? "Aberto.", r?.result?.ok === false);
+        }
+      } catch (err) { showToast(err?.message || "Não deu certo.", true); }
+      finally { b.disabled = false; }
+    },
+  },
+
   rede: {
     titulo: "Rede e celular", icone: "wifi", resumo: () => "IPs, porta e pareamento",
     async render() {
@@ -522,7 +588,9 @@ const PAINEIS_PC = {
   },
 };
 
-const ORDEM_PAINEIS_PC = ["programas", "janelas", "processos", "energia", "transferencia", "lembretes", "memoria", "presets", "rede"];
+const ORDEM_PAINEIS_PC = ["programas", "janelas", "processos", "armazenamento", "energia", "transferencia", "lembretes", "memoria", "presets", "rede"];
+/** "Medir de novo" pede ao PC ignorar o cache de 5 min na próxima leitura. */
+let pcArmazenamentoForcar = false;
 /** A última leitura do `window.list` — só para o resumo do azulejo. */
 let pcJanelas = null;
 let painelPcAberto = null;   // id do painel que está na gaveta

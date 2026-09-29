@@ -379,3 +379,17 @@ body.redimensionando, body.redimensionando * { user-select: none !important; cur
   transition-duration: 0.01ms !important;
   scroll-behavior: auto !important;
 }
+
+/* "Novidades da x.y.z" (fase 12): o primeiro olhar depois de atualizar. */
+#home-novidades { margin: 0 0 14px; padding: 12px 16px; border-radius: var(--radius-14); border: 1px solid rgba(var(--purple-rgb), 0.40); background: rgba(var(--purple-rgb), 0.10); }
+#home-novidades[hidden] { display: none; }
+.novidades-topo { display: flex; align-items: center; gap: 8px; }
+.novidades-topo .ico { color: var(--purple-bright); }
+.novidades-topo button { margin-left: auto; }
+.novidades-texto { margin-top: 6px; font-size: 12.5px; line-height: 1.55; white-space: pre-wrap; color: var(--text); opacity: 0.88; max-height: 160px; overflow: auto; }
+.novidades-topo button {
+  height: 28px; padding: 0 12px; border-radius: var(--radius-20); cursor: pointer;
+  border: 1px solid rgba(var(--purple-rgb), 0.40); background: rgba(var(--purple-rgb), 0.14);
+  color: var(--text); font-family: inherit; font-size: 12px;
+}
+.novidades-topo button:hover { background: rgba(var(--purple-rgb), 0.24); }

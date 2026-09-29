@@ -1094,6 +1094,8 @@ document.getElementById("view-inicio")?.addEventListener("click", async (e) => {
       finally { bolha.disabled = false; }
     } else if (s.acao?.aba) {
       switchView(s.acao.aba);
+      // Mesmo atraso do painel de rede: a troca de aba fecha a gaveta antes de abrir outra.
+      if (s.acao.painel) setTimeout(() => abrirPainelPc(s.acao.painel), 80);
     }
     return;
   }
@@ -1179,3 +1181,24 @@ window.nx.onTelemetry?.((t) => {
   if (barras[1]) barras[1].style.transform = `scaleX(${(t.ram_pct ?? 0) / 100})`;
   if (dadosInicio.telemetria) dadosInicio.telemetria = t;
 });
+
+// ── Novidades (fase 12) ───────────────────────────────────────────────────────
+// Na primeira abertura depois de uma atualização, o que mudou aparece no topo da Início,
+// uma vez. "Entendi" marca como visto; a próxima versão volta a mostrar.
+async function mostrarNovidades() {
+  const alvo = document.getElementById("home-novidades");
+  if (!alvo || !window.nx.novidades) return;
+  let n = null;
+  try { n = await window.nx.novidades(); } catch { return; }
+  if (!n?.notas) return;
+  alvo.innerHTML = `
+    <div class="novidades-topo">${ico("sparkles")}<strong>Novidades da ${escHtml(n.versao)}</strong>
+      <button type="button" id="novidades-ok">Entendi</button></div>
+    <div class="novidades-texto">${escHtml(n.notas)}</div>`;
+  alvo.hidden = false;
+  document.getElementById("novidades-ok")?.addEventListener("click", async () => {
+    alvo.hidden = true;
+    try { await window.nx.novidadesVistas(); } catch { /* mostra de novo na próxima abertura */ }
+  });
+}
+mostrarNovidades();

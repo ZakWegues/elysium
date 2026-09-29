@@ -277,11 +277,57 @@ export function instalarAtualizacaoDesktop(): { ok: boolean; mensagem: string } 
   const d = estado.desktop;
   if (!d?.pronto || !fs.existsSync(d.arquivo)) return { ok: false, mensagem: "Nenhuma atualização baixada." };
   if (!app.isPackaged) return { ok: false, mensagem: "Em desenvolvimento o instalador não roda — ele substituiria a versão instalada." };
+  // As notas vão junto para a versão nova mostrar na Início ao abrir.
+  gravarNovidades({ ...lerNovidades(), notas: { versao: d.versao, texto: d.notas } });
   const filho = spawn(d.arquivo, ["/S", "--updated", "--force-run"], { detached: true, stdio: "ignore", windowsHide: true });
   filho.unref();
   console.log(`[atualizacao] instalando ${d.versao}; o app fecha agora e volta sozinho.`);
   setTimeout(sair, 400);
   return { ok: true, mensagem: `Instalando a versão ${d.versao}. O ELYSIUM volta em alguns segundos.` };
+}
+
+// ── Novidades ────────────────────────────────────────────────────────────────
+//
+// Depois de atualizar, a Início mostra UMA vez o que mudou. As notas são guardadas na hora
+// de instalar (o instalador baixado já as tinha); se a versão chegou por instalação manual,
+// vêm da release da própria tag. Fora da pasta `atualizacoes/`, que é limpa a cada verificação.
+
+interface RegistroNovidades { vista?: string; notas?: { versao: string; texto: string } }
+
+function arquivoNovidades(): string {
+  return path.join(app.getPath("userData"), "novidades.json");
+}
+
+function lerNovidades(): RegistroNovidades {
+  try { return JSON.parse(fs.readFileSync(arquivoNovidades(), "utf8")) as RegistroNovidades; } catch { return {}; }
+}
+
+function gravarNovidades(r: RegistroNovidades): void {
+  try { fs.writeFileSync(arquivoNovidades(), JSON.stringify(r)); } catch { /* só não lembra */ }
+}
+
+export async function novidadesPendentes(): Promise<{ versao: string; notas: string } | null> {
+  const atual = app.getVersion();
+  const r = lerNovidades();
+  if (r.vista === atual) return null;
+  if (r.notas?.versao === atual && r.notas.texto.trim()) return { versao: atual, notas: r.notas.texto };
+  try {
+    const tk = await token();
+    if (!tk) return null;
+    const resp = await fetch(`https://api.github.com/repos/${DONO}/${REPO_DESKTOP}/releases/tags/v${atual}`, {
+      headers: { Authorization: `Bearer ${tk}`, Accept: "application/vnd.github+json", "User-Agent": "ELYSIUM" },
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!resp.ok) return null;
+    const texto = String(((await resp.json()) as ReleaseGitHub).body ?? "").trim();
+    if (!texto) return null;
+    gravarNovidades({ ...r, notas: { versao: atual, texto } });
+    return { versao: atual, notas: texto };
+  } catch { return null; }
+}
+
+export function marcarNovidadesVistas(): void {
+  gravarNovidades({ ...lerNovidades(), vista: app.getVersion() });
 }
 
 export function iniciarAtualizacoes(opcoes: { sair: () => void }): void {
