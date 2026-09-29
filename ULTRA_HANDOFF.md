@@ -4621,3 +4621,20 @@ Só JS (o `expo-audio` já estava no APK). ⚠️ Os limiares em dB são estimat
 celular na mão; **só o Zak calibra** — se cortar no meio da frase, subir
 `SILENCIO_PARA_FECHAR_MS`; se não fechar nunca num lugar barulhento, subir
 `LIMIAR_SILENCIO_DB` (os dois no topo do bloco "Mão livre" do `ChatScreen.tsx`).
+
+### Bloco 90 — widgets de Clima e de Rotinas ✅ (precisa de APK novo)
+
+Duas árvores novas em `src/widgets/widgets.tsx`, lidas pelo mesmo `handler.tsx`:
+
+| widget | célula | o quê | toque |
+|---|---|---|---|
+| **Clima** | 4×1 (até 4×2) | emoji do tempo, temperatura grande, "descrição · máx/mín", cidade, e as **próximas 3 horas** à direita (vêm de `weather.now` → `horas`, que o desktop manda desde o bloco 67) | `elysium://inicio` (destino novo) |
+| **Rotinas** | 4×2 | quantas ativas, a **próxima por hora** ("Bom dia · 07:30" ou "seg 07:30") e a **última que rodou** com o começo do resultado | `elysium://rotinas` |
+
+Os dois atualizam a cada 30 min pelo Android (`updatePeriodMillis`) e junto do widget
+Estado sempre que o app volta ao primeiro plano (`atualizarWidgetEstado` agora renova os
+três). Sem PC: "Sem leitura do PC" / "PC fora de alcance" com a hora. O tipo `Clima` do
+celular ganhou `sensacao`, `horas` e `amanha` opcionais (PC antigo não manda).
+
+⚠️ **Widget novo mexe no manifesto** (o plugin gera um receiver por widget): só chega com
+**APK novo** — não vai por OTA. Fica para o fechamento da fase (bloco 93).
