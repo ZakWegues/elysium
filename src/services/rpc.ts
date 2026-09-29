@@ -32,6 +32,7 @@ import { closeApp } from "../actions/closeApp";
 import { powerControl, PowerOperation } from "../actions/powerControl";
 import { mediaControl, MediaOperation } from "../actions/mediaControl";
 import { lerVolume, volumeControl } from "../actions/volumeControl";
+import { controlarJanela, listarJanelas } from "../actions/janelas";
 import { captureScreen, listScreens } from "./screenCapture";
 import { screenshot } from "../actions/screenshot";
 import { inputHost, MouseButton } from "./inputHost";
@@ -788,6 +789,19 @@ const METHODS: Record<string, MethodDef> = {
     },
   },
 
+  // Janelas, uma por uma (bloco 87). `window.control` não é destrutivo: "fechar" é o X da
+  // janela (WM_CLOSE) — o programa pergunta se quer salvar — e não matar o processo.
+  "window.list": {
+    handler: async () => ({ janelas: await listarJanelas() }),
+  },
+  "window.control": {
+    handler: async (params) => {
+      const hwnd = requireString(params, "hwnd");
+      if (!/^\d{1,20}$/.test(hwnd)) throw new RpcError(400, "hwnd inválido");
+      const operacao = requireEnum(params, "operacao", ["focar", "minimizar", "maximizar", "restaurar", "fechar", "so_esta"] as const);
+      return { ok: true, message: await controlarJanela(hwnd, operacao) };
+    },
+  },
   // Leitura real do volume (bloco 86) — o que torna possível um slider honesto.
   "volume.get": {
     handler: async () => lerVolume(),

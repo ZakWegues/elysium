@@ -462,6 +462,37 @@ const PAINEIS_PC = {
     },
   },
 
+  // Bloco 87: janela por janela (EnumWindows), não programa por programa — o Chrome com
+  // três janelas são três linhas, e cada botão age no hwnd daquela.
+  janelas: {
+    titulo: "Janelas", icone: "layers", resumo: () => pcJanelas ? `${pcJanelas.length} abertas` : "Focar, minimizar, só esta",
+    async render() {
+      try { pcJanelas = (await window.nx.rpc("window.list")).result?.janelas ?? []; } catch { pcJanelas = []; }
+      if (!pcJanelas.length) return `<div class="home-empty">Nenhuma janela aberta — ou não consegui ler.</div>`;
+      return `
+        <div class="gp-lista gp-janelas">${pcJanelas.map(j => `
+          <div class="gp-linha${j.emFoco ? " em-foco" : ""}${j.minimizada ? " minimizada" : ""}">
+            ${ico(j.minimizada ? "minus" : "monitor", "ico-sm")}
+            <span class="gp-nome" title="${escHtml(j.titulo)}">${escHtml(j.titulo)}<small>${escHtml(j.processo)}${j.minimizada ? " · minimizada" : j.maximizada ? " · maximizada" : ""}</small></span>
+            <button data-janela="focar" data-hwnd="${j.hwnd}" title="Trazer para a frente">${ico("eye", "ico-sm")}</button>
+            <button data-janela="so_esta" data-hwnd="${j.hwnd}" title="Só esta (minimiza as outras)">${ico("sparkles", "ico-sm")}</button>
+            <button data-janela="${j.minimizada ? "restaurar" : "minimizar"}" data-hwnd="${j.hwnd}" title="${j.minimizada ? "Restaurar" : "Minimizar"}">${ico(j.minimizada ? "chevron-up" : "minus", "ico-sm")}</button>
+            <button data-janela="fechar" data-hwnd="${j.hwnd}" title="Fechar (o programa pergunta se quer salvar)">${ico("x", "ico-sm")}</button>
+          </div>`).join("")}</div>
+        <p class="gp-nota">"Só esta" minimiza todas as outras de uma vez. Fechar é o X da janela, não força.</p>`;
+    },
+    async clique(e) {
+      const b = e.target.closest("[data-janela]");
+      if (!b) return;
+      b.disabled = true;
+      try {
+        const r = await window.nx.rpc("window.control", { hwnd: b.dataset.hwnd, operacao: b.dataset.janela });
+        showToast(r.result?.message ?? "Feito.");
+      } catch (err) { showToast(err?.message || "Não consegui.", true); }
+      setTimeout(() => { redesenharPainel(); desenharGradePc(); }, 500);
+    },
+  },
+
   rede: {
     titulo: "Rede e celular", icone: "wifi", resumo: () => "IPs, porta e pareamento",
     async render() {
@@ -491,7 +522,9 @@ const PAINEIS_PC = {
   },
 };
 
-const ORDEM_PAINEIS_PC = ["programas", "processos", "energia", "transferencia", "lembretes", "memoria", "presets", "rede"];
+const ORDEM_PAINEIS_PC = ["programas", "janelas", "processos", "energia", "transferencia", "lembretes", "memoria", "presets", "rede"];
+/** A última leitura do `window.list` — só para o resumo do azulejo. */
+let pcJanelas = null;
 let painelPcAberto = null;   // id do painel que está na gaveta
 
 /** Ações rápidas de energia/print, compartilhadas pela gaveta e pelos cards da Início. */

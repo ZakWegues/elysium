@@ -138,3 +138,9 @@
 /* Mudo (bloco 86): o botão acende e o slider apaga — o número continua o de antes. */
 .pc-vol.mudo button[data-volume] { color: #f08080; border-color: rgba(224,82,82,0.4); background: rgba(224,82,82,0.1); }
 .pc-vol.mudo input[type="range"] { opacity: 0.45; }
+/* Painel Janelas (bloco 87): título em cima, processo embaixo; a janela em foco acesa. */
+.gp-janelas .gp-nome small { display: block; font-size: 10.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
+.gp-janelas .gp-linha.em-foco { border-color: rgba(var(--purple-rgb),0.45); background: rgba(var(--purple-rgb),0.08); }
+.gp-janelas .gp-linha.minimizada .gp-nome { opacity: 0.7; }
+.gp-janelas .gp-linha button:hover { background: rgba(var(--purple-rgb),0.2); color: var(--purple-bright); }
+.gp-janelas .gp-linha button[data-janela="fechar"]:hover { background: rgba(224,82,82,0.18); color: var(--red); }

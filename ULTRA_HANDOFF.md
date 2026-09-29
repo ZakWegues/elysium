@@ -702,6 +702,8 @@ regra. `shutdown.exe /a` devolve 1116 quando não há nada agendado; tratado com
 | `media.control` | `{operation: play\|pause\|skip\|previous\|volume_up\|volume_down}` | `{ok, message}` |
 | `volume.set` | `{level: 0-100 \| up\|down\|mute\|unmute}` | `{ok, message}` |
 | `volume.get` | — | `{nivel: 0-100, mudo}` — Core Audio, bloco 86 |
+| `window.list` | — | `{janelas:[{hwnd, pid, processo, titulo, minimizada, maximizada, emFoco}]}` — EnumWindows, bloco 87 |
+| `window.control` | `{hwnd, operacao: focar\|minimizar\|maximizar\|restaurar\|fechar\|so_esta}` | `{ok, message}` — fechar é WM_CLOSE |
 **Tela**
 
 | método | params | retorno |
@@ -4522,3 +4524,31 @@ desconectado no meio), cai nas teclas de mídia em vez de dar erro. PowerShell c
 
 Verificado lendo o volume desta máquina (100%, sem mudo) e redefinindo o mesmo valor, sem
 mexer no som do Zak.
+
+### Bloco 87 — painel Janelas, nos dois lados ✅
+
+**`src/actions/janelas.ts`** (novo): `listarJanelas()` usa o **`EnumWindows`** do Windows,
+filtrado como a barra de tarefas filtra — visível, com título, sem dono, sem
+`WS_EX_TOOLWINDOW`, sem estar *cloaked* (`DwmGetWindowAttribute(14)`: apps UWP suspensos
+continuam "visíveis" para a API), e fora `TextInputHost`, `SearchHost`, `Program Manager` e
+afins. Cada item traz `hwnd`, processo, título, minimizada/maximizada e se está em foco. O
+`apps.running` continua existindo para "programas abertos" — ele é por processo, e o Chrome
+com três janelas vira uma linha só. Medido: ~0,8 s para listar.
+
+`controlarJanela(hwnd, op)`: `focar` (com o truque do Alt apertado-e-solto, senão o Windows
+recusa o `SetForegroundWindow` vindo de processo em segundo plano), `minimizar`,
+`maximizar`, `restaurar`, `fechar` (**`WM_CLOSE`**, o X da janela — o programa pergunta se
+quer salvar; quem força é Processos) e **`so_esta`** (minimiza todas as outras e foca esta).
+O `hwnd` é validado como número nos dois lugares (RPC → 400 e na ação) — é o que impede
+texto do cliente de virar PowerShell.
+
+- **RPC** `window.list`, `window.control {hwnd, operacao}` (não destrutivos, pelo motivo
+  acima).
+- **Desktop**: 9º azulejo na aba PC, "Janelas" — lista com título e processo, a em foco
+  acesa, e os quatro botões por linha.
+- **Celular**: azulejo "Janelas" na grade da aba PC (9 azulejos agora), cartão por janela
+  com Focar / Só esta / Minimizar-Restaurar / Fechar.
+
+Testado ao vivo só na janela de dev (minimizar → `minimizada: true` → restaurar), sem tocar
+nas janelas do Zak. `janelas.test.ts` (2): hwnd com texto é recusado; a leitura da saída do
+EnumWindows respeita flags e filtros.
