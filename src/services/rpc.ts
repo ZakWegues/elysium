@@ -31,7 +31,7 @@ import { openApp } from "../actions/openApp";
 import { closeApp } from "../actions/closeApp";
 import { powerControl, PowerOperation } from "../actions/powerControl";
 import { mediaControl, MediaOperation } from "../actions/mediaControl";
-import { volumeControl } from "../actions/volumeControl";
+import { lerVolume, volumeControl } from "../actions/volumeControl";
 import { captureScreen, listScreens } from "./screenCapture";
 import { screenshot } from "../actions/screenshot";
 import { inputHost, MouseButton } from "./inputHost";
@@ -788,6 +788,10 @@ const METHODS: Record<string, MethodDef> = {
     },
   },
 
+  // Leitura real do volume (bloco 86) — o que torna possível um slider honesto.
+  "volume.get": {
+    handler: async () => lerVolume(),
+  },
   "volume.set": {
     handler: async (params) => {
       const raw = params["level"];

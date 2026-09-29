@@ -701,7 +701,7 @@ regra. `shutdown.exe /a` devolve 1116 quando não há nada agendado; tratado com
 | `clipboard.set` | `{text}` | `{ok, length}` |
 | `media.control` | `{operation: play\|pause\|skip\|previous\|volume_up\|volume_down}` | `{ok, message}` |
 | `volume.set` | `{level: 0-100 \| up\|down\|mute\|unmute}` | `{ok, message}` |
-
+| `volume.get` | — | `{nivel: 0-100, mudo}` — Core Audio, bloco 86 |
 **Tela**
 
 | método | params | retorno |
@@ -4500,3 +4500,25 @@ O celular respondia com o `expo-speech` (a voz do Android). Agora pede o MP3 ao 
 
 Só JS no celular (`expo-audio` e `expo-file-system` já estavam no APK): vai por OTA ou no
 próximo APK. ⚠️ Não testado no aparelho (sem `adb`); a rota foi testada de fora.
+
+### Bloco 86 — volume com leitura real ✅
+
+`src/actions/volumeControl.ts` reescrito sobre a **Core Audio** (`IAudioEndpointVolume`,
+vtable completa com os nomes na ordem certa): `lerVolume()` → `{nivel, mudo}`, e mudo,
+subir, descer e número passam todos pela interface. Antes só o número usava a Core Audio;
+o resto era tecla de mídia por SendKeys, e **"desmutar" era a mesma tecla que mutar** —
+pedido com o som ligado, mutava. Subir/descer agora é de 10 em 10 e responde o valor
+("Volume em 60%"); subir tira do mudo, como a tecla física. Sem dispositivo de saída (fone
+desconectado no meio), cai nas teclas de mídia em vez de dar erro. PowerShell com
+`OutputEncoding` UTF-8 (regra da §14).
+
+- **RPC `volume.get`** (§9).
+- **Desktop, aba PC**: os chips 25/50/75/100 viraram **slider** com o número ao lado; mostra o
+  número enquanto arrasta e só manda `volume.set` ao soltar (um PowerShell por quadro seria
+  inviável). Botão de mudo alterna de verdade e acende em vermelho quando mudo.
+- **Celular, faixa de mídia da aba PC**: o número (ou "mudo") entre − e +, relido depois de
+  cada toque; o botão de mudo alterna. Slider no celular exigiria módulo nativo novo
+  (`@react-native-community/slider`) — fica para quando houver APK novo por outro motivo.
+
+Verificado lendo o volume desta máquina (100%, sem mudo) e redefinindo o mesmo valor, sem
+mexer no som do Zak.

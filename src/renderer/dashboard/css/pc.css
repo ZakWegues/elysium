@@ -135,3 +135,6 @@
 .prog-procurando .ico { animation: prog-gira 1.1s linear infinite; }
 @keyframes prog-gira { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .prog-procurando .ico, #pc-reler.girando .ico { animation: none; } }
+/* Mudo (bloco 86): o botão acende e o slider apaga — o número continua o de antes. */
+.pc-vol.mudo button[data-volume] { color: #f08080; border-color: rgba(224,82,82,0.4); background: rgba(224,82,82,0.1); }
+.pc-vol.mudo input[type="range"] { opacity: 0.45; }

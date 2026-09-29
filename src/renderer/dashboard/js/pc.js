@@ -150,6 +150,13 @@ function pulsarVitais(t) {
 
 // ── Mídia e volume ────────────────────────────────
 let pcSpotify = null;
+/** { nivel, mudo } do `volume.get` (bloco 86), ou null antes da primeira leitura. */
+let pcVolume = null;
+
+async function lerVolumePc() {
+  try { const r = await window.nx.rpc("volume.get"); pcVolume = r?.result ?? null; } catch { pcVolume = null; }
+  desenharMidia();
+}
 
 function desenharMidia() {
   const alvo = document.getElementById("pc-midia");
@@ -165,13 +172,10 @@ function desenharMidia() {
       <button data-media="play" class="principal" title="Play/Pause">${ico(n?.isPlaying ? "pause" : "play")}</button>
       <button data-media="skip" title="Próxima">${ico("skip-forward", "ico-sm")}</button>
     </div>
-    <div class="pc-vol">
-      <button data-volume="mute" title="Mudo">${ico("volume-x", "ico-sm")}</button>
-      <button data-volume="down" title="Volume −">${ico("volume-1", "ico-sm")}</button>
-      <button data-volume="up" title="Volume +">${ico("volume", "ico-sm")}</button>
-      <div class="gp-chips" style="margin:0">
-        ${[25, 50, 75, 100].map(v => `<button data-volume="${v}" title="Volume ${v}%">${v}</button>`).join("")}
-      </div>
+    <div class="pc-vol${pcVolume?.mudo ? " mudo" : ""}">
+      <button data-volume="${pcVolume?.mudo ? "unmute" : "mute"}" title="${pcVolume?.mudo ? "Tirar do mudo" : "Mudo"}">${ico(pcVolume?.mudo ? "volume-x" : (pcVolume?.nivel ?? 50) < 50 ? "volume-1" : "volume", "ico-sm")}</button>
+      <input type="range" id="pc-vol-range" min="0" max="100" step="1" value="${pcVolume?.nivel ?? 50}" aria-label="Volume do PC"${pcVolume ? "" : " disabled"}>
+      <span id="pc-vol-num">${pcVolume ? `${pcVolume.nivel}%` : "…"}</span>
     </div>`;
 }
 
@@ -576,6 +580,7 @@ async function carregarPc() {
         } catch { /* segue */ }
       })(),
       (async () => { await lerAbertos(); desenharGradePc(); })(),
+      lerVolumePc(),
     ];
     await Promise.all(jobs);
   } finally {
@@ -596,5 +601,20 @@ pcEl()?.addEventListener("click", async (e) => {
     const v = volume.dataset.volume;
     try { await window.nx.rpc("volume.set", { level: /^\d+$/.test(v) ? Number(v) : v }); }
     catch { showToast("Não consegui mexer no volume.", true); }
+    lerVolumePc();
   }
+});
+
+// O slider mostra o número enquanto arrasta e só manda ao soltar: um volume.set por
+// quadro seria um PowerShell por quadro.
+pcEl()?.addEventListener("input", (e) => {
+  if (e.target.id !== "pc-vol-range") return;
+  const num = document.getElementById("pc-vol-num");
+  if (num) num.textContent = `${e.target.value}%`;
+});
+pcEl()?.addEventListener("change", async (e) => {
+  if (e.target.id !== "pc-vol-range") return;
+  try { await window.nx.rpc("volume.set", { level: Number(e.target.value) }); }
+  catch { showToast("Não consegui mexer no volume.", true); }
+  lerVolumePc();
 });
