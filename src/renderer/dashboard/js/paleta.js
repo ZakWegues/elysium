@@ -70,8 +70,8 @@ function realcar(texto, consulta) {
   return saida;
 }
 
-const GRUPOS = { nav: "Ir para", acao: "Ações", app: "Abrir programa", preset: "Presets", lembrete: "Lembretes", memoria: "Memória", conversa: "Conversas", chat: "Perguntar" };
-const ORDEM_GRUPOS = ["nav", "acao", "preset", "app", "lembrete", "memoria", "conversa", "chat"];
+const GRUPOS = { nav: "Ir para", acao: "Ações", app: "Abrir programa", preset: "Presets", lembrete: "Lembretes", memoria: "Memória", conversa: "Conversas", recado: "Recados da Caixa", chat: "Perguntar" };
+const ORDEM_GRUPOS = ["nav", "acao", "preset", "app", "lembrete", "memoria", "conversa", "recado", "chat"];
 
 function rpcToast(metodo, params, okMsg) {
   return async () => {
@@ -156,6 +156,23 @@ async function montarIndicePaleta() {
       const sessoes = await window.nx.chatSessionsList();
       for (const s of sessoes.slice(0, 30)) {
         itens.push({ grupo: "conversa", icone: "message-circle", texto: s.title || "Conversa", sub: `${s.messages?.length ?? 0} msgs`, executar: () => { switchView("chat"); openConversation(s.id); } });
+      }
+    },
+    async () => {
+      // Recados da Caixa (bloco 92): o link que o celular mandou semana passada. Os 200 mais
+      // novos; abrir leva à conversa da Caixa onde ele está.
+      const msgs = await window.nx.getMailboxThread(null);
+      const recentes = [...(msgs ?? [])].sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0)).slice(0, 200);
+      for (const m of recentes) {
+        const texto = String(m.text ?? "").trim() || m.attachment?.name || "";
+        if (!texto) continue;
+        const quando = new Date(m.createdAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+        itens.push({
+          grupo: "recado", icone: m.attachment ? "paperclip" : "inbox",
+          texto: texto.replace(/\s+/g, " ").slice(0, 90),
+          sub: `${m.from === "pc" ? "do PC" : "do celular"} · ${quando}`,
+          executar: () => { switchView("chat"); switchChatMode("self"); if (m.sessionId) openMailboxSession(m.sessionId); },
+        });
       }
     },
   ];

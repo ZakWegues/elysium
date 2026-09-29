@@ -4656,3 +4656,20 @@ azulejos**, cada um com o valor que está valendo como resumo, e uma seção por
 
 `expo-constants` é importado direto (é dependência do próprio `expo`, sempre presente). Só
 JS: vai por OTA.
+
+### Bloco 92 — as sobras da fase 7 ✅
+
+- **Busca nos recados da Caixa, nos dois lados.** Celular: a lupa da Início ganhou o grupo
+  "Recados da Caixa" (os 200 mais novos, do **cache local** — acha com o PC desligado);
+  tocar abre o chat no lado PC. Desktop: a paleta Ctrl+K ganhou o mesmo grupo (via
+  `getMailboxThread(null)`), e executar abre a Caixa na conversa daquele recado. Ícone de
+  clipe quando é anexo, "do PC/do celular · dd/mm" embaixo. Conferido ao vivo: 12 recados
+  indexados, inclusive o link do GitHub mandado do celular em 22/09.
+- **Esqueleto na Início do celular** (`components/ui/Esqueleto.tsx`): até a primeira leitura
+  voltar, cada card que depende de dado do PC mostra barras pulsando em vez de um texto
+  definitivo que ainda não é verdade ("Defina a cidade nos Ajustes do PC", "Nada de urgente
+  por aqui"). Pulsa só opacidade, na thread de UI, e respeita "reduzir movimento".
+- **Não feito, de propósito: subir os `GlassModal` da aba PC e da busca para o `App.tsx`.**
+  O incômodo previsto (a TabBar reaparecendo durante a saída animada da gaveta) é de
+  ~140 ms e a solução mexeria no dono de três gavetas. Sem o Zak ter reclamado, o risco não
+  compensa.
