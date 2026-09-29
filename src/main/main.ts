@@ -13,7 +13,7 @@ import { aplicarBackup, lerBackup, montarBackup } from "../services/backup";
 import { montarDiagnostico } from "../services/diagnostico";
 import { esquecerAparelhos, listarAparelhos } from "../services/aparelhos";
 import * as QRCode from "qrcode";
-import { getConfig, getApiKey, setApiKey, hasApiKey, setOverride, getOrCreateServerToken, regenerateServerToken, AppConfig } from "./config";
+import { getConfig, getApiKey, setApiKey, hasApiKey, setOverride, getOrCreateServerToken, regenerateServerToken, AppConfig, getGithubToken, setGithubToken } from "./config";
 import { limparCacheClima } from "../services/clima";
 import { getLocalIPv4, getAllLocalIPv4 } from "./network";
 import { inputHost } from "../services/inputHost";
@@ -53,6 +53,9 @@ import { emitirEvento, MARCOS_OCIOSO } from "../services/eventos";
 import { getRunningApps } from "../actions/systemInfo";
 import { ollamaDisponivel } from "../services/llm";
 import { registerRpcBridge } from "./rpcBridge";
+import {
+  aoMudarAtualizacao, estadoAtualizacao, iniciarAtualizacoes, instalarAtualizacaoDesktop, verificarAtualizacoes,
+} from "../services/atualizacao";
 import { startMonitor, getDashboardTelemetry, killProcess } from "../actions/systemInfo";
 import type { BrainAction } from "../services/brain";
 import { mediaControl } from "../actions/mediaControl";
@@ -660,6 +663,32 @@ ipcMain.handle("backup:importar", async () => {
 ipcMain.handle("diagnostico:texto", () => montarDiagnostico());
 ipcMain.handle("diagnostico:abrir-logs", async () => { const p = pastaDeLogs(); if (p) await shell.openPath(p); return p; });
 
+// Atualização automática (bloco 95). O estado vai para a tela SEM os caminhos de arquivo —
+// o renderer não tem o que fazer com eles — e o token só entra: a tela sabe se existe um
+// guardado, nunca qual é.
+function estadoParaTela() {
+  const e = estadoAtualizacao();
+  const semArquivo = <T extends { arquivo: string }>(p?: T) => p ? { ...p, arquivo: undefined } : undefined;
+  return { ...e, desktop: semArquivo(e.desktop), celular: semArquivo(e.celular), tokenProprio: Boolean(getGithubToken()) };
+}
+ipcMain.handle("atualizacao:estado", () => estadoParaTela());
+ipcMain.handle("atualizacao:verificar", async () => { await verificarAtualizacoes(); return estadoParaTela(); });
+ipcMain.handle("atualizacao:instalar", () => instalarAtualizacaoDesktop());
+ipcMain.handle("atualizacao:token", async (_e, token: unknown) => {
+  setGithubToken(typeof token === "string" ? token : "");
+  await verificarAtualizacoes();
+  return estadoParaTela();
+});
+let versaoAvisada = "";
+aoMudarAtualizacao((e) => {
+  dashWin?.webContents.send("atualizacao:mudou", estadoParaTela());
+  // Um balão por versão, quando o instalador termina de baixar — não a cada verificação.
+  if (e.desktop?.pronto && e.desktop.versao !== versaoAvisada) {
+    versaoAvisada = e.desktop.versao;
+    notify("ELYSIUM", `A versão ${e.desktop.versao} está pronta. Ajustes → Sobre → Instalar.`);
+  }
+});
+
 // Catálogo da Groq para Ajustes e para diagnóstico: só os ids, a chave fica no main.
 ipcMain.handle("groq:modelos", (_e, forcar?: boolean) => modelosDaGroq(Boolean(forcar)));
 
@@ -827,6 +856,7 @@ app.on("ready", async () => {
   const serverToken = getOrCreateServerToken();
   const cfg = getConfig();
   startServer(serverToken, processCommand, cfg.serverPort ?? 4200, processCommandStream);
+  iniciarAtualizacoes({ sair: quit });
 
   const unseenFromMobile = checkAndMarkUnseenFromMobile();
   if (unseenFromMobile.length > 0) {

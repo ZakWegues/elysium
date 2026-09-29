@@ -6,6 +6,7 @@ import { ollamaDisponivel } from "./llm";
 import { modelosDaGroq } from "./catalogoGroq";
 import { listarRotinas } from "./rotinas";
 import { palavraDeAtivacaoLigada } from "./palavraAtivacao";
+import { estadoAtualizacao } from "./atualizacao";
 
 /**
  * "Copiar diagnóstico" (bloco 97): um texto só, pronto para colar numa conversa, com o que
@@ -32,6 +33,13 @@ export async function montarDiagnostico(): Promise<string> {
       `Ollama: ${JSON.stringify(ollama)}`,
       `Groq: chave ${getApiKey() ? "presente" : "AUSENTE"} · visão ${cfg.visionModel} · busca ${cfg.searchModel} · catálogo: ${Array.isArray(groq) ? groq.join(", ") : "?"}`,
     ]],
+    ["Atualização", (() => {
+      const a = estadoAtualizacao();
+      return [
+        `Verificada ${a.verificadoEm ? new Date(a.verificadoEm).toLocaleString("pt-BR") : "nunca"}${a.erro ? ` · erro: ${a.erro}` : ""}${a.semToken ? " · sem token do GitHub" : ""}`,
+        `PC: ${a.desktop ? `${a.desktop.versao} ${a.desktop.pronto ? "baixada" : `baixando ${Math.round(a.desktop.progresso * 100)}%`}` : "em dia"} · celular: ${a.celular ? `${a.celular.versao}${a.celular.pronto ? " guardado" : ""}` : "sem release"}`,
+      ];
+    })()],
     ["Voz", [
       `Voz ${cfg.voice} · atalho ${cfg.shortcut} · palavra de ativação ${palavraDeAtivacaoLigada() ? "ligada" : "desligada"}`,
     ]],

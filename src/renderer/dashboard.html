@@ -178,6 +178,10 @@
     <span class="nav-busca-texto">Buscar ou comandar…</span>
     <kbd>Ctrl K</kbd>
   </button>
+  <!-- Aparece só quando uma versão nova terminou de baixar (bloco 95). -->
+  <button id="nav-atualizar" type="button" hidden title="Uma versão nova está pronta para instalar">
+    <svg class="ico ico-sm" aria-hidden="true"><use href="#i-rotate"/></svg><span>Atualizar</span>
+  </button>
   <button class="vtab vtab-fim" data-view="ajustes" role="tab" aria-selected="false"><span class="vtab-ico"><svg class="ico" aria-hidden="true"><use href="#i-settings"/></svg></span><span class="vtab-label">Ajustes</span><span class="vtab-dot"></span></button>
   <span id="vtab-thumb"></span>
 </nav>
@@ -419,6 +423,8 @@
         </section>
 
         <section class="cfg-grupo" id="sec-sobre">
+          <!-- Atualização automática (bloco 95): desenhada por desenharAtualizacao(). -->
+          <div id="sobre-atualizacao"></div>
           <div id="sobre-corpo"></div>
         </section>
 

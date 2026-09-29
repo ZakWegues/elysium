@@ -87,6 +87,12 @@ contextBridge.exposeInMainWorld("nx", {
   backupImportar:       () => ipcRenderer.invoke("backup:importar"),
   diagnostico:          () => ipcRenderer.invoke("diagnostico:texto"),
   abrirLogs:            () => ipcRenderer.invoke("diagnostico:abrir-logs"),
+  // Atualização automática (bloco 95). O token só entra; nunca volta para o renderer.
+  atualizacaoEstado:    () => ipcRenderer.invoke("atualizacao:estado"),
+  atualizacaoVerificar: () => ipcRenderer.invoke("atualizacao:verificar"),
+  atualizacaoInstalar:  () => ipcRenderer.invoke("atualizacao:instalar"),
+  atualizacaoToken:     (token: string) => ipcRenderer.invoke("atualizacao:token", token),
+  onAtualizacao:        (cb: (e: unknown) => void) => { ipcRenderer.on("atualizacao:mudou", (_e, e) => cb(e)); },
 
   // Conversas da Caixa (lado PC do switch) — o par do bloco chatSessions* acima.
   mailboxSessionsList:     ()                        => ipcRenderer.invoke("mailbox:sessions-list"),

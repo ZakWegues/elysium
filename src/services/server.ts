@@ -9,6 +9,7 @@
  * Routes:
  *   GET  /api/health            → { status, version }
  *   GET  /api/tts?text=         → audio/mpeg na voz neural do PC (bloco 85)
+ *   GET  /api/update/apk        → o APK mais novo do ELYSIUM-M, guardado pelo PC (bloco 95)
  *   POST /api/command           → { text } → { reply }     (linguagem natural → cérebro)
  *   GET  /api/rpc               → { methods }              (descoberta)
  *   POST /api/rpc               → { method, params } → { result }  (chamada tipada)
@@ -38,9 +39,11 @@ import { handleRpc, listRpcMethods, RpcError } from "./rpc";
 import { emitirEvento } from "./eventos";
 import { sintetizarMp3 } from "./tts";
 import { registrarAcesso } from "./aparelhos";
+import { estadoAtualizacao } from "./atualizacao";
+import * as fsAtualizacao from "node:fs";
 
 const WS_MAGIC = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
-const PKG_VERSION = "1.4.0";
+
 
 /** Teto de corpo por requisição. Anexo do mailbox em base64 (5 MB) infla ~33%. */
 const MAX_BODY_BYTES = 8 * 1024 * 1024;
@@ -336,7 +339,8 @@ function makeHandler(
     // GET /api/health
     if (req.method === "GET" && url === "/api/health") {
       res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
-      res.end(JSON.stringify({ status: "ok", version: PKG_VERSION, wsClients: wsClients.size }));
+      // A versão vem do próprio app: um número escrito à mão aqui já ficou para trás uma vez.
+      res.end(JSON.stringify({ status: "ok", version: estadoAtualizacao().atual, wsClients: wsClients.size }));
       return;
     }
 
@@ -353,6 +357,22 @@ function makeHandler(
       } catch (e) {
         sendJson(res, 502, { error: `síntese falhou: ${e instanceof Error ? e.message : String(e)}` });
       }
+      return;
+    }
+
+    // GET /api/update/apk — o APK que o PC baixou da release do elysium-m (bloco 95). O
+    // celular baixa daqui, com o token de sempre, em vez de falar com o GitHub: não precisa
+    // de credencial nem de internet, só de alcançar o PC.
+    if (req.method === "GET" && url === "/api/update/apk") {
+      const cel = estadoAtualizacao().celular;
+      if (!cel?.pronto || !fsAtualizacao.existsSync(cel.arquivo)) { sendJson(res, 404, { error: "nenhum APK guardado no PC" }); return; }
+      res.writeHead(200, {
+        "Content-Type": "application/vnd.android.package-archive",
+        "Content-Length": fsAtualizacao.statSync(cel.arquivo).size,
+        "Content-Disposition": `attachment; filename="elysium-m-${cel.versao}.apk"`,
+        "Cache-Control": "no-store",
+      });
+      fsAtualizacao.createReadStream(cel.arquivo).pipe(res);
       return;
     }
 

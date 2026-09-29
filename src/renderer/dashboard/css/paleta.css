@@ -285,3 +285,14 @@
 /* O --muted da noite (#5a5d7a) some sobre o vidro escuro da barra. */
 .theme-ely #nav-busca { color: rgba(232,234,240,0.55); }
 .theme-ely #nav-busca kbd { color: rgba(232,234,240,0.45); }
+
+/* Aviso de versão nova na barra de abas (bloco 95): só existe quando há o que instalar. */
+#nav-atualizar {
+  align-self: center; display: flex; align-items: center; gap: 6px;
+  height: 28px; padding: 0 10px; margin-right: 6px; border-radius: var(--radius-20);
+  border: 1px solid rgba(var(--purple-rgb), 0.45); background: rgba(var(--purple-rgb), 0.16);
+  color: var(--text); font-family: inherit; font-size: 11.5px; cursor: pointer;
+}
+#nav-atualizar[hidden] { display: none; }
+#nav-atualizar:hover { background: rgba(var(--purple-rgb), 0.26); }
+#nav-atualizar .ico { color: var(--purple-bright); }

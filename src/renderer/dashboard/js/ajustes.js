@@ -5,6 +5,10 @@
 // código estava. Função declarada aqui pode ser chamada de qualquer arquivo em tempo de
 // execução; chamada SÍNCRONA no nível do arquivo só pode apontar para arquivo anterior.
 
+// Estado da atualização (bloco 95). Declarado no topo porque o resumo do azulejo "Sobre"
+// o lê, e o hub pode ser desenhado antes de o trecho de atualização rodar.
+let atualizacaoAtual = null;
+
 // ─────────────────────────────────────────────────
 // AJUSTES — tudo numa tela só
 // ─────────────────────────────────────────────────
@@ -129,7 +133,8 @@ const SECOES_AJUSTES = [
   { id: "dados", titulo: "Dados e diagnóstico", icone: "download", nos: ["#sec-dados"],
     resumo: () => "Backup, importar, log" },
   { id: "sobre", titulo: "Sobre", icone: "info", nos: ["#sec-sobre"],
-    resumo: () => "Versão, porta e pastas", aoAbrir: () => desenharSobre() },
+    resumo: () => atualizacaoAtual?.desktop?.pronto ? `Versão ${atualizacaoAtual.desktop.versao} pronta para instalar` : "Versão, atualizações e pastas",
+    aoAbrir: () => { desenharSobre(); desenharAtualizacao(); } },
 ];
 
 let cfgAtual = {};
@@ -234,6 +239,101 @@ async function desenharSobre() {
   ];
   alvo.innerHTML = linhas.map(([k, v]) => `<div class="cfg-row"><label>${escHtml(k)}</label><div class="cfg-controle"><span class="cfg-atual" style="white-space:normal">${escHtml(String(v))}</span></div></div>`).join("");
 }
+
+// ── Atualização automática (bloco 95) ─────────────────────────────────────────
+// O main confere as releases do GitHub a cada 6 h e baixa sozinho; aqui só se mostra o
+// estado e se decide QUANDO instalar (instalar fecha o app por alguns segundos).
+
+function mb(bytes) { return `${Math.round((bytes || 0) / 1e6)} MB`; }
+
+function desenharAtualizacao() {
+  const e = atualizacaoAtual;
+  const pill = document.getElementById("nav-atualizar");
+  if (pill) pill.hidden = !e?.desktop?.pronto;
+  const alvo = document.getElementById("sobre-atualizacao");
+  if (!alvo || !e) return;
+
+  const quando = e.verificadoEm ? new Date(e.verificadoEm).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "ainda não";
+  let situacao, acao = "";
+  if (e.verificando) situacao = "Procurando versão nova…";
+  else if (e.semToken) situacao = "Sem acesso às releases: cole um token do GitHub abaixo, ou entre com o gh neste PC.";
+  else if (e.erro) situacao = `Não consegui verificar: ${e.erro}`;
+  else if (!e.desktop) situacao = `Você está na versão mais nova (${e.atual}).`;
+  else if (!e.desktop.pronto) situacao = `Baixando a versão ${e.desktop.versao}… ${Math.round(e.desktop.progresso * 100)}%`;
+  else {
+    situacao = `A versão ${e.desktop.versao} está pronta (${mb(e.desktop.tamanho)}).`;
+    acao = `<button type="button" data-atu="instalar" class="primario">Instalar e reabrir</button>`;
+  }
+  const notas = e.desktop?.notas ? `<pre class="atu-notas">${escHtml(e.desktop.notas)}</pre>` : "";
+  const cel = e.celular
+    ? `ELYSIUM-M ${escHtml(e.celular.versao)} ${e.celular.pronto ? "guardado aqui — o celular oferece a instalação sozinho" : `baixando ${Math.round(e.celular.progresso * 100)}%`}`
+    : "nenhum APK publicado ainda";
+
+  alvo.innerHTML = `
+    <div class="atu-caixa${e.desktop?.pronto ? " pronta" : ""}">
+      <div class="atu-linha"><svg class="ico" aria-hidden="true"><use href="#i-rotate"/></svg><strong>${escHtml(situacao)}</strong></div>
+      ${notas}
+      <div class="atu-meta">Última verificação: ${escHtml(quando)} · Celular: ${cel}</div>
+      <div class="home-acoes" style="margin-top:10px">
+        ${acao}
+        <button type="button" data-atu="verificar"${e.verificando ? " disabled" : ""}>Verificar agora</button>
+      </div>
+      <details class="atu-token">
+        <summary>Token do GitHub ${e.tokenProprio ? "(guardado)" : "(opcional)"}</summary>
+        <p class="cfg-nota">Os repositórios são privados. Sem token, o ELYSIUM usa o login do <code>gh</code> deste PC. Para outro PC: um token "fine-grained" só com leitura de Contents nos dois repositórios. Ele fica ao lado da chave da Groq e não vai no backup.</p>
+        <form data-atu-form class="atu-form">
+          <input type="password" name="token" placeholder="github_pat_…" autocomplete="off" spellcheck="false">
+          <button type="submit">Guardar</button>
+          ${e.tokenProprio ? `<button type="button" data-atu="apagar-token">Apagar</button>` : ""}
+        </form>
+      </details>
+    </div>`;
+}
+
+async function carregarAtualizacao() {
+  try { atualizacaoAtual = await window.nx.atualizacaoEstado(); desenharAtualizacao(); } catch { /* preload antigo */ }
+}
+
+// Os ouvintes vão no próprio contêiner: a seção é movida para a gaveta e o nó viaja junto.
+document.getElementById("sobre-atualizacao")?.addEventListener("click", async (ev) => {
+  const b = ev.target.closest("[data-atu]");
+  if (!b) return;
+  if (b.dataset.atu === "verificar") {
+    atualizacaoAtual = { ...(atualizacaoAtual ?? {}), verificando: true };
+    desenharAtualizacao();
+    atualizacaoAtual = await window.nx.atualizacaoVerificar();
+    desenharAtualizacao();
+  } else if (b.dataset.atu === "instalar") {
+    const r = await window.nx.atualizacaoInstalar();
+    showToast(r?.mensagem ?? "…", !r?.ok);
+  } else if (b.dataset.atu === "apagar-token") {
+    atualizacaoAtual = await window.nx.atualizacaoToken("");
+    desenharAtualizacao();
+    showToast("Token apagado.");
+  }
+});
+document.getElementById("sobre-atualizacao")?.addEventListener("submit", async (ev) => {
+  const f = ev.target.closest("[data-atu-form]");
+  if (!f) return;
+  ev.preventDefault();
+  const valor = f.elements.token.value.trim();
+  if (!valor) return;
+  f.elements.token.value = "";
+  atualizacaoAtual = await window.nx.atualizacaoToken(valor);
+  desenharAtualizacao();
+  showToast(atualizacaoAtual?.erro ? `Token guardado, mas: ${atualizacaoAtual.erro}` : "Token guardado.");
+});
+document.getElementById("nav-atualizar")?.addEventListener("click", () => {
+  switchView("ajustes");
+  // Mesmo atraso do painel de rede: a troca de aba fecha a gaveta antes de abrir outra.
+  setTimeout(() => abrirSecao("sobre"), 80);
+});
+window.nx.onAtualizacao?.((e) => {
+  atualizacaoAtual = e;
+  desenharAtualizacao();
+  if (typeof desenharHub === "function") desenharHub();
+});
+carregarAtualizacao();
 
 function slugSecao(nome) {
   // Sem depender do `dobrar` da paleta, declarado bem mais abaixo neste arquivo.

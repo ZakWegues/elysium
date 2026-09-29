@@ -204,3 +204,16 @@
   padding: 10px 12px; border-radius: var(--radius-8); border: 1px solid var(--border); background: rgba(0,0,0,0.12);
 }
 .theme-lg #dados-saida { background: rgba(17,17,26,0.04); }
+
+/* ── Atualização automática (bloco 95) ─────────────────────────────────────── */
+.atu-caixa { padding: 12px 14px; margin-bottom: 14px; border-radius: var(--radius-12, 12px); border: 1px solid var(--border); background: rgba(var(--purple-rgb), 0.05); }
+.atu-caixa.pronta { border-color: rgba(var(--purple-rgb), 0.45); background: rgba(var(--purple-rgb), 0.10); }
+.atu-linha { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.atu-linha .ico { color: var(--purple-bright); flex-shrink: 0; }
+.atu-meta { margin-top: 6px; font-size: 11.5px; color: var(--muted); }
+.atu-notas { margin: 8px 0 0; max-height: 140px; overflow: auto; white-space: pre-wrap; font-family: inherit; font-size: 12px; color: var(--text); opacity: 0.85; }
+.atu-caixa button.primario { background: var(--purple); color: #fff; border-color: transparent; }
+.atu-token { margin-top: 12px; font-size: 12px; }
+.atu-token summary { cursor: pointer; color: var(--muted); }
+.atu-form { display: flex; gap: 6px; margin-top: 6px; }
+.atu-form input { flex: 1; min-width: 0; }

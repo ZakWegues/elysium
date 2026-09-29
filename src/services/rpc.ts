@@ -34,6 +34,7 @@ import { mediaControl, MediaOperation } from "../actions/mediaControl";
 import { lerVolume, volumeControl } from "../actions/volumeControl";
 import { controlarJanela, listarJanelas } from "../actions/janelas";
 import { montarDiagnostico } from "./diagnostico";
+import { estadoAtualizacao, verificarAtualizacoes } from "./atualizacao";
 import { captureScreen, listScreens } from "./screenCapture";
 import { screenshot } from "../actions/screenshot";
 import { inputHost, MouseButton } from "./inputHost";
@@ -801,6 +802,18 @@ const METHODS: Record<string, MethodDef> = {
       if (!/^\d{1,20}$/.test(hwnd)) throw new RpcError(400, "hwnd inválido");
       const operacao = requireEnum(params, "operacao", ["focar", "minimizar", "maximizar", "restaurar", "fechar", "so_esta"] as const);
       return { ok: true, message: await controlarJanela(hwnd, operacao) };
+    },
+  },
+  // O que há de novo nas releases (bloco 95). O celular compara `celular.versao` com a
+  // versão nativa dele e, se for mais nova, baixa por GET /api/update/apk. Sem caminhos de
+  // arquivo: o celular não tem o que fazer com eles.
+  "update.status": {
+    handler: async (params) => {
+      if (params["verificar"] === true) await verificarAtualizacoes();
+      const e = estadoAtualizacao();
+      const resumo = (x?: { versao: string; notas: string; publicadaEm: string; tamanho: number; pronto: boolean; progresso: number }) =>
+        x ? { versao: x.versao, notas: x.notas, publicadaEm: x.publicadaEm, tamanho: x.tamanho, pronto: x.pronto, progresso: x.progresso } : null;
+      return { pc: e.atual, verificadoEm: e.verificadoEm ?? null, erro: e.erro ?? null, desktop: resumo(e.desktop), celular: resumo(e.celular) };
     },
   },
   // O mesmo "copiar diagnóstico" dos Ajustes do PC, para o Sobre do celular (bloco 97).

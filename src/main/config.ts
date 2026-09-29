@@ -205,9 +205,9 @@ function loadDefaults(): AppConfig {
 }
 
 // Store seguro no userData. A API key vive aqui.
-const store = new Store<{ apiKey: string; overrides: Partial<AppConfig>; serverToken: string }>({
+const store = new Store<{ apiKey: string; overrides: Partial<AppConfig>; serverToken: string; githubToken: string }>({
   name: "elysium-config",
-  defaults: { apiKey: "", overrides: {}, serverToken: "" },
+  defaults: { apiKey: "", overrides: {}, serverToken: "", githubToken: "" },
 });
 
 const fileDefaults = loadDefaults();
@@ -379,6 +379,19 @@ export function getApiKey(): string {
 
 export function setApiKey(key: string): void {
   store.set("apiKey", (key || "").trim());
+}
+
+/**
+ * Token do GitHub para ler as releases dos repositórios privados (bloco 95). Mora aqui, ao
+ * lado da chave da Groq, e não nos `overrides`: assim não viaja no backup nem aparece no
+ * diagnóstico. Vazio = o atualizador tenta o login do `gh` desta máquina.
+ */
+export function getGithubToken(): string {
+  return (store.get("githubToken", "") || "").trim();
+}
+
+export function setGithubToken(token: string): void {
+  store.set("githubToken", (token || "").trim());
 }
 
 export function hasApiKey(): boolean {
