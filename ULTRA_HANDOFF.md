@@ -5211,3 +5211,63 @@ digital nova).
 - É o insumo do bloco 125 (ajustar −38/−46 dB, 1,3 s e a confiança com número).
 
 Testes: desktop 86, celular 22.
+
+### O nome sai do código (entre as Partes A e B) ✅
+
+Pela mesma regra da Parte 0, o nome do dono estava fixo em sete lugares — saudações da
+Início e do chat, prompts do agente, da conversa, da condição de rotina e do resumo do
+histórico, e a saudação do celular. Agora é o ajuste **`nomeDoUsuario`** (Ajustes →
+Conversa → "Como te chamar"), guardado nos dados do app; `nomeDoUsuario()` em `config.ts`
+devolve "usuário" quando vazio. O celular recebe por `pairing.endpoints` (`nome`) e guarda
+em `elysium_nome_do_usuario_v1` para funcionar sem rede. Nesta máquina o valor já foi
+gravado; a tela não mudou.
+
+## Parte B — mais inteligente
+
+### Bloco 117 — resumo do dia ✅
+
+`src/services/resumoDoDia.ts`: "bom dia", "resumo do dia", "como está meu dia", "o que tenho
+pra hoje" (regras fechadas no `fastRoute`, ação `daily_summary`) e a ferramenta
+`resumo_do_dia`. Montado **sem modelo**, só com o que o app sabe — clima, agenda (bloco
+120), lembretes e rotinas de hoje, recados não lidos do celular, o que o card Saúde acusa,
+versão nova. Sai em menos de um segundo e não inventa lembrete. `montarResumo` é pura.
+
+"Resumo do dia pela manhã" (`resumoAutomatico`, Ajustes → Voz, **padrão desligado**): fala
+sozinho na primeira volta ao PC entre 6 e 11 h — fim de 1 h+ ociosa, destravar a tela ou
+voltar da suspensão —, uma vez por dia (`resumo-do-dia.json`), e manda ao celular.
+
+### Bloco 118 — memória que aprende, com aprovação ✅
+
+- 60 fatos guardados, **12 no prompt** — os que dividem radicais (4 letras, sem acento) com
+  o pedido, recentes no desempate (`escolherFatos`, pura). O prompt do modelo local não
+  cresce com cada fato.
+- `src/services/aprendizado.ts`: quando a conversa esfria (`chatIdleResetMs` + 5 s), uma
+  chamada lê **só as falas do usuário** (nunca as respostas, que podem ter inventado) e
+  propõe até 3 fatos estáveis. Viram **sugestões** — card "Aprendi isto" no PC e no celular,
+  guardar/descartar; recusado não volta; parecido com fato guardado (60% dos radicais) não
+  é sugerido. RPC `memory.sugestoes/aceitar/recusar`.
+- Testado ao vivo (frase inventada, limpa depois): "meu peixe se chama Bolota, um betta
+  azul" → *"O usuário tem um peixe chamado Bolota que é um betta azul."*
+
+### Bloco 119 — tarefas de vários passos ✅
+
+Pedido com 3+ partes (`contarPassos`: vírgula, "e", "depois", "então", "também") entra em
+modo tarefa: até 6 rodadas, uma volta por parte, e a cada volta o modelo recebe o pedido
+inteiro de novo ("continue o MESMO pedido… se tudo foi feito, responda pronto") — o 7B
+esquecia o resto depois da primeira ação. Resposta em lista ("Feito:" + um item por passo);
+a voz tira os marcadores. 1–2 partes seguem como antes. Testado com o `qwen2.5:7b`: criar
+lembrete + cancelar + clima → as três em ordem, "pronto", nada sobrando.
+
+### Bloco 120 — Google Agenda, só leitura ✅ (falta o Zak criar o cliente OAuth)
+
+`src/services/agenda.ts`: OAuth de app para computador com servidor temporário em
+`127.0.0.1` (porta livre, **não** a 4200), PKCE S256 e `state`; escopo `calendar.readonly`.
+Cliente (ID + segredo) em `elysium-config.json` ao lado da chave da Groq (fora do backup);
+refresh token em `agenda.json`; `invalid_grant` desconecta. Ajustes → Google Agenda traz o
+passo a passo do Google Cloud; card "Agenda de hoje" (liga em Personalizar); ferramenta
+`agenda` (hoje/amanhã/semana); agenda no resumo do dia; aviso 10 min antes de cada
+compromisso no PC e no celular. RPC `agenda.status` e `agenda.dia`. `interpretarEventos`
+é pura (dia inteiro = meia-noite local).
+
+Versões: desktop **1.6.2** (instalado; 117–119), 120 entra na próxima. Testes: desktop 100,
+celular 22.
