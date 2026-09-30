@@ -59,3 +59,22 @@ describe("fastRoute — o que tem que ir para o cérebro", () => {
     expect(acoes("...")).toBeNull();
   });
 });
+
+describe("modo foco no atalho (fase 12)", () => {
+  it("'para' é o verbo: para, desliga, sai do foco param", () => {
+    for (const f of ["para o modo foco", "Para o foco.", "desliga o foco", "sai do modo foco", "encerra o foco"]) {
+      expect(fastRoute(f), f).toEqual([{ action: "focus", operation: "stop" }]);
+    }
+  });
+  it("começar, com ou sem minutos", () => {
+    expect(fastRoute("modo foco")).toEqual([{ action: "focus", operation: "start", minutes: undefined }]);
+    expect(fastRoute("entra em modo foco por 40 minutos")).toEqual([{ action: "focus", operation: "start", minutes: 40 }]);
+    expect(fastRoute("liga o foco")).toEqual([{ action: "focus", operation: "start", minutes: undefined }]);
+  });
+  it("quanto falta", () => {
+    expect(fastRoute("quanto falta do foco?")).toEqual([{ action: "focus", operation: "status" }]);
+  });
+  it("não sequestra frase maior", () => {
+    expect(fastRoute("para o foco da câmera no rosto")).toBeNull();
+  });
+});

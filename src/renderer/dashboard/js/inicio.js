@@ -307,6 +307,28 @@ const CARDS = {
     },
   },
 
+  // Modo foco (fase 12): N minutos em que Discord, Steam e afins viram aviso (ou fecham).
+  foco: {
+    titulo: "Modo foco", icone: "eye", span: 1, precisa: ["foco"],
+    render: (d) => {
+      const f = d.foco;
+      if (!f) return vazio("Não consegui ler o modo foco.");
+      const lista = (f.ativo ? f.apps : f.listaPadrao) ?? [];
+      const listaTxt = `<em class="foco-lista" title="${escHtml(lista.join(", "))}">${escHtml(lista.slice(0, 5).join(", "))}${lista.length > 5 ? "…" : ""}</em>`;
+      if (f.ativo && f.ate) {
+        const min = Math.max(0, Math.ceil((f.ate - Date.now()) / 60000));
+        return `<div class="foco-ativo"><span class="foco-min">${min}</span><span>min restantes</span></div>
+          <div class="foco-info">${f.fechar ? "Fechando" : "Avisando sobre"} ${listaTxt}</div>
+          <div class="foco-info">${f.distracoes === 0 ? "Nenhuma distração até agora." : f.distracoes === 1 ? "1 distração." : `${f.distracoes} distrações.`}</div>
+          <div class="home-acoes"><button data-foco="parar">${ico("x", "ico-sm")}<span>Parar</span></button></div>`;
+      }
+      return `<div class="timer-presets">${[25, 50, 90].map(m => `<button data-foco-min="${m}">${m} min</button>`).join("")}</div>
+        <label class="foco-fechar"><input type="checkbox" id="foco-fechar"${f.fechar ? " checked" : ""}> Fechar em vez de só avisar</label>
+        <div class="foco-info">Lista: ${listaTxt} <button class="foco-editar" data-foco="editar">editar</button></div>
+        <form class="foco-form" data-foco-form hidden><input name="apps" value="${escHtml(lista.join(", "))}" spellcheck="false"><button type="submit">OK</button></form>`;
+    },
+  },
+
   // Fase 12: o que está quebrado antes de o Zak descobrir falando com o assistente.
   saude: {
     titulo: "Saúde do ELYSIUM", icone: "activity", span: 1, precisa: ["saude"],
@@ -471,6 +493,7 @@ async function carregarDadosInicio() {
   if (precisa.has("memoria")) jobs.push(rpc("memoria", "memory.list", undefined, r => r?.facts ?? []));
   if (precisa.has("rotinas")) jobs.push(rpc("rotinas", "rotinas.list", undefined, r => r?.rotinas ?? []));
   if (precisa.has("saude")) jobs.push(rpc("saude", "system.saude", undefined, r => r?.itens ?? null));
+  if (precisa.has("foco")) jobs.push(rpc("foco", "foco.status", undefined, r => r ?? null));
   if (precisa.has("conversas")) jobs.push((async () => {
     try { d.conversas = (await window.nx.chatSessionsList()).slice().sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0)); } catch { d.conversas = []; }
   })());
@@ -1010,6 +1033,23 @@ document.getElementById("view-inicio")?.addEventListener("click", async (e) => {
     return;
   }
 
+  // Modo foco (fase 12).
+  const fm = alvo("[data-foco-min]");
+  if (fm) {
+    try {
+      const r = await window.nx.rpc("foco.start", { minutos: Number(fm.dataset.focoMin), fechar: document.getElementById("foco-fechar")?.checked === true });
+      showToast(`Foco por ${r.result?.minutos} min.`);
+    } catch (err) { showToast(err?.message || "Não deu certo.", true); }
+    await atualizarInicio();
+    return;
+  }
+  const fb = alvo("[data-foco]");
+  if (fb) {
+    if (fb.dataset.foco === "editar") { const f = document.querySelector("[data-foco-form]"); if (f) { f.hidden = false; f.elements.apps.focus(); } return; }
+    if (fb.dataset.foco === "parar") { try { await window.nx.rpc("foco.stop"); } catch { /* segue */ } await atualizarInicio(); }
+    return;
+  }
+
   // Os consertos do card Saúde (fase 12).
   const sd = alvo("[data-saude-tipo]");
   if (sd) {
@@ -1240,3 +1280,14 @@ async function mostrarNovidades() {
   });
 }
 mostrarNovidades();
+
+// Lista de distrações do Modo foco (fase 12): o card troca a lista sem começar o foco.
+document.getElementById("home-grid")?.addEventListener("submit", async (ev) => {
+  const f = ev.target.closest("[data-foco-form]");
+  if (!f) return;
+  ev.preventDefault();
+  const apps = f.elements.apps.value.split(",").map(s => s.trim()).filter(Boolean);
+  try { await window.nx.rpc("foco.lista", { apps }); showToast("Lista salva."); } catch { showToast("Não consegui salvar.", true); }
+  await atualizarInicio();
+});
+window.nx.onFoco?.(() => { atualizarInicio(); });

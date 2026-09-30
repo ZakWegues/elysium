@@ -35,6 +35,7 @@ import { lerVolume, volumeControl } from "../actions/volumeControl";
 import { controlarJanela, listarJanelas } from "../actions/janelas";
 import { montarDiagnostico } from "./diagnostico";
 import { consertarSaude, verificarSaude } from "./saude";
+import { comecarFoco, estadoFoco, pararFoco, salvarListaFoco } from "./foco";
 import { abrirNoPc, AlvoAbrir, AlvoLimpeza, lerArmazenamento, limpar } from "../actions/armazenamento";
 import { aguardarDownloads, estadoAtualizacao, instalarAtualizacaoDesktop, verificarAtualizacoes } from "./atualizacao";
 import { captureScreen, listScreens } from "./screenCapture";
@@ -844,6 +845,29 @@ const METHODS: Record<string, MethodDef> = {
   "update.install": {
     destructive: true,
     handler: async () => instalarAtualizacaoDesktop(),
+  },
+  // Modo foco (fase 12). Começar não é destrutivo: com `fechar`, quem fecha é o foco, e a
+  // escolha foi feita por quem começou.
+  "foco.status": {
+    handler: async () => estadoFoco(),
+  },
+  "foco.start": {
+    handler: async (params) => {
+      const minutos = params["minutos"];
+      if (typeof minutos !== "number") throw new RpcError(400, "minutos (número) é obrigatório");
+      const apps = Array.isArray(params["apps"]) ? (params["apps"] as unknown[]).filter((x): x is string => typeof x === "string") : undefined;
+      try { return await comecarFoco({ minutos, apps, fechar: params["fechar"] === true }); }
+      catch (e) { throw new RpcError(400, e instanceof Error ? e.message : String(e)); }
+    },
+  },
+  "foco.stop": {
+    handler: async () => pararFoco(),
+  },
+  "foco.lista": {
+    handler: async (params) => {
+      if (!Array.isArray(params["apps"])) throw new RpcError(400, "apps (lista de nomes) é obrigatório");
+      return { apps: salvarListaFoco((params["apps"] as unknown[]).filter((x): x is string => typeof x === "string")) };
+    },
   },
   // "Saúde do ELYSIUM" (fase 12): o que está quebrado, com o conserto de um clique.
   "system.saude": {

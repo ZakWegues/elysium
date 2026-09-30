@@ -23,6 +23,7 @@ import {
 import { searchWeb } from "../services/webSearch";
 import { askAboutScreen } from "../services/vision";
 import { climaFalado } from "../services/clima";
+import { comecarFoco, focoFalado, pararFoco } from "../services/foco";
 
 export async function routeAction(action: BrainAction): Promise<string> {
   switch (action.action) {
@@ -39,6 +40,12 @@ export async function routeAction(action: BrainAction): Promise<string> {
     case "screenshot":        return screenshot(action.filename);
     case "system_info":       return systemInfo(action.query);
     case "weather":           return climaFalado();
+    case "focus": {
+      if (action.operation === "stop") { pararFoco(); return "Modo foco desligado."; }
+      if (action.operation === "status") return focoFalado();
+      const f = await comecarFoco({ minutos: action.minutes ?? 25 });
+      return `Modo foco por ${f.minutos} minutos.`;
+    }
     case "run_preset":        return runPreset(action.preset_name);
     case "list_presets":      return listPresetsReply();
     case "delete_preset":     return deletePreset(action.preset_name);

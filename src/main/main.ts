@@ -55,6 +55,8 @@ import { baseDoOllama, ollamaDisponivel } from "../services/llm";
 import { garantirOllama } from "../services/ollamaVivo";
 import { registerRpcBridge } from "./rpcBridge";
 import { vigiarDisco } from "../actions/armazenamento";
+import { iniciarFoco } from "../services/foco";
+import { closeApp } from "../actions/closeApp";
 import {
   aoMudarAtualizacao, estadoAtualizacao, iniciarAtualizacoes, instalarAtualizacaoDesktop, verificarAtualizacoes,
   marcarNovidadesVistas, novidadesPendentes,
@@ -879,6 +881,16 @@ app.on("ready", async () => {
   iniciarAtualizacoes({ sair: quit, ocupado: () => state.get() !== "idle" });
   // Cérebro local: se o Ollama estiver parado, sobe já — antes do primeiro pedido pagar a espera.
   if (cfg.routerProvider === "ollama" || cfg.chatProvider === "ollama") void garantirOllama(baseDoOllama());
+  // Modo foco (fase 12): distração vira balão no PC; o resumo do fim vai também ao celular.
+  iniciarFoco({
+    avisar: (titulo, corpo) => {
+      notify(titulo, corpo);
+      if (/^Foco /.test(titulo)) broadcastNotify(enfileirarEntrega({ tipo: "aviso", titulo, corpo }));
+      dashWin?.webContents.send("foco:mudou");
+    },
+    fecharApp: (nome) => closeApp(nome),
+    abertosAgora: () => getRunningApps(),
+  });
   // Disco quase cheio (fase 12): no máximo um aviso por dia, no PC e no celular.
   vigiarDisco((titulo, corpo) => {
     notify(titulo, corpo);

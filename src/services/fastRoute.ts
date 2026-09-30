@@ -88,6 +88,14 @@ const RULES: Rule[] = [
   { pattern: /^(como (esta|ta) o tempo( hoje| la fora| agora)?|clima|clima (de )?hoje|previsao( do tempo)?( (de|para) hoje)?|que tempo faz( hoje)?|vai chover( hoje)?|(esta|ta) (frio|quente|chovendo)( la fora)?|temperatura la fora)$/,
     build: () => [{ action: "weather" }] },
 
+  // — modo foco (fase 12) — "para" é o verbo aqui: o modelo lia como preposição e religava.
+  { pattern: /^(para|pare|parar|desliga|desligar|encerra|encerrar|termina|terminar|acaba|acabar|sai|sair)( d[oa])?( o)?( modo)? (de )?foco$/,
+    build: () => [{ action: "focus", operation: "stop" }] },
+  { pattern: /^(quanto (tempo )?falta (d[oa]|n[oa]|pro|pra) (modo )?foco|como (esta|ta) o foco)$/,
+    build: () => [{ action: "focus", operation: "status" }] },
+  { pattern: /^(modo foco|(entra|entrar|ativa|ativar|liga|ligar|comeca|comecar) (em |no |o )?(modo )?foco)( (por|de) (\d+) (minutos?|min))?$/,
+    build: (m) => [{ action: "focus", operation: "start", minutes: m[7] ? Number(m[7]) : undefined }] },
+
   // — presets e memória —
   { pattern: /^(lista(r)? (os )?presets|quais presets( eu)? tenho|meus presets)$/,
     build: () => [{ action: "list_presets" }] },

@@ -11,6 +11,7 @@ import { alternarRotina, apagarRotina, executarRotina, listarRotinas, proximoDis
 import { getNowPlaying } from "./spotify";
 import { formatarBytes, lerArmazenamento } from "../actions/armazenamento";
 import { estadoAtualizacao } from "./atualizacao";
+import { comecarFoco, focoFalado, pararFoco } from "./foco";
 
 /**
  * As ferramentas do cérebro (bloco 78).
@@ -250,6 +251,22 @@ export const FERRAMENTAS: Ferramenta[] = [
     parameters: obj({ operacao: s("Operação", { enum: ["lock", "sleep", "restart", "shutdown", "cancel"] }), atraso_segundos: { type: "integer", description: "Só para shutdown/restart: daqui a quantos segundos" } }, ["operacao"]),
     executar: a => acao({ action: "power_control", operation: str(a, "operacao") as never, delay_seconds: num(a, "atraso_segundos") }),
     acao: a => ({ action: "power_control", operation: str(a, "operacao") as never, delay_seconds: num(a, "atraso_segundos") }),
+  },
+  {
+    name: "modo_foco",
+    // "Para o modo foco" é PARAR (o verbo), não "para" preposição — o 7B religava o foco.
+    description: "Liga ou desliga o modo foco: por N minutos, abrir Discord, Steam, WhatsApp e afins vira aviso. comecar: 'modo foco', 'preciso me concentrar por 1 hora', 'foco por 30 minutos'. parar: 'para o foco', 'para o modo foco', 'desliga o foco', 'encerra o foco', 'chega de foco'. status: 'quanto falta do foco'.",
+    parameters: obj({
+      acao: s("comecar, parar ou status. Frase que começa com 'para o foco' ou 'desliga o foco' é parar", { enum: ["comecar", "parar", "status"] }),
+      minutos: { type: "integer", description: "Duração ao começar; padrão 25" },
+    }, ["acao"]),
+    executar: async a => {
+      const op = str(a, "acao");
+      if (op === "parar") { pararFoco(); return "Modo foco desligado."; }
+      if (op === "status") return focoFalado();
+      const f = await comecarFoco({ minutos: num(a, "minutos") ?? 25 });
+      return `Modo foco por ${f.minutos} minutos. Aviso se abrirem ${f.apps.slice(0, 3).join(", ")}${f.apps.length > 3 ? " e outros" : ""}.`;
+    },
   },
   {
     name: "tirar_print",

@@ -410,3 +410,14 @@ body.redimensionando, body.redimensionando * { user-select: none !important; cur
   color: var(--text); font-family: inherit; font-size: 11px;
 }
 .saude-item button:hover { background: rgba(var(--purple-rgb), 0.22); }
+
+/* ── Modo foco (fase 12) ────────────────────────────────────────────────── */
+.foco-ativo { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+.foco-min { font-size: 34px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--purple-bright); }
+.foco-info { font-size: 12px; color: var(--muted); margin-top: 6px; }
+.foco-lista { font-style: normal; color: var(--text); }
+.foco-fechar { display: flex; align-items: center; gap: 6px; font-size: 12px; margin-top: 10px; cursor: pointer; }
+.foco-editar { background: none; border: none; color: var(--purple-bright); cursor: pointer; font-size: 12px; padding: 0 4px; }
+.foco-form { display: flex; gap: 6px; margin-top: 8px; }
+.foco-form[hidden] { display: none; }
+.foco-form input { flex: 1; min-width: 0; font-size: 12px; }
