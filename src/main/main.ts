@@ -13,7 +13,7 @@ import { aplicarBackup, lerBackup, montarBackup } from "../services/backup";
 import { montarDiagnostico } from "../services/diagnostico";
 import { esquecerAparelhos, listarAparelhos } from "../services/aparelhos";
 import * as QRCode from "qrcode";
-import { getConfig, getApiKey, setApiKey, hasApiKey, setOverride, getOrCreateServerToken, regenerateServerToken, AppConfig, getGithubToken, setGithubToken } from "./config";
+import { getConfig, getApiKey, setApiKey, hasApiKey, setOverride, getOrCreateServerToken, regenerateServerToken, AppConfig, getGithubToken, setGithubToken, setGoogleCliente } from "./config";
 import { limparCacheClima } from "../services/clima";
 import { getLocalIPv4, getAllLocalIPv4 } from "./network";
 import { inputHost } from "../services/inputHost";
@@ -57,6 +57,7 @@ import { registerRpcBridge } from "./rpcBridge";
 import { vigiarDisco } from "../actions/armazenamento";
 import { iniciarFoco } from "../services/foco";
 import { resumoDoDia } from "../services/resumoDoDia";
+import { conectarAgenda, desconectarAgenda, estadoAgenda, vigiarAgenda } from "../services/agenda";
 import Store from "electron-store";
 import { closeApp } from "../actions/closeApp";
 import {
@@ -719,6 +720,11 @@ ipcMain.handle("atualizacao:estado", () => estadoParaTela());
 ipcMain.handle("atualizacao:verificar", async () => { await verificarAtualizacoes(); return estadoParaTela(); });
 ipcMain.handle("atualizacao:instalar", () => instalarAtualizacaoDesktop());
 ipcMain.handle("novidades:pendentes", () => novidadesPendentes());
+// Google Agenda (bloco 120). O segredo só entra; a tela sabe se existe, nunca qual é.
+ipcMain.handle("agenda:estado", () => estadoAgenda());
+ipcMain.handle("agenda:cliente", (_e, id: unknown, segredo: unknown) => { setGoogleCliente(String(id ?? ""), String(segredo ?? "")); return estadoAgenda(); });
+ipcMain.handle("agenda:conectar", () => conectarAgenda());
+ipcMain.handle("agenda:desconectar", () => { desconectarAgenda(); return estadoAgenda(); });
 ipcMain.handle("novidades:vistas", () => marcarNovidadesVistas());
 ipcMain.handle("atualizacao:token", async (_e, token: unknown) => {
   setGithubToken(typeof token === "string" ? token : "");
@@ -928,6 +934,12 @@ app.on("ready", async () => {
     },
     fecharApp: (nome) => closeApp(nome),
     abertosAgora: () => getRunningApps(),
+  });
+  // Google Agenda (bloco 120): 10 min antes de cada compromisso, no PC e no celular.
+  vigiarAgenda((titulo, corpo) => {
+    notify(titulo, corpo);
+    broadcastNotify(enfileirarEntrega({ tipo: "lembrete", titulo, corpo }));
+    void sendPush("reminder", titulo, corpo, {});
   });
   // Disco quase cheio (fase 12): no máximo um aviso por dia, no PC e no celular.
   vigiarDisco((titulo, corpo) => {

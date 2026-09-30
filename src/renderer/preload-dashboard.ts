@@ -95,6 +95,11 @@ contextBridge.exposeInMainWorld("nx", {
   onAtualizacao:        (cb: (e: unknown) => void) => { ipcRenderer.on("atualizacao:mudou", (_e, e) => cb(e)); },
   novidades:            () => ipcRenderer.invoke("novidades:pendentes"),
   onFoco:               (cb: () => void) => { ipcRenderer.on("foco:mudou", () => cb()); },
+  // Google Agenda (bloco 120).
+  agendaEstado:         () => ipcRenderer.invoke("agenda:estado"),
+  agendaCliente:        (id: string, segredo: string) => ipcRenderer.invoke("agenda:cliente", id, segredo),
+  agendaConectar:       () => ipcRenderer.invoke("agenda:conectar"),
+  agendaDesconectar:    () => ipcRenderer.invoke("agenda:desconectar"),
   novidadesVistas:      () => ipcRenderer.invoke("novidades:vistas"),
 
   // Conversas da Caixa (lado PC do switch) — o par do bloco chatSessions* acima.

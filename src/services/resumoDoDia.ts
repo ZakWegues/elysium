@@ -5,6 +5,7 @@ import { listarRotinas, proximoDisparo } from "./rotinas";
 import { listMessages } from "./mailboxStore";
 import { verificarSaude } from "./saude";
 import { estadoAtualizacao } from "./atualizacao";
+import { eventosDoDia } from "./agenda";
 
 /**
  * Resumo do dia falado (fase 13, bloco 117) — "bom dia".
@@ -76,9 +77,11 @@ function mesmoDia(a: number, b: Date): boolean {
 
 export async function resumoDoDia(agenda?: FatosResumo["agenda"]): Promise<string> {
   const agora = new Date();
-  const [clima, saude] = await Promise.all([
+  const [clima, saude, eventos] = await Promise.all([
     climaFalado().catch(() => null),
     verificarSaude().catch(() => []),
+    // Agenda do Google (bloco 120), se conectada; sem ela, o resumo segue sem.
+    agenda ? Promise.resolve(null) : eventosDoDia(0).catch(() => []),
   ]);
   const lembretes = listPending()
     .filter(r => r.dueAt > agora.getTime() && mesmoDia(r.dueAt, agora))
@@ -102,6 +105,6 @@ export async function resumoDoDia(agenda?: FatosResumo["agenda"]): Promise<strin
     recadosNovos,
     alertas,
     versaoNova: e.desktop?.pronto ? e.desktop.versao : null,
-    agenda,
+    agenda: agenda ?? (eventos ?? []).filter(e => !e.diaInteiro && e.inicio > agora.getTime()).map(e => ({ titulo: e.titulo, em: e.inicio })),
   });
 }

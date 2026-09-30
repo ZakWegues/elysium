@@ -13,6 +13,7 @@ import { formatarBytes, lerArmazenamento } from "../actions/armazenamento";
 import { estadoAtualizacao } from "./atualizacao";
 import { comecarFoco, focoFalado, pararFoco } from "./foco";
 import { resumoDoDia } from "./resumoDoDia";
+import { agendaFalada } from "./agenda";
 
 /**
  * As ferramentas do cérebro (bloco 78).
@@ -103,6 +104,12 @@ export const FERRAMENTAS: Ferramenta[] = [
         "limpar é pela aba PC → Armazenamento",
       ].filter(Boolean).join("; ") + ".";
     },
+  },
+  {
+    name: "agenda",
+    description: "Os compromissos da agenda do Google do usuário: hoje, amanhã ou nos próximos 7 dias. Use para 'o que tenho amanhã', 'tenho reunião hoje?', 'minha agenda da semana'.",
+    parameters: obj({ quando: s("hoje, amanha ou semana", { enum: ["hoje", "amanha", "semana"] }) }, ["quando"]),
+    executar: async (a) => agendaFalada((["hoje", "amanha", "semana"].includes(str(a, "quando")) ? str(a, "quando") : "hoje") as "hoje" | "amanha" | "semana"),
   },
   {
     name: "resumo_do_dia",

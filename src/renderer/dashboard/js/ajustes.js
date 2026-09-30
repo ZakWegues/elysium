@@ -8,6 +8,8 @@
 // Estado da atualização (bloco 95). Declarado no topo porque o resumo do azulejo "Sobre"
 // o lê, e o hub pode ser desenhado antes de o trecho de atualização rodar.
 let atualizacaoAtual = null;
+/** Estado da Google Agenda (bloco 120), pelo mesmo motivo: o resumo do azulejo o lê. */
+let agendaAtual = null;
 
 // ─────────────────────────────────────────────────
 // AJUSTES — tudo numa tela só
@@ -137,6 +139,9 @@ const SECOES_AJUSTES = [
     resumo: () => "O que você mais pede" },
   { id: "dados", titulo: "Dados e diagnóstico", icone: "download", nos: ["#sec-dados"],
     resumo: () => "Backup, importar, log" },
+  { id: "agenda", titulo: "Google Agenda", icone: "calendar", nos: ["#sec-agenda"],
+    resumo: () => agendaAtual?.conectado ? "Conectada (só leitura)" : agendaAtual?.configurado ? "Falta conectar a conta" : "Desligada",
+    aoAbrir: () => desenharAgenda() },
   { id: "sobre", titulo: "Sobre", icone: "info", nos: ["#sec-sobre"],
     resumo: () => atualizacaoAtual?.desktop?.pronto ? `Versão ${atualizacaoAtual.desktop.versao} pronta para instalar` : "Versão, atualizações e pastas",
     aoAbrir: () => { desenharSobre(); desenharAtualizacao(); } },
@@ -519,3 +524,68 @@ document.getElementById("dados-diagnostico")?.addEventListener("click", async (e
   finally { b.disabled = false; }
 });
 document.getElementById("dados-logs")?.addEventListener("click", () => window.nx.abrirLogs());
+
+// ── Google Agenda (fase 13, bloco 120) ───────────────────────────────────────
+// O cliente OAuth é do Zak (Google Cloud dele); o ELYSIUM só lê a agenda. O segredo só
+// entra — a tela sabe se existe, nunca qual é.
+async function desenharAgenda() {
+  const alvo = document.getElementById("agenda-corpo");
+  if (!alvo) return;
+  try { agendaAtual = await window.nx.agendaEstado(); } catch { agendaAtual = null; }
+  const a = agendaAtual ?? {};
+  const situacao = a.conectado
+    ? `Conectada${a.conta ? ` como ${escHtml(a.conta)}` : ""}. O ELYSIUM lê seus compromissos (nunca cria nem apaga), avisa 10 min antes e fala a agenda no resumo do dia.`
+    : a.configurado ? "Cliente configurado. Falta conectar a conta do Google." : "Desligada. Precisa de um cliente OAuth seu no Google Cloud (passo a passo abaixo).";
+  alvo.innerHTML = `
+    <p class="cfg-nota" style="margin-top:0">${situacao}</p>
+    <div class="home-acoes" style="margin-top:0">
+      ${a.configurado && !a.conectado ? `<button type="button" data-ag="conectar">Conectar a conta do Google</button>` : ""}
+      ${a.conectado ? `<button type="button" data-ag="desconectar">Desconectar</button>` : ""}
+    </div>
+    <details class="atu-token" ${a.configurado ? "" : "open"}>
+      <summary>Cliente OAuth ${a.configurado ? "(guardado)" : ""}</summary>
+      <ol class="cfg-nota">
+        <li>console.cloud.google.com → criar um projeto (ex.: ELYSIUM).</li>
+        <li>APIs e serviços → Biblioteca → ativar a <b>Google Calendar API</b>.</li>
+        <li>Tela de consentimento OAuth → Externo → seu e-mail como usuário de teste.</li>
+        <li>Credenciais → Criar credenciais → ID do cliente OAuth → tipo <b>App para computador</b>.</li>
+        <li>Colar aqui o ID e a chave secreta do cliente, e clicar em Conectar.</li>
+      </ol>
+      <form data-ag-form class="atu-form" style="flex-wrap:wrap">
+        <input name="id" placeholder="ID do cliente (…apps.googleusercontent.com)" autocomplete="off" spellcheck="false">
+        <input name="segredo" type="password" placeholder="Chave secreta do cliente" autocomplete="off" spellcheck="false">
+        <button type="submit">Guardar</button>
+      </form>
+    </details>`;
+}
+
+document.getElementById("agenda-corpo")?.addEventListener("click", async (ev) => {
+  const b = ev.target.closest("[data-ag]");
+  if (!b) return;
+  b.disabled = true;
+  try {
+    if (b.dataset.ag === "conectar") {
+      showToast("Abrindo o Google no navegador… autorize e volte aqui.");
+      const r = await window.nx.agendaConectar();
+      showToast(r?.mensagem ?? "…", !r?.ok);
+    } else {
+      await window.nx.agendaDesconectar();
+      showToast("Agenda desconectada.");
+    }
+  } catch (e) { showToast(e?.message || "Não deu certo.", true); }
+  await desenharAgenda();
+  if (typeof desenharHub === "function") desenharHub();
+});
+document.getElementById("agenda-corpo")?.addEventListener("submit", async (ev) => {
+  const f = ev.target.closest("[data-ag-form]");
+  if (!f) return;
+  ev.preventDefault();
+  const id = f.elements.id.value.trim(), segredo = f.elements.segredo.value.trim();
+  if (!id || !segredo) { showToast("Preencha o ID e a chave secreta.", true); return; }
+  f.elements.segredo.value = "";
+  await window.nx.agendaCliente(id, segredo);
+  showToast("Cliente guardado. Agora é só conectar.");
+  await desenharAgenda();
+  if (typeof desenharHub === "function") desenharHub();
+});
+window.nx.agendaEstado?.().then((e) => { agendaAtual = e; }).catch(() => {});

@@ -307,6 +307,19 @@ const CARDS = {
     },
   },
 
+  // Google Agenda de hoje (fase 13, bloco 120).
+  agenda: {
+    titulo: "Agenda de hoje", icone: "calendar", span: 1, precisa: ["agenda"],
+    render: (d) => {
+      const a = d.agenda;
+      if (!a) return vazio("A agenda do Google não está ligada.") + `<button class="home-ver-tudo" data-ir-ajustes="agenda">Ligar em Ajustes →</button>`;
+      if (!a.eventos.length) return vazio("Nada na agenda hoje.");
+      const hora = (ms) => new Date(ms).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+      return `<div class="home-list">` + a.eventos.slice(0, 6).map(e => `
+        <div class="home-item${e.fim < Date.now() ? " passado" : ""}">${ico("calendar", "ico-sm")}<div class="home-item-txt"><span>${escHtml(e.titulo)}</span><em>${e.diaInteiro ? "o dia todo" : `${hora(e.inicio)}–${hora(e.fim)}`}${e.local ? ` · ${escHtml(e.local)}` : ""}</em></div></div>`).join("") + `</div>`;
+    },
+  },
+
   // Memória que aprende (fase 13): o que o cérebro percebeu numa conversa, para o Zak decidir.
   aprendi: {
     titulo: "Aprendi isto", icone: "bookmark", span: 1, precisa: ["aprendi"],
@@ -510,6 +523,12 @@ async function carregarDadosInicio() {
   if (precisa.has("saude")) jobs.push(rpc("saude", "system.saude", undefined, r => r?.itens ?? null));
   if (precisa.has("foco")) jobs.push(rpc("foco", "foco.status", undefined, r => r ?? null));
   if (precisa.has("aprendi")) jobs.push(rpc("aprendi", "memory.sugestoes", undefined, r => r?.sugestoes ?? []));
+  if (precisa.has("agenda")) jobs.push((async () => {
+    try {
+      const st = (await window.nx.rpc("agenda.status")).result;
+      d.agenda = st?.conectado ? (await window.nx.rpc("agenda.dia", { quando: "hoje" })).result : null;
+    } catch { d.agenda = null; }
+  })());
   if (precisa.has("conversas")) jobs.push((async () => {
     try { d.conversas = (await window.nx.chatSessionsList()).slice().sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0)); } catch { d.conversas = []; }
   })());
@@ -1049,6 +1068,9 @@ document.getElementById("view-inicio")?.addEventListener("click", async (e) => {
     else if (onde === "paleta") abrirPaleta();
     return;
   }
+
+  const ajg = alvo("[data-ir-ajustes]");
+  if (ajg) { switchView("ajustes"); setTimeout(() => abrirSecao(ajg.dataset.irAjustes), 80); return; }
 
   // Sugestões de memória (fase 13).
   const so = alvo("[data-sug-ok]"), sn = alvo("[data-sug-nao]");

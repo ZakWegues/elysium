@@ -217,9 +217,9 @@ function loadDefaults(): AppConfig {
 }
 
 // Store seguro no userData. A API key vive aqui.
-const store = new Store<{ apiKey: string; overrides: Partial<AppConfig>; serverToken: string; githubToken: string }>({
+const store = new Store<{ apiKey: string; overrides: Partial<AppConfig>; serverToken: string; githubToken: string; googleClientId: string; googleClientSecret: string }>({
   name: "elysium-config",
-  defaults: { apiKey: "", overrides: {}, serverToken: "", githubToken: "" },
+  defaults: { apiKey: "", overrides: {}, serverToken: "", githubToken: "", googleClientId: "", googleClientSecret: "" },
 });
 
 const fileDefaults = loadDefaults();
@@ -423,6 +423,19 @@ export function setApiKey(key: string): void {
  */
 export function getGithubToken(): string {
   return (store.get("githubToken", "") || "").trim();
+}
+
+/**
+ * Cliente OAuth do Google (bloco 120), criado pelo Zak no Google Cloud dele. Ao lado da
+ * chave da Groq, fora dos `overrides`: não vai no backup nem no diagnóstico.
+ */
+export function getGoogleCliente(): { id: string; segredo: string } {
+  return { id: (store.get("googleClientId", "") || "").trim(), segredo: (store.get("googleClientSecret", "") || "").trim() };
+}
+
+export function setGoogleCliente(id: string, segredo: string): void {
+  store.set("googleClientId", (id || "").trim());
+  store.set("googleClientSecret", (segredo || "").trim());
 }
 
 export function setGithubToken(token: string): void {

@@ -429,3 +429,6 @@ body.redimensionando, body.redimensionando * { user-select: none !important; cur
 }
 .aprendi-item button[data-sug-ok]:hover { background: rgba(63,174,106,0.18); color: #3fae6a; }
 .aprendi-item button[data-sug-nao]:hover { background: rgba(224,82,82,0.18); color: var(--red); }
+
+/* Agenda de hoje (fase 13): o que já passou fica apagado. */
+.home-item.passado { opacity: 0.5; }

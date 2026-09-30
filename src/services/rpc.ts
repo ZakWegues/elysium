@@ -37,6 +37,7 @@ import { montarDiagnostico } from "./diagnostico";
 import { consertarSaude, verificarSaude } from "./saude";
 import { mascarar } from "../main/logArquivo";
 import { aceitarSugestao, listarSugestoesDeFato, recusarSugestao } from "./memoryStore";
+import { agendaFalada, estadoAgenda, eventosDoDia } from "./agenda";
 import { comecarFoco, estadoFoco, pararFoco, salvarListaFoco } from "./foco";
 import { abrirNoPc, AlvoAbrir, AlvoLimpeza, lerArmazenamento, limpar } from "../actions/armazenamento";
 import { aguardarDownloads, estadoAtualizacao, instalarAtualizacaoDesktop, verificarAtualizacoes } from "./atualizacao";
@@ -871,6 +872,17 @@ const METHODS: Record<string, MethodDef> = {
     handler: async (params) => {
       if (!Array.isArray(params["apps"])) throw new RpcError(400, "apps (lista de nomes) é obrigatório");
       return { apps: salvarListaFoco((params["apps"] as unknown[]).filter((x): x is string => typeof x === "string")) };
+    },
+  },
+  // Google Agenda, só leitura (bloco 120). Conectar a conta é só no PC (abre o navegador lá).
+  "agenda.status": {
+    handler: async () => estadoAgenda(),
+  },
+  "agenda.dia": {
+    handler: async (params) => {
+      const quando = requireEnum<"hoje" | "amanha">(params, "quando", ["hoje", "amanha"]);
+      try { return { eventos: await eventosDoDia(quando === "hoje" ? 0 : 1), frase: await agendaFalada(quando) }; }
+      catch (e) { throw new RpcError(502, e instanceof Error ? e.message : String(e)); }
     },
   },
   // Memória que aprende (bloco 118): o que o cérebro sugeriu guardar, e a decisão do Zak.
