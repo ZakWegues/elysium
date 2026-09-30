@@ -152,7 +152,7 @@ O celular entra por dois caminhos: **linguagem natural** (`POST /api/command`, c
 
 ## 3. O Zak e as regras de trabalho
 
-**zakduwe@gmail.com** · Windows 11 Pro · projeto pessoal de uso real.
+Windows 11 Pro · projeto pessoal de uso real. (Dados pessoais do Zak ficam só na memória do app — §31.)
 
 Gosta de ver o diagnóstico antes do conserto. Prefere respostas curtas. Quer o desktop com
 o mesmo capricho visual do app mobile — a referência estética é o Portal, não o contrário.
@@ -3130,7 +3130,7 @@ documento. Cada item abaixo foi lido no diff, não deduzido do resumo dele.
 | `recordAssistantReply()` no `brain.ts` | 🔴 **Bug antigo de verdade.** O histórico do cérebro só recebia o RESUMO da ação e, para conversa, o `reply` do roteador — vazio desde as duas etapas (§6). O modelo nunca via a própria resposta; "e ele?" depois de "quem foi Alan Turing" perdia o fio |
 | Histórico como bloco de texto no system do roteador, e só o pedido atual como turno `user` | Em modo JSON o modelo local tendia a responder ao último turno do histórico em vez de classificar o novo |
 | `webSearch.ts` devolvendo frase amigável no 429 | Antes virava exceção genérica |
-| Exemplo "moro em sp, guaianazes" no `routerPrompt.ts` | Inofensivo |
+| Exemplo de endereço (`remember`) no `routerPrompt.ts` | Inofensivo (na §31 virou um endereço genérico) |
 | Prompt de conversa com personalidade | **Reescrito**: o do Antigravity tirou o teto "1 a 3 frases" e o TTS leria parágrafos. Ficou solto e direto, mas curto |
 
 **Descartado, com o motivo (para não voltar):**
