@@ -40,6 +40,7 @@
 | 28 | [Fase 10 — a experiência diária](#28-fase-10--a-experiência-diária-blocos-84) |
 | 29 | [Fase 11 — fora de casa e para sempre](#29-fase-11--fora-de-casa-e-para-sempre-blocos-94) |
 | 30 | [Fase 12 — atualização automática e o que veio depois](#30-fase-12--atualização-automática-e-o-que-veio-depois-blocos-95-100) |
+| 31 | [Fase 13 — blindar, mais inteligente, mais alcance](#31-fase-13--blindar-mais-inteligente-mais-alcance-blocos-113125) |
 
 ---
 
@@ -190,7 +191,7 @@ pedir de novo.**
 
 | Repo | HEAD (29/09/2026) | Estado |
 |---|---|---|
-| `elysium` | fase 12 (§30) — desktop **1.5.6** | limpo, pusheado, releases `v1.4.0`…`v1.5.6` |
+| `elysium` | fase 13 (§31) — desktop **1.6.1**, instalado aqui | limpo, pusheado, CI verde, releases assinadas desde `v1.6.0` |
 | `elysium-m` | fase 12 (§30) — celular **1.5.2** (`versionCode` 16) | limpo, pusheado, releases `v1.4.0`…`v1.5.2` |
 
 > **Desde 29/09/2026 as versões saem como releases do GitHub e se atualizam sozinhas**
@@ -5135,3 +5136,78 @@ Testes: desktop 82, celular 20.
 - [ ] Modo foco: começar 25 min e abrir o Discord — balão no PC.
 - [ ] Palavra de ativação ligada: pedir algo longo e dizer "Elysium" no meio da resposta.
 - [ ] Celular: slider do volume na aba PC.
+
+---
+
+## 31. Fase 13 — blindar, mais inteligente, mais alcance (blocos 113–125)
+
+> Em 30/09/2026 o Zak perguntou "e agora, o que fazer com o projeto?" e escolheu **as três
+> direções juntas, uma de cada vez**: blindar o que existe (Parte A), deixar mais
+> inteligente (B), dar mais alcance (C) e fechar com uso real para calibrar (D). Fora de
+> casa **continua pelo Tailscale** — decisão dele: a porta do PC nunca vai para a internet.
+>
+> Antes de tudo (Parte 0), o ELYSIUM passou a conhecer o Zak: um perfil com 14 fatos foi
+> carregado **na memória do app** (`memory.add` no PC instalado, a tela "O que ele lembra").
+> **Decisão do Zak: dado pessoal fica só na memória do app — nunca no código, no git, no
+> handoff, em teste ou em bancada.** Por isso o conteúdo não está aqui; o backup (bloco 96)
+> já leva a memória. Pelo mesmo motivo o exemplo de `remember` do `routerPrompt.ts`, que
+> usava o bairro real dele, virou um endereço genérico.
+
+### Bloco 113 — backup das chaves de assinatura ✅ (o backup em si é do Zak)
+
+`scripts/backup-chaves.ps1 -Destino <pasta>`: copia o keystore do APK e o `.properties`,
+exporta o certificado do instalador (bloco 115) para `.pfx` com senha pedida na hora,
+confere tudo (hash igual, o keystore copiado **abre** com a senha, o `.pfx` abre e tem a
+mesma impressão digital) e anota em `%APPDATA%\elysium\backup-chaves.json`. O card Saúde
+avisa "sem backup" (ou backup com mais de 6 meses). Nada disso vai para o git.
+
+Por quê: sem a chave do APK nenhuma versão nova instala por cima — o atualizador do
+celular morreria; sem o certificado, uma reinstalação do Windows faria toda versão nova
+do PC ser recusada pelo próprio atualizador. Rodar **duas vezes**: pendrive e nuvem.
+
+### Bloco 114 — CI no GitHub Actions ✅
+
+`.github/workflows/check.yml` nos dois repos: `npm ci && npm run check` a cada push na
+`main` (desktop em `windows-latest` com `ELECTRON_SKIP_BINARY_DOWNLOAD`; celular em
+`ubuntu-latest`, com o `expo export`). Verde de primeira nos dois; **vermelho provado** com
+um teste quebrado de propósito numa branch descartável (apagada). O `publicar-release.mjs`
+dos dois recusa publicar se o check do `HEAD` não terminou ou não passou (`--sem-ci` para
+emergência).
+
+### Bloco 115 — instalador assinado, conferido antes de instalar ✅ 🔴
+
+Fecha a brecha registrada no bloco 112 (release publicada por outra pessoa no repositório
+instalaria sozinha, de madrugada).
+
+- Certificado de assinatura de código **autoassinado** `CN=ELYSIUM (Zak)`, 3072 bits, até
+  2036, em `Cert:\CurrentUser\My` — impressão digital `D4D614A8…` fixada em
+  `ASSINATURAS_ACEITAS` (`atualizacao.ts`). Lista, não constante: numa troca de chave a
+  versão de transição aceita as duas.
+- `npm run release` (desktop) assina com `Set-AuthenticodeSignature` + carimbo de tempo
+  (DigiCert; a assinatura segue válida depois de 2036) e confere antes de subir, lendo a
+  impressão digital do próprio `atualizacao.ts` (não há `signtool` nesta máquina).
+- O atualizador confere depois do download e de novo no ponto único de instalação
+  (botão, celular, madrugada). Estados medidos aqui: autoassinado intacto =
+  **`UnknownError`** (raiz não confiada — aceito, de propósito: instalar a raiz nas lojas de
+  confiança seria mexer em segurança do sistema, e o pino da impressão digital resolve);
+  adulterado = `HashMismatch`; sem assinatura = `NotSigned`. Falhou → apaga o arquivo, não
+  instala, card Saúde **vermelho**. `assinaturaConfere` é pura e testada.
+- **Provado ponta a ponta**: 1.5.6 → 1.6.0 (a primeira assinada; a 1.5.6 ainda não
+  conferia) e **1.6.0 → 1.6.1 conferindo a assinatura**, em 4 s.
+
+⚠️ O certificado só existe nesta máquina até o Zak rodar o backup. Perdido, as versões
+novas passam a ser recusadas; a saída é instalar uma versão à mão (que traz a impressão
+digital nova).
+
+### Bloco 116 — números para calibrar ✅
+
+- Celular: cada rodada da mão livre vira uma linha (`src/lib/maoLivreDiag.ts`,
+  `resumoRodada`, pura e testada) — pico/mediana em dB, tempo até a fala, motivo de parar,
+  duração, tamanho da transcrição (nada do que foi dito) — enviada ao fim da conversa pelo
+  RPC novo **`diag.registrar {origem, linhas}`** (teto 20×300, passa pelo `mascarar`).
+  Vai por OTA (runtime `7eafb909…`, APK 1.5.2).
+- PC: a palavra de ativação registra se, depois de acordar, veio pedido ou foi disparo
+  **falso**.
+- É o insumo do bloco 125 (ajustar −38/−46 dB, 1,3 s e a confiança com número).
+
+Testes: desktop 86, celular 22.
