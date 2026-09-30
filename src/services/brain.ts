@@ -1,4 +1,4 @@
-import { getApiKey, getConfig, AppConfig } from "../main/config";
+import { getApiKey, getConfig, AppConfig, nomeDoUsuario } from "../main/config";
 import { apiKeyError } from "./errors";
 import { callChat, ChatMessage, Provider } from "./llm";
 import { quemOcupaGpu } from "./gpuGuard";
@@ -71,7 +71,8 @@ function buildSystemPrompt(): string {
  * roda no modelo bom com um prompt curto. Juntas numa chamada só, pagávamos o modelo
  * caro pelo prompt gigante de roteamento em todo pedido.
  */
-const CHAT_SYSTEM_PROMPT = `Você é o ELYSIUM, o assistente pessoal do Zak, falando em português do Brasil.
+// Função, não constante: o nome do dono vem da config (fase 13), e pode mudar sem reiniciar.
+const CHAT_SYSTEM_PROMPT = () => `Você é o ELYSIUM, o assistente pessoal do ${nomeDoUsuario()}, falando em português do Brasil.
 
 Fale como um parceiro inteligente e direto — solto, com personalidade, sem tom de robô ou de manual.
 Sua resposta vai ser LIDA EM VOZ ALTA. Portanto:
@@ -347,7 +348,7 @@ export async function composeChatReply(
   const recent = history.slice(-cfg.chatHistoryTurns * 2);
   const ultimo = recent[recent.length - 1];
   const messages: ChatMessage[] = [
-    { role: "system", content: CHAT_SYSTEM_PROMPT + buildMemoryBlock() + (blocoDoResumo() ? `\n\n[O QUE VEIO ANTES NESTA CONVERSA]\n${blocoDoResumo()}` : "") },
+    { role: "system", content: CHAT_SYSTEM_PROMPT() + buildMemoryBlock() + (blocoDoResumo() ? `\n\n[O QUE VEIO ANTES NESTA CONVERSA]\n${blocoDoResumo()}` : "") },
     ...recent.map(m => ({ role: m.role, content: m.content })),
     // Rede de segurança: se alguém chamar a composição sem passar pelo roteador, o
     // pedido não estaria no histórico e o modelo responderia ao turno anterior.

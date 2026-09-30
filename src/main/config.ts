@@ -90,6 +90,11 @@ export interface AppConfig {
   palavraDeAtivacao: boolean;
   /** Versão nova já baixada instala sozinha entre 3 e 5 h, com o PC parado (fase 12). */
   atualizarDeMadrugada: boolean;
+  /**
+   * Como o ELYSIUM chama o dono (fase 13). Dado pessoal mora nos dados do app, nunca no
+   * código — decisão do Zak. Vazio = saudação sem nome e "o usuário" nos prompts.
+   */
+  nomeDoUsuario: string;
   /** Com jogo aberto, rotear pela nuvem em vez de disputar VRAM. Ver `gpuGuard.ts`. */
   evitarGpuOcupada: boolean;
   spotifyClientId: string;
@@ -178,6 +183,7 @@ const DEFAULTS: AppConfig = {
   // Microfone sempre aberto é escolha do dono, não padrão de fábrica.
   palavraDeAtivacao: false,
   atualizarDeMadrugada: true,
+  nomeDoUsuario: "",
   evitarGpuOcupada: true,
   spotifyClientId: "042904fef8cc41f0bf05b7abeda2d66f",
   chatHistoryTurns: 6,
@@ -441,4 +447,9 @@ export function regenerateServerToken(): string {
   const token = crypto.randomBytes(32).toString("hex");
   store.set("serverToken", token);
   return token;
+}
+
+/** O nome do dono para os prompts ("o assistente do Zak"); sem nome, "o usuário". */
+export function nomeDoUsuario(): string {
+  return (getConfig().nomeDoUsuario || "").trim() || "usuário";
 }

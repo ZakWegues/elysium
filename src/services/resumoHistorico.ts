@@ -1,4 +1,4 @@
-import { getApiKey, getConfig } from "../main/config";
+import { getApiKey, getConfig, nomeDoUsuario } from "../main/config";
 import { callChat, Provider } from "./llm";
 
 /**
@@ -106,7 +106,7 @@ async function compactarComModelo(resumoAtual: string, turnos: TurnoResumo[]): P
   return callChat({
     provider, model, temperature: 0.2, maxTokens: 180, timeoutMs: 20_000,
     messages: [
-      { role: "system", content: "Você resume conversas entre o Zak e o ELYSIUM, o assistente do PC dele. Escreva UM parágrafo curto em português, em terceira pessoa, com só o que ainda importa para continuar a conversa: assuntos, nomes, decisões, pedidos feitos, o que foi respondido. Sem cumprimentos, sem listas, sem markdown, no máximo 80 palavras." },
+      { role: "system", content: `Você resume conversas entre o ${nomeDoUsuario()} e o ELYSIUM, o assistente do PC dele. Escreva UM parágrafo curto em português, em terceira pessoa, com só o que ainda importa para continuar a conversa: assuntos, nomes, decisões, pedidos feitos, o que foi respondido. Sem cumprimentos, sem listas, sem markdown, no máximo 80 palavras.` },
       { role: "user", content: `${resumoAtual ? `Resumo até agora:\n${resumoAtual}\n\n` : ""}Turnos novos:\n${conversa}\n\nResumo atualizado:` },
     ],
   });

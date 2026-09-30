@@ -36,10 +36,16 @@ function mostrarChatVazio() {
   const atalho = escHtml(formatShortcutTexto());
   div.innerHTML = `
     <div class="marca">EL</div>
-    <h2>${saudacao()}, Zak.</h2>
+    <h2 id="chat-vazio-saudacao">${saudacao()}.</h2>
     <p>Pergunte, peça, mande abrir. Fale com <kbd>${atalho}</kbd> de qualquer lugar,
        escreva aqui embaixo, ou abra a paleta com <kbd>Ctrl+K</kbd>.</p>`;
   timeline.appendChild(div);
+  // O nome vem da config (fase 13): dado pessoal mora nos dados do app, não no código.
+  window.nx.getConfig().then((c) => {
+    const nome = String(c?.nomeDoUsuario ?? "").trim();
+    const h2 = document.getElementById("chat-vazio-saudacao");
+    if (nome && h2) h2.textContent = `${saudacao()}, ${nome}.`;
+  }).catch(() => {});
 }
 
 /** O atalho gravado, como texto de tela ("Ctrl+Shift+J"). `loadConfig` já roda antes. */

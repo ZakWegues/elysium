@@ -31,6 +31,7 @@ vi.mock("../src/services/memoryStore", () => ({ buildMemoryBlock: () => "" }));
 vi.mock("../src/main/config", () => ({
   getConfig: () => ({ ollamaRouterModel: "llama3.1:8b", routerModel: "x", fallbackToGroq: false }),
   getApiKey: () => "",
+  nomeDoUsuario: () => "usuário",
 }));
 
 const { agir } = await import("../src/services/agente");

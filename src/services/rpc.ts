@@ -467,6 +467,8 @@ const METHODS: Record<string, MethodDef> = {
         // Quantos clientes estão com o WebSocket aberto agora. O dashboard usa isto para
         // o orbe de conexão; ter token gravado não prova que o celular está por perto.
         conectados: clientesConectados(),
+        // O celular usa na saudação (fase 13): o nome mora na config do PC, não no código.
+        nome: (getConfig().nomeDoUsuario || "").trim(),
       };
     },
   },

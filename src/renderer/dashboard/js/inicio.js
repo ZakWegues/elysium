@@ -668,7 +668,8 @@ let notasTimer = 0;
 
 async function atualizarInicio() {
   const saud = document.getElementById("home-greet");
-  if (saud) saud.textContent = `${saudacao()}, Zak`;
+  // O nome vem da config (fase 13): dado pessoal fica nos dados do app, não no código.
+  if (saud) { let nome = ""; try { nome = String((await window.nx.getConfig())?.nomeDoUsuario ?? "").trim(); } catch { /* sem nome */ } saud.textContent = nome ? `${saudacao()}, ${nome}` : saudacao(); }
   const sub = document.getElementById("home-sub");
   if (sub) sub.textContent = dataPorExtenso();
   atualizarRelogio();

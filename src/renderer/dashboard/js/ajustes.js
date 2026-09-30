@@ -73,6 +73,7 @@ const AJUSTES = [
   {
     grupo: "Conversa",
     campos: [
+      { chave: "nomeDoUsuario", rotulo: "Como te chamar", tipo: "texto", dica: "Aparece na saudação e o assistente usa ao falar com você." },
       { chave: "chatHistoryTurns", rotulo: "Turnos na memória", tipo: "faixa", min: 2, max: 20, passo: 1, unidade: "" },
       { chave: "chatIdleResetMs", rotulo: "Reset por inatividade", tipo: "faixa", min: 60000, max: 3600000, passo: 60000, unidade: "ms" },
     ],

@@ -1,4 +1,4 @@
-import { getApiKey, getConfig } from "../main/config";
+import { getApiKey, getConfig, nomeDoUsuario } from "../main/config";
 import { buildMemoryBlock } from "./memoryStore";
 import { callChatComFerramentas, ChatMessage, ChamadaDeFerramenta, Provider } from "./llm";
 import { definicoesDeFerramentas, executarFerramenta, ferramenta } from "./ferramentas";
@@ -40,7 +40,7 @@ export function promptDoAgente(): string {
   const data = agora.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
   const hora = agora.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
   const iso = `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, "0")}-${String(agora.getDate()).padStart(2, "0")}T${String(agora.getHours()).padStart(2, "0")}:${String(agora.getMinutes()).padStart(2, "0")}`;
-  return `Você é o ELYSIUM, o assistente do Zak que controla o PC dele (Windows) e fala português do Brasil.
+  return `Você é o ELYSIUM, o assistente do ${nomeDoUsuario()} que controla o PC dele (Windows) e fala português do Brasil.
 Agora é ${data}, ${hora} (ISO local ${iso}).
 
 Como agir
@@ -234,7 +234,7 @@ export async function avaliarCondicao(condicao: string, contexto = ""): Promise<
   ]);
   const agora = new Date().toLocaleString("pt-BR", { weekday: "long", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
   const messages: ChatMessage[] = [
-    { role: "system", content: `Você verifica se uma condição sobre o PC do Zak é verdadeira agora.
+    { role: "system", content: `Você verifica se uma condição sobre o PC do ${nomeDoUsuario()} é verdadeira agora.
 O que o PC mostra neste momento:
 - Estado: ${estado || "(não deu para ler)"}
 - Programas abertos: ${programas || "(não deu para ler)"}
