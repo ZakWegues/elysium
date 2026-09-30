@@ -22,7 +22,9 @@
   Nunca imprime senha. Nada disto vai para o git.
 #>
 param(
-  [Parameter(Mandatory = $true)][string]$Destino
+  [Parameter(Mandatory = $true)][string]$Destino,
+  # Só para teste automático: pula a exportação do .pfx (que pede senha).
+  [switch]$SemPfx
 )
 $ErrorActionPreference = "Stop"
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -32,9 +34,6 @@ $arquivos = @(
   (Join-Path $pastaAndroid "neuroaxis-release.keystore"),
   (Join-Path $pastaAndroid "neuroaxis-signing.properties")
 )
-# O .pfx do instalador (bloco 115) — opcional até ele existir.
-$pfx = Join-Path $pastaAndroid "elysium-codesign.pfx"
-if (Test-Path -LiteralPath $pfx) { $arquivos += $pfx }
 
 foreach ($a in $arquivos) {
   if (-not (Test-Path -LiteralPath $a)) { throw "Não achei $a" }
@@ -64,6 +63,23 @@ if ($keytool -and $senha) {
   Write-Output "ok  o keystore copiado abre ($(($saida | Select-String 'PrivateKeyEntry').Count) chave privada)"
 } else {
   Write-Output "!   keytool não encontrado: conferi só o hash"
+}
+
+# O certificado que assina o instalador do PC (bloco 115). Mora na loja do Windows deste
+# usuário; o .pfx é a única forma de levá-lo para outro PC. Sem ele, uma reinstalação do
+# Windows faz toda versão nova ser recusada pelo atualizador. A senha é pedida aqui e não
+# fica gravada em lugar nenhum — anote-a junto do pendrive.
+$cert = Get-ChildItem Cert:\CurrentUser\My -CodeSigningCert | Where-Object { $_.Subject -eq "CN=ELYSIUM (Zak)" } | Select-Object -First 1
+if ($cert -and -not $SemPfx) {
+  $senhaPfx = Read-Host "Senha para proteger o certificado (.pfx)" -AsSecureString
+  $destPfx = Join-Path $Destino "elysium-codesign.pfx"
+  Export-PfxCertificate -Cert $cert -FilePath $destPfx -Password $senhaPfx -Force | Out-Null
+  # Conferir que o .pfx abre com a senha dada (um .pfx que não abre não é backup).
+  $lido = Get-PfxData -FilePath $destPfx -Password $senhaPfx
+  if ($lido.EndEntityCertificates[0].Thumbprint -ne $cert.Thumbprint) { throw "O .pfx exportado não confere." }
+  Write-Output "ok  elysium-codesign.pfx (certificado do instalador, $($cert.Thumbprint.Substring(0,8))...)"
+} elseif (-not $cert) {
+  Write-Output "!   certificado do instalador não encontrado nesta loja (bloco 115)"
 }
 
 # Anota para o card Saúde.

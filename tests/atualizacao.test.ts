@@ -54,3 +54,17 @@ describe("novidades de versões puladas", async () => {
     expect(juntarNotas(rels, "1.5.3", "1.5.4")).toBe("card saúde");
   });
 });
+
+describe("assinatura do instalador (bloco 115)", async () => {
+  const { assinaturaConfere, ASSINATURAS_ACEITAS } = await import("../src/services/atualizacao");
+  const nossa = ASSINATURAS_ACEITAS[0];
+  it("autoassinado deste PC passa (o Windows diz UnknownError: raiz não confiada)", () => {
+    expect(assinaturaConfere("UnknownError", nossa)).toBe(true);
+    expect(assinaturaConfere("Valid", nossa.toLowerCase())).toBe(true);
+  });
+  it("adulterado, sem assinatura ou de outro certificado não passa", () => {
+    expect(assinaturaConfere("HashMismatch", nossa)).toBe(false);
+    expect(assinaturaConfere("NotSigned", "")).toBe(false);
+    expect(assinaturaConfere("Valid", "0000000000000000000000000000000000000000")).toBe(false);
+  });
+});

@@ -232,7 +232,8 @@ async function baixarPendentes(tk: string, assetPc?: AssetGitHub, assetCel?: Ass
     if (d && !d.pronto && assetPc) {
       await baixarAsset(REPO_DESKTOP, assetPc, d.arquivo, tk, p => mudar({ desktop: { ...estado.desktop!, progresso: p } }));
       mudar({ desktop: { ...estado.desktop!, progresso: 1, pronto: true } });
-      console.log(`[atualizacao] ELYSIUM ${d.versao} baixado.`);
+      // Sem assinatura: some do disco e o APK do celular segue sendo baixado.
+      if (!app.isPackaged || (await conferirAssinatura(estado.desktop!))) console.log(`[atualizacao] ELYSIUM ${d.versao} baixado.`);
     }
     const c = estado.celular;
     if (c && !c.pronto && assetCel) {
@@ -300,10 +301,58 @@ export async function verificarAtualizacoes(): Promise<EstadoAtualizacao> {
  * atualização (sem perguntar pasta, mesma instalação de antes) e `--force-run` o faz abrir o
  * ELYSIUM de novo ao terminar. O instalador espera o app sair antes de copiar os arquivos.
  */
-export function instalarAtualizacaoDesktop(): { ok: boolean; mensagem: string } {
+// ── Assinatura (bloco 115) ───────────────────────────────────────────────────
+//
+// O SHA-256 confere o download contra o próprio GitHub — protege de arquivo corrompido, não
+// de uma release maliciosa: quem publicasse no repositório rodaria código aqui, de
+// madrugada. Desde a 1.6.0 o instalador sai assinado pelo certificado que mora SÓ neste PC
+// (`CN=ELYSIUM (Zak)`, em Cert:\CurrentUser\My; backup no scripts/backup-chaves.ps1), e o
+// atualizador só roda o que tiver essa assinatura.
+//
+// Autoassinado, então o Windows responde "UnknownError" (a raiz não é confiada) e não
+// "Valid" — e isso basta: o que importa é QUEM assinou (a impressão digital fixada abaixo) e
+// que o arquivo não mudou depois (mudou = "HashMismatch", outro estado). Não se instala a
+// raiz nas lojas de confiança do Windows de propósito: é configuração de segurança do
+// sistema, e o pino da impressão digital já resolve.
+//
+// Lista, não constante única: se um dia a chave for trocada, a versão que troca aceita as
+// duas até todo PC ter passado por ela.
+
+export const ASSINATURAS_ACEITAS = ["D4D614A814BE2294CCF4328C3EA78C2E7CCCA08C"];
+
+/** Pura, para teste. */
+export function assinaturaConfere(status: string, impressao: string, aceitas: string[] = ASSINATURAS_ACEITAS): boolean {
+  return (status === "Valid" || status === "UnknownError") && aceitas.includes(impressao.trim().toUpperCase());
+}
+
+function lerAssinatura(arquivo: string): Promise<{ status: string; impressao: string }> {
+  const script = `$s = Get-AuthenticodeSignature -LiteralPath '${arquivo.replace(/'/g, "''")}'; "$($s.Status)|$($s.SignerCertificate.Thumbprint)"`;
+  const encoded = Buffer.from(script, "utf16le").toString("base64");
+  return new Promise((resolve) => {
+    execFile("powershell.exe", ["-NoProfile", "-NonInteractive", "-EncodedCommand", encoded], { timeout: 30000, windowsHide: true }, (err, out) => {
+      if (err) { resolve({ status: "erro", impressao: "" }); return; }
+      const [status = "", impressao = ""] = String(out).trim().split("|");
+      resolve({ status, impressao });
+    });
+  });
+}
+
+/** O instalador baixado tem a assinatura deste PC? Se não tiver, some do disco. */
+async function conferirAssinatura(d: Pacote): Promise<boolean> {
+  const a = await lerAssinatura(d.arquivo);
+  if (assinaturaConfere(a.status, a.impressao)) return true;
+  console.error(`[atualizacao] ${d.versao} NÃO tem a assinatura deste PC (status ${a.status}, ${a.impressao || "sem certificado"}); apagando e não instalando.`);
+  try { fs.rmSync(d.arquivo, { force: true }); } catch { /* segue */ }
+  mudar({ desktop: { ...d, pronto: false, progresso: 0 }, erro: `a versão ${d.versao} não tem a assinatura do ELYSIUM — não instalei` });
+  return false;
+}
+
+export async function instalarAtualizacaoDesktop(): Promise<{ ok: boolean; mensagem: string }> {
   const d = estado.desktop;
   if (!d?.pronto || !fs.existsSync(d.arquivo)) return { ok: false, mensagem: "Nenhuma atualização baixada." };
   if (!app.isPackaged) return { ok: false, mensagem: "Em desenvolvimento o instalador não roda — ele substituiria a versão instalada." };
+  // Ponto único de passagem: botão, celular e madrugada chegam todos aqui.
+  if (!(await conferirAssinatura(d))) return { ok: false, mensagem: `A versão ${d.versao} não tem a assinatura do ELYSIUM; não instalei.` };
   // As notas vão junto para a versão nova mostrar na Início ao abrir.
   gravarNovidades({ ...lerNovidades(), notas: { versao: d.versao, texto: d.notas } });
   const filho = spawn(d.arquivo, ["/S", "--updated", "--force-run"], { detached: true, stdio: "ignore", windowsHide: true });
@@ -422,7 +471,7 @@ function conferirMadrugada(): void {
     if (!estado.desktop?.pronto || !app.isPackaged || getConfig().atualizarDeMadrugada === false) return;
     if (!horaDeInstalarSozinho(new Date(), powerMonitor.getSystemIdleTime(), ocupado())) return;
     console.log("[atualizacao] madrugada e PC parado: instalando sozinho.");
-    instalarAtualizacaoDesktop();
+    void instalarAtualizacaoDesktop();
   } catch (e) { console.warn("[atualizacao] madrugada falhou:", e); }
 }
 

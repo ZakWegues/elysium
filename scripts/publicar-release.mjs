@@ -53,6 +53,33 @@ if (args.includes("--sem-ci")) {
 try { sh("git", ["rev-parse", "-q", "--verify", `refs/tags/${tag}`]); } catch { sh("git", ["tag", tag, head]); }
 sh("git", ["push", "-q", "origin", tag]);
 
+// Assinatura (bloco 115): o ELYSIUM instalado só roda instalador assinado por este PC. A
+// impressão digital vem do próprio atualizacao.ts — uma cópia aqui divergiria na primeira
+// troca de chave, e aí toda release sairia recusada.
+{
+  const fonte = fs.readFileSync(path.join(raiz, "src", "services", "atualizacao.ts"), "utf8");
+  const impressao = /ASSINATURAS_ACEITAS = \["([0-9A-F]{40})"/.exec(fonte)?.[1];
+  if (!impressao) falhar("não achei ASSINATURAS_ACEITAS no atualizacao.ts");
+  const alvo = instalador.replace(/'/g, "''");
+  const ps = [
+    `$c = Get-ChildItem Cert:\\CurrentUser\\My -CodeSigningCert | Where-Object Thumbprint -eq '${impressao}' | Select-Object -First 1`,
+    "if (-not $c) { 'SEM_CERTIFICADO'; exit 0 }",
+    `$s = Get-AuthenticodeSignature -LiteralPath '${alvo}'`,
+    `if ($s.SignerCertificate.Thumbprint -ne '${impressao}') {`,
+    // Carimbo de tempo: a assinatura continua valendo depois que o certificado vencer (2036).
+    `  try { $null = Set-AuthenticodeSignature -LiteralPath '${alvo}' -Certificate $c -HashAlgorithm SHA256 -TimestampServer 'http://timestamp.digicert.com' -ErrorAction Stop }`,
+    `  catch { $null = Set-AuthenticodeSignature -LiteralPath '${alvo}' -Certificate $c -HashAlgorithm SHA256 }`,
+    "}",
+    `$v = Get-AuthenticodeSignature -LiteralPath '${alvo}'`,
+    '"$($v.Status)|$($v.SignerCertificate.Thumbprint)"',
+  ].join("\n");
+  const saida = String(execFileSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-EncodedCommand", Buffer.from(ps, "utf16le").toString("base64")], { encoding: "utf8" })).trim();
+  if (saida === "SEM_CERTIFICADO") falhar(`o certificado ${impressao} não está em Cert:\\CurrentUser\\My — restaure o .pfx do backup (scripts/backup-chaves.ps1)`);
+  const [status, lida] = saida.split("|");
+  if (lida !== impressao || !["Valid", "UnknownError"].includes(status)) falhar(`a assinatura não conferiu depois de assinar (${saida})`);
+  console.log(`✓ instalador assinado (${impressao.slice(0, 8)}…)`);
+}
+
 let existe = true;
 try { sh("gh", ["release", "view", tag, "--repo", REPO]); } catch { existe = false; }
 

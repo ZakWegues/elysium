@@ -92,7 +92,7 @@ export function avaliarSaude(f: FatosSaude): ItemSaude[] {
   if (a.desktop?.pronto) itens.push({ id: "versao", titulo: "Versão", nivel: "aviso", detalhe: `a ${a.desktop.versao} está baixada (você está na ${a.atual})`, conserto: { rotulo: "Instalar", tipo: "rpc", valor: "update.install" } });
   else if (a.desktop) itens.push({ id: "versao", titulo: "Versão", nivel: "ok", detalhe: `baixando a ${a.desktop.versao}… ${Math.round(a.desktop.progresso * 100)}%` });
   else if (a.semToken) itens.push({ id: "versao", titulo: "Versão", nivel: "aviso", detalhe: `${a.atual}; sem acesso às releases (token do GitHub em Ajustes → Sobre)` });
-  else if (a.erro) itens.push({ id: "versao", titulo: "Versão", nivel: "aviso", detalhe: `${a.atual}; a última verificação falhou: ${a.erro}` });
+  else if (a.erro) itens.push({ id: "versao", titulo: "Versão", nivel: /assinatura/.test(a.erro) ? "erro" : "aviso", detalhe: `${a.atual}; a última verificação falhou: ${a.erro}` });
   else itens.push({ id: "versao", titulo: "Versão", nivel: "ok", detalhe: `${a.atual}, a mais nova` });
 
   // Disco: crítico (≥ 95% ou < 10 GB, o mesmo do vigia) é erro; a partir de 88% (o limite
