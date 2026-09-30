@@ -162,7 +162,16 @@ export function vigiarDisco(avisar: (titulo: string, corpo: string) => void): vo
       const d = discoCritico((await getDashboardTelemetry()).disks ?? []);
       if (!d || Date.now() - ultimoAviso < UM_DIA) return;
       ultimoAviso = Date.now();
-      avisar(`Disco ${d.name} quase cheio`, `Sobram ${d.freeGB} GB (${d.usedPct}% usado). Aba PC → Armazenamento mostra o que dá para liberar.`);
+      // Onde está o peso, não só quanto sobra: "Downloads ocupa 58 GB" é o que faz alguém
+      // agir. A medição leva segundos e roda no máximo uma vez por dia (o aviso é diário).
+      let onde = "";
+      try {
+        const a = await lerArmazenamento();
+        const maior = [["Downloads", a.downloads], ["a Lixeira", a.lixeira], ["os temporários", a.temp]]
+          .sort((x, y) => (y[1] as number) - (x[1] as number))[0];
+        if ((maior[1] as number) >= 1e9) onde = ` ${maior[0]} ocupa ${formatarBytes(maior[1] as number)}.`;
+      } catch { /* sem medição: vai só o número */ }
+      avisar(`Disco ${d.name} quase cheio`, `Sobram ${String(d.freeGB).replace(".", ",")} GB (${String(d.usedPct).replace(".", ",")}% usado).${onde} Aba PC → Armazenamento mostra o que dá para liberar.`);
     } catch { /* telemetria falhou: tenta na próxima hora */ }
   };
   setTimeout(() => { void conferir(); }, 5 * 60 * 1000);
