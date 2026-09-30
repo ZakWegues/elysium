@@ -1,0 +1,26 @@
+# Fase 13, bloco 114: os testes rodam a cada push, não só quando alguém lembra.
+# Windows porque o app é só Windows e há teste com caminho e PowerShell em volta.
+# O `npm run release` recusa publicar um commit cujo check não passou.
+name: check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    env:
+      # O teste não abre janela: baixar os ~100 MB do Electron seria só tempo perdido.
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run check
