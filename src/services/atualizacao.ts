@@ -319,7 +319,26 @@ export function instalarAtualizacaoDesktop(): { ok: boolean; mensagem: string } 
 // de instalar (o instalador baixado já as tinha); se a versão chegou por instalação manual,
 // vêm da release da própria tag. Fora da pasta `atualizacoes/`, que é limpa a cada verificação.
 
-interface RegistroNovidades { vista?: string; notas?: { versao: string; texto: string } }
+interface RegistroNovidades {
+  vista?: string;
+  notas?: { versao: string; texto: string };
+  /** A versão que rodou por último, e a de antes dela — para juntar as notas de versões puladas. */
+  rodando?: string;
+  anterior?: string;
+}
+
+/**
+ * As notas de todas as versões depois de `desde` até `atual`, da mais nova para a mais
+ * velha. Quem pula versões (a madrugada pode ir da 1.5.2 direto para a 1.5.4) vê o que
+ * mudou em cada uma, não só na última. Pura, para teste.
+ */
+export function juntarNotas(releases: { tag_name: string; body?: string | null }[], desde: string, atual: string): string {
+  const escolhidas = releases
+    .filter(r => compararVersoes(r.tag_name, desde) > 0 && compararVersoes(r.tag_name, atual) <= 0 && (r.body ?? "").trim())
+    .sort((a, b) => compararVersoes(b.tag_name, a.tag_name));
+  if (escolhidas.length <= 1) return (escolhidas[0]?.body ?? "").trim();
+  return escolhidas.map(r => `${r.tag_name.replace(/^v/i, "")}: ${(r.body ?? "").trim()}`).join("\n\n");
+}
 
 function arquivoNovidades(): string {
   return path.join(app.getPath("userData"), "novidades.json");
@@ -335,8 +354,31 @@ function gravarNovidades(r: RegistroNovidades): void {
 
 export async function novidadesPendentes(): Promise<{ versao: string; notas: string } | null> {
   const atual = app.getVersion();
-  const r = lerNovidades();
+  let r = lerNovidades();
+  if (r.rodando !== atual) {
+    r = { ...r, anterior: r.rodando, rodando: atual };
+    gravarNovidades(r);
+  }
   if (r.vista === atual) return null;
+
+  // Pulou versões? Junta as notas de todas desde a última vista (ou a última que rodou).
+  const desde = r.vista && compararVersoes(r.vista, atual) < 0 ? r.vista : r.anterior;
+  if (desde && compararVersoes(atual, desde) > 0) {
+    try {
+      const tk = await token();
+      if (tk) {
+        const resp = await fetch(`https://api.github.com/repos/${DONO}/${REPO_DESKTOP}/releases?per_page=30`, {
+          headers: { Authorization: `Bearer ${tk}`, Accept: "application/vnd.github+json", "User-Agent": "ELYSIUM" },
+          signal: AbortSignal.timeout(15000),
+        });
+        if (resp.ok) {
+          const texto = juntarNotas((await resp.json()) as ReleaseGitHub[], desde, atual);
+          if (texto) return { versao: atual, notas: texto };
+        }
+      }
+    } catch { /* cai na nota só desta versão */ }
+  }
+
   if (r.notas?.versao === atual && r.notas.texto.trim()) return { versao: atual, notas: r.notas.texto };
   try {
     const tk = await token();

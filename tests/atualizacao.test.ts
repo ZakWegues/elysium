@@ -35,3 +35,22 @@ describe("instalar sozinho de madrugada", async () => {
     expect(horaDeInstalarSozinho(as(3), 20 * 60, true)).toBe(false);   // ELYSIUM falando
   });
 });
+
+describe("novidades de versões puladas", async () => {
+  const { juntarNotas } = await import("../src/services/atualizacao");
+  const rels = [
+    { tag_name: "v1.5.4", body: "card saúde" },
+    { tag_name: "v1.5.3", body: "download em segundo plano" },
+    { tag_name: "v1.5.2", body: "ollama sobe sozinho" },
+    { tag_name: "v1.5.1", body: "armazenamento" },
+  ];
+  it("junta as notas desde a última vista, da mais nova para a mais velha", () => {
+    const t = juntarNotas(rels, "1.5.2", "1.5.4");
+    expect(t.indexOf("1.5.4: card saúde")).toBe(0);
+    expect(t).toContain("1.5.3: download em segundo plano");
+    expect(t).not.toContain("ollama");
+  });
+  it("uma versão só vem sem cabeçalho", () => {
+    expect(juntarNotas(rels, "1.5.3", "1.5.4")).toBe("card saúde");
+  });
+});
