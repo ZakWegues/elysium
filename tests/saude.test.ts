@@ -13,6 +13,7 @@ const base = (): FatosSaude => ({
   discos: [{ name: "C", freeGB: 200, totalGB: 476, usedPct: 58 }],
   celularConectado: true,
   celularVistoEm: null,
+  backupChavesEm: Date.now() - 86_400_000,
   agora: Date.now(),
 });
 
@@ -58,5 +59,20 @@ describe("disco no card de saúde", () => {
     const d = avaliarSaude(f).find(i => i.id === "disco")!;
     expect(d.nivel).toBe("aviso");
     expect(d.conserto?.valor).toBe("armazenamento");
+  });
+});
+
+describe("backup das chaves (bloco 113)", () => {
+  it("sem backup é aviso com o comando", () => {
+    const f = base();
+    f.backupChavesEm = null;
+    const c = avaliarSaude(f).find(i => i.id === "chaves")!;
+    expect(c.nivel).toBe("aviso");
+    expect(c.detalhe).toMatch(/backup-chaves\.ps1/);
+  });
+  it("backup de mais de 6 meses volta a avisar", () => {
+    const f = base();
+    f.backupChavesEm = f.agora - 200 * 86_400_000;
+    expect(avaliarSaude(f).find(i => i.id === "chaves")!.nivel).toBe("aviso");
   });
 });

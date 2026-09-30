@@ -7,6 +7,9 @@ import { discoCritico } from "../actions/armazenamento";
 import { DiskEntry, getDashboardTelemetry } from "../actions/systemInfo";
 import { listarAparelhos } from "./aparelhos";
 import { clientesConectados } from "./server";
+import { app } from "electron";
+import * as fs from "node:fs";
+import * as path from "node:path";
 
 /**
  * "Saúde do ELYSIUM" (fase 12) — um card que diz o que está quebrado antes de o Zak
@@ -45,6 +48,8 @@ export interface FatosSaude {
   celularConectado: boolean;
   /** Última vez que o app do celular falou com o PC (ms), ou null se nunca. */
   celularVistoEm: number | null;
+  /** Último backup das chaves de assinatura (scripts/backup-chaves.ps1), ou null se nunca. */
+  backupChavesEm: number | null;
   agora: number;
 }
 
@@ -109,7 +114,21 @@ export function avaliarSaude(f: FatosSaude): ItemSaude[] {
     itens.push({ id: "celular", titulo: "Celular", nivel: ha > 3 * 86_400_000 ? "aviso" : "ok", detalhe: `visto há ${haQuanto(ha)}` });
   }
 
+  // Chaves de assinatura (bloco 113): sem cópia, nenhum APK novo instala por cima do atual.
+  const SEIS_MESES = 180 * 86_400_000;
+  const script = "rode scripts\\backup-chaves.ps1 para um pendrive e uma nuvem";
+  if (f.backupChavesEm === null) itens.push({ id: "chaves", titulo: "Chaves de assinatura", nivel: "aviso", detalhe: `sem backup — ${script}` });
+  else if (f.agora - f.backupChavesEm > SEIS_MESES) itens.push({ id: "chaves", titulo: "Chaves de assinatura", nivel: "aviso", detalhe: `último backup há ${haQuanto(f.agora - f.backupChavesEm)} — ${script}` });
+  else itens.push({ id: "chaves", titulo: "Chaves de assinatura", nivel: "ok", detalhe: `backup há ${haQuanto(f.agora - f.backupChavesEm)}` });
+
   return itens;
+}
+
+function lerBackupChaves(): number | null {
+  try {
+    const r = JSON.parse(fs.readFileSync(path.join(app.getPath("userData"), "backup-chaves.json"), "utf8")) as { em?: number };
+    return typeof r.em === "number" ? r.em : null;
+  } catch { return null; }
 }
 
 export async function verificarSaude(): Promise<ItemSaude[]> {
@@ -134,6 +153,7 @@ export async function verificarSaude(): Promise<ItemSaude[]> {
     discos,
     celularConectado: clientesConectados() > 0,
     celularVistoEm: celular.length ? Math.max(...celular.map(a => a.ultimaVez)) : null,
+    backupChavesEm: lerBackupChaves(),
     agora: Date.now(),
   });
 }
