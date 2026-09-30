@@ -23,6 +23,21 @@ import { contextoRecente, provedorDoRoteador, BrainAction } from "./brain";
 
 const MAX_RODADAS = 4;
 const MAX_CHAMADAS = 8;
+// Modo tarefa (fase 13, bloco 119): pedido de 3+ partes ganha uma volta por parte.
+const MAX_RODADAS_TAREFA = 6;
+const MAX_CHAMADAS_TAREFA = 10;
+
+/**
+ * Quantas partes tem o pedido: "fecha o Chrome, abre o VS Code e toca lo-fi" = 3. Separa por
+ * vírgula e pelos conectivos de sequência. Pura, para teste.
+ */
+export function contarPassos(texto: string): number {
+  return texto
+    .toLowerCase()
+    .split(/,|;|\s(?:e|depois|então|entao|também|tambem|aí|ai|em seguida)\s/)
+    .map(s => s.trim())
+    .filter(s => s.length >= 3).length;
+}
 
 export interface ResultadoAgente {
   /** "chat" = o modelo disse que é conversa; "ferramentas" = agiu e escreveu a resposta. */
@@ -104,11 +119,17 @@ export async function agir(
   let continuou = false;
   // " e ", "depois", "também", vírgula: mais de um pedido na mesma frase.
   const pedidoComposto = /\s(e|depois|também|tambem)\s|,/.test(texto.toLowerCase());
+  // 3 partes ou mais: modo tarefa — uma volta por parte, com a lembrança do que falta.
+  const passos = contarPassos(texto);
+  const modoTarefa = passos >= 3;
+  const maxRodadas = modoTarefa ? MAX_RODADAS_TAREFA : MAX_RODADAS;
+  const maxChamadas = modoTarefa ? MAX_CHAMADAS_TAREFA : MAX_CHAMADAS;
+  let rodadasComAcao = 0;
   /** Índice em `chamadas` da primeira ação — as leituras anteriores não viram fala. */
   let inicioFala = -1;
   let prov = provider, mod = modelo;
 
-  for (let rodada = 0; rodada < MAX_RODADAS; rodada++) {
+  for (let rodada = 0; rodada < maxRodadas; rodada++) {
     let resposta;
     try {
       resposta = await tentar(prov, mod);
@@ -152,13 +173,13 @@ export async function agir(
       if (inicioFala < 0 && content && !alegaAcao(content) && textoConfiavel(content, chamadas)) {
         return { modo: "ferramentas", reply: content, acoes, chamadas };
       }
-      return { modo: "ferramentas", reply: falasDasChamadas(inicioFala >= 0 ? chamadas.slice(inicioFala) : chamadas), acoes, chamadas };
+      return { modo: "ferramentas", reply: falasDaTarefa(inicioFala >= 0 ? chamadas.slice(inicioFala) : chamadas, modoTarefa && inicioFala >= 0), acoes, chamadas };
     }
 
     // Executa as chamadas desta rodada e devolve os resultados ao modelo.
     messages.push({ role: "assistant", content: resposta.content ?? "", tool_calls: resposta.toolCalls });
     for (const c of resposta.toolCalls as ChamadaDeFerramenta[]) {
-      if (++totalChamadas > MAX_CHAMADAS) {
+      if (++totalChamadas > maxChamadas) {
         messages.push({ role: "tool", tool_call_id: c.id, name: c.name, content: "Limite de chamadas atingido; responda com o que já tem." });
         continue;
       }
@@ -178,19 +199,38 @@ export async function agir(
     // precisar agir com o que leu ("se estiver aberta, fecha").
     if (resposta.toolCalls.some(c => !LEITURA.has(c.name))) {
       if (inicioFala < 0) inicioFala = chamadas.length - resposta.toolCalls.length;
+      rodadasComAcao++;
+      // Modo tarefa: enquanto houver parte do pedido sem ação, mais uma volta — com a
+      // lembrança explícita do pedido inteiro, porque o 7B esquece o resto depois da 1ª.
+      if (modoTarefa && rodadasComAcao < passos) {
+        continuou = true;
+        messages.push({ role: "user", content: `Continue o MESMO pedido: "${texto}". Faça a próxima parte que ainda não foi feita, chamando a ferramenta. Se todas as partes já foram feitas, responda só "pronto".` });
+        continue;
+      }
       // Pedido composto ("abre o bloco de notas E me diz o tempo"): o 8B costuma chamar
       // só a primeira parte. Uma volta a mais, uma vez; se ele não chamar nada, acabou.
       if (pedidoComposto && !continuou) { continuou = true; continue; }
-      return { modo: "ferramentas", reply: falasDasChamadas(chamadas.slice(inicioFala)), acoes, chamadas };
+      return { modo: "ferramentas", reply: falasDaTarefa(chamadas.slice(inicioFala), modoTarefa), acoes, chamadas };
     }
     if (continuou) {
       // A volta a mais trouxe só leituras: junta tudo desde a ação.
-      return { modo: "ferramentas", reply: falasDasChamadas(chamadas.slice(inicioFala)), acoes, chamadas };
+      return { modo: "ferramentas", reply: falasDaTarefa(chamadas.slice(inicioFala), modoTarefa), acoes, chamadas };
     }
   }
 
   // Estourou as rodadas só lendo: a resposta é o que foi lido.
-  return { modo: "ferramentas", reply: falasDasChamadas(chamadas), acoes, chamadas };
+  return { modo: "ferramentas", reply: modoTarefa && inicioFala >= 0 ? falasDaTarefa(chamadas.slice(inicioFala), true) : falasDasChamadas(chamadas), acoes, chamadas };
+}
+
+/**
+ * Tarefa de vários passos vira lista (o markdown do chat desenha; a voz ignora os marcadores).
+ * Com um ou dois passos continua a frase corrida de sempre.
+ */
+export function falasDaTarefa(lista: ResultadoAgente["chamadas"], modoTarefa: boolean): string {
+  if (!modoTarefa) return falasDasChamadas(lista);
+  const falas = [...new Set(lista.map(c => c.resultado.trim()).filter(Boolean))];
+  if (falas.length < 2) return falas[0] ?? "Feito.";
+  return `Feito:\n${falas.map(f => `- ${f}`).join("\n")}`;
 }
 
 /** As falas dos executores, sem repetir a mesma frase (duas leituras iguais viram uma). */

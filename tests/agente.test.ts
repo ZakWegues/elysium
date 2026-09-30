@@ -114,3 +114,41 @@ describe("agente — política do laço", () => {
     expect(await agir("abre o chrome")).toBeNull();
   });
 });
+
+describe("modo tarefa (bloco 119)", async () => {
+  const { contarPassos, falasDaTarefa } = await import("../src/services/agente");
+  it("conta as partes do pedido", () => {
+    expect(contarPassos("fecha o Chrome, abre o VS Code e toca lo-fi")).toBe(3);
+    expect(contarPassos("abre o bloco de notas e me diz o tempo")).toBe(2);
+    expect(contarPassos("cria um lembrete, depois cancela ele e me diz o clima")).toBe(3);
+    expect(contarPassos("que horas são")).toBe(1);
+  });
+  it("tarefa vira lista; pedido simples continua frase corrida", () => {
+    const ch = [{ nome: "a", args: {}, resultado: "Fechando o Chrome." }, { nome: "b", args: {}, resultado: "Abrindo o VS Code." }];
+    expect(falasDaTarefa(ch, true)).toBe("Feito:\n- Fechando o Chrome.\n- Abrindo o VS Code.");
+    expect(falasDaTarefa(ch, false)).toBe("Fechando o Chrome. Abrindo o VS Code.");
+  });
+});
+
+describe("modo tarefa no laço (bloco 119)", () => {
+  it("três partes: uma volta por parte, com a lembrança do pedido, e a resposta em lista", async () => {
+    respostas.push({ content: "", toolCalls: [{ id: "1", name: "fechar_programa", args: { nome: "chrome" } }] });
+    respostas.push({ content: "", toolCalls: [{ id: "2", name: "abrir_programa", args: { nome: "vs code" } }] });
+    respostas.push({ content: "", toolCalls: [{ id: "3", name: "clima", args: {} }] });
+    const r = await agir("fecha o chrome, abre o vs code e me diz o clima");
+    expect(executadas).toEqual(["fechar_programa", "abrir_programa", "clima"]);
+    expect(r?.reply).toBe("Feito:\n- chrome fechado.\n- Feito.\n- Em São Paulo, 22 graus e nublado.");
+    // Da 2ª rodada em diante o modelo recebe o pedido inteiro de novo.
+    const ultima = chamadasAoModelo[chamadasAoModelo.length - 1] as { messages: { role: string; content: string }[] };
+    expect(ultima.messages.some(m => m.role === "user" && m.content.startsWith("Continue o MESMO pedido"))).toBe(true);
+  });
+
+  it("o modelo diz 'pronto' antes de acabar as partes: para e mostra o que fez", async () => {
+    respostas.push({ content: "", toolCalls: [{ id: "1", name: "fechar_programa", args: { nome: "chrome" } }] });
+    respostas.push({ content: "", toolCalls: [{ id: "2", name: "abrir_programa", args: { nome: "vs code" } }] });
+    respostas.push({ content: "pronto", toolCalls: [] });
+    const r = await agir("fecha o chrome, abre o vs code e toca lo-fi");
+    expect(executadas).toEqual(["fechar_programa", "abrir_programa"]);
+    expect(r?.reply).toBe("Feito:\n- chrome fechado.\n- Feito.");
+  });
+});
