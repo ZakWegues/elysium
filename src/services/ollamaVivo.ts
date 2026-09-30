@@ -1,3 +1,4 @@
+import { shell } from "electron";
 import { spawn } from "node:child_process";
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -56,14 +57,23 @@ export function garantirOllama(base: string, forcar = false): Promise<boolean> {
     ultimaTentativa = Date.now();
     for (const { exe, args } of executaveis()) {
       try {
-        const filho = spawn(exe, args, { detached: true, stdio: "ignore", windowsHide: true });
-        // Sem ouvinte de erro, um ENOENT derrubaria o processo principal.
-        const falhou = await new Promise<boolean>(res => {
-          filho.once("error", () => res(true));
-          setTimeout(() => res(false), 300);
-        });
+        let falhou: boolean;
+        if (!args.length) {
+          // 🔴 Pelo shell do Windows, como um clique duplo — NÃO por spawn. O spawn herda os
+          // handles herdáveis do processo do Electron, e o Ollama fica vivo por dias: o que
+          // subiu por spawn ficou segurando o socket de depuração (porta 9333) de uma
+          // instância que já tinha morrido. O shell cria o processo sem herança.
+          falhou = (await shell.openPath(exe)) !== "";
+        } else {
+          const filho = spawn(exe, args, { detached: true, stdio: "ignore", windowsHide: true });
+          // Sem ouvinte de erro, um ENOENT derrubaria o processo principal.
+          falhou = await new Promise<boolean>(res => {
+            filho.once("error", () => res(true));
+            setTimeout(() => res(false), 300);
+          });
+          if (!falhou) filho.unref();
+        }
         if (falhou) continue;
-        filho.unref();
         console.log(`[ollama] estava parado; subindo por ${path.basename(exe)}.`);
         const limite = Date.now() + PRAZO_SUBIDA_MS;
         while (Date.now() < limite) {
