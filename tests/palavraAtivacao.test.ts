@@ -14,3 +14,14 @@ describe("palavra de ativação — o que acorda", () => {
     expect(linhaAcorda("PRONTO")).toBe(false);
   });
 });
+
+describe("interromper a fala dizendo Elysium (fase 12)", async () => {
+  const { podeInterromper } = await import("../src/services/palavraAtivacao");
+  it("só com confiança alta", () => {
+    expect(podeInterromper("High", "Em São Paulo, 22 graus.")).toBe(true);
+    expect(podeInterromper("Medium", "Em São Paulo, 22 graus.")).toBe(false);
+  });
+  it("nunca quando a própria fala diz o nome", () => {
+    expect(podeInterromper("High", "Eu sou o ELYSIUM, seu assistente.")).toBe(false);
+  });
+});

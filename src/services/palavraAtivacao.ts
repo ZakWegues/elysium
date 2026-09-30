@@ -59,7 +59,8 @@ while ($true) {
 let processo: ChildProcess | null = null;
 let ligado = false;
 let tentativas: number[] = [];
-let aoOuvirAtual: (() => void) | null = null;
+export type Confianca = "High" | "Medium";
+let aoOuvirAtual: ((confianca: Confianca) => void) | null = null;
 
 /** "OUVI|High|elysium" → true quando vale acordar. Exportado para os testes. */
 export function linhaAcorda(linha: string): boolean {
@@ -79,7 +80,7 @@ function subir(): void {
     for (const l of linhas) {
       if (l.startsWith("ERRO|")) console.warn(`[palavra] ${l.slice(5)}`);
       else if (l === "PRONTO") console.log("[palavra] escutando \"Elysium\" (offline)");
-      else if (linhaAcorda(l)) { console.log(`[palavra] ${l}`); aoOuvirAtual?.(); }
+      else if (linhaAcorda(l)) { console.log(`[palavra] ${l}`); aoOuvirAtual?.(l.split("|")[1] as Confianca); }
     }
   });
   ps.on("exit", (code) => {
@@ -96,7 +97,17 @@ function subir(): void {
   });
 }
 
-export function ligarPalavraDeAtivacao(aoOuvir: () => void): void {
+/**
+ * Interromper a fala dizendo "Elysium" (C4 do catálogo, fase 12). Com a caixa de som
+ * tocando, o reconhecedor ouve o próprio ELYSIUM: só vale confiança ALTA (a média, que
+ * basta com a sala em silêncio, pegaria palavra parecida no meio da fala), e nunca quando a
+ * frase que está sendo falada contém "Elysium" — ele se interromperia ao dizer o nome.
+ */
+export function podeInterromper(confianca: Confianca, falando: string): boolean {
+  return confianca === "High" && !/elys/i.test(falando);
+}
+
+export function ligarPalavraDeAtivacao(aoOuvir: (confianca: Confianca) => void): void {
   aoOuvirAtual = aoOuvir;
   if (ligado) return;
   ligado = true;

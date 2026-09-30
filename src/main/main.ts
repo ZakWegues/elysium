@@ -37,7 +37,7 @@ import { createTray, refreshTray, updateLastCommand, buildIcon as iconePadrao } 
 import { transcribe } from "../services/stt";
 import { clearHistory, desfazerUltimoTurno } from "../services/brain";
 import { modelosDaGroq } from "../services/catalogoGroq";
-import { desligarPalavraDeAtivacao, ligarPalavraDeAtivacao } from "../services/palavraAtivacao";
+import { Confianca, desligarPalavraDeAtivacao, ligarPalavraDeAtivacao, podeInterromper } from "../services/palavraAtivacao";
 
 // O log em arquivo entra antes de tudo que escreve no console (bloco 97).
 iniciarLogEmArquivo();
@@ -185,11 +185,16 @@ function speak(text: string): Promise<void> {
   });
 }
 
+/** A frase que está saindo na caixa de som agora — o barge-in confere se ela tem "Elysium". */
+let falandoAgora = "";
+
 async function drainSpeak(): Promise<void> {
   if (speakQueue.length === 0) { isSpeaking = false; return; }
   isSpeaking = true;
   const item = speakQueue.shift()!;
+  falandoAgora = item.text;
   try { await synthesize(item.text); } catch { /* best-effort */ }
+  falandoAgora = "";
   item.resolve();
   drainSpeak();
 }
@@ -792,8 +797,18 @@ ipcMain.handle("pairing:regenerate-token", async () => {
 // bandeja e o som de gravação já dizem que ele está ouvindo.
 let ultimoOcioso = Date.now();
 state.on("change", (s) => { if (s === "idle") ultimoOcioso = Date.now(); });
-function acordarPorVoz(): void {
-  if (!hasApiKey() || !state.is("idle")) return;
+function acordarPorVoz(confianca: Confianca): void {
+  if (!hasApiKey()) return;
+  // Barge-in (fase 12): "Elysium" no meio da fala corta a fala e já começa a ouvir.
+  if (state.is("speaking")) {
+    if (!podeInterromper(confianca, falandoAgora)) return;
+    console.log("[palavra] interrompendo a fala.");
+    interruptAll();
+    state.set("idle");
+    startListening().catch((e) => console.error("[palavra] não consegui começar a ouvir:", e));
+    return;
+  }
+  if (!state.is("idle")) return;
   if (Date.now() - ultimoOcioso < 2500) return;
   startListening().catch((e) => console.error("[palavra] não consegui começar a ouvir:", e));
 }
