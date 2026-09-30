@@ -78,3 +78,11 @@ describe("modo foco no atalho (fase 12)", () => {
     expect(fastRoute("para o foco da câmera no rosto")).toBeNull();
   });
 });
+
+describe("resumo do dia no atalho (fase 13)", () => {
+  it("bom dia e variações", () => {
+    for (const f of ["Bom dia!", "bom dia elysium", "resumo do dia", "como está meu dia?", "o que tenho pra hoje"]) {
+      expect(fastRoute(f), f).toEqual([{ action: "daily_summary" }]);
+    }
+  });
+});

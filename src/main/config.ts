@@ -95,6 +95,8 @@ export interface AppConfig {
    * código — decisão do Zak. Vazio = saudação sem nome e "o usuário" nos prompts.
    */
   nomeDoUsuario: string;
+  /** Fala o resumo do dia na primeira volta ao PC entre 6 e 11 h (fase 13). */
+  resumoAutomatico: boolean;
   /** Com jogo aberto, rotear pela nuvem em vez de disputar VRAM. Ver `gpuGuard.ts`. */
   evitarGpuOcupada: boolean;
   spotifyClientId: string;
@@ -184,6 +186,7 @@ const DEFAULTS: AppConfig = {
   palavraDeAtivacao: false,
   atualizarDeMadrugada: true,
   nomeDoUsuario: "",
+  resumoAutomatico: false,
   evitarGpuOcupada: true,
   spotifyClientId: "042904fef8cc41f0bf05b7abeda2d66f",
   chatHistoryTurns: 6,

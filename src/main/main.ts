@@ -56,6 +56,8 @@ import { garantirOllama } from "../services/ollamaVivo";
 import { registerRpcBridge } from "./rpcBridge";
 import { vigiarDisco } from "../actions/armazenamento";
 import { iniciarFoco } from "../services/foco";
+import { resumoDoDia } from "../services/resumoDoDia";
+import Store from "electron-store";
 import { closeApp } from "../actions/closeApp";
 import {
   aoMudarAtualizacao, estadoAtualizacao, iniciarAtualizacoes, instalarAtualizacaoDesktop, verificarAtualizacoes,
@@ -330,12 +332,36 @@ function startTelemetryLoop(): void {
   setInterval(() => {
     try {
       const min = Math.floor(powerMonitor.getSystemIdleTime() / 60);
-      if (min < 1) { _marcoOcioso = 0; return; }
+      // Voltou depois de 1 h ou mais parado: de manhã, é a deixa do resumo do dia (bloco 117).
+      if (min < 1) { if (_marcoOcioso >= 60) void resumoDaManha(); _marcoOcioso = 0; return; }
       for (const m of MARCOS_OCIOSO) if (min >= m && _marcoOcioso < m) { _marcoOcioso = m; emitirEvento("pc.ocioso", { minutos: m }); }
     } catch { /* powerMonitor indisponível */ }
   }, 60_000);
-  powerMonitor.on("resume", () => emitirEvento("pc.voltou", { de: "suspensão" }));
-  powerMonitor.on("unlock-screen", () => emitirEvento("pc.voltou", { de: "tela bloqueada" }));
+  powerMonitor.on("resume", () => { emitirEvento("pc.voltou", { de: "suspensão" }); void resumoDaManha(); });
+  powerMonitor.on("unlock-screen", () => { emitirEvento("pc.voltou", { de: "tela bloqueada" }); void resumoDaManha(); });
+}
+
+// ── resumo do dia (fase 13, bloco 117) ──────────────────────────────────────────
+// Uma vez por dia, na primeira volta ao PC entre 6 e 11 h, se ligado em Ajustes → Voz.
+// O dia já resumido fica em disco: reiniciar o app de manhã não repete o resumo.
+const resumoStore = new Store<{ ultimoDia: string }>({ name: "resumo-do-dia", defaults: { ultimoDia: "" } });
+async function resumoDaManha(): Promise<void> {
+  try {
+    if (!getConfig().resumoAutomatico) return;
+    const agora = new Date();
+    if (agora.getHours() < 6 || agora.getHours() >= 11) return;
+    const dia = agora.toDateString();
+    if (resumoStore.get("ultimoDia") === dia) return;
+    resumoStore.set("ultimoDia", dia);
+    // Espera a tela destravar direito e o app ficar livre (até 1 min).
+    await new Promise(r => setTimeout(r, 4000));
+    const t0 = Date.now();
+    while (!state.is("idle") && Date.now() - t0 < 60_000) await new Promise(r => setTimeout(r, 1000));
+    const texto = await resumoDoDia();
+    notify("Resumo do dia", texto);
+    speak(texto).catch(() => { /* best-effort */ });
+    broadcastNotify(enfileirarEntrega({ tipo: "aviso", titulo: "Resumo do dia", corpo: texto }));
+  } catch (e) { console.warn("[resumo] falhou:", e); }
 }
 
 // ── recording flow ────────────────────────────────────────────────────────────

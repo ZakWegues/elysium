@@ -12,6 +12,7 @@ import { getNowPlaying } from "./spotify";
 import { formatarBytes, lerArmazenamento } from "../actions/armazenamento";
 import { estadoAtualizacao } from "./atualizacao";
 import { comecarFoco, focoFalado, pararFoco } from "./foco";
+import { resumoDoDia } from "./resumoDoDia";
 
 /**
  * As ferramentas do cérebro (bloco 78).
@@ -102,6 +103,12 @@ export const FERRAMENTAS: Ferramenta[] = [
         "limpar é pela aba PC → Armazenamento",
       ].filter(Boolean).join("; ") + ".";
     },
+  },
+  {
+    name: "resumo_do_dia",
+    description: "Resumo do dia: clima, lembretes e rotinas de hoje, recados novos do celular e o que precisa de atenção no PC. Use para 'bom dia', 'como está meu dia', 'o que tenho hoje'.",
+    parameters: obj({}),
+    executar: () => resumoDoDia(),
   },
   {
     name: "versao_do_elysium",

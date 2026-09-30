@@ -88,6 +88,11 @@ const RULES: Rule[] = [
   { pattern: /^(como (esta|ta) o tempo( hoje| la fora| agora)?|clima|clima (de )?hoje|previsao( do tempo)?( (de|para) hoje)?|que tempo faz( hoje)?|vai chover( hoje)?|(esta|ta) (frio|quente|chovendo)( la fora)?|temperatura la fora)$/,
     build: () => [{ action: "weather" }] },
 
+  // — resumo do dia (fase 13) — "bom dia" sozinho vira o resumo: é a primeira coisa que se
+  // diz de manhã, e responder só "bom dia" de volta desperdiçaria a deixa.
+  { pattern: /^(bom dia( elysium)?|resumo do dia|resumo de hoje|meu dia|como (esta|ta|vai ser) (o )?meu dia( hoje)?|o que (eu )?tenho (pra|para) hoje)$/,
+    build: () => [{ action: "daily_summary" }] },
+
   // — modo foco (fase 12) — "para" é o verbo aqui: o modelo lia como preposição e religava.
   { pattern: /^(para|pare|parar|desliga|desligar|encerra|encerrar|termina|terminar|acaba|acabar|sai|sair)( d[oa])?( o)?( modo)? (de )?foco$/,
     build: () => [{ action: "focus", operation: "stop" }] },

@@ -24,6 +24,7 @@ import { searchWeb } from "../services/webSearch";
 import { askAboutScreen } from "../services/vision";
 import { climaFalado } from "../services/clima";
 import { comecarFoco, focoFalado, pararFoco } from "../services/foco";
+import { resumoDoDia } from "../services/resumoDoDia";
 
 export async function routeAction(action: BrainAction): Promise<string> {
   switch (action.action) {
@@ -40,6 +41,7 @@ export async function routeAction(action: BrainAction): Promise<string> {
     case "screenshot":        return screenshot(action.filename);
     case "system_info":       return systemInfo(action.query);
     case "weather":           return climaFalado();
+    case "daily_summary":     return resumoDoDia();
     case "focus": {
       if (action.operation === "stop") { pararFoco(); return "Modo foco desligado."; }
       if (action.operation === "status") return focoFalado();

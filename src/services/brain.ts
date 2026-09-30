@@ -35,6 +35,8 @@ export type BrainAction =
   | { action: "weather" }
   // Modo foco (fase 12). Só o fastRoute produz: frases fechadas ("para o foco").
   | { action: "focus";             operation: "start" | "stop" | "status"; minutes?: number }
+  // Resumo do dia (fase 13): também só pelo fastRoute ("bom dia", "resumo do dia").
+  | { action: "daily_summary" }
   | { action: "create_reminder";   text: string; due_at: string; weekly?: boolean }
   | { action: "list_reminders" }
   | { action: "cancel_reminder";   query: string }
@@ -140,6 +142,7 @@ function actionSummary(action: BrainAction): string {
     case "system_info":       return `Info: ${action.query}`;
     case "weather":           return "Clima";
     case "focus":             return "Modo foco";
+    case "daily_summary":     return "Resumo do dia";
     case "run_preset":        return `Preset ativado: ${action.preset_name}`;
     case "list_presets":      return "Listou presets";
     case "delete_preset":     return `Removeu preset: ${action.preset_name}`;
@@ -166,7 +169,7 @@ const ACOES_VALIDAS = new Set<string>([
   "system_info", "run_preset", "list_presets", "delete_preset", "create_preset",
   "send_to_mobile", "power_control", "remember", "forget", "list_memory",
   "create_reminder", "list_reminders", "cancel_reminder", "web_search",
-  "look_at_screen", "chat", "unknown", "weather", "focus",
+  "look_at_screen", "chat", "unknown", "weather", "focus", "daily_summary",
 ]);
 
 /**
