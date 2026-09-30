@@ -361,6 +361,14 @@ ipcMain.on("audio-data", async (_event, buffer: Buffer) => {
     const text  = await transcribe(audio);
     if (currentToken !== meuToken) return;
 
+    // Calibragem da palavra de ativação (bloco 116): acordou pela voz e ninguém pediu nada
+    // é um disparo falso. Uma linha no log por caso; somando dá para ajustar a confiança
+    // com número, não com chute.
+    if (Date.now() - acordadoPorVozEm < 30_000) {
+      console.log(text ? `[palavra] acordou e veio pedido (${text.length} caracteres)` : "[palavra] falso: acordou e ninguém pediu nada");
+      acordadoPorVozEm = 0;
+    }
+
     if (!text) {
       notify("ELYSIUM", "Não entendi o áudio. Tente novamente.");
       state.set("idle");
@@ -799,8 +807,12 @@ ipcMain.handle("pairing:regenerate-token", async () => {
 // bandeja e o som de gravação já dizem que ele está ouvindo.
 let ultimoOcioso = Date.now();
 state.on("change", (s) => { if (s === "idle") ultimoOcioso = Date.now(); });
+/** Quando a palavra de ativação abriu o microfone pela última vez (bloco 116). */
+let acordadoPorVozEm = 0;
+
 function acordarPorVoz(confianca: Confianca): void {
   if (!hasApiKey()) return;
+  acordadoPorVozEm = Date.now();
   // Barge-in (fase 12): "Elysium" no meio da fala corta a fala e já começa a ouvir.
   if (state.is("speaking")) {
     if (!podeInterromper(confianca, falandoAgora)) return;

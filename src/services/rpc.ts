@@ -35,6 +35,7 @@ import { lerVolume, volumeControl } from "../actions/volumeControl";
 import { controlarJanela, listarJanelas } from "../actions/janelas";
 import { montarDiagnostico } from "./diagnostico";
 import { consertarSaude, verificarSaude } from "./saude";
+import { mascarar } from "../main/logArquivo";
 import { comecarFoco, estadoFoco, pararFoco, salvarListaFoco } from "./foco";
 import { abrirNoPc, AlvoAbrir, AlvoLimpeza, lerArmazenamento, limpar } from "../actions/armazenamento";
 import { aguardarDownloads, estadoAtualizacao, instalarAtualizacaoDesktop, verificarAtualizacoes } from "./atualizacao";
@@ -867,6 +868,19 @@ const METHODS: Record<string, MethodDef> = {
     handler: async (params) => {
       if (!Array.isArray(params["apps"])) throw new RpcError(400, "apps (lista de nomes) é obrigatório");
       return { apps: salvarListaFoco((params["apps"] as unknown[]).filter((x): x is string => typeof x === "string")) };
+    },
+  },
+  // O celular conta como algo se comportou (bloco 116: a mão livre, para calibrar os
+  // limiares). Cai no log do PC — o único log que existe; o celular não tem onde guardar.
+  // Teto de 20 linhas × 300 caracteres e passa pelo `mascarar`: um cliente com o token não
+  // pode encher o disco nem gravar segredo no log.
+  "diag.registrar": {
+    handler: async (params) => {
+      const origem = typeof params["origem"] === "string" ? params["origem"].replace(/[^\w.-]/g, "").slice(0, 30) : "";
+      const linhas = Array.isArray(params["linhas"]) ? (params["linhas"] as unknown[]).filter((x): x is string => typeof x === "string").slice(0, 20) : [];
+      if (!origem || !linhas.length) throw new RpcError(400, "origem e linhas são obrigatórios");
+      for (const l of linhas) console.log(`[celular] ${origem}: ${mascarar(l.replace(/\s+/g, " ").slice(0, 300))}`);
+      return { registradas: linhas.length };
     },
   },
   // "Saúde do ELYSIUM" (fase 12): o que está quebrado, com o conserto de um clique.

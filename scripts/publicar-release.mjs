@@ -62,6 +62,8 @@ sh("git", ["push", "-q", "origin", tag]);
   if (!impressao) falhar("não achei ASSINATURAS_ACEITAS no atualizacao.ts");
   const alvo = instalador.replace(/'/g, "''");
   const ps = [
+    // Sem isto o PowerShell despeja o progresso ("Preparando módulos…") em CLIXML no terminal.
+    "$ProgressPreference = 'SilentlyContinue'",
     `$c = Get-ChildItem Cert:\\CurrentUser\\My -CodeSigningCert | Where-Object Thumbprint -eq '${impressao}' | Select-Object -First 1`,
     "if (-not $c) { 'SEM_CERTIFICADO'; exit 0 }",
     `$s = Get-AuthenticodeSignature -LiteralPath '${alvo}'`,
