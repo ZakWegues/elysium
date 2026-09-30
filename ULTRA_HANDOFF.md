@@ -190,13 +190,13 @@ pedir de novo.**
 
 | Repo | HEAD (29/09/2026) | Estado |
 |---|---|---|
-| `elysium` | fase 12 (§30) — desktop **1.5.4** | limpo, pusheado, releases `v1.4.0`…`v1.5.4` |
-| `elysium-m` | fase 12 (§30) — celular **1.5.1** (`versionCode` 15) | limpo, pusheado, releases `v1.4.0`…`v1.5.1` |
+| `elysium` | fase 12 (§30) — desktop **1.5.6** | limpo, pusheado, releases `v1.4.0`…`v1.5.6` |
+| `elysium-m` | fase 12 (§30) — celular **1.5.2** (`versionCode` 16) | limpo, pusheado, releases `v1.4.0`…`v1.5.2` |
 
 > **Desde 29/09/2026 as versões saem como releases do GitHub e se atualizam sozinhas**
 > (§30, bloco 95). O desktop **instalado nesta máquina já é o 1.5.2**, em
 > `%LOCALAPPDATA%\Programs\ELYSIUM` — atualizado pelo próprio atualizador, 1.5.0 → 1.5.1 →
-> 1.5.2. O celular precisa de **um** salto manual para o APK 1.5.1 (o vc13 não tem o
+> 1.5.2. O celular precisa de **um** salto manual para o APK 1.5.2 (o vc13 não tem o
 > atualizador); dali em diante o cartão "versão nova" da Início cuida. ⚠️ A pasta
 > `elysium baixado` é uma cópia **1.0.2 antiga** que o Windows subia no boot até a 1.5.1
 > (§30); não é mais usada por nada.
@@ -4831,6 +4831,8 @@ fila local (bloco 72) vira só a rede de segurança.
 | 1.5.2 | desktop | blocos 103–104 — Ollama que se levanta, falha dita em português, madrugada, 2 ferramentas |
 | 1.5.3 | desktop | bloco 105 — download em segundo plano |
 | 1.5.4 | desktop (+ OTA no celular) | blocos 106–107 — `gpu-heavy.json` no build, cura gravada, card "Saúde" |
+| 1.5.5 | desktop | blocos 108 e 110 — Ollama pelo shell, novidades de versões puladas |
+| 1.5.6 / 1.5.2 | desktop / celular (vc16) | blocos 109, 111–112 — slider do volume, interromper a fala, Modo foco |
 
 ### Bloco 95 — atualização automática pelas releases do GitHub ✅
 
@@ -4993,7 +4995,7 @@ de folga e podia ser recusado como passado) — folga subiu para 400 ms.
 
 **Só o Zak valida:**
 
-- [ ] Celular: instalar o APK 1.5.1 (vc15) uma vez; depois, Ajustes → Sobre mostra "Celular
+- [ ] Celular: instalar o APK 1.5.2 (vc16) uma vez; depois, Ajustes → Sobre mostra "Celular
       na versão mais nova". Na próxima versão, o cartão aparece na Início e "Baixar e
       instalar" leva ao instalador do Android (a primeira vez pede "apps desconhecidos").
 - [ ] Celular: aba PC → Armazenamento; "Atualizar o PC" em Sobre quando houver versão.
@@ -5051,3 +5053,85 @@ Números à brasileira (24,8 GB) nos cards de discos e do computador.
 Entre 3 e 5 h, com o PC parado, ele deve instalar sozinho — de manhã, Ajustes → Sobre
 tem de mostrar 1.5.4 e a Início, "Novidades da 1.5.4". Se o PC dormir antes, instala na
 madrugada seguinte (ou pelo botão).
+
+### Bloco 108 — o Ollama que o ELYSIUM sobe não herda nada (1.5.5) ✅ 🔴
+
+Achado ao rodar o scan de erros: a porta de depuração 9333 estava presa por um processo
+que **já não existia**, e as ferramentas de teste penduravam. Quem segurava o socket era o
+`ollama app.exe` — filho de uma instância de desenvolvimento morta. **`spawn` herda os
+handles herdáveis do processo do Electron**, e o Ollama fica vivo por dias. O
+`ollamaVivo.ts` passou a abrir o `ollama app.exe` por `shell.openPath` (ShellExecute, sem
+herança, como um clique duplo); conferido que, matando o app, a porta é liberada e o Ollama
+continua de pé. O `ollama serve` de reserva continua por `spawn` (não há como passar
+argumento pelo shell). Regra: **processo de vida longa que o ELYSIUM abre vai pelo shell**.
+
+### Bloco 109 — slider do volume do PC no celular ✅
+
+Estava no backlog como "precisa de módulo nativo" — mas `gesture-handler` e `reanimated` já
+estão no APK desde o bloco 51. `src/components/SliderVolume.tsx`: trilha com `Gesture.Pan`
+(o toque simples também conta), polegar no shared value (sem render por quadro), no máximo
+um `volume.set` a cada 150 ms durante o arrasto e o valor final ao soltar; a releitura só
+vem ao soltar (reler a cada envio fazia o polegar pular para trás). Fica numa segunda linha
+da faixa de mídia da aba PC; PC sem `volume.get` mantém os botões de passo.
+
+### Bloco 110 — novidades de versões puladas (1.5.5) ✅
+
+A madrugada pode levar da 1.5.2 direto para a 1.5.6: a Início junta as notas de cada versão
+desde a última vista (ou a última que rodou — `rodando`/`anterior` no `novidades.json`), da
+mais nova para a mais velha. `juntarNotas` é pura e testada.
+
+### Bloco 111 — dizer "Elysium" interrompe a fala (1.5.6) ✅
+
+C4 do catálogo. Com a palavra de ativação ligada, "Elysium" no meio de uma resposta falada
+corta a fala e abre o microfone. Contra o ELYSIUM se interromper ouvindo a própria caixa de
+som: durante a fala só vale confiança **alta** do reconhecedor (a média, que basta com a sala
+quieta, pegaria palavra parecida), e nunca quando a frase em curso contém "Elysium"
+(`podeInterromper`, testada). ⚠️ **Só o Zak valida** — precisa de voz de verdade.
+
+### Bloco 112 — Modo foco (1.5.6 + card no celular) ✅
+
+C9 do catálogo. Por N minutos, abrir um programa da lista (Discord, Steam, WhatsApp,
+Telegram, Roblox, Epic, Riot — editável no card) vira balão no PC com o tempo que falta; com
+"fechar" ligado, o programa é fechado. **Avisar é o padrão** — a pergunta que a §19 deixou
+aberta: fechar à força perde trabalho não salvo. O fim fica em disco (reiniciar não cancela),
+o que já estava aberto ao começar também conta, e o resumo ("50 min, 2 distrações") vai
+também ao celular.
+
+`src/services/foco.ts`; card na Início do PC; card no celular (nasce desligado, liga em
+Personalizar); RPC `foco.status/start/stop/lista`; ferramenta `modo_foco`; e regras
+**fechadas no `fastRoute`**, porque o modelo lia "**para** o modo foco" como preposição e
+religava o foco. Testado ao vivo: o Mapa de Caracteres aberto durante o foco foi detectado
+e fechado em até 15 s (o evento `app.abriu` do bloco 79 roda a cada 15 s).
+
+> ⚠️ Para testar sem mexer nos apps do Zak use `charmap.exe`. O `notepad` deste Windows é
+> app da loja: `Start-Process notepad` abriu um diálogo "Abrir com" na tela dele.
+
+> 🔴 **Segurança da atualização automática, para não esquecer.** O PC instala o que estiver
+> na release mais nova de `ZakWegues/elysium` — de madrugada, sem perguntar. O SHA-256 é
+> conferido contra o `digest` do próprio GitHub, então protege contra download corrompido,
+> não contra uma release maliciosa: **quem conseguir publicar release no repositório
+> consegue rodar código no PC**. A barreira é a conta do GitHub (manter 2FA ligado) e o
+> token (só leitura). Não há assinatura de código no instalador. Se um dia isso incomodar,
+> o caminho é assinar o `.exe` e conferir a assinatura antes do `/S`, ou desligar
+> "Atualizar sozinho de madrugada".
+
+**Estado ao fim da noite de 29/09/2026:**
+
+| | versão | onde |
+|---|---|---|
+| Desktop publicado | **1.5.6** | release `v1.5.6` |
+| Desktop instalado aqui | 1.5.2, com a **1.5.6 baixada** esperando a madrugada | `%LOCALAPPDATA%\Programs\ELYSIUM` |
+| Celular publicado | **1.5.2 (vc16)** | release `v1.5.2`; também em `elysium-m/dist-apk/elysium-m.apk`, e guardado no PC |
+| OTA (`preview`) | runtime `7eafb909…` (APK 1.5.2): card Modo foco | — |
+
+Testes: desktop 82, celular 20.
+
+**Só o Zak valida (atualiza o checklist acima):**
+
+- [ ] De manhã: Ajustes → Sobre mostra **1.5.6** (instalou sozinho de madrugada) e a Início
+      mostra "Novidades da 1.5.6" com as notas de 1.5.3 a 1.5.6. Se ainda estiver 1.5.2
+      (PC dormiu), a pílula "Atualizar" instala.
+- [ ] Celular: instalar o APK **1.5.2 (vc16)** uma vez (o vc13 não tem o atualizador).
+- [ ] Modo foco: começar 25 min e abrir o Discord — balão no PC.
+- [ ] Palavra de ativação ligada: pedir algo longo e dizer "Elysium" no meio da resposta.
+- [ ] Celular: slider do volume na aba PC.
