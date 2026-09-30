@@ -20,12 +20,24 @@ export interface MemoryFact {
 }
 
 /** Acima disto o bloco começa a competir por atenção com as regras de decisão. */
-export const MEMORY_MAX_FACTS = 20;
+/**
+ * Fase 13 (bloco 118): 60 guardados, mas só os ~12 mais relevantes vão no prompt de cada
+ * pedido. Com 20 injetados sempre, cada fato novo era mais prompt em TODO pedido — e o
+ * modelo local tem 8 mil tokens de contexto para tudo.
+ */
+export const MEMORY_MAX_FACTS = 60;
+export const MEMORY_INJETADOS = 12;
 export const MEMORY_MAX_TEXT_LENGTH = 200;
 
-const store = new Store<{ facts: MemoryFact[] }>({
+export interface SugestaoDeFato {
+  id: string;
+  text: string;
+  createdAt: number;
+}
+
+const store = new Store<{ facts: MemoryFact[]; sugestoes: SugestaoDeFato[]; recusadas: string[] }>({
   name: "memory",
-  defaults: { facts: [] },
+  defaults: { facts: [], sugestoes: [], recusadas: [] },
 });
 
 export function listFacts(): MemoryFact[] {
@@ -92,9 +104,93 @@ export function clearFacts(): void {
  * Bloco pronto para injetar no system prompt. String vazia quando não há nada — não
  * vale gastar tokens com um cabeçalho sem conteúdo.
  */
-export function buildMemoryBlock(): string {
-  const facts = listFacts();
+// ── Relevância (bloco 118) ────────────────────────────────────────────────────
+
+/** Radicais de 4 letras sem acento: "chamo", "chama" e "chamado" viram todos "cham". */
+function radicais(texto: string): Set<string> {
+  const limpo = texto.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9 ]/g, " ");
+  return new Set(limpo.split(/\s+/).filter(p => p.length >= 4).map(p => p.slice(0, 4)));
+}
+
+/**
+ * Os fatos que vão no prompt: todos, se couberem; senão os que mais dividem palavras (pelo
+ * radical) com o pedido, e os mais recentes no desempate. Devolve na ordem original — a
+ * ordem em que foram guardados também é informação. Pura, para teste.
+ */
+export function escolherFatos(fatos: MemoryFact[], pedido: string, n = MEMORY_INJETADOS): MemoryFact[] {
+  if (fatos.length <= n) return fatos;
+  const doPedido = radicais(pedido);
+  const pontuados = fatos.map((f, i) => {
+    let pontos = 0;
+    for (const r of radicais(f.text)) if (doPedido.has(r)) pontos++;
+    return { f, i, pontos };
+  });
+  pontuados.sort((a, b) => b.pontos - a.pontos || b.f.createdAt - a.f.createdAt);
+  const escolhidos = new Set(pontuados.slice(0, n).map(p => p.i));
+  return fatos.filter((_, i) => escolhidos.has(i));
+}
+
+export function buildMemoryBlock(pedido = ""): string {
+  const facts = escolherFatos(listFacts(), pedido);
   if (facts.length === 0) return "";
   const lines = facts.map(f => `- ${f.text}`).join("\n");
   return `\n\nFatos que o usuário pediu para você lembrar (use quando forem relevantes, não os recite sem motivo):\n${lines}`;
+}
+
+// ── Sugestões (bloco 118) ─────────────────────────────────────────────────────
+//
+// O cérebro propõe, o Zak decide: um fato só entra na memória com "guardar". Recusado não
+// volta a ser sugerido (a lista de recusados guarda o texto normalizado).
+
+const MAX_SUGESTOES = 10;
+const MAX_RECUSADAS = 100;
+
+function chave(texto: string): string {
+  return texto.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+}
+
+/**
+ * O mesmo fato com outras palavras ("meu peixe se chama Bolota" × "O usuário tem um peixe
+ * chamado Bolota"): 60% dos radicais do menor dentro do maior. O cérebro às vezes já guardou
+ * pelo "lembra que" e a extração sugeriria de novo.
+ */
+function parecido(a: string, b: string): boolean {
+  const ra = radicais(a), rb = radicais(b);
+  const [menor, maior] = ra.size <= rb.size ? [ra, rb] : [rb, ra];
+  if (!menor.size) return false;
+  let comuns = 0;
+  for (const r of menor) if (maior.has(r)) comuns++;
+  return comuns / menor.size >= 0.6;
+}
+
+export function listarSugestoesDeFato(): SugestaoDeFato[] {
+  return store.get("sugestoes");
+}
+
+/** Devolve a sugestão criada, ou null se já é fato, já foi sugerida ou foi recusada. */
+export function sugerirFato(texto: string): SugestaoDeFato | null {
+  const limpo = texto.trim().slice(0, MEMORY_MAX_TEXT_LENGTH);
+  if (limpo.length < 8) return null;
+  const k = chave(limpo);
+  if (listFacts().some(f => chave(f.text) === k || parecido(f.text, limpo))) return null;
+  if (store.get("sugestoes").some(s => chave(s.text) === k)) return null;
+  if (store.get("recusadas").includes(k)) return null;
+  const s: SugestaoDeFato = { id: crypto.randomBytes(8).toString("hex"), text: limpo, createdAt: Date.now() };
+  store.set("sugestoes", [...store.get("sugestoes"), s].slice(-MAX_SUGESTOES));
+  return s;
+}
+
+export function aceitarSugestao(id: string): MemoryFact | null {
+  const s = store.get("sugestoes").find(x => x.id === id);
+  if (!s) return null;
+  store.set("sugestoes", store.get("sugestoes").filter(x => x.id !== id));
+  return addFact(s.text).fact;
+}
+
+export function recusarSugestao(id: string): boolean {
+  const s = store.get("sugestoes").find(x => x.id === id);
+  if (!s) return false;
+  store.set("sugestoes", store.get("sugestoes").filter(x => x.id !== id));
+  store.set("recusadas", [...store.get("recusadas"), chave(s.text)].slice(-MAX_RECUSADAS));
+  return true;
 }

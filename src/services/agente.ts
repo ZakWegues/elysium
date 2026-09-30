@@ -35,7 +35,7 @@ export interface ResultadoAgente {
 }
 
 /** Exportado para a bancada (`scripts/bench-agente.mjs`) medir com o prompt de produção. */
-export function promptDoAgente(): string {
+export function promptDoAgente(pedido = ""): string {
   const agora = new Date();
   const data = agora.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
   const hora = agora.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
@@ -51,7 +51,7 @@ Como agir
 - Fazer é chamar a ferramenta: nunca diga que abriu, fechou, criou ou apagou sem tê-la chamado.
 - Não mencione "ferramenta", "função" ou "busca": fale em primeira pessoa, como se você mesmo tivesse olhado e feito.
 - Em programas_abertos cada item é "processo (título da janela)": "CalculatorApp (Calculadora)" ou "ApplicationFrameHost (Calculadora)" quer dizer que a calculadora está aberta.
-- Datas para lembretes: calcule a data absoluta a partir de agora.${buildMemoryBlock()}`;
+- Datas para lembretes: calcule a data absoluta a partir de agora.${buildMemoryBlock(pedido)}`;
 }
 
 /** Verbos de ação no passado, em primeira pessoa: o sinal de que o modelo NARROU em vez de agir. */
@@ -88,7 +88,7 @@ export async function agir(
 
   const contexto = contextoRecente();
   const messages: ChatMessage[] = [
-    { role: "system", content: promptDoAgente() + (contexto ? "\n\n[CONVERSA RECENTE]\n" + contexto : "") },
+    { role: "system", content: promptDoAgente(texto) + (contexto ? "\n\n[CONVERSA RECENTE]\n" + contexto : "") },
     { role: "user", content: texto },
   ];
 

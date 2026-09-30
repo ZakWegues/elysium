@@ -421,3 +421,11 @@ body.redimensionando, body.redimensionando * { user-select: none !important; cur
 .foco-form { display: flex; gap: 6px; margin-top: 8px; }
 .foco-form[hidden] { display: none; }
 .foco-form input { flex: 1; min-width: 0; font-size: 12px; }
+
+/* ── Aprendi isto (fase 13) ─────────────────────────────────────────────── */
+.aprendi-item button {
+  width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--border); flex-shrink: 0;
+  background: none; color: var(--muted); cursor: pointer; display: flex; align-items: center; justify-content: center;
+}
+.aprendi-item button[data-sug-ok]:hover { background: rgba(63,174,106,0.18); color: #3fae6a; }
+.aprendi-item button[data-sug-nao]:hover { background: rgba(224,82,82,0.18); color: var(--red); }

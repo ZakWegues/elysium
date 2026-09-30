@@ -36,6 +36,7 @@ import { controlarJanela, listarJanelas } from "../actions/janelas";
 import { montarDiagnostico } from "./diagnostico";
 import { consertarSaude, verificarSaude } from "./saude";
 import { mascarar } from "../main/logArquivo";
+import { aceitarSugestao, listarSugestoesDeFato, recusarSugestao } from "./memoryStore";
 import { comecarFoco, estadoFoco, pararFoco, salvarListaFoco } from "./foco";
 import { abrirNoPc, AlvoAbrir, AlvoLimpeza, lerArmazenamento, limpar } from "../actions/armazenamento";
 import { aguardarDownloads, estadoAtualizacao, instalarAtualizacaoDesktop, verificarAtualizacoes } from "./atualizacao";
@@ -871,6 +872,20 @@ const METHODS: Record<string, MethodDef> = {
       if (!Array.isArray(params["apps"])) throw new RpcError(400, "apps (lista de nomes) é obrigatório");
       return { apps: salvarListaFoco((params["apps"] as unknown[]).filter((x): x is string => typeof x === "string")) };
     },
+  },
+  // Memória que aprende (bloco 118): o que o cérebro sugeriu guardar, e a decisão do Zak.
+  "memory.sugestoes": {
+    handler: async () => ({ sugestoes: listarSugestoesDeFato() }),
+  },
+  "memory.aceitar": {
+    handler: async (params) => {
+      const f = aceitarSugestao(requireString(params, "id"));
+      if (!f) throw new RpcError(404, "sugestão não encontrada");
+      return { fact: f };
+    },
+  },
+  "memory.recusar": {
+    handler: async (params) => ({ recusada: recusarSugestao(requireString(params, "id")) }),
   },
   // O celular conta como algo se comportou (bloco 116: a mão livre, para calibrar os
   // limiares). Cai no log do PC — o único log que existe; o celular não tem onde guardar.

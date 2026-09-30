@@ -307,6 +307,21 @@ const CARDS = {
     },
   },
 
+  // Memória que aprende (fase 13): o que o cérebro percebeu numa conversa, para o Zak decidir.
+  aprendi: {
+    titulo: "Aprendi isto", icone: "bookmark", span: 1, precisa: ["aprendi"],
+    render: (d) => {
+      const l = d.aprendi ?? [];
+      if (!l.length) return vazio("Nada novo. Quando você contar algo sobre você numa conversa, aparece aqui para guardar.");
+      return `<div class="home-list">` + l.map(s => `
+        <div class="home-item aprendi-item">${ico("bookmark", "ico-sm")}
+          <div class="home-item-txt"><span>${escHtml(s.text)}</span></div>
+          <button data-sug-ok="${escHtml(s.id)}" title="Guardar na memória">${ico("check", "ico-sm")}</button>
+          <button data-sug-nao="${escHtml(s.id)}" title="Descartar (não sugere de novo)">${ico("x", "ico-sm")}</button>
+        </div>`).join("") + `</div>`;
+    },
+  },
+
   // Modo foco (fase 12): N minutos em que Discord, Steam e afins viram aviso (ou fecham).
   foco: {
     titulo: "Modo foco", icone: "eye", span: 1, precisa: ["foco"],
@@ -443,7 +458,7 @@ const CARDS = {
 };
 
 /** Ordem de fábrica. Cards fora desta lista existem mas nascem desligados. */
-const CARDS_PADRAO = ["sugestoes", "clima", "computador", "saude", "musica", "lembretes", "rotinas", "atalhos", "conversas", "timer", "notas", "caixa", "memoria", "discos"];
+const CARDS_PADRAO = ["sugestoes", "clima", "computador", "saude", "aprendi", "musica", "lembretes", "rotinas", "atalhos", "conversas", "timer", "notas", "caixa", "memoria", "discos"];
 
 /**
  * `fixos` são desenhados antes de todos os outros e não saem do lugar quando você arrasta
@@ -494,6 +509,7 @@ async function carregarDadosInicio() {
   if (precisa.has("rotinas")) jobs.push(rpc("rotinas", "rotinas.list", undefined, r => r?.rotinas ?? []));
   if (precisa.has("saude")) jobs.push(rpc("saude", "system.saude", undefined, r => r?.itens ?? null));
   if (precisa.has("foco")) jobs.push(rpc("foco", "foco.status", undefined, r => r ?? null));
+  if (precisa.has("aprendi")) jobs.push(rpc("aprendi", "memory.sugestoes", undefined, r => r?.sugestoes ?? []));
   if (precisa.has("conversas")) jobs.push((async () => {
     try { d.conversas = (await window.nx.chatSessionsList()).slice().sort((a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0)); } catch { d.conversas = []; }
   })());
@@ -1031,6 +1047,17 @@ document.getElementById("view-inicio")?.addEventListener("click", async (e) => {
     else if (onde === "caixa") { switchView("chat"); switchChatMode("self"); }
     else if (onde === "nova-conversa") { switchView("chat"); switchChatMode("ai"); startNewConversation(); }
     else if (onde === "paleta") abrirPaleta();
+    return;
+  }
+
+  // Sugestões de memória (fase 13).
+  const so = alvo("[data-sug-ok]"), sn = alvo("[data-sug-nao]");
+  if (so || sn) {
+    try {
+      if (so) { await window.nx.rpc("memory.aceitar", { id: so.dataset.sugOk }); showToast("Guardado na memória."); }
+      else { await window.nx.rpc("memory.recusar", { id: sn.dataset.sugNao }); showToast("Descartado."); }
+    } catch (err) { showToast(err?.message || "Não deu certo.", true); }
+    await atualizarInicio();
     return;
   }
 
