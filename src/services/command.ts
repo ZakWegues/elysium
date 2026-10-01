@@ -5,6 +5,7 @@ import { ferramenta } from "./ferramentas";
 import { routeAction } from "../actions/router";
 import { trackUsage } from "./history";
 import { getConfig } from "../main/config";
+import type { Canal } from "./estiloResposta";
 
 export type ResultadoComando = {
   actions: BrainAction[];
@@ -31,6 +32,11 @@ export type GanchosComando = {
   onActions?: (actions: BrainAction[]) => void;
   /** Pedaço de resposta de conversa, conforme o modelo escreve. Só o `chat` emite. */
   onToken?: (token: string) => void;
+  /**
+   * Bloco 130: de onde veio o pedido. "voz" (padrão — microfone, áudio do celular) mantém
+   * a resposta curta para falar; "texto" (chat digitado) responde como chat.
+   */
+  canal?: Canal;
 };
 
 export async function executarComando(
@@ -51,6 +57,7 @@ export async function executarComando(
   if (!shortcut && getConfig().cerebroFerramentas !== false) {
     registrarTurnoUsuario(text);
     const r = await agir(text, {
+      canal: ganchos.canal,
       onChamada: (nome, args) => { const eq = ferramentaComoAcao(nome, args); if (eq) ganchos.onActions?.([eq]); },
     });
     if (r?.modo === "ferramentas") {
@@ -73,7 +80,7 @@ export async function executarComando(
     for (const action of actions) trackUsage(text, action);
   } else {
     for (const action of actions) {
-      replies.push(await resolveAction(action, text, ganchos.onToken));
+      replies.push(await resolveAction(action, text, ganchos.onToken, ganchos.canal));
       trackUsage(text, action);
     }
   }
@@ -93,13 +100,13 @@ function ferramentaComoAcao(nome: string, args: Record<string, unknown>): BrainA
 }
 
 /** Só a resposta. É o contrato do `POST /api/command`. */
-export async function processCommand(text: string): Promise<string> {
-  return (await executarComando(text)).reply;
+export async function processCommand(text: string, canal: Canal = "voz"): Promise<string> {
+  return (await executarComando(text, { canal })).reply;
 }
 
 /** A resposta com os pedaços no caminho — o que o WebSocket do celular usa. */
-export async function processCommandStream(text: string, onToken: (token: string) => void): Promise<string> {
-  return (await executarComando(text, { onToken })).reply;
+export async function processCommandStream(text: string, onToken: (token: string) => void, canal: Canal = "voz"): Promise<string> {
+  return (await executarComando(text, { onToken, canal })).reply;
 }
 
 /**
@@ -116,10 +123,11 @@ export async function resolveAction(
   action: BrainAction,
   userText: string,
   onToken?: (token: string) => void,
+  canal: Canal = "voz",
 ): Promise<string> {
   if (action.action !== "chat") return routeAction(action);
 
-  const composed = await composeChatReply(userText, onToken);
+  const composed = await composeChatReply(userText, onToken, canal);
   if (composed) return composed;
 
   // A composição falhou (rede, cota). Se o roteador tiver mandado algum texto, ele

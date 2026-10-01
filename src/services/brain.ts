@@ -1,4 +1,5 @@
 import { getApiKey, getConfig, AppConfig, nomeDoUsuario } from "../main/config";
+import { blocoDeInstrucoes, Canal, estiloValido, maxTokensDaConversa, regrasDaConversa } from "./estiloResposta";
 import { apiKeyError } from "./errors";
 import { callChat, ChatMessage, Provider } from "./llm";
 import { quemOcupaGpu } from "./gpuGuard";
@@ -75,12 +76,11 @@ function buildSystemPrompt(pedido = ""): string {
  * caro pelo prompt gigante de roteamento em todo pedido.
  */
 // Função, não constante: o nome do dono vem da config (fase 13), e pode mudar sem reiniciar.
-const CHAT_SYSTEM_PROMPT = () => `Você é o ELYSIUM, o assistente pessoal do ${nomeDoUsuario()}, falando em português do Brasil.
+// Bloco 130: o canal (voz ou texto) e o estilo decidem a forma — ver `estiloResposta.ts`.
+const CHAT_SYSTEM_PROMPT = (canal: Canal = "voz") => `Você é o ELYSIUM, o assistente pessoal do ${nomeDoUsuario()}, falando em português do Brasil.
 
-Fale como um parceiro inteligente e direto — solto, com personalidade, sem tom de robô ou de manual.
-Sua resposta vai ser LIDA EM VOZ ALTA. Portanto:
-- Responda em 1 a 3 frases, direto ao ponto. Se o assunto pedir mais, resuma e ofereça continuar.
-- Nada de markdown, listas, títulos, asteriscos ou emoji — só texto corrido natural.
+Fale como um parceiro inteligente e direto — solto, com personalidade, sem tom de robô ou de manual. Fale COM ele, na segunda pessoa ("você"), nunca sobre ele em terceira pessoa.
+${regrasDaConversa(canal, estiloValido(getConfig().estiloResposta))}
 - Nunca diga "como modelo de linguagem", "como assistente" ou "eu sou uma IA"; nunca peça desculpas de forma mecânica.
 - Use o histórico e a memória: continue o assunto de onde parou, não repita o que já disse.
 - Se não souber, diga que não sabe em uma frase.`;
@@ -360,6 +360,8 @@ export async function composeChatReply(
   userText: string,
   /** Pedaços da resposta conforme saem do modelo — o streaming do bloco 59. */
   onToken?: (token: string) => void,
+  /** Bloco 130: falada (curta) ou escrita no chat (markdown, tamanho livre). */
+  canal: Canal = "voz",
 ): Promise<string | null> {
   const cfg = getConfig();
 
@@ -369,7 +371,7 @@ export async function composeChatReply(
   const recent = history.slice(-cfg.chatHistoryTurns * 2);
   const ultimo = recent[recent.length - 1];
   const messages: ChatMessage[] = [
-    { role: "system", content: CHAT_SYSTEM_PROMPT() + buildMemoryBlock(userText) + (blocoDoResumo() ? `\n\n[O QUE VEIO ANTES NESTA CONVERSA]\n${blocoDoResumo()}` : "") },
+    { role: "system", content: CHAT_SYSTEM_PROMPT(canal) + blocoDeInstrucoes(cfg.instrucoesPessoais) + buildMemoryBlock(userText) + (blocoDoResumo() ? `\n\n[O QUE VEIO ANTES NESTA CONVERSA]\n${blocoDoResumo()}` : "") },
     ...recent.map(m => ({ role: m.role, content: m.content })),
     // Rede de segurança: se alguém chamar a composição sem passar pelo roteador, o
     // pedido não estaria no histórico e o modelo responderia ao turno anterior.
@@ -385,7 +387,7 @@ export async function composeChatReply(
     const model = provider === "ollama" ? cfg.ollamaChatModel : cfg.brainModel;
     parcial = "";
     const texto = await callChat({
-      provider, model, messages, temperature: 0.6, maxTokens: 300, timeoutMs: 30_000,
+      provider, model, messages, temperature: 0.6, maxTokens: maxTokensDaConversa(canal, estiloValido(cfg.estiloResposta)), timeoutMs: canal === "texto" ? 90_000 : 30_000,
       onToken: onToken ? (t) => { parcial += t; onToken(t); } : undefined,
     });
     return texto.trim() || null;

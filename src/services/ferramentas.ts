@@ -71,7 +71,7 @@ export const FERRAMENTAS: Ferramenta[] = [
   },
   {
     name: "estado_do_pc",
-    description: "CPU, memória, discos, temperatura, bateria e há quanto tempo o PC está ligado. Use para 'como está o PC', 'quanto de RAM', 'está pesado?'.",
+    description: "CPU, memória RAM em uso, discos, temperatura, bateria e há quanto tempo o PC está ligado. Use para 'como está o PC', 'quanto de RAM', 'quanto de memória o PC está usando', 'está pesado?'.",
     parameters: obj({}),
     executar: async () => {
       const t = await getDashboardTelemetry();
@@ -161,7 +161,7 @@ export const FERRAMENTAS: Ferramenta[] = [
   },
   {
     name: "memoria",
-    description: "O que o ELYSIUM guardou sobre o usuário (fatos ditos com 'lembre que…'). Use quando a pergunta depender de algo pessoal.",
+    description: "Os FATOS que o ELYSIUM guardou sobre o usuário (ditos com 'lembre que…'): nome, gostos, onde mora. NÃO é a memória RAM do PC — para RAM use estado_do_pc. Use quando a pergunta depender de algo pessoal.",
     parameters: obj({}),
     executar: async () => {
       const f = listFacts();

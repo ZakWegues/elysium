@@ -1,4 +1,5 @@
 import { getApiKey, getConfig, nomeDoUsuario } from "../main/config";
+import { blocoDeInstrucoes, Canal, regraDoAgente } from "./estiloResposta";
 import { buildMemoryBlock } from "./memoryStore";
 import { callChatComFerramentas, ChatMessage, ChamadaDeFerramenta, Provider } from "./llm";
 import { definicoesDeFerramentas, executarFerramenta, ferramenta } from "./ferramentas";
@@ -50,7 +51,7 @@ export interface ResultadoAgente {
 }
 
 /** Exportado para a bancada (`scripts/bench-agente.mjs`) medir com o prompt de produção. */
-export function promptDoAgente(pedido = ""): string {
+export function promptDoAgente(pedido = "", canal: Canal = "voz"): string {
   const agora = new Date();
   const data = agora.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
   const hora = agora.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
@@ -61,12 +62,13 @@ Agora é ${data}, ${hora} (ISO local ${iso}).
 Como agir
 - Se o pedido precisa de algo do PC (abrir, fechar, tocar, volume, energia, lembrete, rotina, memória, clima, estado do PC, o que está aberto, tela, web), use as ferramentas. Pode usar mais de uma, em sequência: primeiro olhe (programas_abertos, estado_do_pc…), depois aja.
 - Se o pedido é só conversa, pergunta geral, opinião, cálculo ou algo que você sabe sem o PC, não use ferramenta: responda exatamente a palavra CHAT e nada mais.
-- Depois de olhar (programas_abertos, estado_do_pc, rotinas, lembretes…), decida: se o pedido era para fazer algo, chame a ferramenta de ação; se era só saber, responda em 1 a 3 frases curtas, em texto corrido (vai ser lida em voz alta), sem listas, sem markdown, sem emoji.
+- Depois de olhar (programas_abertos, estado_do_pc, rotinas, lembretes…), decida: se o pedido era para fazer algo, chame a ferramenta de ação; ${regraDoAgente(canal)}
 - A resposta diz o que a ferramenta devolveu, e só isso: se ela listou "Bom dia às 07:30", existe a rotina Bom dia às 07:30. Nunca diga que não achou quando a lista tem itens.
 - Fazer é chamar a ferramenta: nunca diga que abriu, fechou, criou ou apagou sem tê-la chamado.
 - Não mencione "ferramenta", "função" ou "busca": fale em primeira pessoa, como se você mesmo tivesse olhado e feito.
+- Fale COM o usuário, na segunda pessoa ("seu PC", "você"), nunca sobre ele em terceira pessoa ("o PC do usuário").
 - Em programas_abertos cada item é "processo (título da janela)": "CalculatorApp (Calculadora)" ou "ApplicationFrameHost (Calculadora)" quer dizer que a calculadora está aberta.
-- Datas para lembretes: calcule a data absoluta a partir de agora.${buildMemoryBlock(pedido)}`;
+- Datas para lembretes: calcule a data absoluta a partir de agora.${blocoDeInstrucoes(getConfig().instrucoesPessoais)}${buildMemoryBlock(pedido)}`;
 }
 
 /** Verbos de ação no passado, em primeira pessoa: o sinal de que o modelo NARROU em vez de agir. */
@@ -94,7 +96,7 @@ const LEITURA = new Set(["programas_abertos", "estado_do_pc", "processos_pesados
 
 export async function agir(
   texto: string,
-  opcoes: { onChamada?: (nome: string, args: Record<string, unknown>) => void } = {},
+  opcoes: { onChamada?: (nome: string, args: Record<string, unknown>) => void; canal?: Canal } = {},
 ): Promise<ResultadoAgente | null> {
   const cfg = getConfig();
   const { provider, motivo } = await provedorDoRoteador(cfg);
@@ -103,7 +105,7 @@ export async function agir(
 
   const contexto = contextoRecente();
   const messages: ChatMessage[] = [
-    { role: "system", content: promptDoAgente(texto) + (contexto ? "\n\n[CONVERSA RECENTE]\n" + contexto : "") },
+    { role: "system", content: promptDoAgente(texto, opcoes.canal) + (contexto ? "\n\n[CONVERSA RECENTE]\n" + contexto : "") },
     { role: "user", content: texto },
   ];
 
@@ -157,7 +159,11 @@ export async function agir(
       // "CHAT" solto, embrulhado em JSON, ou seguido da resposta ("CHAT Alan Turing foi…", o
       // qwen2.5 faz isso): tudo é conversa — quem escreve a resposta é a composeChatReply.
       if (/^\W*chat\b/i.test(content) || /^\s*\{[^}]*"chat"/i.test(content)) return { modo: "chat", reply: "", acoes: [{ action: "chat" }], chamadas };
-      if (!chamadas.length) return content ? { modo: "ferramentas", reply: content, acoes, chamadas } : null;
+      // Bloco 130: resposta em texto SEM ter olhado nada é conversa, mesmo sem o "CHAT". O
+      // qwen2.5 de 7B costuma responder direto ("Um SSD é…") em vez de dizer CHAT, e esse
+      // texto saía como a resposta final — sem o prompt do canal (voz curta / chat escrito),
+      // sem streaming e sem as instruções do dono. Quem escreve conversa é a composeChatReply.
+      if (!chamadas.length) return content ? { modo: "chat", reply: "", acoes: [{ action: "chat" }], chamadas } : null;
       // 🔴 Já houve leitura e o modelo respondeu em texto. O 8B narra ("fechei a
       // calculadora") sem ter agido, ecoa o prompt ("CHAME rotinas") ou contradiz o que
       // leu ("não achei" com a lista cheia). Se ele alega ação sem ter agido, uma

@@ -311,7 +311,7 @@ function sendJson(res: http.ServerResponse, status: number, payload: unknown): v
 // ── HTTP handler ──────────────────────────────────────────────────────────────
 
 function makeHandler(
-  processCommand: (text: string) => Promise<string>,
+  processCommand: (text: string, canal?: "voz" | "texto") => Promise<string>,
 ): http.RequestListener {
   return async (req, res) => {
     // Sem CORS de propósito. O cliente é um app React Native, que não é browser e
@@ -389,13 +389,19 @@ function makeHandler(
       let body: string;
       try { body = await readBody(req); } catch { sendJson(res, 413, { error: "Body too large" }); return; }
       let text = "";
-      try { text = (JSON.parse(body) as { text?: string }).text?.trim() ?? ""; } catch { /* */ }
+      // Bloco 130: "texto" = digitado no celular (resposta de chat); sem campo, voz (o curto de sempre).
+      let canalHttp: "voz" | "texto" = "voz";
+      try {
+        const j = JSON.parse(body) as { text?: string; canal?: string };
+        text = j.text?.trim() ?? "";
+        if (j.canal === "texto") canalHttp = "texto";
+      } catch { /* */ }
       if (!text) {
         sendJson(res, 400, { error: "Missing text field" });
         return;
       }
       try {
-        const reply = await processCommand(text);
+        const reply = await processCommand(text, canalHttp);
         sendJson(res, 200, { reply });
       } catch (e) {
         sendJson(res, 500, { error: String(e) });
@@ -550,10 +556,10 @@ function makeHandler(
 // ── WebSocket upgrade handler ─────────────────────────────────────────────────
 
 /** Um pedido com os pedaços da resposta no caminho. Ver `processCommandStream`. */
-type ComandoComStream = (text: string, onToken: (token: string) => void) => Promise<string>;
+type ComandoComStream = (text: string, onToken: (token: string) => void, canal?: "voz" | "texto") => Promise<string>;
 
 function handleUpgrade(
-  processCommand: (text: string) => Promise<string>,
+  processCommand: (text: string, canal?: "voz" | "texto") => Promise<string>,
   processStream: ComandoComStream | undefined,
   req: http.IncomingMessage,
   socket: Socket,
@@ -633,16 +639,16 @@ function handleUpgrade(
   // Os pedaços viajam como `{type:"chunk", text}` antes do `{type:"reply"}` final, que
   // continua trazendo a resposta inteira. App antigo que não conhece "chunk" ignora e
   // segue lendo o reply — o contrato não quebra.
-  const executar = (texto: string): Promise<string> =>
+  const executar = (texto: string, canal: "voz" | "texto" = "voz"): Promise<string> =>
     processStream
-      ? processStream(texto, (token) => sendToClient(client, JSON.stringify({ type: "chunk", text: token })))
-      : processCommand(texto);
+      ? processStream(texto, (token) => sendToClient(client, JSON.stringify({ type: "chunk", text: token })), canal)
+      : processCommand(texto, canal);
 
   function handleTextFrame(text: string): void {
     try {
-      const msg = JSON.parse(text) as { type?: string; text?: string };
+      const msg = JSON.parse(text) as { type?: string; text?: string; canal?: string };
       if (msg.type === "command" && msg.text) {
-        executar(msg.text)
+        executar(msg.text, msg.canal === "texto" ? "texto" : "voz")
           .then(reply => sendToClient(client, JSON.stringify({ type: "reply", reply })))
           .catch(err  => {
             console.error("[WS] falha ao processar comando de texto:", err);
@@ -687,7 +693,7 @@ function handleUpgrade(
 
 export function startServer(
   token: string,
-  processCommand: (text: string) => Promise<string>,
+  processCommand: (text: string, canal?: "voz" | "texto") => Promise<string>,
   port = 4200,
   processStream?: ComandoComStream,
 ): void {

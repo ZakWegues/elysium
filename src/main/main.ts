@@ -4,6 +4,7 @@
 // descartada pela própria guarda dela. Ver src/main/migrateUserData.ts.
 import "./migrateUserData";
 import { app, BrowserWindow, globalShortcut, ipcMain, clipboard, nativeImage, dialog, shell, powerMonitor } from "electron";
+import { paraFala } from "../services/estiloResposta";
 import * as path from "node:path";
 import * as fs from "node:fs";
 import * as os from "node:os";
@@ -476,6 +477,7 @@ ipcMain.on("chat:send", async (_event, text: string, opcoes?: { refazer?: boolea
     if (opcoes?.refazer) desfazerUltimoTurno();
     else registrarPergunta(text);
     const { reply: combined } = await executarComando(text, {
+      canal: "texto",
       onActions: (actions) => {
         const label = getActionsLabel(actions);
         dashWin?.webContents.send("voice:action-label", label);
@@ -491,7 +493,8 @@ ipcMain.on("chat:send", async (_event, text: string, opcoes?: { refazer?: boolea
     if (!dashWin?.isVisible() || !dashWin.isFocused()) notify("ELYSIUM", combined);
     dashWin?.webContents.send("chat:reply", combined);
     state.set("speaking");
-    await speak(combined);
+    // Bloco 130: a resposta escrita pode ser longa; a caixa de som fala só o começo.
+    await speak(paraFala(combined));
   } catch (err) {
     if (currentToken !== meuToken) return;
     const msg = err instanceof ElysiumError ? err.spoken : "Tive um problema, mas já voltei ao normal.";

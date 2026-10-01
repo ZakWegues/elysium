@@ -103,6 +103,13 @@ export interface AppConfig {
    * agora, e um aviso permanente que ele decidiu ignorar vira ruído no card.
    */
   acessoRemotoNaSaude: boolean;
+  /** Bloco 134: tamanho das respostas — "direto", "equilibrado" ou "detalhado". */
+  estiloResposta: string;
+  /**
+   * Bloco 134: como o dono quer que o ELYSIUM responda, em texto livre (até 1500
+   * caracteres). Dado pessoal: mora só aqui, na config do app — nunca no código.
+   */
+  instrucoesPessoais: string;
   /** Com jogo aberto, rotear pela nuvem em vez de disputar VRAM. Ver `gpuGuard.ts`. */
   evitarGpuOcupada: boolean;
   spotifyClientId: string;
@@ -194,6 +201,8 @@ const DEFAULTS: AppConfig = {
   nomeDoUsuario: "",
   resumoAutomatico: false,
   acessoRemotoNaSaude: false,
+  estiloResposta: "equilibrado",
+  instrucoesPessoais: "",
   evitarGpuOcupada: true,
   spotifyClientId: "042904fef8cc41f0bf05b7abeda2d66f",
   chatHistoryTurns: 6,
