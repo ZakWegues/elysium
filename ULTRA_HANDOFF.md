@@ -5491,3 +5491,10 @@ cidades/países → fuso pelo `Intl`, no fastRoute e na ferramenta `hora_em`.
 de 20/09. Sobram os três limites de 7B de sempre: condicional ("se a calculadora estiver
 aberta", "se estiver tocando"), e "fecha tudo menos o VS Code". O caso "quanto é 15% de
 200" passou a esperar a ferramenta `calcular` (antes esperava CHAT).
+
+### Bloco 139 — versões ✅
+
+Desktop **1.8.0** (assinada, CI verde) publicada e instalada por `update.install`; card Saúde
+sem o Tailscale. Celular **1.8.0 / versionCode 18** (APK — o 129 trouxe módulo nativo).
+Testes: desktop 140, celular 38. Só o Zak: instalar o APK, dar a permissão de reconhecimento
+de fala, conferir o tema e dizer "Elysium" com o app aberto.
