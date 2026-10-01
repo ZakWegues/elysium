@@ -5,6 +5,7 @@
 import "./migrateUserData";
 import { app, BrowserWindow, globalShortcut, ipcMain, clipboard, nativeImage, dialog, shell, powerMonitor } from "electron";
 import { paraFala } from "../services/estiloResposta";
+import { deveSugerir, sugerirContinuacoes } from "../services/continuacoes";
 import * as path from "node:path";
 import * as fs from "node:fs";
 import * as os from "node:os";
@@ -476,7 +477,7 @@ ipcMain.on("chat:send", async (_event, text: string, opcoes?: { refazer?: boolea
     // e não conta de novo nas perguntas frequentes.
     if (opcoes?.refazer) desfazerUltimoTurno();
     else registrarPergunta(text);
-    const { reply: combined } = await executarComando(text, {
+    const { reply: combined, fontes, actions } = await executarComando(text, {
       canal: "texto",
       onActions: (actions) => {
         const label = getActionsLabel(actions);
@@ -492,6 +493,13 @@ ipcMain.on("chat:send", async (_event, text: string, opcoes?: { refazer?: boolea
     // está olhando para ele não precisa de um balão do Windows repetindo a resposta.
     if (!dashWin?.isVisible() || !dashWin.isFocused()) notify("ELYSIUM", combined);
     dashWin?.webContents.send("chat:reply", combined);
+    // Blocos 131 e 132: fontes da busca já; sugestões de continuação quando chegarem.
+    if (fontes.length) dashWin?.webContents.send("chat:extras", { fontes });
+    if (deveSugerir(actions, "texto")) {
+      sugerirContinuacoes(text, combined).then((sugestoes) => {
+        if (sugestoes.length && currentToken === meuToken) dashWin?.webContents.send("chat:extras", { sugestoes });
+      }).catch(() => { /* sem chips */ });
+    }
     state.set("speaking");
     // Bloco 130: a resposta escrita pode ser longa; a caixa de som fala só o começo.
     await speak(paraFala(combined));

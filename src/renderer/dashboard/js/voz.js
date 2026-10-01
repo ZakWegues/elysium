@@ -166,6 +166,47 @@ function finalizarResposta(text) {
   recordMessage("reply", text);
 }
 
+/**
+ * Fontes da busca (bloco 131) e sugestões de próxima pergunta (bloco 132), num rodapé
+ * logo depois da última resposta. As sugestões somem quando você manda outra coisa.
+ */
+function anexarExtras(x) {
+  const bolhas = timeline.querySelectorAll(".bubble.assistant");
+  const ultima = bolhas[bolhas.length - 1];
+  if (!ultima) return;
+  let rodape = ultima.nextElementSibling?.classList.contains("chat-extras") ? ultima.nextElementSibling : null;
+  if (!rodape) {
+    rodape = document.createElement("div");
+    rodape.className = "chat-extras";
+    ultima.after(rodape);
+  }
+  if (x?.fontes?.length) {
+    const host = (u) => { try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return u; } };
+    rodape.insertAdjacentHTML("beforeend", `<div class="chat-fontes">${x.fontes.map((f, i) =>
+      `<button type="button" data-fonte="${escHtml(f.url)}" title="${escHtml(f.titulo)}"><b>${i + 1}</b>${escHtml(host(f.url))}</button>`).join("")}</div>`);
+  }
+  if (x?.sugestoes?.length) {
+    rodape.querySelector(".chat-sugestoes")?.remove();
+    rodape.insertAdjacentHTML("beforeend", `<div class="chat-sugestoes">${x.sugestoes.map(s =>
+      `<button type="button" data-sugestao="${escHtml(s)}">${escHtml(s)}</button>`).join("")}</div>`);
+  }
+  if (isAtBottom()) scrollToBottom();
+}
+
+window.nx.onChatExtras?.(anexarExtras);
+
+timeline.addEventListener("click", (e) => {
+  const f = e.target.closest("button[data-fonte]");
+  if (f) { window.nx.abrirLink(f.dataset.fonte); return; }
+  const s = e.target.closest("button[data-sugestao]");
+  if (!s) return;
+  const texto = s.dataset.sugestao;
+  timeline.querySelectorAll(".chat-sugestoes").forEach(n => n.remove());
+  addBubble("user", texto);
+  recordMessage("me", texto);
+  window.nx.chatSend(texto);
+});
+
 window.nx.onReply(finalizarResposta);
 
 window.nx.onError((msg) => {
@@ -201,6 +242,8 @@ const micBtn   = document.getElementById("mic-btn");
 // O envio de verdade mora em chat-extra.js (bloco 84): anexos, edição da última pergunta e
 // o lado "Celular" com arquivos. Aqui fica só o ponto de entrada que os ouvintes já usam.
 function sendText() {
+  // Pergunta nova: as sugestões da resposta anterior já não servem (bloco 132).
+  timeline.querySelectorAll(".chat-sugestoes").forEach(n => n.remove());
   enviarMensagem();
 }
 

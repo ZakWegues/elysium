@@ -24,6 +24,8 @@ contextBridge.exposeInMainWorld("nx", {
   /** Pedaço da resposta conforme o modelo escreve. O reply final continua vindo inteiro. */
   onChatChunk:     (cb: (t: string)    => void) => { ipcRenderer.on("chat:chunk",         (_e, t) => cb(t)); },
   onChatError:     (cb: (m: string)    => void) => { ipcRenderer.on("chat:error",         (_e, m) => cb(m)); },
+  /** Fontes da busca e sugestões de próxima pergunta, depois da resposta (blocos 131/132). */
+  onChatExtras:    (cb: (x: { fontes?: { titulo: string; url: string }[]; sugestoes?: string[] }) => void) => { ipcRenderer.on("chat:extras", (_e, x) => cb(x)); },
   onChatBusy:      (cb: ()             => void) => { ipcRenderer.on("chat:busy",          ()       => cb()); },
   onRotinaExecutada: (cb: (r: unknown) => void) => { ipcRenderer.on("rotina:executada", (_e, r) => cb(r)); },
   getHistory:      ()                           => ipcRenderer.invoke("history:get"),

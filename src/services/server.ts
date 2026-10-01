@@ -27,6 +27,9 @@
 
 import * as http from "node:http";
 import { desfazerUltimoTurno } from "./brain";
+import type { ResultadoComando } from "./command";
+import type { Fonte } from "./contextoComando";
+import { deveSugerir, sugerirContinuacoes } from "./continuacoes";
 import * as crypto from "node:crypto";
 import type { Socket } from "node:net";
 import { transcribe } from "./stt";
@@ -557,7 +560,7 @@ function makeHandler(
 // ── WebSocket upgrade handler ─────────────────────────────────────────────────
 
 /** Um pedido com os pedaços da resposta no caminho. Ver `processCommandStream`. */
-type ComandoComStream = (text: string, onToken: (token: string) => void, canal?: "voz" | "texto") => Promise<string>;
+type ComandoComStream = (text: string, onToken: (token: string) => void, canal?: "voz" | "texto") => Promise<ResultadoComando>;
 
 function handleUpgrade(
   processCommand: (text: string, canal?: "voz" | "texto") => Promise<string>,
@@ -640,10 +643,18 @@ function handleUpgrade(
   // Os pedaços viajam como `{type:"chunk", text}` antes do `{type:"reply"}` final, que
   // continua trazendo a resposta inteira. App antigo que não conhece "chunk" ignora e
   // segue lendo o reply — o contrato não quebra.
-  const executar = (texto: string, canal: "voz" | "texto" = "voz"): Promise<string> =>
-    processStream
-      ? processStream(texto, (token) => sendToClient(client, JSON.stringify({ type: "chunk", text: token })), canal)
-      : processCommand(texto, canal);
+  const executar = async (texto: string, canal: "voz" | "texto" = "voz"): Promise<{ reply: string; fontes?: Fonte[] }> => {
+    if (!processStream) return { reply: await processCommand(texto, canal) };
+    const r = await processStream(texto, (token) => sendToClient(client, JSON.stringify({ type: "chunk", text: token })), canal);
+    // Bloco 132: as sugestões chegam DEPOIS do reply, numa mensagem própria — o celular já
+    // fechou a bolha; app antigo ignora o tipo que não conhece.
+    if (deveSugerir(r.actions, canal)) {
+      sugerirContinuacoes(texto, r.reply)
+        .then(sugestoes => { if (sugestoes.length) sendToClient(client, JSON.stringify({ type: "sugestoes", sugestoes })); })
+        .catch(() => { /* sem chips */ });
+    }
+    return { reply: r.reply, fontes: r.fontes };
+  };
 
   function handleTextFrame(text: string): void {
     try {
@@ -652,7 +663,8 @@ function handleUpgrade(
         // "Refazer" do celular (bloco 130): o turno anterior sai do histórico, como no dashboard.
         if (msg.refazer === true) desfazerUltimoTurno();
         executar(msg.text, msg.canal === "texto" ? "texto" : "voz")
-          .then(reply => sendToClient(client, JSON.stringify({ type: "reply", reply })))
+          // Bloco 131: `fontes` vai junto; app antigo lê só o `reply`.
+          .then(({ reply, fontes }) => sendToClient(client, JSON.stringify({ type: "reply", reply, ...(fontes?.length ? { fontes } : {}) })))
           .catch(err  => {
             console.error("[WS] falha ao processar comando de texto:", err);
             sendToClient(client, JSON.stringify({ type: "error", error: String(err) }));
@@ -673,8 +685,8 @@ function handleUpgrade(
         return;
       }
       sendToClient(client, JSON.stringify({ type: "transcript", text }));
-      const reply = await executar(text);
-      sendToClient(client, JSON.stringify({ type: "reply", reply }));
+      const { reply, fontes } = await executar(text);
+      sendToClient(client, JSON.stringify({ type: "reply", reply, ...(fontes?.length ? { fontes } : {}) }));
     } catch (e) {
       console.error("[WS] falha ao processar áudio (transcrição ou comando):", e);
       sendToClient(client, JSON.stringify({ type: "error", error: String(e) }));

@@ -6,6 +6,7 @@ import { routeAction } from "../actions/router";
 import { trackUsage } from "./history";
 import { getConfig } from "../main/config";
 import type { Canal } from "./estiloResposta";
+import { comContexto, Fonte, fontesDoPedido } from "./contextoComando";
 
 export type ResultadoComando = {
   actions: BrainAction[];
@@ -13,6 +14,8 @@ export type ResultadoComando = {
   reply: string;
   /** Verdadeiro quando o pedido resolveu no `fastRoute`, sem passar pelo modelo. */
   atalho: boolean;
+  /** Bloco 131: as páginas que a busca na web leu para responder (vazio sem busca). */
+  fontes: Fonte[];
 };
 
 /**
@@ -39,10 +42,18 @@ export type GanchosComando = {
   canal?: Canal;
 };
 
-export async function executarComando(
+export function executarComando(text: string, ganchos: GanchosComando = {}): Promise<ResultadoComando> {
+  // Bloco 131: o pedido inteiro roda dentro de um contexto com o canal e as fontes.
+  return comContexto(ganchos.canal ?? "voz", async () => {
+    const r = await executarNoContexto(text, ganchos);
+    return { ...r, fontes: fontesDoPedido() };
+  });
+}
+
+async function executarNoContexto(
   text: string,
-  ganchos: GanchosComando = {},
-): Promise<ResultadoComando> {
+  ganchos: GanchosComando,
+): Promise<Omit<ResultadoComando, "fontes">> {
   // Comandos fechados ("pausa", "volume 40") não precisam de modelo nenhum. Além de
   // instantâneo, isso preserva a cota de tokens por minuto da Groq para os pedidos
   // que realmente exigem interpretação.
@@ -105,8 +116,8 @@ export async function processCommand(text: string, canal: Canal = "voz"): Promis
 }
 
 /** A resposta com os pedaços no caminho — o que o WebSocket do celular usa. */
-export async function processCommandStream(text: string, onToken: (token: string) => void, canal: Canal = "voz"): Promise<string> {
-  return (await executarComando(text, { onToken, canal })).reply;
+export async function processCommandStream(text: string, onToken: (token: string) => void, canal: Canal = "voz"): Promise<ResultadoComando> {
+  return executarComando(text, { onToken, canal });
 }
 
 /**

@@ -327,3 +327,18 @@
 ::highlight(busca-chat-atual) { background-color: rgba(250, 204, 21, 0.75); color: #111; }
 /* Com a busca aberta, a primeira bolha não pode ficar escondida atrás dela. */
 #center:has(#chat-busca:not([hidden])) #timeline { padding-top: 56px; }
+
+/* Fontes da busca (bloco 131) e sugestões de próxima pergunta (bloco 132). */
+.chat-extras { align-self: flex-start; max-width: 82%; display: flex; flex-direction: column; gap: 6px; margin-top: -2px; }
+.chat-fontes, .chat-sugestoes { display: flex; flex-wrap: wrap; gap: 6px; }
+.chat-fontes button {
+  display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 9px; border-radius: var(--radius-20);
+  border: 1px solid var(--border2); background: var(--surface); color: var(--muted); font: inherit; font-size: 11px; cursor: pointer;
+}
+.chat-fontes button b { font-size: 10px; color: var(--purple-bright); }
+.chat-fontes button:hover { color: var(--text); border-color: rgba(var(--purple-rgb),0.45); }
+.chat-sugestoes button {
+  padding: 6px 11px; border-radius: var(--radius-12); border: 1px solid rgba(var(--purple-rgb),0.35);
+  background: rgba(var(--purple-rgb),0.08); color: var(--text); font: inherit; font-size: 12px; cursor: pointer; text-align: left;
+}
+.chat-sugestoes button:hover { background: rgba(var(--purple-rgb),0.18); }
