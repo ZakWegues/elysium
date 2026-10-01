@@ -77,6 +77,20 @@ describe("backup das chaves (bloco 113)", () => {
   });
 });
 
+describe("servidor do celular (bloco 127)", () => {
+  it("porta ocupada vira erro com o motivo; de pé ou ausente não diz nada", () => {
+    const f = base();
+    f.servidor = { ouvindo: false, erro: "a porta 4200 está ocupada por outro programa" };
+    const s = avaliarSaude(f).find(i => i.id === "servidor")!;
+    expect(s.nivel).toBe("erro");
+    expect(s.detalhe).toMatch(/4200 está ocupada.*não alcança/);
+    f.servidor = { ouvindo: true, erro: null };
+    expect(avaliarSaude(f).some(i => i.id === "servidor")).toBe(false);
+    delete f.servidor;
+    expect(avaliarSaude(f).some(i => i.id === "servidor")).toBe(false);
+  });
+});
+
 describe("Tailscale (bloco 122)", async () => {
   const { interpretarStatus } = await import("../src/services/tailscale");
   const json = JSON.stringify({

@@ -6,7 +6,7 @@ import { estadoAtualizacao, EstadoAtualizacao } from "./atualizacao";
 import { discoCritico } from "../actions/armazenamento";
 import { DiskEntry, getDashboardTelemetry } from "../actions/systemInfo";
 import { listarAparelhos } from "./aparelhos";
-import { clientesConectados } from "./server";
+import { clientesConectados, estadoDoServidor } from "./server";
 import { abrirTailscale, EstadoTailscale, estadoTailscale } from "./tailscale";
 import { app } from "electron";
 import * as fs from "node:fs";
@@ -53,6 +53,8 @@ export interface FatosSaude {
   backupChavesEm: number | null;
   /** Bloco 122. Ausente = não deu para ler (teste antigo, sem Tailscale). */
   tailscale?: EstadoTailscale;
+  /** Bloco 127. Ausente = teste antigo; o servidor é tratado como de pé. */
+  servidor?: { ouvindo: boolean; erro: string | null };
   agora: number;
 }
 
@@ -107,6 +109,11 @@ export function avaliarSaude(f: FatosSaude): ItemSaude[] {
   else if (f.discos.length) {
     const c = f.discos.find(x => /^c/i.test(x.name)) ?? f.discos[0];
     itens.push({ id: "disco", titulo: "Discos", nivel: "ok", detalhe: `${c.name}: ${br(c.freeGB)} GB livres` });
+  }
+
+  // Servidor do celular (bloco 127): sem ele nada do celular funciona — vem antes do resto.
+  if (f.servidor && !f.servidor.ouvindo) {
+    itens.push({ id: "servidor", titulo: "Conexão com o celular", nivel: "erro", detalhe: `${f.servidor.erro ?? "o servidor não subiu"} — o celular não alcança este PC. Feche o outro programa (ou um ELYSIUM de desenvolvimento aberto); tento de novo a cada 30 s` });
   }
 
   // Celular
@@ -174,6 +181,7 @@ export async function verificarSaude(): Promise<ItemSaude[]> {
     celularVistoEm: celular.length ? Math.max(...celular.map(a => a.ultimaVez)) : null,
     backupChavesEm: lerBackupChaves(),
     tailscale,
+    servidor: estadoDoServidor(),
     agora: Date.now(),
   });
 }

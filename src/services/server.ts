@@ -188,6 +188,14 @@ let activeToken = "";
  * está em uso, e ela cai quando ele sai de alcance. Ter token gravado não prova nada — o
  * token continua lá com o celular desligado do outro lado da cidade.
  */
+/**
+ * Se o servidor do celular está de pé (bloco 127). Com a porta ocupada — um ELYSIUM de
+ * desenvolvimento esquecido aberto, ou outro programa na 4200 — o app subia SEM servidor e
+ * não dizia nada: o celular só via "PC fora do ar" e a atualização pelo celular recusava.
+ */
+const servidor = { ouvindo: false, erro: null as string | null };
+export function estadoDoServidor(): { ouvindo: boolean; erro: string | null } { return { ...servidor }; }
+
 export function clientesConectados(): number {
   return wsClients.size;
 }
@@ -694,14 +702,25 @@ export function startServer(
     }
   });
 
-  server.listen(port, "0.0.0.0", () => {
+  server.on("listening", () => {
+    servidor.ouvindo = true;
+    servidor.erro = null;
     console.log(`[ELYSIUM server] listening on 0.0.0.0:${port}`);
   });
+  server.listen(port, "0.0.0.0");
 
+  // Porta ocupada: tenta de novo a cada 30 s em vez de desistir para sempre — quando o outro
+  // processo fecha, o celular volta a alcançar este PC sem reiniciar nada.
+  let avisou = false;
   server.on("error", (e: NodeJS.ErrnoException) => {
     if (e.code === "EADDRINUSE") {
-      console.warn(`[ELYSIUM server] port ${port} in use, skipping server.`);
+      servidor.ouvindo = false;
+      servidor.erro = `a porta ${port} está ocupada por outro programa`;
+      if (!avisou) console.warn(`[ELYSIUM server] port ${port} in use; tentando de novo a cada 30 s.`);
+      avisou = true;
+      setTimeout(() => { server.close(); server.listen(port, "0.0.0.0"); }, 30_000).unref();
     } else {
+      servidor.erro = e.message;
       console.error("[ELYSIUM server] error:", e.message);
     }
   });
