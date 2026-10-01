@@ -46,7 +46,7 @@ function pontuar(consulta, alvo) {
   }
   if (i < q.length) return null;
   // Subsequência só vale quando as letras estão PERTO: "lmbr" em "lembrete" sim, "calc"
-  // espalhado por "prinCipAL projeto de isaaC" não. Sem este teto a paleta devolvia lixo
+  // espalhado por "prinCipAL projeto do Cliente" não. Sem este teto a paleta devolvia lixo
   // de memória para qualquer consulta de quatro letras.
   if (ultimo - primeiro > q.length * 2 + 1) return null;
   return 5 + buracos * 2 + ultimo * 0.01;

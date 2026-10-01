@@ -81,23 +81,23 @@ describe("Tailscale (bloco 122)", async () => {
   const { interpretarStatus } = await import("../src/services/tailscale");
   const json = JSON.stringify({
     BackendState: "Running",
-    Self: { TailscaleIPs: ["100.124.51.14", "fd7a::1"] },
+    Self: { TailscaleIPs: ["100.64.0.1", "fd7a::1"] },
     Peer: {
-      a: { HostName: "POCO X7 Pro", Online: false, OS: "android", LastSeen: "2026-09-30T10:00:00Z" },
+      a: { HostName: "Celular Teste", Online: false, OS: "android", LastSeen: "2026-09-30T10:00:00Z" },
       b: { HostName: "notebook", Online: true, OS: "windows", LastSeen: "0001-01-01T00:00:00Z" },
     },
   });
   it("lê o status: rodando, IP 100.x e só os celulares", () => {
     const s = interpretarStatus(json);
-    expect(s).toMatchObject({ rodando: true, ip: "100.124.51.14" });
-    expect(s.celulares).toEqual([{ nome: "POCO X7 Pro", online: false, sistema: "android", vistoEm: Date.parse("2026-09-30T10:00:00Z") }]);
+    expect(s).toMatchObject({ rodando: true, ip: "100.64.0.1" });
+    expect(s.celulares).toEqual([{ nome: "Celular Teste", online: false, sistema: "android", vistoEm: Date.parse("2026-09-30T10:00:00Z") }]);
   });
   it("celular desligado no Tailscale vira aviso com o nome dele", () => {
     const f = base();
     f.tailscale = { instalado: true, ...interpretarStatus(json) };
     const t = avaliarSaude(f).find(i => i.id === "tailscale")!;
     expect(t.nivel).toBe("aviso");
-    expect(t.detalhe).toMatch(/POCO X7 Pro está desligado/);
+    expect(t.detalhe).toMatch(/Celular Teste está desligado/);
   });
   it("parado no PC oferece abrir; sem Tailscale não diz nada", () => {
     const f = base();

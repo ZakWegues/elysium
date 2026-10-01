@@ -1115,7 +1115,7 @@ Get-NetFirewallRule -Direction Inbound -Action Block -Enabled True | ForEach-Obj
 
 ### ⚠️ O ícone de VPN do Android mente
 
-No POCO X7 Pro (HyperOS), o Tailscale é morto pelo gerenciamento agressivo de bateria, mas o
+No celular do Zak (HyperOS), o Tailscale é morto pelo gerenciamento agressivo de bateria, mas o
 **ícone de VPN continua na barra de status**. O sintoma no `tailscale status` do PC é
 `offline, last seen Nm ago` com o número crescendo.
 
@@ -1143,8 +1143,8 @@ O painel "Acesso fora de casa" na aba 📱 do dashboard mostra o estado e o pass
 
 ### Estado da máquina do Zak
 
-`Ethernet 192.168.15.22` · `Tailscale 100.124.51.14` · hostname `desktop-0uemsh5` ·
-celular `poco-x7-pro` = `100.102.221.39`.
+Endereços, hostname e IPs do Tailscale: veja `ipconfig` e `tailscale status` na hora — dado
+da máquina não fica escrito aqui (decisão da fase 13: dado pessoal só na memória do app).
 
 ---
 
@@ -5271,3 +5271,73 @@ compromisso no PC e no celular. RPC `agenda.status` e `agenda.dia`. `interpretar
 
 Versões: desktop **1.6.2** (instalado; 117–119), 120 entra na próxima. Testes: desktop 100,
 celular 22.
+
+## Parte C — mais alcance
+
+### Bloco 121 — vários PCs no mesmo celular ✅
+
+`elysium-m/src/lib/pairing.ts` virou um cofre em chave **nova** (`elysium_pairings_v1`,
+até 5 PCs) com o PC ativo; `loadPairing`/`savePairing`/`clearPairing` passam por ele e
+continuam gravando a chave antiga (regra: chave do AsyncStorage não se renomeia por OTA —
+quem já estava pareado não migra nada). `idDoPc` é o hostname normalizado; `src/lib/pcAtivo.ts`
+dá `chavePorPc(base)` — conversas, fila de comandos, Caixa, notificações e o desligamento
+agendado ganharam sufixo por PC (o PC que já existia continua na chave sem sufixo). Ajustes →
+Pareamento lista os PCs, troca com um toque, "Parear outro PC" (o QR abre com Cancelar) e
+"Esquecer este PC". `TelaAnimada key={idDoPc}` remonta tudo ao trocar (WebSockets e caches
+são do PC). 401 abre o leitor de QR daquele PC sem apagar os outros. Teste `variosPcs`.
+
+### Bloco 122 — Tailscale melhor (nada exposto na internet) ✅
+
+PC: `src/services/tailscale.ts` lê `tailscale status --json` (`interpretarStatus` é pura) e
+o card Saúde ganhou o item "Tailscale": parado no PC (conserto "Abrir o Tailscale"), ou
+**o celular desligado nele, com o nome do aparelho e há quanto tempo** — no dia em que isto
+foi escrito o do Zak estava desligado havia 35 dias (§12: o HyperOS mata o app e o ícone
+de VPN continua na barra). Celular: com túnel no pareamento, a faixa de conexão diz "PC
+fora de alcance — fora de casa? confira o Tailscale" e o botão abre o app dele
+(`com.tailscale.ipn`, ou a loja).
+
+### Bloco 123 — widgets e atalhos ✅
+
+Widget **Foco** (4×1: começar 25/50 min, ou quanto falta e parar) e widget **Saúde** (3×1:
+bolinha e o pior item), em `widgets.tsx`/`handler.tsx`, atualizados junto com os outros.
+Atalhos do toque longo no ícone via `expo-quick-actions` (nativo → APK): falar com o
+ELYSIUM, resumo do dia (126), modo foco de 25 min, buscar. Não uso o
+`useQuickActionCallback` da lib: ele refaz o efeito a cada callback novo e dispararia o
+atalho inicial de novo; o atalho que abre o app frio espera o pareamento carregar (ref).
+
+## Parte D — versões e uso
+
+### Bloco 124 — versões ✅
+
+Desktop **1.7.0** (assinada, CI verde; leva 120 e 122) publicada e instalada por
+`update.install` — a verificação de assinatura do bloco 115 passou em produção. Celular
+**1.7.0 / versionCode 17** (APK: 121 e 123 mudaram o nativo), publicado com CI verde.
+⚠️ Para instalar o dev por cima não dá: um electron de dev esquecido segura a porta 4200 e
+o instalado sobe sem servidor — `update.status` respondia pelo dev ("pc":"1.6.2") e
+`update.install` recusava ("em desenvolvimento"). Fechar o dev antes.
+
+### Bloco 125 — uso real e calibragem ⏳ (do Zak, 1–2 semanas)
+
+Com os números do 116 no log do PC (`[celular]` mão livre; disparos/falsos da palavra de
+ativação), ajustar limiares e confiança. Revisar o card Saúde.
+
+## Extras da noite de 30/09 (pedido do Zak: "faz tudo que você tiver de ideia")
+
+### Bloco 126 — card Hoje, consertos visuais, poda de instaladores ✅ (desktop 1.7.1)
+
+- RPC `resumo.dia` → `{texto}` (o mesmo do "bom dia"); card **Hoje** na Início dos dois
+  lados (no celular com Ouvir) e atalho "Resumo do dia" no ícone.
+- Card novo de fábrica entra ao lado do vizinho na ordem de fábrica, não no fim (PC e
+  celular) — antes o Hoje nasceria depois de Discos.
+- Alertas do resumo: "título: detalhe" com ponto e vírgula; antes saía "Disco C (26 GB
+  livres (94% usado))".
+- Novidades da versão: `**negrito**` e itens `- ` das notas do GitHub formatados.
+- Abas e o "nublado" do chip do clima no tema ELYSIUM: o `--muted` #5a5d7a sumia sobre a
+  parte dourada do fundo ("Ajustes" ilegível); agora o branco translúcido da busca.
+- `publicar-release.mjs` (desktop) apaga de `release/` os instaladores além do atual e do
+  anterior — havia 23 (1,7 GB) com o C: a 94%.
+- Exemplos com o nome do Zak e o modelo do celular (comentários, testes, §12 deste
+  documento) viraram genéricos — regra da Parte 0.
+
+Medição do C: em 30/09 (só leitura): Downloads ~54 GB (uma pasta de ~40 GB), modelos do
+Ollama ~11 GB, `node_modules` do celular ~7 GB, BlueStacks ~8 GB, Gradle ~4 GB.

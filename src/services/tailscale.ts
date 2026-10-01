@@ -7,8 +7,8 @@ import * as path from "node:path";
  * Tailscale visto do PC (fase 13, bloco 122) — decisão do Zak: fora de casa continua pela
  * VPN, a porta do PC nunca vai para a internet. O que faltava era VER quando ela cai.
  *
- * No dia em que isto foi escrito, o Tailscale do PC estava rodando e o do celular (POCO X7
- * Pro, HyperOS) aparecia DESLIGADO na rede — o mesmo problema anotado em agosto (§12: o
+ * No dia em que isto foi escrito, o Tailscale do PC estava rodando e o do celular (Android
+ * com HyperOS) aparecia DESLIGADO na rede — o mesmo problema anotado em agosto (§12: o
  * gerenciador de bateria mata o app e o ícone de VPN continua na barra). O card Saúde passa
  * a dizer isso com o nome do aparelho, em vez de o celular só mostrar "PC fora do ar".
  */
