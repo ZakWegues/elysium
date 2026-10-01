@@ -47,7 +47,8 @@ describe("fastRoute — o que tem que ir para o cérebro", () => {
   it("frases compostas ou com contexto", () => {
     expect(acoes("pausa a música e abre o chrome")).toBeNull();
     expect(acoes("volume 40 e toca lo-fi")).toBeNull();
-    expect(acoes("que horas são em tóquio")).toBeNull();
+    // Cidade sem fuso conhecido continua indo ao cérebro (Tóquio agora é atalho — fase 14).
+    expect(acoes("que horas são em pasárgada")).toBeNull();
   });
 
   it("'memória' sozinha é ambígua (RAM ou o que ele lembra)", () => {
@@ -95,6 +96,8 @@ describe("fastRoute — listas, timers e conta (fase 14)", () => {
     expect(acoes("12 * 7")).toEqual(["calculate"]);
     expect(acoes("o que tem na lista do mercado")).toEqual(["list_show"]);
     expect(acoes("cancela o timer do miojo")).toEqual(["timer_cancel"]);
+    expect(fastRoute("que horas são em tóquio agora?")).toEqual([{ action: "world_time", city: "tóquio" }]);
+    expect(acoes("que horas são")).toEqual(["system_info"]);
   });
 
   it("não confunde: pergunta sem conta, 'quanto é' sem número, música", () => {

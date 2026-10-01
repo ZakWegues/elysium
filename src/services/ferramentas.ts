@@ -1,6 +1,7 @@
 import { clipboard } from "electron";
 import { limparFeitos, marcarItem, normalizarNomeLista } from "./listas";
 import { calcular, formatarNumero } from "./calculadora";
+import { horaEm } from "./horaMundo";
 import { rodarComando } from "./comandosIa";
 import { resumirLink } from "./leitorDeLink";
 import type { DefinicaoDeFerramenta } from "./llm";
@@ -331,6 +332,12 @@ export const FERRAMENTAS: Ferramenta[] = [
       const v = calcular(e);
       return v === null ? "Essa expressão não é uma conta que eu consiga fazer." : `${e} = ${formatarNumero(v)}`;
     },
+  },
+  {
+    name: "hora_em",
+    description: "Que horas são em outra cidade ou país (Tóquio, Nova York, Londres…). Use para 'que horas são em X', 'qual o horário no Japão'. NÃO é o clima.",
+    parameters: obj({ cidade: s("A cidade ou o país") }, ["cidade"]),
+    executar: async a => horaEm(str(a, "cidade")) ?? `Não sei o fuso de ${str(a, "cidade")}.`,
   },
   {
     name: "comando_de_ia",

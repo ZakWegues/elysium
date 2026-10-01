@@ -71,6 +71,43 @@ Como agir
 - Datas para lembretes: calcule a data absoluta a partir de agora.${blocoDeInstrucoes(getConfig().instrucoesPessoais)}${buildMemoryBlock(pedido)}`;
 }
 
+/**
+ * Chamadas de ferramenta que o modelo escreveu como TEXTO (fase 14). Com ~48 ferramentas o
+ * qwen2.5 às vezes devolve as chamadas no conteúdo em vez de tool_calls, em dois formatos:
+ * `midia({"operacao": "pause"})` e o abreviado `volume 40` / `tocar_musica Radiohead`.
+ * Só vale se TODO o texto for isso (até 6 linhas) e todos os nomes existirem — frase normal
+ * que começa com o nome de uma ferramenta não vira ação. No abreviado, o valor vai para o
+ * parâmetro principal (o primeiro obrigatório), e ferramenta sem parâmetro não aceita valor.
+ * Pura, para teste.
+ */
+export function chamadasEmTexto(texto: string, ferramentas: Map<string, Record<string, unknown>>): ChamadaDeFerramenta[] {
+  const linhas = texto.replace(/```\w*/g, "").split("\n").map(l => l.trim()).filter(Boolean);
+  if (!linhas.length || linhas.length > 6) return [];
+  const chamadas: ChamadaDeFerramenta[] = [];
+  for (const [i, l] of linhas.entries()) {
+    const json = /^([a-z_]+)\s*\((\{[\s\S]*\})?\)\s*;?$/.exec(l);
+    if (json) {
+      if (!ferramentas.has(json[1])) return [];
+      let args: Record<string, unknown> = {};
+      if (json[2]) { try { args = JSON.parse(json[2]); } catch { return []; } }
+      chamadas.push({ id: `texto-${i}`, name: json[1], args });
+      continue;
+    }
+    const curto = /^([a-z_]+)(?:\s+(.{1,80}))?$/.exec(l);
+    if (!curto || !ferramentas.has(curto[1]) || /[.!?]$/.test(l)) return [];
+    const schema = ferramentas.get(curto[1]) as { properties?: Record<string, { type?: string }>; required?: string[] };
+    const props = Object.keys(schema.properties ?? {});
+    if (!curto[2]) { chamadas.push({ id: `texto-${i}`, name: curto[1], args: {} }); continue; }
+    const principal = schema.required?.[0] ?? props[0];
+    if (!principal) return [];
+    const tipo = schema.properties?.[principal]?.type;
+    const bruto = curto[2].trim();
+    const valor = (tipo === "number" || tipo === "integer") && /^-?\d+([.,]\d+)?$/.test(bruto) ? Number(bruto.replace(",", ".")) : tipo === "array" ? [bruto] : bruto;
+    chamadas.push({ id: `texto-${i}`, name: curto[1], args: { [principal]: valor } });
+  }
+  return chamadas;
+}
+
 /** Verbos de ação no passado, em primeira pessoa: o sinal de que o modelo NARROU em vez de agir. */
 const ALEGA_ACAO = /\b(fechei|abri|toquei|pausei|coloquei|ajustei|aumentei|diminuí|criei|agendei|cancelei|apaguei|esqueci|guardei|mandei|enviei|desliguei|reiniciei|bloqueei|suspendi|tirei|salvei|escrevi|rodei|ativei|maximizei|minimizei)\b|\b(foi|foram|está|estão)\s+(aberto|aberta|abertos|abertas|fechad[oa]s?|criad[oa]s?|apagad[oa]s?|cancelad[oa]s?|agendad[oa]s?|pausad[oa]s?|ativad[oa]s?|enviad[oa]s?|mandad[oa]s?|salv[oa]s?|bloquead[oa]s?|desligad[oa]s?|reiniciad[oa]s?|guardad[oa]s?)\b/i;
 function alegaAcao(texto: string): boolean {
@@ -92,7 +129,7 @@ function textoConfiavel(content: string, leituras: { resultado: string }[]): boo
 }
 
 /** Ferramentas que só OLHAM. Chamá-las não conta como "ter feito" alguma coisa. */
-const LEITURA = new Set(["programas_abertos", "estado_do_pc", "processos_pesados", "clima", "lembretes", "memoria", "rotinas", "presets", "tocando_agora", "area_de_transferencia", "espaco_em_disco", "versao_do_elysium", "resumo_do_dia", "agenda", "ver_lista", "ver_timers", "calcular", "resumir_link"]);
+const LEITURA = new Set(["programas_abertos", "estado_do_pc", "processos_pesados", "clima", "lembretes", "memoria", "rotinas", "presets", "tocando_agora", "area_de_transferencia", "espaco_em_disco", "versao_do_elysium", "resumo_do_dia", "agenda", "ver_lista", "ver_timers", "calcular", "resumir_link", "hora_em"]);
 
 export async function agir(
   texto: string,
@@ -147,6 +184,18 @@ export async function agir(
       } else {
         console.error(`[agente] falha do provedor "${prov}": ${msg}`);
         return null;
+      }
+    }
+
+    // Fase 14: com ~48 ferramentas o qwen2.5 às vezes ESCREVE as chamadas em texto
+    // (`midia({"operacao": "pause"})` e `volume({...})`, uma por linha) em vez de devolvê-las
+    // como tool_calls.
+    // Se o texto é só isso, com nomes que existem, vira chamada de verdade.
+    if (!resposta.toolCalls.length) {
+      const escritas = chamadasEmTexto(resposta.content, new Map(definicoesDeFerramentas().map(d => [d.name, d.parameters])));
+      if (escritas.length) {
+        console.log(`[agente] ${escritas.length} chamada(s) escrita(s) em texto reconhecida(s)`);
+        resposta = { ...resposta, content: "", toolCalls: escritas };
       }
     }
 

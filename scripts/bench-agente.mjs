@@ -41,10 +41,10 @@ Module._load = function (pedido, ...resto) {
   return carregarOriginal.call(this, pedido, ...resto);
 };
 const { definicoesDeFerramentas } = require(path.join(raiz, "dist/services/ferramentas.js"));
-const { promptDoAgente } = require(path.join(raiz, "dist/services/agente.js"));
+const { promptDoAgente, chamadasEmTexto } = require(path.join(raiz, "dist/services/agente.js"));
 
 const OLLAMA = "http://127.0.0.1:11434/api/chat";
-const LEITURA = new Set(["programas_abertos", "estado_do_pc", "processos_pesados", "clima", "lembretes", "memoria", "rotinas", "presets", "tocando_agora", "area_de_transferencia"]);
+const LEITURA = new Set(["programas_abertos", "estado_do_pc", "processos_pesados", "clima", "lembretes", "memoria", "rotinas", "presets", "tocando_agora", "area_de_transferencia", "espaco_em_disco", "versao_do_elysium", "resumo_do_dia", "agenda", "ver_lista", "ver_timers", "calcular", "resumir_link", "hora_em"]);
 
 /** O PC de mentira: o que cada leitura devolve quando o caso não diz outra coisa. */
 const CENARIO_PADRAO = {
@@ -102,6 +102,8 @@ async function rodarCaso(modelo, caso) {
   let continuou = false, texto = "";
   for (let rodada = 0; rodada < 4; rodada++) {
     const r = await chat(modelo, messages);
+    // Igual à produção (fase 14): chamada escrita em texto vira chamada de verdade.
+    if (!r.toolCalls.length) { const e = chamadasEmTexto(r.content, new Map(tools.map(t => [t.function.name, t.function.parameters]))); if (e.length) { r.toolCalls = e.map(c => ({ name: c.name, args: c.args })); r.content = ""; } }
     if (!r.toolCalls.length) { texto = r.content.trim(); break; }
     messages.push(r.bruto);
     for (const c of r.toolCalls) {

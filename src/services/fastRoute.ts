@@ -2,6 +2,7 @@ import type { BrainAction } from "./brain";
 import { pedidoDeLista } from "./listas";
 import { interpretarTimer } from "./timers";
 import { calcular } from "./calculadora";
+import { pedidoDeHora } from "./horaMundo";
 
 /**
  * Roteamento local, sem IA.
@@ -141,6 +142,9 @@ export function fastRoute(text: string): BrainAction[] | null {
   if (lista) return [{ action: "list_add", items: lista.itens, list: lista.lista }];
   const timer = interpretarTimer(text);
   if (timer) return [{ action: "timer_start", ms: timer.ms, name: timer.nome || undefined }];
+  // Hora em outra cidade (fase 14): "que horas são em Tóquio" virava o clima de Tóquio.
+  const cidade = pedidoDeHora(text);
+  if (cidade) return [{ action: "world_time", city: cidade }];
   // Conta (bloco 138): "quanto é 15% de 230", "calcula 12 vezes 7", ou a expressão pura.
   // `(?=\s|$)` e não `\b`: sem a flag u, "é" não conta como letra e o `\b` depois dele falha.
   if ((/^\s*(quanto (é|e|da|dá)|calcula|calcule)(?=\s|$)/i.test(text) || /^[\d\s.,+\-*/x×÷^()%]+[?=]?$/i.test(text.trim())) && /\d/.test(text) && calcular(text) !== null) {

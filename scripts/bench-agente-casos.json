@@ -28,8 +28,8 @@
     { "texto": "se estiver tocando alguma coisa, pausa", "esperado": [], "cenario": { "tocando_agora": "Nada tocando no Spotify agora." } },
     { "texto": "tira um print e manda pro celular", "esperado": ["tirar_print", "mandar_para_o_celular"] },
     { "texto": "desliga o pc daqui a 30 minutos", "esperado": ["energia:30"] },
-    { "texto": "quanto é 15% de 200?", "esperado": "CHAT" },
-    { "texto": "que horas são em tóquio agora?", "esperado": "CHAT" },
+    { "texto": "quanto é 15% de 200?", "esperado": [], "leituras": ["calcular"] },
+    { "texto": "que horas são em tóquio agora?", "esperado": [], "leituras": ["hora_em"] },
     { "texto": "coloca o volume em 40 e toca alguma coisa do Radiohead", "esperado": ["volume:40", "tocar_musica:radiohead"] },
     { "texto": "apaga a rotina Bom dia", "esperado": ["apagar_rotina:bom"] }
   ]

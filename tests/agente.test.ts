@@ -152,3 +152,37 @@ describe("modo tarefa no laço (bloco 119)", () => {
     expect(r?.reply).toBe("Feito:\n- chrome fechado.\n- Feito.");
   });
 });
+
+describe("chamadas escritas em texto (fase 14)", async () => {
+  const { chamadasEmTexto } = await import("../src/services/agente");
+  const nomes = new Map<string, Record<string, unknown>>([
+    ["midia", { properties: { operacao: { type: "string" } }, required: ["operacao"] }],
+    ["volume", { properties: { nivel: { type: "string" } }, required: ["nivel"] }],
+    ["abrir_programa", { properties: { nome: { type: "string" } }, required: ["nome"] }],
+    ["clima", { properties: {} }],
+    ["energia", { properties: { operacao: { type: "string" }, segundos: { type: "integer" } }, required: ["operacao"] }],
+  ]);
+  it("texto só com chamadas válidas vira chamada", () => {
+    expect(chamadasEmTexto('midia({"operacao": "pause"})\nvolume({"nivel": "down"})', nomes)).toEqual([
+      { id: "texto-0", name: "midia", args: { operacao: "pause" } },
+      { id: "texto-1", name: "volume", args: { nivel: "down" } },
+    ]);
+    expect(chamadasEmTexto('```\nabrir_programa({"nome": "chrome"})\n```', nomes)).toHaveLength(1);
+  });
+  it("formato abreviado: 'volume 40' / 'tocar_musica Radiohead'", () => {
+    expect(chamadasEmTexto("volume 40\nabrir_programa Spotify", nomes)).toEqual([
+      { id: "texto-0", name: "volume", args: { nivel: "40" } },
+      { id: "texto-1", name: "abrir_programa", args: { nome: "Spotify" } },
+    ]);
+    expect(chamadasEmTexto("clima", nomes)).toEqual([{ id: "texto-0", name: "clima", args: {} }]);
+    expect(chamadasEmTexto("clima de hoje: 20 graus", nomes)).toEqual([]);
+    expect(chamadasEmTexto("volume está alto demais.", nomes)).toEqual([]);
+  });
+
+  it("frase normal, nome inventado ou JSON quebrado não vira ação", () => {
+    expect(chamadasEmTexto("Pausei a música para você.", nomes)).toEqual([]);
+    expect(chamadasEmTexto('apagar_tudo({"x": 1})', nomes)).toEqual([]);
+    expect(chamadasEmTexto('midia({operacao: pause})', nomes)).toEqual([]);
+    expect(chamadasEmTexto('midia({"operacao": "pause"})\nE pronto!', nomes)).toEqual([]);
+  });
+});

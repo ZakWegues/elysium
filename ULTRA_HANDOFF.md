@@ -5366,3 +5366,128 @@ Disco C às 23h40 de 30/09: **21,5 GB livres (95,5%)**. O que cresceu na noite n
 builds (Gradle, `android/`, `release/` iguais ou menores) e sim o `pagefile.sys` (13,5 GB,
 RAM a ~90%); `hiberfil.sys` tem 6,4 GB. Os dois são do Windows — fica para o Zak decidir
 (`powercfg /h off` desliga a hibernação e devolve os 6,4 GB).
+
+## 32. Fase 14 — inteligência, design e coisas novas para fazer (blocos 128–139)
+
+> Em 01/10/2026 o Zak instalou o APK 1.7.0 e disse: falar "Elysium" não faz nada; **nada na
+> pasta Downloads pode ser alterado**; **sem Google Agenda e sem Tailscale agora**; tirar
+> totalmente o vidro líquido dos temas ELYSIUM do celular (só um blur levíssimo); e mais
+> inteligência e mais coisas para fazer nos dois lados, olhando o que se elogia em outros
+> assistentes. Pesquisa: ChatGPT (memória, projetos, tarefas), Raycast (Quick AI, AI
+> Commands sobre texto), Perplexity (respostas com fontes), Alexa/Gemini (listas, timers,
+> rotinas, resumo do dia). Ele escolheu os quatro grupos: respostas melhores, listas e
+> timers, comandos de IA, jeito de responder.
+>
+> **Downloads é intocável**: conferido que `storage.clean` só mexe em Lixeira/temporários e
+> que `espaco_em_disco`/Armazenamento só leem e abrem (o "mostrar arquivo" só aponta).
+
+### Bloco 128 — tema ELYSIUM sem vidro; Tailscale e Agenda fora do caminho ✅
+
+- `GlassSurface.tsx`: na família noite sai o fio especular das arestas e a borda de vidro
+  do `GlassCircle`; blur fixo em 6 (`BLUR_NOITE`). `palettes.ts`: `glassSheen` da noite
+  transparente (zera o reflexo do modal/popover), `glassBorder` = `border` (0,10), tinta
+  0,84/0,90 (painel quase sólido). O pedido de 18/09 (bloco 70) tinha ficado pela metade.
+- Config `acessoRemotoNaSaude` (padrão **desligado**, Ajustes → Sistema): sem ela o card
+  Saúde e o resumo não falam do Tailscale; `pairing.endpoints.acessoRemoto` faz a faixa do
+  celular voltar a "PC fora do ar / Procurar". Ajustes → Google Agenda foi para o fim.
+
+### Bloco 129 — "Elysium" no celular, com o app aberto ✅ (APK)
+
+O celular nunca teve palavra de ativação (só a mão livre por botão), e a do PC está
+**desligada** na config do Zak (`palavraDeAtivacao: false`) — ninguém escutava. Escolha
+dele: no celular, só com o app na tela.
+- `expo-speech-recognition` (SpeechRecognizer do Android), modo contínuo (Android 13+, e o
+  contínuo usa fonte de áudio própria — some o bipe), no aparelho quando o pt-BR estiver
+  baixado; `contextualStrings: ["Elysium"]`.
+- `palavraCasa.ts` (puro, testado): acha "elysium/elísio/ilísio/elisium/e lísio…" sem
+  disparar com "é liso", Elisa ou Eliseu (nome de gente fica de fora de propósito); o que
+  vem depois é o pedido ("Elysium, pausa a música" → primeira rodada da mão livre).
+- `microfone.ts`: ocupantes do microfone (palavra, mão livre, gravar, fala). O reconhecedor
+  só escuta com o microfone livre, na Início/Chat, app na frente e Ajustes fechado; ao
+  ouvir, é abortado ANTES de a mão livre gravar (300 ms de respiro).
+- Religa sozinho com recuo (0,5 s dobrando até 30 s em erro); desiste sem permissão ou sem
+  serviço. Números de cada escuta vão ao log do PC (`[celular] palavra-cel`).
+- Ajustes → Voz: "Ouvir 'Elysium'" (ligado por padrão).
+
+### Bloco 130 — chat escrito responde como chat ✅
+
+- `estiloResposta.ts` (puro): **canal** voz/texto. Voz continua "1 a 3 frases, sem
+  markdown, 300 tokens"; texto = markdown quando ajuda, tamanho pela pergunta, ~1500 tokens.
+  `executarComando({canal})`: dashboard digitado e celular digitado (`WS {canal:"texto"}`,
+  `/api/command {canal}`) = texto; o resto (microfone, áudio, rotinas, PC antigo) = voz.
+- A caixa de som lê só o começo de uma resposta escrita longa (`paraFala`, "o resto está na
+  tela") — dashboard e celular.
+- Achado: o qwen 7B respondia direto em vez de "CHAT" e esse texto virava a resposta sem o
+  prompt do canal. Resposta sem ter olhado nada agora vai para a `composeChatReply`.
+- Achado: "quanto de memória o PC está usando" chamava a ferramenta de **fatos** — as
+  descrições de `memoria`/`estado_do_pc` dizem o que é RAM. Fala em segunda pessoa.
+- Celular: markdown nas bolhas (`lib/markdown.ts` + `components/Markdown.tsx`, sem lib
+  nativa), toque longo = Copiar / Ouvir / Refazer (WS `refazer` desfaz o turno no PC).
+
+### Bloco 131 — busca com fontes ✅
+
+`contextoComando.ts` (AsyncLocalStorage) leva canal e fontes pelo pedido inteiro.
+`webSearch.extrairFontes` lê `executed_tools[].search_results` do `browser_search` (as
+páginas ABERTAS primeiro, um link por site) e tira as marcas "【0†L6-L11】". Fontes viram
+chips: dashboard (`chat:extras`) e celular (campo `fontes` no reply do WS).
+
+### Bloco 132 — sugestões de próxima pergunta ✅
+
+`continuacoes.ts`: depois de conversa/busca ESCRITA, 3 perguntas em JSON (validação pura);
+chegam depois da resposta (dashboard `chat:extras`, celular `{type:"sugestoes"}`) e somem
+ao mandar outra coisa.
+
+### Bloco 133 — buscar dentro das conversas ✅
+
+`buscaConversas.ts` (puro, nos dois repos): todas as palavras, sem acento, um trecho por
+conversa. RPC `chat.search`; paleta Ctrl+K grupo "Dentro das conversas"; celular, campo na
+tela Conversas. **Retomar a conversa depois de reiniciar ficou de fora**: o histórico do
+cérebro zera sozinho após 5 min parado (`chatIdleResetMs`), então quase nunca valeria.
+
+### Bloco 134 — jeito de responder ✅
+
+Config `estiloResposta` (direto/equilibrado/detalhado) e `instrucoesPessoais` (texto
+livre, 1500) — **dado pessoal, só na config do app**. Entram no prompt da conversa e do
+agente. Ajustes → Conversa (PC, campo novo tipo "area") e Ajustes → Jeito de responder
+(celular, RPC `perfil.get/set`).
+
+### Blocos 135 e 136 — listas e timers ✅
+
+- `listas.ts` (puro + store `listas.json`, entra no backup): nome normalizado (mercado =
+  Compras, afazeres = Tarefas), sem duplicar, item marcado volta a pendente. "põe leite,
+  ovo e café na lista do mercado" no **fastRoute** (texto original, com acento; "lista de
+  reprodução" fica de fora). Ferramentas `adicionar_na_lista`, `ver_lista`, `marcar_item`,
+  `limpar_feitos`; RPC `listas.*`; card Listas nos dois lados.
+- `timers.ts`: "timer de 10 minutos do miojo", vários, persistidos (vencido há mais de 5
+  min ao reabrir sai sem aviso). Ao acabar: notificação, fala, entrega ao celular. fastRoute
+  + ferramentas `criar_timer/ver_timers/cancelar_timer`; RPC `timers.*`; card Timer do PC
+  mostra os com nome; card Timers no celular com contagem ao vivo.
+
+### Blocos 137 e 138 — comandos de IA, calculadora, resumir link ✅
+
+- `comandosIa.ts`: corrigir, traduzir (en/pt), resumir, mais formal, mais curto, explicar
+  + os do Zak (Ajustes → Comandos de IA). PC: paleta Ctrl+K sobre o texto copiado →
+  resultado na área de transferência; ferramenta `comando_de_ia`. Celular: compartilhar
+  texto/link → "Usar IA"; "/" no chat.
+- `calculadora.ts` (sem eval): "quanto é 15% de 230" no fastRoute; o agente usa `calcular`
+  em vez de conta de cabeça. ⚠️ `\b` não funciona depois de "é" sem a flag `u` — use
+  `(?=\s|$)`.
+- `leitorDeLink.ts`: só http(s) **público** (nada de localhost/rede local/100.64), tira
+  script/menu/rodapé, prefere `<article>`; resume curto na voz ou em tópicos no chat.
+
+### Bancada do agente depois da fase 14 — e dois consertos que ela achou ✅
+
+Com 48 ferramentas, a primeira medição caiu para **65%** (1 rep.) / **73%** (3 rep.). Não
+era contexto (o prompt + ferramentas dá ~4,6 mil tokens, cabe nos 8192): o qwen2.5 passou a
+**escrever as chamadas como texto** em vez de tool_calls — `midia({"operacao": "pause"})` e
+até o abreviado `volume 40` / `tocar_musica Radiohead`. `chamadasEmTexto` (agente.ts, pura,
+testada) reconhece os dois formatos quando TODO o texto é isso e os nomes existem; no
+abreviado o valor vai ao parâmetro principal. A bancada usa a mesma função.
+
+E "que horas são em Tóquio" (que virava o clima de Tóquio) agora é `horaMundo.ts`: ~30
+cidades/países → fuso pelo `Intl`, no fastRoute e na ferramenta `hora_em`.
+
+**Medido em 01/10/2026, qwen2.5:7b, 3 repetições: 51/60 (85%)**, p50 0,95 s — acima dos 80%
+de 20/09. Sobram os três limites de 7B de sempre: condicional ("se a calculadora estiver
+aberta", "se estiver tocando"), e "fecha tudo menos o VS Code". O caso "quanto é 15% de
+200" passou a esperar a ferramenta `calcular` (antes esperava CHAT).
