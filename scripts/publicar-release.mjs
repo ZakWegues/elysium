@@ -95,3 +95,23 @@ if (existe) {
   fs.rmSync(arqNotas, { force: true });
 }
 console.log(`✓ ${tag} publicada em https://github.com/${REPO}/releases/tag/${tag}`);
+
+// Poda (bloco 126): cada build deixava um instalador de ~76 MB em release/, e o disco C do
+// PC chegou a 94% com 23 deles parados lá (1,7 GB). Todos estão no GitHub; aqui ficam só a
+// versão publicada agora e a anterior, para um reinstalar rápido sem baixar.
+{
+  const versaoDe = (n) => /^ELYSIUM-Setup-(\d+)\.(\d+)\.(\d+)\.exe$/.exec(n)?.slice(1).map(Number);
+  const pasta = path.join(raiz, "release");
+  const antigos = fs.readdirSync(pasta)
+    .filter(n => versaoDe(n))
+    .sort((a, b) => { const x = versaoDe(a), y = versaoDe(b); return y[0] - x[0] || y[1] - x[1] || y[2] - x[2]; })
+    .slice(2);
+  let liberado = 0;
+  for (const n of antigos) {
+    for (const arq of [n, `${n}.blockmap`]) {
+      const p = path.join(pasta, arq);
+      try { liberado += fs.statSync(p).size; fs.rmSync(p); } catch { /* já não existe */ }
+    }
+  }
+  if (antigos.length) console.log(`✓ ${antigos.length} instaladores antigos apagados de release/ (${Math.round(liberado / 1048576)} MB; continuam no GitHub)`);
+}
