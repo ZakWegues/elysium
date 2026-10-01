@@ -39,6 +39,7 @@ import { mascarar } from "../main/logArquivo";
 import { aceitarSugestao, listarSugestoesDeFato, recusarSugestao } from "./memoryStore";
 import { agendaFalada, estadoAgenda, eventosDoDia } from "./agenda";
 import { resumoDoDia } from "./resumoDoDia";
+import { buscarNasConversas } from "./buscaConversas";
 import { comecarFoco, estadoFoco, pararFoco, salvarListaFoco } from "./foco";
 import { abrirNoPc, AlvoAbrir, AlvoLimpeza, lerArmazenamento, limpar } from "../actions/armazenamento";
 import { aguardarDownloads, estadoAtualizacao, instalarAtualizacaoDesktop, verificarAtualizacoes } from "./atualizacao";
@@ -887,6 +888,10 @@ const METHODS: Record<string, MethodDef> = {
       try { return { eventos: await eventosDoDia(quando === "hoje" ? 0 : 1), frase: await agendaFalada(quando) }; }
       catch (e) { throw new RpcError(502, e instanceof Error ? e.message : String(e)); }
     },
+  },
+  // Busca dentro das conversas salvas (bloco 133): paleta do PC e, no futuro, o celular.
+  "chat.search": {
+    handler: async (params) => ({ achados: buscarNasConversas(listChatSessions(), requireString(params, "q")) }),
   },
   // Card "Hoje" (bloco 126): o mesmo texto do "bom dia", montado sem modelo — PC e celular.
   "resumo.dia": {

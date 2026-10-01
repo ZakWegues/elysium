@@ -70,8 +70,31 @@ function realcar(texto, consulta) {
   return saida;
 }
 
-const GRUPOS = { nav: "Ir para", acao: "Ações", app: "Abrir programa", preset: "Presets", lembrete: "Lembretes", memoria: "Memória", conversa: "Conversas", recado: "Recados da Caixa", chat: "Perguntar" };
-const ORDEM_GRUPOS = ["nav", "acao", "preset", "app", "lembrete", "memoria", "conversa", "recado", "chat"];
+const GRUPOS = { nav: "Ir para", acao: "Ações", app: "Abrir programa", preset: "Presets", lembrete: "Lembretes", memoria: "Memória", conversa: "Conversas", trecho: "Dentro das conversas", recado: "Recados da Caixa", chat: "Perguntar" };
+const ORDEM_GRUPOS = ["nav", "acao", "preset", "app", "lembrete", "memoria", "conversa", "trecho", "recado", "chat"];
+
+/**
+ * Busca no TEXTO das conversas (bloco 133). Vem do PC (`chat.search`) com um respiro
+ * depois da digitação; os achados valem só para a consulta que os pediu.
+ */
+let trechosDaConsulta = { q: "", itens: [] };
+let buscaTrechoTimer = null;
+function buscarTrechos(q) {
+  clearTimeout(buscaTrechoTimer);
+  if (q.trim().length < 3) { trechosDaConsulta = { q: "", itens: [] }; return; }
+  buscaTrechoTimer = setTimeout(async () => {
+    try {
+      const r = await window.nx.rpc("chat.search", { q });
+      if (paletaInput.value !== q) return;
+      trechosDaConsulta = { q, itens: (r.result?.achados ?? []).map(a => ({
+        grupo: "trecho", icone: "search", texto: a.trecho,
+        sub: `${a.titulo} · ${new Date(a.em).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })}`,
+        executar: () => { switchView("chat"); switchChatMode("ai"); openConversation(a.sessaoId); },
+      })) };
+      desenharPaleta();
+    } catch { /* sem trechos */ }
+  }, 220);
+}
 
 function rpcToast(metodo, params, okMsg) {
   return async () => {
@@ -193,6 +216,8 @@ function filtrarPaleta(consulta) {
     if (melhor === null) continue;
     achados.push({ it, p: melhor + ORDEM_GRUPOS.indexOf(it.grupo) * 0.001 });
   }
+  // Trechos de dentro das conversas: já casaram no PC, sem passar pela pontuação.
+  if (trechosDaConsulta.q === consulta) for (const it of trechosDaConsulta.itens) achados.push({ it, p: 50 + ORDEM_GRUPOS.indexOf(it.grupo) * 0.001 });
   achados.sort((a, b) => a.p - b.p);
   let lista = achados.map(a => a.it);
   // Sem consulta, mostra o essencial: navegação e ações. O catálogo inteiro sem filtro
@@ -221,7 +246,7 @@ function desenharPaleta() {
   paletaVisiveis.forEach((it, i) => {
     if (it.grupo !== grupoAtual) { grupoAtual = it.grupo; html += `<div class="paleta-grupo">${GRUPOS[it.grupo]}</div>`; }
     html += `<div class="paleta-item${i === paletaIndice ? " ativo" : ""}${it.perigo ? " perigo" : ""}" data-i="${i}" role="option" aria-selected="${i === paletaIndice}">
-      ${ico(it.icone, "ico-sm")}<span>${it.grupo === "chat" ? escHtml(it.texto) : realcar(it.texto, q)}</span>
+      ${ico(it.icone, "ico-sm")}<span>${it.grupo === "chat" || it.grupo === "trecho" ? escHtml(it.texto) : realcar(it.texto, q)}</span>
       ${it.sub ? `<span class="paleta-sub">${escHtml(it.sub)}</span>` : ""}
     </div>`;
   });
@@ -256,7 +281,7 @@ async function executarPaleta(i) {
   try { await it.executar(); } catch (err) { showToast(err?.message || "Não deu certo.", true); }
 }
 
-paletaInput.addEventListener("input", () => { paletaIndice = 0; desenharPaleta(); });
+paletaInput.addEventListener("input", () => { paletaIndice = 0; desenharPaleta(); buscarTrechos(paletaInput.value); });
 paletaInput.addEventListener("keydown", (e) => {
   if (e.key === "ArrowDown") { e.preventDefault(); paletaIndice = Math.min(paletaIndice + 1, paletaVisiveis.length - 1); desenharPaleta(); }
   else if (e.key === "ArrowUp") { e.preventDefault(); paletaIndice = Math.max(paletaIndice - 1, 0); desenharPaleta(); }
