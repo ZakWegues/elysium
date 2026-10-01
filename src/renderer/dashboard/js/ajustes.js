@@ -147,6 +147,9 @@ const SECOES_AJUSTES = [
     resumo: () => "O que você mais pede" },
   { id: "dados", titulo: "Dados e diagnóstico", icone: "download", nos: ["#sec-dados"],
     resumo: () => "Backup, importar, log" },
+  { id: "comandos", titulo: "Comandos de IA", icone: "sparkles", nos: ["#sec-comandos"],
+    resumo: () => "Corrigir, traduzir, resumir… e os seus",
+    aoAbrir: () => desenharComandos() },
   { id: "sobre", titulo: "Sobre", icone: "info", nos: ["#sec-sobre"],
     resumo: () => atualizacaoAtual?.desktop?.pronto ? `Versão ${atualizacaoAtual.desktop.versao} pronta para instalar` : "Versão, atualizações e pastas",
     aoAbrir: () => { desenharSobre(); desenharAtualizacao(); } },
@@ -538,6 +541,43 @@ document.getElementById("dados-logs")?.addEventListener("click", () => window.nx
 // ── Google Agenda (fase 13, bloco 120) ───────────────────────────────────────
 // O cliente OAuth é do Zak (Google Cloud dele); o ELYSIUM só lê a agenda. O segredo só
 // entra — a tela sabe se existe, nunca qual é.
+// ── Comandos de IA (bloco 137) ─────────────────────
+async function desenharComandos() {
+  const alvo = document.getElementById("comandos-corpo");
+  if (!alvo) return;
+  let lista = [];
+  try { lista = (await window.nx.rpc("comandos.list")).result?.comandos ?? []; } catch { /* vazio */ }
+  alvo.innerHTML = `
+    <p class="cfg-nota" style="margin-top:0">Copie um texto, abra a paleta (Ctrl+K) e escolha o comando: o resultado volta para a área de transferência. No celular, compartilhe um texto com o ELYSIUM ou comece a mensagem com “/”.</p>
+    <div class="home-list">${lista.map(c => `
+      <div class="home-item">${ico(c.fabrica ? "sparkles" : "edit", "ico-sm")}
+        <div class="home-item-txt"><span>${escHtml(c.nome)}</span><em>${escHtml(c.instrucao)}</em></div>
+        ${c.fabrica ? "" : `<button type="button" data-cmd-apagar="${escHtml(c.id)}" title="Apagar">${ico("trash", "ico-sm")}</button>`}
+      </div>`).join("")}</div>
+    <form data-cmd-form class="atu-form" style="flex-wrap:wrap;margin-top:10px">
+      <input name="nome" placeholder="Nome (ex.: Virar tweet)" maxlength="40" autocomplete="off">
+      <input name="instrucao" placeholder="O que fazer com o texto (ex.: reescreva como um tweet de até 280 caracteres)" maxlength="600" autocomplete="off" style="flex:2;min-width:260px">
+      <button type="submit">Criar</button>
+    </form>`;
+}
+document.getElementById("comandos-corpo")?.addEventListener("click", async (ev) => {
+  const b = ev.target.closest("[data-cmd-apagar]");
+  if (!b) return;
+  try { await window.nx.rpc("comandos.delete", { id: b.dataset.cmdApagar }); showToast("Comando apagado."); } catch { showToast("Não deu certo.", true); }
+  await desenharComandos();
+});
+document.getElementById("comandos-corpo")?.addEventListener("submit", async (ev) => {
+  const f = ev.target.closest("[data-cmd-form]");
+  if (!f) return;
+  ev.preventDefault();
+  const nome = f.elements.nome.value.trim(), instrucao = f.elements.instrucao.value.trim();
+  if (!nome || !instrucao) { showToast("Preencha o nome e o que fazer.", true); return; }
+  const r = await window.nx.rpc("comandos.save", { nome, instrucao });
+  if (r.error) { showToast(r.error, true); return; }
+  showToast(`Comando “${nome}” criado.`);
+  await desenharComandos();
+});
+
 async function desenharAgenda() {
   const alvo = document.getElementById("agenda-corpo");
   if (!alvo) return;

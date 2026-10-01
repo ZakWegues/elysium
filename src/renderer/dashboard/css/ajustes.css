@@ -220,3 +220,17 @@
 .atu-token summary { cursor: pointer; color: var(--muted); }
 .atu-form { display: flex; gap: 6px; margin-top: 6px; }
 .atu-form input { flex: 1; min-width: 0; }
+
+/* Formulários das seções (comandos de IA, bloco 137; agenda): mesmo campo dos Ajustes. */
+.atu-form input {
+  padding: 8px 11px; border-radius: var(--radius-7);
+  background: rgba(var(--purple-rgb),0.06); border: 1px solid var(--border);
+  color: var(--text); font-family: inherit; font-size: 12px; outline: none;
+}
+.atu-form input:focus { border-color: var(--purple); }
+.atu-form button {
+  padding: 8px 14px; border-radius: var(--radius-7); border: 1px solid rgba(var(--purple-rgb),0.45);
+  background: rgba(var(--purple-rgb),0.14); color: var(--text); font-family: inherit; font-size: 12px; cursor: pointer;
+}
+.atu-form button:hover { background: rgba(var(--purple-rgb),0.24); }
+#comandos-corpo .home-item button { margin-left: auto; background: none; border: none; color: var(--muted); cursor: pointer; }
