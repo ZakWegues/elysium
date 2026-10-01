@@ -46,7 +46,10 @@ barramento.setMaxListeners(20);
 
 export function emitirEvento(nome: NomeEvento, dados: Record<string, unknown> = {}): void {
   const evento: EventoPc = { nome, em: Date.now(), dados };
-  console.log(`[eventos] ${nome} ${Object.keys(dados).length ? JSON.stringify(dados) : ""}`);
+  // O título da janela fica fora do log: é o que o Zak está vendo (vídeo, conversa, site) e
+  // o log vai para arquivo e para relatório de bug. A rotina recebe o evento inteiro.
+  const { titulo: _titulo, ...noLog } = dados;
+  console.log(`[eventos] ${nome} ${Object.keys(noLog).length ? JSON.stringify(noLog) : ""}`);
   barramento.emit("evento", evento);
 }
 
