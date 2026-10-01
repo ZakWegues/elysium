@@ -5338,6 +5338,10 @@ ativação), ajustar limiares e confiança. Revisar o card Saúde.
   anterior — havia 23 (1,7 GB) com o C: a 94%.
 - Exemplos com o nome do Zak e o modelo do celular (comentários, testes, §12 deste
   documento) viraram genéricos — regra da Parte 0.
+- Log de eventos sem o título da janela: o `app.abriu` gravava no arquivo o vídeo que estava
+  aberto no Chrome. A rotina continua recebendo o evento inteiro.
+- 1.7.1 publicada e instalada por `update.install`; a poda apagou 20 instaladores (1,5 GB).
+  Celular: OTA do 126 publicada para o runtime do APK 1.7.0.
 
 Medição do C: em 30/09 (só leitura): Downloads ~54 GB (uma pasta de ~40 GB), modelos do
 Ollama ~11 GB, `node_modules` do celular ~7 GB, BlueStacks ~8 GB, Gradle ~4 GB.
