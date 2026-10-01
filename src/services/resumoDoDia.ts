@@ -63,7 +63,9 @@ export function montarResumo(f: FatosResumo): string {
   if (f.recadosNovos === 1) partes.push("Tem um recado do celular que você ainda não viu.");
   else if (f.recadosNovos > 1) partes.push(`Tem ${f.recadosNovos} recados do celular que você ainda não viu.`);
 
-  if (f.alertas.length) partes.push(`Atenção: ${lista(f.alertas.slice(0, 3))}.`);
+  // Ponto e vírgula, não "a, b e c": cada alerta já tem "título: detalhe" e a vírgula
+  // embaralhava os dois (bloco 126, lido no card Hoje).
+  if (f.alertas.length) partes.push(`Atenção: ${f.alertas.slice(0, 3).join("; ")}.`);
   if (f.versaoNova) partes.push(`A versão ${f.versaoNova} do ELYSIUM está pronta para instalar.`);
 
   if (partes.length === 1 || (partes.length === 2 && f.clima)) partes.push("Nada marcado para hoje.");
@@ -93,7 +95,7 @@ export async function resumoDoDia(agenda?: FatosResumo["agenda"]): Promise<strin
   // Recado vindo do celular ainda não aberto no PC.
   const recadosNovos = listMessages().filter(m => m.from === "mobile" && !m.readAt).length;
   // Só o que pede ação — "Chaves de assinatura sem backup" também conta.
-  const alertas = saude.filter(i => i.nivel !== "ok" && i.id !== "versao").map(i => `${i.titulo} (${i.detalhe.split(" — ")[0]})`);
+  const alertas = saude.filter(i => i.nivel !== "ok" && i.id !== "versao").map(i => `${i.titulo}: ${i.detalhe.split(" — ")[0].replace(/\s*\([^)]*\)/g, "")}`);
   const e = estadoAtualizacao();
   return montarResumo({
     agora,

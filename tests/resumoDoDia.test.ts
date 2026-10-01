@@ -30,6 +30,8 @@ describe("resumo do dia (bloco 117)", () => {
     expect(t).toContain("Rotina de hoje: Estado do PC às 22h.");
     expect(t).toContain("Tem 2 recados do celular");
     expect(t).toContain("Atenção: disco c: 25 GB livres.");
+    f.alertas = ["Disco C: 25 GB livres", "Chaves de assinatura: sem backup"];
+    expect(montarResumo(f)).toContain("Atenção: Disco C: 25 GB livres; Chaves de assinatura: sem backup.");
     expect(t).toContain("A versão 1.7.0");
     expect(t).not.toContain("Nada marcado");
   });

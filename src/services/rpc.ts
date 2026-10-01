@@ -38,6 +38,7 @@ import { consertarSaude, verificarSaude } from "./saude";
 import { mascarar } from "../main/logArquivo";
 import { aceitarSugestao, listarSugestoesDeFato, recusarSugestao } from "./memoryStore";
 import { agendaFalada, estadoAgenda, eventosDoDia } from "./agenda";
+import { resumoDoDia } from "./resumoDoDia";
 import { comecarFoco, estadoFoco, pararFoco, salvarListaFoco } from "./foco";
 import { abrirNoPc, AlvoAbrir, AlvoLimpeza, lerArmazenamento, limpar } from "../actions/armazenamento";
 import { aguardarDownloads, estadoAtualizacao, instalarAtualizacaoDesktop, verificarAtualizacoes } from "./atualizacao";
@@ -884,6 +885,10 @@ const METHODS: Record<string, MethodDef> = {
       try { return { eventos: await eventosDoDia(quando === "hoje" ? 0 : 1), frase: await agendaFalada(quando) }; }
       catch (e) { throw new RpcError(502, e instanceof Error ? e.message : String(e)); }
     },
+  },
+  // Card "Hoje" (bloco 126): o mesmo texto do "bom dia", montado sem modelo — PC e celular.
+  "resumo.dia": {
+    handler: async () => ({ texto: await resumoDoDia() }),
   },
   // Memória que aprende (bloco 118): o que o cérebro sugeriu guardar, e a decisão do Zak.
   "memory.sugestoes": {

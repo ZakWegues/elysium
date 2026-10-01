@@ -285,6 +285,11 @@
 /* O --muted da noite (#5a5d7a) some sobre o vidro escuro da barra. */
 .theme-ely #nav-busca { color: rgba(232,234,240,0.55); }
 .theme-ely #nav-busca kbd { color: rgba(232,234,240,0.45); }
+/* Mesma coisa nas abas e no "nublado" do chip do clima: sobre a parte dourada do fundo
+   (canto direito) o #5a5d7a sumia — "Ajustes" ficava ilegível (bloco 126). */
+.theme-ely .vtab:not(.active) { color: rgba(232,234,240,0.62); }
+.theme-ely .vtab:not(.active):hover { color: var(--text); }
+.theme-ely .home-clima-chip span { color: rgba(232,234,240,0.62); }
 
 /* Aviso de versão nova na barra de abas (bloco 95): só existe quando há o que instalar. */
 #nav-atualizar {

@@ -245,6 +245,8 @@ body.redimensionando, body.redimensionando * { user-select: none !important; cur
 .home-item .when { color: var(--muted); font-size: 10.5px; margin-left: auto; white-space: nowrap; }
 .home-item > span:not(.when) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .home-empty { font-size: 11.5px; color: var(--muted); font-style: italic; }
+/* Card Hoje (bloco 126): texto corrido, legível de longe. */
+.home-hoje { margin: 0; font-size: 13px; line-height: 1.55; color: var(--text); }
 
 /* ── Bolhas de sugestão ───────────────────────────────────
    Rotacionam a cada abertura da janela. Ver o serviço `sugestoes.ts`. */

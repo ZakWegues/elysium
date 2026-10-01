@@ -307,6 +307,13 @@ const CARDS = {
     },
   },
 
+  // O resumo do dia (bloco 126): o mesmo texto do "bom dia", sem modelo — clima, agenda,
+  // lembretes, rotinas, recados e o que o card Saúde acusa, numa leitura só.
+  hoje: {
+    titulo: "Hoje", icone: "sun", span: 2, precisa: ["hoje"],
+    render: (d) => d.hoje ? `<p class="home-hoje">${escHtml(d.hoje)}</p>` : vazio("Não consegui montar o resumo agora."),
+  },
+
   // Google Agenda de hoje (fase 13, bloco 120).
   agenda: {
     titulo: "Agenda de hoje", icone: "calendar", span: 1, precisa: ["agenda"],
@@ -471,7 +478,7 @@ const CARDS = {
 };
 
 /** Ordem de fábrica. Cards fora desta lista existem mas nascem desligados. */
-const CARDS_PADRAO = ["sugestoes", "clima", "computador", "saude", "aprendi", "musica", "lembretes", "rotinas", "atalhos", "conversas", "timer", "notas", "caixa", "memoria", "discos"];
+const CARDS_PADRAO = ["sugestoes", "hoje", "clima", "computador", "saude", "aprendi", "musica", "lembretes", "rotinas", "atalhos", "conversas", "timer", "notas", "caixa", "memoria", "discos"];
 
 /**
  * `fixos` são desenhados antes de todos os outros e não saem do lugar quando você arrasta
@@ -522,6 +529,7 @@ async function carregarDadosInicio() {
   if (precisa.has("rotinas")) jobs.push(rpc("rotinas", "rotinas.list", undefined, r => r?.rotinas ?? []));
   if (precisa.has("saude")) jobs.push(rpc("saude", "system.saude", undefined, r => r?.itens ?? null));
   if (precisa.has("foco")) jobs.push(rpc("foco", "foco.status", undefined, r => r ?? null));
+  if (precisa.has("hoje")) jobs.push(rpc("hoje", "resumo.dia", undefined, r => r?.texto ?? null));
   if (precisa.has("aprendi")) jobs.push(rpc("aprendi", "memory.sugestoes", undefined, r => r?.sugestoes ?? []));
   if (precisa.has("agenda")) jobs.push((async () => {
     try {
@@ -928,8 +936,18 @@ async function carregarCards() {
       // invisível e ninguém descobre que existe.
       const conhecidos = salvo.ordem.filter(id => CARDS[id]);
       const faltando = Object.keys(CARDS).filter(id => !conhecidos.includes(id));
+      // Card novo que é de fábrica entra logo depois do vizinho dele na ordem de fábrica, não
+      // no fim da tela (o "Hoje", bloco 126, nasceria lá embaixo, depois de Discos).
+      const ordem = [...conhecidos];
+      for (const id of faltando) {
+        const i = CARDS_PADRAO.indexOf(id);
+        const antes = i > 0 ? CARDS_PADRAO.slice(0, i).reverse().find(v => ordem.includes(v)) : undefined;
+        if (i < 0) ordem.push(id);
+        else if (antes) ordem.splice(ordem.indexOf(antes) + 1, 0, id);
+        else ordem.unshift(id);
+      }
       estadoCards = {
-        ordem: [...conhecidos, ...faltando],
+        ordem,
         ocultos: (salvo.ocultos ?? []).filter(id => CARDS[id])
           .concat(faltando.filter(id => !CARDS_PADRAO.includes(id))),
         // Configuração gravada antes desta versão não tem `fixos` — nasce sem nenhum,
@@ -1313,6 +1331,18 @@ window.nx.onTelemetry?.((t) => {
 // ── Novidades (fase 12) ───────────────────────────────────────────────────────
 // Na primeira abertura depois de uma atualização, o que mudou aparece no topo da Início,
 // uma vez. "Entendi" marca como visto; a próxima versão volta a mostrar.
+/**
+ * As notas da release são o markdown do GitHub; aqui só o que elas usam: **negrito** e itens
+ * com "- ". Escapa antes, então nada do texto vira HTML de verdade (bloco 126 — a 1.7.0
+ * apareceu com os asteriscos crus).
+ */
+function notasLegiveis(md) {
+  return escHtml(md)
+    .replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/^- /gm, "• ")
+    .replace(/\n{3,}/g, "\n\n");
+}
+
 async function mostrarNovidades() {
   const alvo = document.getElementById("home-novidades");
   if (!alvo || !window.nx.novidades) return;
@@ -1322,7 +1352,7 @@ async function mostrarNovidades() {
   alvo.innerHTML = `
     <div class="novidades-topo">${ico("sparkles")}<strong>Novidades da ${escHtml(n.versao)}</strong>
       <button type="button" id="novidades-ok">Entendi</button></div>
-    <div class="novidades-texto">${escHtml(n.notas)}</div>`;
+    <div class="novidades-texto">${notasLegiveis(n.notas)}</div>`;
   alvo.hidden = false;
   document.getElementById("novidades-ok")?.addEventListener("click", async () => {
     alvo.hidden = true;
