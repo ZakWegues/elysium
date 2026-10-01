@@ -5345,3 +5345,24 @@ ativação), ajustar limiares e confiança. Revisar o card Saúde.
 
 Medição do C: em 30/09 (só leitura): Downloads ~54 GB (uma pasta de ~40 GB), modelos do
 Ollama ~11 GB, `node_modules` do celular ~7 GB, BlueStacks ~8 GB, Gradle ~4 GB.
+
+### Bloco 127 — servidor do celular tenta de novo com a porta ocupada ✅ (desktop 1.7.2)
+
+Achado do bloco 124: com a 4200 ocupada o app subia **sem servidor e calado** (o
+`EADDRINUSE` só virava um `console.warn` e desistia). `server.ts` agora guarda
+`estadoDoServidor()` e, com a porta ocupada, tenta de novo a cada 30 s (`server.close()` +
+`listen`, timer `unref`). O card Saúde ganha "Conexão com o celular" em **vermelho** com o
+motivo enquanto não sobe. Testado ao vivo: um servidor falso segurou a 4200 por 75 s → o
+item apareceu; liberada → "listening" sozinho e o RPC pela porta respondeu. 1.7.2
+publicada e instalada por `update.install`.
+
+Bancada do agente depois da fase 13 (`bench-agente.mjs --modelos qwen2.5:7b`, 1 repetição):
+**15/20 (75%)**, p50 0,97 s — dentro do ruído dos 80% de 20/09 (3 repetições), com os
+mesmos erros de sempre (condicional, "tudo menos o VS Code", "horas em Tóquio" vira clima)
+mais "volume 40 e toca Radiohead" pela metade. Sem regressão visível. (A bancada reproduz
+o laço antigo de 4 rodadas, não o modo tarefa do 119.)
+
+Disco C às 23h40 de 30/09: **21,5 GB livres (95,5%)**. O que cresceu na noite não foram os
+builds (Gradle, `android/`, `release/` iguais ou menores) e sim o `pagefile.sys` (13,5 GB,
+RAM a ~90%); `hiberfil.sys` tem 6,4 GB. Os dois são do Windows — fica para o Zak decidir
+(`powercfg /h off` desliga a hibernação e devolve os 6,4 GB).
