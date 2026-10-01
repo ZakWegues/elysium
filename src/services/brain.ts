@@ -45,6 +45,8 @@ export type BrainAction =
   | { action: "timer_start";       ms: number; name?: string }
   | { action: "timer_list" }
   | { action: "timer_cancel";      name?: string }
+  // Conta exata (bloco 138): "quanto é 15% de 230" não passa pelo modelo.
+  | { action: "calculate";         expression: string }
   | { action: "create_reminder";   text: string; due_at: string; weekly?: boolean }
   | { action: "list_reminders" }
   | { action: "cancel_reminder";   query: string }
@@ -172,6 +174,7 @@ function actionSummary(action: BrainAction): string {
     case "timer_start":       return `Timer${action.name ? ` do ${action.name}` : ""}`;
     case "timer_list":        return "Timers";
     case "timer_cancel":      return "Cancelou timer";
+    case "calculate":         return "Conta";
     case "run_preset":        return `Preset ativado: ${action.preset_name}`;
     case "list_presets":      return "Listou presets";
     case "delete_preset":     return `Removeu preset: ${action.preset_name}`;
@@ -199,7 +202,7 @@ const ACOES_VALIDAS = new Set<string>([
   "send_to_mobile", "power_control", "remember", "forget", "list_memory",
   "create_reminder", "list_reminders", "cancel_reminder", "web_search",
   "look_at_screen", "chat", "unknown", "weather", "focus", "daily_summary",
-  "list_add", "list_show", "timer_start", "timer_list", "timer_cancel",
+  "list_add", "list_show", "timer_start", "timer_list", "timer_cancel", "calculate",
 ]);
 
 /**

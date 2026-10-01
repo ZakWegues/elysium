@@ -61,7 +61,7 @@ Agora é ${data}, ${hora} (ISO local ${iso}).
 
 Como agir
 - Se o pedido precisa de algo do PC (abrir, fechar, tocar, volume, energia, lembrete, rotina, memória, clima, estado do PC, o que está aberto, tela, web), use as ferramentas. Pode usar mais de uma, em sequência: primeiro olhe (programas_abertos, estado_do_pc…), depois aja.
-- Se o pedido é só conversa, pergunta geral, opinião, cálculo ou algo que você sabe sem o PC, não use ferramenta: responda exatamente a palavra CHAT e nada mais.
+- Se o pedido é só conversa, pergunta geral, opinião ou algo que você sabe sem o PC, não use ferramenta: responda exatamente a palavra CHAT e nada mais. Conta é com a ferramenta calcular — nunca de cabeça.
 - Depois de olhar (programas_abertos, estado_do_pc, rotinas, lembretes…), decida: se o pedido era para fazer algo, chame a ferramenta de ação; ${regraDoAgente(canal)}
 - A resposta diz o que a ferramenta devolveu, e só isso: se ela listou "Bom dia às 07:30", existe a rotina Bom dia às 07:30. Nunca diga que não achou quando a lista tem itens.
 - Fazer é chamar a ferramenta: nunca diga que abriu, fechou, criou ou apagou sem tê-la chamado.
@@ -92,7 +92,7 @@ function textoConfiavel(content: string, leituras: { resultado: string }[]): boo
 }
 
 /** Ferramentas que só OLHAM. Chamá-las não conta como "ter feito" alguma coisa. */
-const LEITURA = new Set(["programas_abertos", "estado_do_pc", "processos_pesados", "clima", "lembretes", "memoria", "rotinas", "presets", "tocando_agora", "area_de_transferencia", "espaco_em_disco", "versao_do_elysium", "resumo_do_dia", "agenda", "ver_lista", "ver_timers"]);
+const LEITURA = new Set(["programas_abertos", "estado_do_pc", "processos_pesados", "clima", "lembretes", "memoria", "rotinas", "presets", "tocando_agora", "area_de_transferencia", "espaco_em_disco", "versao_do_elysium", "resumo_do_dia", "agenda", "ver_lista", "ver_timers", "calcular", "resumir_link"]);
 
 export async function agir(
   texto: string,

@@ -43,6 +43,9 @@ import { buscarNasConversas } from "./buscaConversas";
 import { estiloValido, MAX_INSTRUCOES } from "./estiloResposta";
 import { adicionarNaLista, alternarItem, apagarLista, limparFeitos, listarListas, removerItem, separarItens } from "./listas";
 import { cancelarTimer, criarTimer, listarTimers } from "./timers";
+import { apagarComando, listarComandos, rodarComando, salvarComando } from "./comandosIa";
+import { resumirLink } from "./leitorDeLink";
+import { comContexto } from "./contextoComando";
 import { comecarFoco, estadoFoco, pararFoco, salvarListaFoco } from "./foco";
 import { abrirNoPc, AlvoAbrir, AlvoLimpeza, lerArmazenamento, limpar } from "../actions/armazenamento";
 import { aguardarDownloads, estadoAtualizacao, instalarAtualizacaoDesktop, verificarAtualizacoes } from "./atualizacao";
@@ -932,6 +935,27 @@ const METHODS: Record<string, MethodDef> = {
       const t = cancelarTimer(requireString(params, "id"));
       if (!t) throw new RpcError(404, "timer não existe");
       return { timer: t };
+    },
+  },
+  // Comandos de IA sobre texto (bloco 137) e "resume este link" (bloco 138).
+  "comandos.list": { handler: async () => ({ comandos: listarComandos() }) },
+  "comandos.run": {
+    handler: async (params) => {
+      try { return await rodarComando(requireString(params, "comando"), requireString(params, "texto")); }
+      catch (e) { throw new RpcError(400, e instanceof Error ? e.message : String(e)); }
+    },
+  },
+  "comandos.save": {
+    handler: async (params) => {
+      try { return { comando: salvarComando({ id: optionalString(params, "id"), nome: requireString(params, "nome"), instrucao: requireString(params, "instrucao") }) }; }
+      catch (e) { throw new RpcError(400, e instanceof Error ? e.message : String(e)); }
+    },
+  },
+  "comandos.delete": { handler: async (params) => ({ ok: apagarComando(requireString(params, "id")) }) },
+  "link.resumir": {
+    handler: async (params) => {
+      try { return { resumo: await comContexto("texto", () => resumirLink(requireString(params, "url"))) }; }
+      catch (e) { throw new RpcError(502, e instanceof Error ? e.message : String(e)); }
     },
   },
   // Jeito de responder (bloco 134): o celular lê e muda o que o PC usa nos prompts.

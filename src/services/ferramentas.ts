@@ -1,5 +1,8 @@
 import { clipboard } from "electron";
 import { limparFeitos, marcarItem, normalizarNomeLista } from "./listas";
+import { calcular, formatarNumero } from "./calculadora";
+import { rodarComando } from "./comandosIa";
+import { resumirLink } from "./leitorDeLink";
 import type { DefinicaoDeFerramenta } from "./llm";
 import type { BrainAction } from "./brain";
 import { routeAction } from "../actions/router";
@@ -317,6 +320,38 @@ export const FERRAMENTAS: Ferramenta[] = [
     description: "Tira da lista os itens já marcados como feitos.",
     parameters: obj({ lista: s("Nome da lista; padrão compras") }),
     executar: async a => { const n = limparFeitos(str(a, "lista") || "compras"); return n ? `Tirei ${n} ${n === 1 ? "item feito" : "itens feitos"} da lista.` : "Não havia nada marcado como feito."; },
+  },
+  // Conta exata, comandos de IA e "resume este link" (blocos 137/138).
+  {
+    name: "calcular",
+    description: "Faz uma conta exata: + − × ÷, potência, raiz, porcentagem ('15% de 230', '200 mais 10%'). Use SEMPRE para conta, em vez de calcular de cabeça.",
+    parameters: obj({ expressao: s("A conta, ex.: '15% de 230', '(12+3)*4'") }, ["expressao"]),
+    executar: async a => {
+      const e = str(a, "expressao");
+      const v = calcular(e);
+      return v === null ? "Essa expressão não é uma conta que eu consiga fazer." : `${e} = ${formatarNumero(v)}`;
+    },
+  },
+  {
+    name: "comando_de_ia",
+    description: "Transforma um texto com um comando: corrigir português, traduzir para inglês, traduzir para português, resumir, deixar mais formal, deixar mais curto, explicar (ou um comando criado pelo usuário). Sem 'texto', usa o que está copiado. O resultado vai para a área de transferência. Use para 'corrige o texto que eu copiei', 'traduz isso pro inglês'.",
+    parameters: obj({ comando: s("Qual comando: corrigir, ingles, portugues, resumir, formal, curto, explicar, ou o nome de um criado"), texto: s("O texto; vazio = o copiado") }, ["comando"]),
+    executar: async a => {
+      const texto = str(a, "texto") || clipboard.readText();
+      if (!texto.trim()) return "Não tem texto copiado para transformar.";
+      const { comando, resultado } = await rodarComando(str(a, "comando"), texto);
+      clipboard.writeText(resultado);
+      return `Pronto (${comando.nome}). O resultado está na área de transferência, é só colar:\n\n${resultado}`;
+    },
+  },
+  {
+    name: "resumir_link",
+    description: "Lê uma página da web pelo endereço e resume. Use para 'resume esse link', 'do que fala essa matéria' com uma URL.",
+    parameters: obj({ url: s("O endereço completo, com http(s)") }, ["url"]),
+    executar: async a => {
+      try { return await resumirLink(str(a, "url")); }
+      catch (e) { return `Não consegui ler a página: ${e instanceof Error ? e.message : String(e)}`; }
+    },
   },
   // Timers com nome (bloco 136).
   {

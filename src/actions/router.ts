@@ -27,6 +27,7 @@ import { comecarFoco, focoFalado, pararFoco } from "../services/foco";
 import { resumoDoDia } from "../services/resumoDoDia";
 import { adicionarNaLista, listaFalada, listarListas, obterLista } from "../services/listas";
 import { cancelarTimer, criarTimer, duracaoFalada, timersFalados } from "../services/timers";
+import { calcular, formatarNumero } from "../services/calculadora";
 
 /** "a, b e c" — para a voz não ler a lista como enumeração de vírgulas. */
 function emFrase(itens: string[]): string {
@@ -65,6 +66,10 @@ export async function routeAction(action: BrainAction): Promise<string> {
       return `Timer${t.nome ? ` do ${t.nome}` : ""} de ${duracaoFalada(t.duracaoMs)}, valendo.`;
     }
     case "timer_list":        return timersFalados();
+    case "calculate": {
+      const v = calcular(action.expression);
+      return v === null ? "Não consegui fazer essa conta." : `Dá ${formatarNumero(v)}.`;
+    }
     case "timer_cancel": {
       const t = cancelarTimer(action.name);
       return t ? `Cancelei o timer${t.nome ? ` do ${t.nome}` : ""}.` : "Não achei esse timer.";

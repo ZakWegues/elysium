@@ -86,3 +86,20 @@ describe("resumo do dia no atalho (fase 13)", () => {
     }
   });
 });
+
+describe("fastRoute — listas, timers e conta (fase 14)", () => {
+  it("lista, timer e conta saem sem modelo, com o texto original", () => {
+    expect(fastRoute("põe leite e café na lista do mercado")).toEqual([{ action: "list_add", items: ["leite", "café"], list: "Compras" }]);
+    expect(fastRoute("timer de 10 minutos do miojo")).toEqual([{ action: "timer_start", ms: 600_000, name: "miojo" }]);
+    expect(fastRoute("quanto é 15% de 230?")).toEqual([{ action: "calculate", expression: "quanto é 15% de 230?" }]);
+    expect(acoes("12 * 7")).toEqual(["calculate"]);
+    expect(acoes("o que tem na lista do mercado")).toEqual(["list_show"]);
+    expect(acoes("cancela o timer do miojo")).toEqual(["timer_cancel"]);
+  });
+
+  it("não confunde: pergunta sem conta, 'quanto é' sem número, música", () => {
+    expect(fastRoute("quanto é a gasolina hoje")).toBeNull();
+    expect(fastRoute("põe uma música na lista de reprodução do spotify")).toBeNull();
+    expect(acoes("calcula a rota pro trabalho")).toBeNull();
+  });
+});

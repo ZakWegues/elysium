@@ -71,6 +71,8 @@ export function acharItem(lista: Lista, texto: string): ItemLista | undefined {
 export function pedidoDeLista(texto: string): { itens: string[]; lista: string } | null {
   const m = /^\s*(?:p[oõ]e|coloca|adiciona|acrescenta|bota|anota)\s+(.+?)\s+(?:na|à|a)\s+(?:minha\s+)?lista(?:\s+(?:de|do|da|dos|das|pra|para)\s+(.+?))?\s*[.!]?\s*$/i.exec(texto);
   if (!m) return null;
+  // "lista de reprodução" é playlist (Spotify), não lista de compras.
+  if (m[2] && /reprodu|playlist|spotify|m[uú]sica/i.test(m[2])) return null;
   const itens = separarItens(m[1]);
   if (!itens.length) return null;
   return { itens, lista: normalizarNomeLista(m[2] ? `lista de ${m[2]}` : undefined) };

@@ -70,8 +70,8 @@ function realcar(texto, consulta) {
   return saida;
 }
 
-const GRUPOS = { nav: "Ir para", acao: "Ações", app: "Abrir programa", preset: "Presets", lembrete: "Lembretes", memoria: "Memória", conversa: "Conversas", trecho: "Dentro das conversas", recado: "Recados da Caixa", chat: "Perguntar" };
-const ORDEM_GRUPOS = ["nav", "acao", "preset", "app", "lembrete", "memoria", "conversa", "trecho", "recado", "chat"];
+const GRUPOS = { ia: "Comandos de IA (texto copiado)", nav: "Ir para", acao: "Ações", app: "Abrir programa", preset: "Presets", lembrete: "Lembretes", memoria: "Memória", conversa: "Conversas", trecho: "Dentro das conversas", recado: "Recados da Caixa", chat: "Perguntar" };
+const ORDEM_GRUPOS = ["nav", "acao", "ia", "preset", "app", "lembrete", "memoria", "conversa", "trecho", "recado", "chat"];
 
 /**
  * Busca no TEXTO das conversas (bloco 133). Vem do PC (`chat.search`) com um respiro
@@ -102,6 +102,24 @@ function rpcToast(metodo, params, okMsg) {
       const r = await window.nx.rpc(metodo, params);
       if (r.result?.cancelado) return;
       showToast(r.result?.message ?? okMsg ?? "Feito.");
+    } catch (err) { showToast(err?.message || "Não deu certo.", true); }
+  };
+}
+
+/**
+ * Comando de IA sobre o texto copiado (bloco 137): roda, devolve à área de transferência e
+ * avisa. Estilo Raycast — copiar, Ctrl+K, "Corrigir", Ctrl+V.
+ */
+function rodarComandoIa(c) {
+  return async () => {
+    try {
+      const copiado = (await window.nx.rpc("clipboard.get")).result?.text ?? "";
+      if (!copiado.trim()) { showToast("Copie um texto antes (Ctrl+C).", true); return; }
+      showToast(`${c.nome}…`);
+      const r = await window.nx.rpc("comandos.run", { comando: c.id, texto: copiado });
+      if (r.error) throw new Error(r.error);
+      await window.nx.rpc("clipboard.set", { text: r.result.resultado });
+      showToast(`Pronto — ${c.nome.toLowerCase()} na área de transferência (Ctrl+V).`);
     } catch (err) { showToast(err?.message || "Não deu certo.", true); }
   };
 }
@@ -142,6 +160,12 @@ async function montarIndicePaleta() {
   ];
 
   const fontes = [
+    async () => {
+      const r = await window.nx.rpc("comandos.list");
+      for (const c of r.result?.comandos ?? []) {
+        itens.push({ grupo: "ia", icone: "sparkles", texto: c.nome, sub: "texto copiado", chaves: ["ia", "comando", c.id], executar: rodarComandoIa(c) });
+      }
+    },
     async () => {
       const r = await window.nx.rpc("apps.list");
       for (const p of agruparCatalogo(r.result?.apps ?? [])) {
