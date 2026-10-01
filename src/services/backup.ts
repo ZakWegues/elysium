@@ -5,6 +5,7 @@ import { createReminder, listPending, Reminder } from "./scheduler";
 import { getAllPresets, PresetEntry, PresetsMap, savePreset } from "./presetsStore";
 import { listarRotinas, Rotina, salvarRotina } from "./rotinas";
 import { ChatSession, listSessions, mergeSession } from "./chatSessionsStore";
+import { importarListas, Lista, listarListas } from "./listas";
 
 /**
  * Exportar e importar tudo o que é do Zak (bloco 96) — o seguro contra formatar o PC.
@@ -34,6 +35,8 @@ export interface Backup {
   rotinas: Omit<Rotina, "id" | "ultimaExecucao" | "ultimoResultado">[];
   conversas: ChatSession[];
   ajustes: Partial<AppConfig>;
+  /** Bloco 135. Opcional: backup antigo não tem. */
+  listas?: Lista[];
 }
 
 export interface ResumoImportacao {
@@ -43,6 +46,7 @@ export interface ResumoImportacao {
   rotinas: number;
   conversas: number;
   ajustes: number;
+  listas: number;
 }
 
 /** Ajustes que não viajam: dependem desta máquina e quebrariam em outra. */
@@ -62,6 +66,7 @@ export function montarBackup(): Backup {
     rotinas: listarRotinas().map(({ id: _id, ultimaExecucao: _u, ultimoResultado: _r, ...resto }) => resto),
     conversas: listSessions(),
     ajustes: ajustes as Partial<AppConfig>,
+    listas: listarListas(),
   };
 }
 
@@ -78,11 +83,12 @@ export function lerBackup(bruto: unknown): Backup {
     rotinas: Array.isArray(b.rotinas) ? b.rotinas : [],
     conversas: Array.isArray(b.conversas) ? b.conversas : [],
     ajustes: b.ajustes && typeof b.ajustes === "object" ? b.ajustes : {},
+    listas: Array.isArray(b.listas) ? b.listas : [],
   };
 }
 
 export function aplicarBackup(b: Backup): ResumoImportacao {
-  const resumo: ResumoImportacao = { memoria: 0, lembretes: 0, presets: 0, rotinas: 0, conversas: 0, ajustes: 0 };
+  const resumo: ResumoImportacao = { memoria: 0, lembretes: 0, presets: 0, rotinas: 0, conversas: 0, ajustes: 0, listas: 0 };
 
   for (const texto of b.memoria) {
     try { if (addFact(texto).created) resumo.memoria++; } catch { /* fato inválido: pula */ }
@@ -113,6 +119,9 @@ export function aplicarBackup(b: Backup): ResumoImportacao {
     if (!s || typeof s.id !== "string" || !Array.isArray(s.messages)) continue;
     try { if (mergeSession(s)) resumo.conversas++; } catch { /* pula */ }
   }
+
+  // Itens pendentes somam na lista de mesmo nome; o que já está lá não duplica.
+  try { resumo.listas = importarListas(b.listas ?? []); } catch { /* pula */ }
 
   const ajustes = { ...b.ajustes } as Record<string, unknown>;
   for (const k of AJUSTES_LOCAIS) delete ajustes[k];

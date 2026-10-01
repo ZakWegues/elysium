@@ -283,9 +283,15 @@ const CARDS = {
   },
 
   timer: {
-    titulo: "Timer", icone: "clock", span: 1, precisa: [],
-    render: () => {
+    titulo: "Timer", icone: "clock", span: 1, precisa: ["timers"],
+    render: (d) => {
       const t = timerEstado;
+      // Timers com nome (bloco 136): os que a voz ou o celular ligaram, com a hora do fim.
+      const nomeados = (d?.timers ?? dadosInicio?.timers ?? []).filter(x => x.fimEm > Date.now());
+      const hora = (ms) => new Date(ms).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+      const lista = nomeados.length ? `<div class="home-list timers-nomeados">${nomeados.map(x => `
+        <div class="home-item">${ico("clock", "ico-sm")}<div class="home-item-txt"><span>${escHtml(x.nome || "Timer")}</span><em>acaba às ${hora(x.fimEm)}</em></div>
+          <button data-timer-cancelar="${escHtml(x.id)}" title="Cancelar">${ico("x", "ico-sm")}</button></div>`).join("")}</div>` : "";
       const resta = t.fim ? Math.max(0, t.fim - Date.now()) : t.restaMs;
       return `<div class="timer-visor${t.fim ? " rodando" : ""}" id="timer-visor">${msParaTempo(resta)}</div>
       <div class="timer-anel"><i id="timer-anel" style="transform:scaleX(${t.totalMs ? (resta / t.totalMs).toFixed(3) : 1})"></i></div>
@@ -293,7 +299,27 @@ const CARDS = {
       <div class="home-quick" style="justify-content:center">
         <button data-timer="${t.fim ? "pausar" : "iniciar"}">${ico(t.fim ? "pause" : "play", "ico-sm")}<span>${t.fim ? "Pausar" : "Iniciar"}</span></button>
         <button data-timer="zerar">${ico("rotate", "ico-sm")}<span>Zerar</span></button>
-      </div>`;
+      </div>${lista}`;
+    },
+  },
+
+  // Listas que o celular também vê (bloco 135): "põe leite na lista" pela voz cai aqui.
+  listas: {
+    titulo: "Listas", icone: "list", span: 1, precisa: ["listas"],
+    render: (d) => {
+      const listas = d.listas ?? [];
+      const form = (nome) => `<form class="lista-nova" data-lista-nome="${escHtml(nome)}"><input name="texto" placeholder="Pôr em ${escHtml(nome)}…" autocomplete="off" spellcheck="false"><button type="submit">${ico("plus", "ico-sm")}</button></form>`;
+      if (!listas.length) return vazio("Nenhuma lista ainda. Diga “põe leite na lista do mercado” ou escreva abaixo.") + form("Compras");
+      return listas.slice(0, 2).map(l => {
+        const itens = [...l.itens].sort((a, b) => Number(a.feito) - Number(b.feito)).slice(0, 8);
+        return `<div class="lista-bloco"><div class="lista-titulo">${escHtml(l.nome)} <em>${l.itens.filter(i => !i.feito).length} pendente(s)</em></div>
+          <div class="home-list">${itens.map(i => `
+            <div class="home-item lista-item${i.feito ? " feito" : ""}">
+              <button class="lista-check" data-lista-id="${escHtml(l.id)}" data-item-id="${escHtml(i.id)}" data-feito="${i.feito ? "0" : "1"}" title="${i.feito ? "Desmarcar" : "Marcar"}">${ico(i.feito ? "check" : "minus", "ico-sm")}</button>
+              <div class="home-item-txt"><span>${escHtml(i.texto)}</span></div>
+              <button data-lista-remover="${escHtml(i.id)}" data-lista-id="${escHtml(l.id)}" title="Tirar da lista">${ico("x", "ico-sm")}</button>
+            </div>`).join("")}</div>${form(l.nome)}</div>`;
+      }).join("");
     },
   },
 
@@ -478,7 +504,7 @@ const CARDS = {
 };
 
 /** Ordem de fábrica. Cards fora desta lista existem mas nascem desligados. */
-const CARDS_PADRAO = ["sugestoes", "hoje", "clima", "computador", "saude", "aprendi", "musica", "lembretes", "rotinas", "atalhos", "conversas", "timer", "notas", "caixa", "memoria", "discos"];
+const CARDS_PADRAO = ["sugestoes", "hoje", "clima", "computador", "saude", "aprendi", "musica", "lembretes", "listas", "rotinas", "atalhos", "conversas", "timer", "notas", "caixa", "memoria", "discos"];
 
 /**
  * `fixos` são desenhados antes de todos os outros e não saem do lugar quando você arrasta
@@ -529,6 +555,8 @@ async function carregarDadosInicio() {
   if (precisa.has("rotinas")) jobs.push(rpc("rotinas", "rotinas.list", undefined, r => r?.rotinas ?? []));
   if (precisa.has("saude")) jobs.push(rpc("saude", "system.saude", undefined, r => r?.itens ?? null));
   if (precisa.has("foco")) jobs.push(rpc("foco", "foco.status", undefined, r => r ?? null));
+  if (precisa.has("listas")) jobs.push(rpc("listas", "listas.list", undefined, r => r?.listas ?? []));
+  if (precisa.has("timers")) jobs.push(rpc("timers", "timers.list", undefined, r => r?.timers ?? []));
   if (precisa.has("hoje")) jobs.push(rpc("hoje", "resumo.dia", undefined, r => r?.texto ?? null));
   if (precisa.has("aprendi")) jobs.push(rpc("aprendi", "memory.sugestoes", undefined, r => r?.sugestoes ?? []));
   if (precisa.has("agenda")) jobs.push((async () => {
@@ -1090,6 +1118,18 @@ document.getElementById("view-inicio")?.addEventListener("click", async (e) => {
   const ajg = alvo("[data-ir-ajustes]");
   if (ajg) { switchView("ajustes"); setTimeout(() => abrirSecao(ajg.dataset.irAjustes), 80); return; }
 
+  // Listas (bloco 135) e timers com nome (bloco 136).
+  const lc = alvo(".lista-check"), lr = alvo("[data-lista-remover]"), tc = alvo("[data-timer-cancelar]");
+  if (lc || lr || tc) {
+    try {
+      if (lc) await window.nx.rpc("listas.toggle", { listaId: lc.dataset.listaId, itemId: lc.dataset.itemId, feito: lc.dataset.feito === "1" });
+      else if (lr) await window.nx.rpc("listas.remove", { listaId: lr.dataset.listaId, itemId: lr.dataset.listaRemover });
+      else { await window.nx.rpc("timers.cancel", { id: tc.dataset.timerCancelar }); showToast("Timer cancelado."); }
+    } catch (err) { showToast(err?.message || "Não deu certo.", true); }
+    await atualizarInicio();
+    return;
+  }
+
   // Sugestões de memória (fase 13).
   const so = alvo("[data-sug-ok]"), sn = alvo("[data-sug-nao]");
   if (so || sn) {
@@ -1371,3 +1411,19 @@ document.getElementById("home-grid")?.addEventListener("submit", async (ev) => {
   await atualizarInicio();
 });
 window.nx.onFoco?.(() => { atualizarInicio(); });
+window.nx.onTimerAcabou?.(() => { atualizarInicio(); });
+
+// Pôr item na lista pelo card (bloco 135). Aceita "leite, ovo e café" de uma vez.
+document.getElementById("home-grid")?.addEventListener("submit", async (ev) => {
+  const f = ev.target.closest(".lista-nova");
+  if (!f) return;
+  ev.preventDefault();
+  const texto = f.elements.texto.value.trim();
+  if (!texto) return;
+  try {
+    const r = await window.nx.rpc("listas.add", { lista: f.dataset.listaNome, texto });
+    if (!r.result?.adicionados?.length) showToast("Já estava na lista.");
+  } catch (err) { showToast(err?.message || "Não deu certo.", true); }
+  await atualizarInicio();
+  document.querySelector(`.lista-nova[data-lista-nome="${CSS.escape(f.dataset.listaNome)}"] input`)?.focus();
+});

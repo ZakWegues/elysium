@@ -1,4 +1,5 @@
 import { clipboard } from "electron";
+import { limparFeitos, marcarItem, normalizarNomeLista } from "./listas";
 import type { DefinicaoDeFerramenta } from "./llm";
 import type { BrainAction } from "./brain";
 import { routeAction } from "../actions/router";
@@ -40,6 +41,12 @@ export interface Ferramenta extends DefinicaoDeFerramenta {
 
 const str = (a: Record<string, unknown>, k: string, padrao = ""): string => (typeof a[k] === "string" ? (a[k] as string).trim() : padrao);
 const num = (a: Record<string, unknown>, k: string): number | undefined => (typeof a[k] === "number" && Number.isFinite(a[k] as number) ? (a[k] as number) : undefined);
+/** Lista de strings de um argumento — aceita também uma string com vírgulas (o 7B às vezes manda assim). */
+const arr = (a: Record<string, unknown>, k: string): string[] => {
+  const v = a[k];
+  if (Array.isArray(v)) return v.filter((x): x is string => typeof x === "string" && x.trim().length > 0).map(x => x.trim());
+  return typeof v === "string" ? v.split(/\s*,\s*|\s+e\s+/).map(x => x.trim()).filter(Boolean) : [];
+};
 const obj = (props: Record<string, unknown>, required: string[] = []) => ({ type: "object", properties: props, required });
 const s = (description: string, extra: Record<string, unknown> = {}) => ({ type: "string", description, ...extra });
 
@@ -281,6 +288,56 @@ export const FERRAMENTAS: Ferramenta[] = [
       const f = await comecarFoco({ minutos: num(a, "minutos") ?? 25 });
       return `Modo foco por ${f.minutos} minutos. Aviso se abrirem ${f.apps.slice(0, 3).join(", ")}${f.apps.length > 3 ? " e outros" : ""}.`;
     },
+  },
+  // Listas compartilhadas com o celular (bloco 135).
+  {
+    name: "adicionar_na_lista",
+    description: "Põe um ou mais itens numa lista (compras, tarefas ou outra que o usuário nomear). Use para 'põe leite e ovo na lista do mercado', 'anota comprar presente nas tarefas'. Sem nome de lista, é Compras.",
+    parameters: obj({ itens: { type: "array", items: { type: "string" }, description: "Cada item separado" }, lista: s("Nome da lista: compras, tarefas, ou outro") }, ["itens"]),
+    executar: a => acao({ action: "list_add", items: arr(a, "itens"), list: normalizarNomeLista(str(a, "lista")) }),
+    acao: a => ({ action: "list_add", items: arr(a, "itens"), list: normalizarNomeLista(str(a, "lista")) }),
+  },
+  {
+    name: "ver_lista",
+    description: "Lê uma lista (o que falta comprar, as tarefas). Sem nome, as listas mais recentes.",
+    parameters: obj({ lista: s("Nome da lista, opcional") }),
+    executar: a => acao({ action: "list_show", list: str(a, "lista") || undefined }),
+  },
+  {
+    name: "marcar_item",
+    description: "Marca um item de lista como feito/comprado (ou desmarca). Use para 'já comprei o leite', 'tira o ovo da lista'.",
+    parameters: obj({ item: s("O item"), lista: s("Nome da lista; padrão compras"), feito: { type: "boolean", description: "true = feito (padrão)" } }, ["item"]),
+    executar: async a => {
+      const i = marcarItem(str(a, "lista") || "compras", str(a, "item"), a["feito"] !== false);
+      return i ? `Marquei ${i.texto} como ${i.feito ? "feito" : "pendente"}.` : "Não achei esse item na lista.";
+    },
+  },
+  {
+    name: "limpar_feitos",
+    description: "Tira da lista os itens já marcados como feitos.",
+    parameters: obj({ lista: s("Nome da lista; padrão compras") }),
+    executar: async a => { const n = limparFeitos(str(a, "lista") || "compras"); return n ? `Tirei ${n} ${n === 1 ? "item feito" : "itens feitos"} da lista.` : "Não havia nada marcado como feito."; },
+  },
+  // Timers com nome (bloco 136).
+  {
+    name: "criar_timer",
+    description: "Liga um timer (contagem regressiva) com nome opcional: 'timer de 10 minutos do miojo', 'cronômetro de meia hora'. Para hora marcada ou dia, use criar_lembrete.",
+    parameters: obj({ minutos: { type: "number", description: "Duração em minutos (pode ter fração: 0.5 = 30 s)" }, nome: s("Para quê, opcional: miojo, forno, chá") }, ["minutos"]),
+    executar: a => acao({ action: "timer_start", ms: Math.round((num(a, "minutos") ?? 0) * 60_000), name: str(a, "nome") || undefined }),
+    acao: a => ({ action: "timer_start", ms: Math.round((num(a, "minutos") ?? 0) * 60_000), name: str(a, "nome") || undefined }),
+  },
+  {
+    name: "ver_timers",
+    description: "Quanto falta em cada timer correndo.",
+    parameters: obj({}),
+    executar: () => acao({ action: "timer_list" }),
+  },
+  {
+    name: "cancelar_timer",
+    description: "Cancela um timer (pelo nome; sem nome, o único que existir).",
+    parameters: obj({ nome: s("Nome do timer, opcional") }),
+    executar: a => acao({ action: "timer_cancel", name: str(a, "nome") || undefined }),
+    acao: a => ({ action: "timer_cancel", name: str(a, "nome") || undefined }),
   },
   {
     name: "tirar_print",

@@ -39,6 +39,12 @@ export type BrainAction =
   | { action: "focus";             operation: "start" | "stop" | "status"; minutes?: number }
   // Resumo do dia (fase 13): também só pelo fastRoute ("bom dia", "resumo do dia").
   | { action: "daily_summary" }
+  // Listas e timers (fase 14, blocos 135/136): o fastRoute e as ferramentas produzem.
+  | { action: "list_add";          items: string[]; list: string }
+  | { action: "list_show";         list?: string }
+  | { action: "timer_start";       ms: number; name?: string }
+  | { action: "timer_list" }
+  | { action: "timer_cancel";      name?: string }
   | { action: "create_reminder";   text: string; due_at: string; weekly?: boolean }
   | { action: "list_reminders" }
   | { action: "cancel_reminder";   query: string }
@@ -161,6 +167,11 @@ function actionSummary(action: BrainAction): string {
     case "weather":           return "Clima";
     case "focus":             return "Modo foco";
     case "daily_summary":     return "Resumo do dia";
+    case "list_add":          return `Lista ${action.list}: ${action.items.join(", ")}`;
+    case "list_show":         return `Lista ${action.list ?? ""}`.trim();
+    case "timer_start":       return `Timer${action.name ? ` do ${action.name}` : ""}`;
+    case "timer_list":        return "Timers";
+    case "timer_cancel":      return "Cancelou timer";
     case "run_preset":        return `Preset ativado: ${action.preset_name}`;
     case "list_presets":      return "Listou presets";
     case "delete_preset":     return `Removeu preset: ${action.preset_name}`;
@@ -188,6 +199,7 @@ const ACOES_VALIDAS = new Set<string>([
   "send_to_mobile", "power_control", "remember", "forget", "list_memory",
   "create_reminder", "list_reminders", "cancel_reminder", "web_search",
   "look_at_screen", "chat", "unknown", "weather", "focus", "daily_summary",
+  "list_add", "list_show", "timer_start", "timer_list", "timer_cancel",
 ]);
 
 /**

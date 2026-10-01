@@ -434,3 +434,17 @@ body.redimensionando, body.redimensionando * { user-select: none !important; cur
 
 /* Agenda de hoje (fase 13): o que já passou fica apagado. */
 .home-item.passado { opacity: 0.5; }
+
+/* Listas (bloco 135) e timers com nome (bloco 136). */
+.lista-bloco + .lista-bloco { margin-top: 10px; }
+.lista-titulo { font-size: 12px; font-weight: 600; margin-bottom: 4px; display: flex; gap: 6px; align-items: baseline; }
+.lista-titulo em { font-style: normal; font-size: 10.5px; color: var(--muted); font-weight: 400; }
+.lista-item.feito .home-item-txt span { text-decoration: line-through; opacity: 0.55; }
+.lista-check { width: 22px; height: 22px; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--purple-bright); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; }
+.lista-item button[data-lista-remover], .timers-nomeados button { margin-left: auto; background: none; border: none; color: var(--muted); cursor: pointer; opacity: 0.6; }
+.lista-item button[data-lista-remover]:hover, .timers-nomeados button:hover { opacity: 1; color: var(--text); }
+.lista-nova { display: flex; gap: 6px; margin-top: 6px; }
+.lista-nova input { flex: 1; min-width: 0; padding: 6px 9px; border-radius: var(--radius-7); border: 1px solid var(--border); background: rgba(var(--purple-rgb),0.06); color: var(--text); font: inherit; font-size: 12px; outline: none; }
+.lista-nova input:focus { border-color: var(--purple); }
+.lista-nova button { width: 30px; border-radius: var(--radius-7); border: 1px solid var(--border); background: transparent; color: var(--text); cursor: pointer; }
+.timers-nomeados { margin-top: 8px; }

@@ -41,6 +41,8 @@ import { agendaFalada, estadoAgenda, eventosDoDia } from "./agenda";
 import { resumoDoDia } from "./resumoDoDia";
 import { buscarNasConversas } from "./buscaConversas";
 import { estiloValido, MAX_INSTRUCOES } from "./estiloResposta";
+import { adicionarNaLista, alternarItem, apagarLista, limparFeitos, listarListas, removerItem, separarItens } from "./listas";
+import { cancelarTimer, criarTimer, listarTimers } from "./timers";
 import { comecarFoco, estadoFoco, pararFoco, salvarListaFoco } from "./foco";
 import { abrirNoPc, AlvoAbrir, AlvoLimpeza, lerArmazenamento, limpar } from "../actions/armazenamento";
 import { aguardarDownloads, estadoAtualizacao, instalarAtualizacaoDesktop, verificarAtualizacoes } from "./atualizacao";
@@ -888,6 +890,48 @@ const METHODS: Record<string, MethodDef> = {
       const quando = requireEnum<"hoje" | "amanha">(params, "quando", ["hoje", "amanha"]);
       try { return { eventos: await eventosDoDia(quando === "hoje" ? 0 : 1), frase: await agendaFalada(quando) }; }
       catch (e) { throw new RpcError(502, e instanceof Error ? e.message : String(e)); }
+    },
+  },
+  // Listas compartilhadas (bloco 135).
+  "listas.list": { handler: async () => ({ listas: listarListas() }) },
+  "listas.add": {
+    handler: async (params) => {
+      const itens = Array.isArray(params["itens"]) ? (params["itens"] as unknown[]).filter((x): x is string => typeof x === "string") : separarItens(requireString(params, "texto"));
+      if (!itens.length) throw new RpcError(400, "nada para pôr na lista");
+      const r = adicionarNaLista(typeof params["lista"] === "string" ? params["lista"] : "compras", itens.slice(0, 30));
+      return { lista: r.lista, adicionados: r.adicionados, repetidos: r.repetidos };
+    },
+  },
+  "listas.toggle": {
+    handler: async (params) => {
+      const l = alternarItem(requireString(params, "listaId"), requireString(params, "itemId"), params["feito"] === true);
+      if (!l) throw new RpcError(404, "lista ou item não existe");
+      return { lista: l };
+    },
+  },
+  "listas.remove": {
+    handler: async (params) => {
+      const l = removerItem(requireString(params, "listaId"), requireString(params, "itemId"));
+      if (!l) throw new RpcError(404, "lista não existe");
+      return { lista: l };
+    },
+  },
+  "listas.clearDone": { handler: async (params) => ({ removidos: limparFeitos(requireString(params, "lista")) }) },
+  "listas.delete": { destructive: true, handler: async (params) => ({ ok: apagarLista(requireString(params, "listaId")) }) },
+  // Timers com nome (bloco 136).
+  "timers.list": { handler: async () => ({ timers: listarTimers(), agora: Date.now() }) },
+  "timers.start": {
+    handler: async (params) => {
+      const minutos = Number(params["minutos"]);
+      if (!Number.isFinite(minutos) || minutos <= 0 || minutos > 24 * 60) throw new RpcError(400, "minutos inválido");
+      return { timer: criarTimer(Math.round(minutos * 60_000), typeof params["nome"] === "string" ? params["nome"].slice(0, 40) : "") };
+    },
+  },
+  "timers.cancel": {
+    handler: async (params) => {
+      const t = cancelarTimer(requireString(params, "id"));
+      if (!t) throw new RpcError(404, "timer não existe");
+      return { timer: t };
     },
   },
   // Jeito de responder (bloco 134): o celular lê e muda o que o PC usa nos prompts.

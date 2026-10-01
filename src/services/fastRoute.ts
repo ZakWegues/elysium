@@ -1,4 +1,6 @@
 import type { BrainAction } from "./brain";
+import { pedidoDeLista } from "./listas";
+import { interpretarTimer } from "./timers";
 
 /**
  * Roteamento local, sem IA.
@@ -101,6 +103,16 @@ const RULES: Rule[] = [
   { pattern: /^(modo foco|(entra|entrar|ativa|ativar|liga|ligar|comeca|comecar) (em |no |o )?(modo )?foco)( (por|de) (\d+) (minutos?|min))?$/,
     build: (m) => [{ action: "focus", operation: "start", minutes: m[7] ? Number(m[7]) : undefined }] },
 
+  // — listas e timers (blocos 135/136) —
+  { pattern: /^(o que tem|o que falta|me (le|fala)|mostra|qual e)( n)?a( minha)? lista( (de|do|da) (.+))?$/,
+    build: (m) => [{ action: "list_show", list: m[7] ? `lista de ${m[7]}` : undefined }] },
+  { pattern: /^(minhas listas|quais listas( eu)? tenho)$/,
+    build: () => [{ action: "list_show" }] },
+  { pattern: /^(quanto falta (n|d)o timer( (do|da|de) .+)?|meus timers|quais timers( eu tenho)?|timers)$/,
+    build: () => [{ action: "timer_list" }] },
+  { pattern: /^(cancela|cancelar|para|parar|desliga|desligar) o timer( (do|da|de) (.+))?$/,
+    build: (m) => [{ action: "timer_cancel", name: m[4] }] },
+
   // — presets e memória —
   { pattern: /^(lista(r)? (os )?presets|quais presets( eu)? tenho|meus presets)$/,
     build: () => [{ action: "list_presets" }] },
@@ -121,6 +133,13 @@ function clampVolume(raw: string): number {
 export function fastRoute(text: string): BrainAction[] | null {
   const normalized = normalize(text);
   if (!normalized) return null;
+
+  // Listas e timers (blocos 135/136): o item e o nome precisam do texto ORIGINAL (com
+  // acento: "café", "pão de queijo"), então vêm antes das regras sobre o normalizado.
+  const lista = pedidoDeLista(text);
+  if (lista) return [{ action: "list_add", items: lista.itens, list: lista.lista }];
+  const timer = interpretarTimer(text);
+  if (timer) return [{ action: "timer_start", ms: timer.ms, name: timer.nome || undefined }];
 
   for (const rule of RULES) {
     const match = normalized.match(rule.pattern);

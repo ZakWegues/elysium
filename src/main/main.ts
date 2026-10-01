@@ -5,6 +5,7 @@
 import "./migrateUserData";
 import { app, BrowserWindow, globalShortcut, ipcMain, clipboard, nativeImage, dialog, shell, powerMonitor } from "electron";
 import { paraFala } from "../services/estiloResposta";
+import { ouvirTimers, retomarTimers } from "../services/timers";
 import { deveSugerir, sugerirContinuacoes } from "../services/continuacoes";
 import * as path from "node:path";
 import * as fs from "node:fs";
@@ -985,6 +986,17 @@ app.on("ready", async () => {
     broadcastNotify(entrega);
     dashWin?.webContents.send("reminder:fired", reminder);
   });
+
+  // Timers com nome (bloco 136): avisam no PC (notificação + fala) e no celular.
+  ouvirTimers((t) => {
+    const frase = t.nome ? `Acabou o timer do ${t.nome}.` : "Acabou o timer.";
+    notify("ELYSIUM — Timer", frase);
+    speak(frase).catch(() => { /* best-effort */ });
+    void sendPush("reminder", "Timer", frase, {});
+    broadcastNotify(enfileirarEntrega({ tipo: "aviso", titulo: "Timer", corpo: frase }));
+    dashWin?.webContents.send("timer:acabou", t);
+  });
+  retomarTimers();
 
   // Rotinas: o texto passa pelo mesmo pipeline do chat e da voz. O comando não pode
   // atropelar uma gravação em andamento, então espera o app ficar ocioso (até 60 s).
