@@ -472,6 +472,8 @@ const METHODS: Record<string, MethodDef> = {
         conectados: clientesConectados(),
         // O celular usa na saudação (fase 13): o nome mora na config do PC, não no código.
         nome: (getConfig().nomeDoUsuario || "").trim(),
+        // Bloco 128: a faixa do celular só fala em Tailscale se o Zak ligou o acesso remoto.
+        acessoRemoto: Boolean(getConfig().acessoRemotoNaSaude),
       };
     },
   },

@@ -101,6 +101,8 @@ const AJUSTES = [
       { chave: "autoLaunch", rotulo: "Iniciar com o Windows", tipo: "bool" },
       { chave: "atualizarDeMadrugada", rotulo: "Atualizar sozinho de madrugada", tipo: "bool",
         dica: "Versão nova já baixada instala entre 3 e 5 h, só com o PC parado há 15 minutos e o ELYSIUM ocioso. Desligado, ela espera o botão em Ajustes → Sobre." },
+      { chave: "acessoRemotoNaSaude", rotulo: "Acompanhar o acesso de fora (Tailscale)", tipo: "bool",
+        dica: "Mostra no card Saúde, no resumo do dia e no celular se o Tailscale está ligado no PC e no celular. Desligado, ninguém fala dele." },
     ],
   },
 ];
@@ -139,12 +141,12 @@ const SECOES_AJUSTES = [
     resumo: () => "O que você mais pede" },
   { id: "dados", titulo: "Dados e diagnóstico", icone: "download", nos: ["#sec-dados"],
     resumo: () => "Backup, importar, log" },
-  { id: "agenda", titulo: "Google Agenda", icone: "calendar", nos: ["#sec-agenda"],
-    resumo: () => agendaAtual?.conectado ? "Conectada (só leitura)" : agendaAtual?.configurado ? "Falta conectar a conta" : "Desligada",
-    aoAbrir: () => desenharAgenda() },
   { id: "sobre", titulo: "Sobre", icone: "info", nos: ["#sec-sobre"],
     resumo: () => atualizacaoAtual?.desktop?.pronto ? `Versão ${atualizacaoAtual.desktop.versao} pronta para instalar` : "Versão, atualizações e pastas",
     aoAbrir: () => { desenharSobre(); desenharAtualizacao(); } },
+  { id: "agenda", titulo: "Google Agenda", icone: "calendar", nos: ["#sec-agenda"],
+    resumo: () => agendaAtual?.conectado ? "Conectada (só leitura)" : agendaAtual?.configurado ? "Falta conectar a conta" : "Desligada",
+    aoAbrir: () => desenharAgenda() },
 ];
 
 let cfgAtual = {};

@@ -97,6 +97,12 @@ export interface AppConfig {
   nomeDoUsuario: string;
   /** Fala o resumo do dia na primeira volta ao PC entre 6 e 11 h (fase 13). */
   resumoAutomatico: boolean;
+  /**
+   * Acompanhar o acesso de fora de casa (Tailscale) no card Saúde, no resumo e na faixa do
+   * celular (bloco 122). Desligado por padrão desde o bloco 128: o Zak não quer o Tailscale
+   * agora, e um aviso permanente que ele decidiu ignorar vira ruído no card.
+   */
+  acessoRemotoNaSaude: boolean;
   /** Com jogo aberto, rotear pela nuvem em vez de disputar VRAM. Ver `gpuGuard.ts`. */
   evitarGpuOcupada: boolean;
   spotifyClientId: string;
@@ -187,6 +193,7 @@ const DEFAULTS: AppConfig = {
   atualizarDeMadrugada: true,
   nomeDoUsuario: "",
   resumoAutomatico: false,
+  acessoRemotoNaSaude: false,
   evitarGpuOcupada: true,
   spotifyClientId: "042904fef8cc41f0bf05b7abeda2d66f",
   chatHistoryTurns: 6,

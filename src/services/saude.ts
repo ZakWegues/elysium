@@ -163,7 +163,8 @@ export async function verificarSaude(): Promise<ItemSaude[]> {
     cerebroLocal ? ollamaDisponivel(cfg.ollamaRouterModel) : Promise.resolve({ ok: true, detalhe: "" }),
     inicioAutomaticoConfere().catch(() => ({ ok: true, detalhe: "não consegui ler o Registro" })),
     getDashboardTelemetry().then(t => t.disks ?? []).catch(() => [] as DiskEntry[]),
-    estadoTailscale().catch(() => undefined),
+    // Bloco 128: só quando o Zak quer acompanhar o acesso de fora (Ajustes).
+    cfg.acessoRemotoNaSaude ? estadoTailscale().catch(() => undefined) : Promise.resolve(undefined),
   ]);
   const limite = momentoDoUltimoLimiteGroq();
   const celular = listarAparelhos().filter(a => /ELYSIUM-M/.test(a.cliente) && a.pedidos > 0);
