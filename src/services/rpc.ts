@@ -917,7 +917,7 @@ const METHODS: Record<string, MethodDef> = {
     handler: async () => ({ itens: await verificarSaude() }),
   },
   "system.saude.consertar": {
-    handler: async (params) => ({ message: await consertarSaude(requireEnum(params, "item", ["ollama", "inicio"] as const)) }),
+    handler: async (params) => ({ message: await consertarSaude(requireEnum(params, "item", ["ollama", "inicio", "tailscale"] as const)) }),
   },
   // O mesmo "copiar diagnóstico" dos Ajustes do PC, para o Sobre do celular (bloco 97).
   "system.diagnostico": {

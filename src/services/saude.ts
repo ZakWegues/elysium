@@ -7,6 +7,7 @@ import { discoCritico } from "../actions/armazenamento";
 import { DiskEntry, getDashboardTelemetry } from "../actions/systemInfo";
 import { listarAparelhos } from "./aparelhos";
 import { clientesConectados } from "./server";
+import { abrirTailscale, EstadoTailscale, estadoTailscale } from "./tailscale";
 import { app } from "electron";
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -50,6 +51,8 @@ export interface FatosSaude {
   celularVistoEm: number | null;
   /** Último backup das chaves de assinatura (scripts/backup-chaves.ps1), ou null se nunca. */
   backupChavesEm: number | null;
+  /** Bloco 122. Ausente = não deu para ler (teste antigo, sem Tailscale). */
+  tailscale?: EstadoTailscale;
   agora: number;
 }
 
@@ -114,6 +117,21 @@ export function avaliarSaude(f: FatosSaude): ItemSaude[] {
     itens.push({ id: "celular", titulo: "Celular", nivel: ha > 3 * 86_400_000 ? "aviso" : "ok", detalhe: `visto há ${haQuanto(ha)}` });
   }
 
+  // Tailscale (bloco 122): o caminho de fora de casa. Só fala quando ele existe.
+  const ts = f.tailscale;
+  if (ts?.instalado) {
+    if (!ts.rodando) itens.push({ id: "tailscale", titulo: "Tailscale", nivel: "aviso", detalhe: "parado no PC — fora de casa o celular não alcança", conserto: { rotulo: "Abrir o Tailscale", tipo: "consertar", valor: "tailscale" } });
+    else {
+      const desligados = ts.celulares.filter(c => !c.online);
+      if (ts.celulares.length && desligados.length === ts.celulares.length) {
+        const c = desligados[0];
+        itens.push({ id: "tailscale", titulo: "Tailscale", nivel: "aviso", detalhe: `o ${c.nome} está desligado no Tailscale${c.vistoEm ? ` (visto há ${haQuanto(f.agora - c.vistoEm)})` : ""} — fora de casa ele não alcança o PC. No celular: abrir o Tailscale e tirar a economia de bateria dele` });
+      } else {
+        itens.push({ id: "tailscale", titulo: "Tailscale", nivel: "ok", detalhe: `ligado${ts.ip ? ` (${ts.ip})` : ""}${ts.celulares.some(c => c.online) ? ", celular conectado" : ""}` });
+      }
+    }
+  }
+
   // Chaves de assinatura (bloco 113): sem cópia, nenhum APK novo instala por cima do atual.
   const SEIS_MESES = 180 * 86_400_000;
   const script = "rode scripts\\backup-chaves.ps1 para um pendrive e uma nuvem";
@@ -134,10 +152,11 @@ function lerBackupChaves(): number | null {
 export async function verificarSaude(): Promise<ItemSaude[]> {
   const cfg = getConfig();
   const cerebroLocal = cfg.routerProvider === "ollama" || cfg.chatProvider === "ollama";
-  const [ollama, inicio, discos] = await Promise.all([
+  const [ollama, inicio, discos, tailscale] = await Promise.all([
     cerebroLocal ? ollamaDisponivel(cfg.ollamaRouterModel) : Promise.resolve({ ok: true, detalhe: "" }),
     inicioAutomaticoConfere().catch(() => ({ ok: true, detalhe: "não consegui ler o Registro" })),
     getDashboardTelemetry().then(t => t.disks ?? []).catch(() => [] as DiskEntry[]),
+    estadoTailscale().catch(() => undefined),
   ]);
   const limite = momentoDoUltimoLimiteGroq();
   const celular = listarAparelhos().filter(a => /ELYSIUM-M/.test(a.cliente) && a.pedidos > 0);
@@ -154,6 +173,7 @@ export async function verificarSaude(): Promise<ItemSaude[]> {
     celularConectado: clientesConectados() > 0,
     celularVistoEm: celular.length ? Math.max(...celular.map(a => a.ultimaVez)) : null,
     backupChavesEm: lerBackupChaves(),
+    tailscale,
     agora: Date.now(),
   });
 }
@@ -162,6 +182,9 @@ export async function verificarSaude(): Promise<ItemSaude[]> {
 export async function consertarSaude(item: string): Promise<string> {
   if (item === "ollama") {
     return (await garantirOllama(baseDoOllama(), true)) ? "O Ollama está de pé." : "Não consegui subir o Ollama — abra-o pelo menu Iniciar.";
+  }
+  if (item === "tailscale") {
+    return (await abrirTailscale()) ? "Abri o Tailscale; entre na conta se ele pedir." : "Não achei o Tailscale instalado neste PC.";
   }
   if (item === "inicio") {
     await sincronizarInicioAutomatico(true);
