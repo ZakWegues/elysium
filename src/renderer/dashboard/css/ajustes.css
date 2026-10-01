@@ -79,7 +79,7 @@
 #gaveta-corpo .cfg-grupo { margin-bottom: 8px; }
 #gaveta-corpo .cfg-grupo h3 { display: none; }
 #gaveta-corpo .cfg-controle input[type="text"], #gaveta-corpo .cfg-controle input[type="password"],
-#gaveta-corpo .cfg-controle select, #gaveta-corpo .cfg-faixa, #gaveta-corpo #clima-resultados { max-width: none; }
+#gaveta-corpo .cfg-controle select, #gaveta-corpo .cfg-controle textarea, #gaveta-corpo .cfg-faixa, #gaveta-corpo #clima-resultados { max-width: none; }
 /* O pareamento, quando entra na gaveta, ganha espaço para o QR. */
 #gaveta-corpo #pairing-card { max-width: none; }
 #gaveta-corpo #pairing-qr { width: 200px; height: 200px; }
@@ -137,6 +137,7 @@
 .cfg-inline { flex-direction: row; align-items: center; gap: 8px; }
 .cfg-controle input[type="text"],
 .cfg-controle input[type="password"],
+.cfg-controle textarea,
 .cfg-controle select {
   /* O teto é o que impede o campo de esticar pela janela inteira. */
   max-width: 340px; width: 100%;
@@ -145,7 +146,9 @@
   color: var(--text); font-family: inherit; font-size: 12px; outline: none;
 }
 .cfg-controle select { cursor: pointer; }
-.cfg-controle input:focus, .cfg-controle select:focus { border-color: var(--purple); }
+.cfg-controle input:focus, .cfg-controle select:focus, .cfg-controle textarea:focus { border-color: var(--purple); }
+/* Instruções pessoais (bloco 134): texto livre, cresce na vertical. */
+.cfg-controle textarea { max-width: 520px; resize: vertical; min-height: 84px; line-height: 1.5; }
 .cfg-atual { font-size: 11.5px; color: var(--purple-bright); font-weight: 600; white-space: nowrap; }
 
 .cfg-faixa { display: flex; align-items: center; gap: 11px; max-width: 340px; }

@@ -19,7 +19,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import { getAllLocalIPv4 } from "../main/network";
 import { clientesConectados } from "./server";
-import { getConfig } from "../main/config";
+import { getConfig, setOverride } from "../main/config";
 
 function hostnameOf(): string {
   try { return os.hostname(); } catch { return "PC"; }
@@ -40,6 +40,7 @@ import { aceitarSugestao, listarSugestoesDeFato, recusarSugestao } from "./memor
 import { agendaFalada, estadoAgenda, eventosDoDia } from "./agenda";
 import { resumoDoDia } from "./resumoDoDia";
 import { buscarNasConversas } from "./buscaConversas";
+import { estiloValido, MAX_INSTRUCOES } from "./estiloResposta";
 import { comecarFoco, estadoFoco, pararFoco, salvarListaFoco } from "./foco";
 import { abrirNoPc, AlvoAbrir, AlvoLimpeza, lerArmazenamento, limpar } from "../actions/armazenamento";
 import { aguardarDownloads, estadoAtualizacao, instalarAtualizacaoDesktop, verificarAtualizacoes } from "./atualizacao";
@@ -887,6 +888,23 @@ const METHODS: Record<string, MethodDef> = {
       const quando = requireEnum<"hoje" | "amanha">(params, "quando", ["hoje", "amanha"]);
       try { return { eventos: await eventosDoDia(quando === "hoje" ? 0 : 1), frase: await agendaFalada(quando) }; }
       catch (e) { throw new RpcError(502, e instanceof Error ? e.message : String(e)); }
+    },
+  },
+  // Jeito de responder (bloco 134): o celular lê e muda o que o PC usa nos prompts.
+  "perfil.get": {
+    handler: async () => {
+      const c = getConfig();
+      return { estiloResposta: estiloValido(c.estiloResposta), instrucoesPessoais: c.instrucoesPessoais ?? "" };
+    },
+  },
+  "perfil.set": {
+    handler: async (params) => {
+      const patch: { estiloResposta?: string; instrucoesPessoais?: string } = {};
+      if (params["estiloResposta"] !== undefined) patch.estiloResposta = estiloValido(params["estiloResposta"]);
+      if (typeof params["instrucoesPessoais"] === "string") patch.instrucoesPessoais = params["instrucoesPessoais"].trim().slice(0, MAX_INSTRUCOES);
+      setOverride(patch);
+      const c = getConfig();
+      return { estiloResposta: estiloValido(c.estiloResposta), instrucoesPessoais: c.instrucoesPessoais ?? "" };
     },
   },
   // Busca dentro das conversas salvas (bloco 133): paleta do PC e, no futuro, o celular.

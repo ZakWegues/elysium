@@ -78,6 +78,12 @@ const AJUSTES = [
     grupo: "Conversa",
     campos: [
       { chave: "nomeDoUsuario", rotulo: "Como te chamar", tipo: "texto", dica: "Aparece na saudação e o assistente usa ao falar com você." },
+      // Bloco 134: o jeito de responder. Fica só na config deste PC (dado pessoal).
+      { chave: "estiloResposta", rotulo: "Tamanho das respostas", tipo: "select", opcoes: [
+        ["direto", "Direto — o mínimo que resolve"], ["equilibrado", "Equilibrado — conforme a pergunta"], ["detalhado", "Detalhado — com o porquê e exemplos"]],
+        dica: "Vale para o chat escrito e, mais curto, para a voz." },
+      { chave: "instrucoesPessoais", rotulo: "Como o ELYSIUM responde", tipo: "area",
+        dica: "Em texto livre: como você quer ser tratado, o que evitar, o que sempre incluir. Ex.: “sem emoji; quando eu perguntar preço, dê em reais; me corrija se eu estiver errado”." },
       { chave: "chatHistoryTurns", rotulo: "Turnos na memória", tipo: "faixa", min: 2, max: 20, passo: 1, unidade: "" },
       { chave: "chatIdleResetMs", rotulo: "Reset por inatividade", tipo: "faixa", min: 60000, max: 3600000, passo: 60000, unidade: "ms" },
     ],
@@ -375,6 +381,8 @@ function desenharAjustes(cfg) {
             <input type="range" data-cfg="${c.chave}" min="${c.min}" max="${c.max}" step="${c.passo}" value="${Number(v) || c.min}">
             <span class="cfg-faixa-val" data-val-de="${c.chave}">${escHtml(valorLegivel(c, Number(v) || c.min))}</span>
           </div>`;
+        } else if (c.tipo === "area") {
+          controle = `<textarea data-cfg="${c.chave}" rows="4" maxlength="1500" placeholder="Como você quer que ele responda…">${escHtml(String(v ?? ""))}</textarea>`;
         } else {
           controle = `<input type="text" data-cfg="${c.chave}" value="${escHtml(String(v ?? ""))}" spellcheck="false">`;
         }
