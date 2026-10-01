@@ -26,6 +26,7 @@
  */
 
 import * as http from "node:http";
+import { desfazerUltimoTurno } from "./brain";
 import * as crypto from "node:crypto";
 import type { Socket } from "node:net";
 import { transcribe } from "./stt";
@@ -646,8 +647,10 @@ function handleUpgrade(
 
   function handleTextFrame(text: string): void {
     try {
-      const msg = JSON.parse(text) as { type?: string; text?: string; canal?: string };
+      const msg = JSON.parse(text) as { type?: string; text?: string; canal?: string; refazer?: boolean };
       if (msg.type === "command" && msg.text) {
+        // "Refazer" do celular (bloco 130): o turno anterior sai do histórico, como no dashboard.
+        if (msg.refazer === true) desfazerUltimoTurno();
         executar(msg.text, msg.canal === "texto" ? "texto" : "voz")
           .then(reply => sendToClient(client, JSON.stringify({ type: "reply", reply })))
           .catch(err  => {
