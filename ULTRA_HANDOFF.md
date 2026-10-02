@@ -5508,3 +5508,19 @@ do PC, ou seja, o reconhecedor nunca começou e o código falhava calado. OTA no
 `getSupportedLocales` com prazo de 2,5 s, retentativas (offline→online, outro serviço),
 microfone no cabeçalho da Início (aceso/cortado, toque explica), linha "Agora: …" em Ajustes
 → Voz, e cada falha/serviço achado vai na hora ao log do PC. Próximo passo: ler o log.
+
+### O assistente se chama Ely (02/10) — e a escuta do celular que travava
+
+Pedido do Zak: o assistente se chama **Ely**; o app continua **ELYSIUM**. Prompts ("Você é
+Ely"), rótulos de histórico ("Ely:"), textos ("Perguntar à Ely", "Como a Ely responde",
+"Falar com a Ely") e palavra de ativação: PC aceita "ely/ei/oi/ok ely" além de "elysium";
+celular `palavraCasa` aceita Ely/Eli/Elly/Ellie só no começo da frase ou depois de
+ei/oi/ok/fala (nunca "ele", nem "Eli" no meio). Desktop **1.8.1** instalado.
+
+Log do celular: `erro ao iniciar: sem resposta` a cada 30 s — o `requestPermissionsAsync` do
+expo-speech-recognition **não responde** neste aparelho. A permissão agora vem do
+`expo-audio` (a mesma do botão de voz). Escada de modos: Google no aparelho → Google online →
+padrão do sistema; modo que não confirma início em 4 s é largado (motivo no log). Teclado
+aberto pausa a escuta (o teclado tinha ficado estranho com o reconhecedor ligando e
+desligando). Microfone no cabeçalho da Início: amarelo ligando, colorido ouvindo, cortado
+falhou.
