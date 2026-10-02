@@ -35,7 +35,7 @@ describe("resumo do histórico (bloco 80)", () => {
     brain.registrarTurnoUsuario("pergunta 5");
     // A poda só acontece no fim do turno: com a pergunta 5 ainda sem resposta, o histórico
     // fica um acima do teto e nada cai — "pergunta 2" continua no contexto recente.
-    expect(brain.contextoRecente()).toMatch(/^\(antes disso: Resumo\(1\): pergunta 1,resposta 1\)\nUsuário: pergunta 2\nELYSIUM: resposta 2/);
+    expect(brain.contextoRecente()).toMatch(/^\(antes disso: Resumo\(1\): pergunta 1,resposta 1\)\nUsuário: pergunta 2\nEly: resposta 2/);
     // O pedido atual (último turno) fica fora do contexto recente, como antes.
     expect(brain.contextoRecente()).not.toContain("pergunta 5");
     brain.recordAssistantReply("resposta 5");
@@ -50,11 +50,11 @@ describe("resumo do histórico (bloco 80)", () => {
       brain.registrarTurnoUsuario(`p${i}`);
       brain.recordAssistantReply(`r${i}`);
     }
-    expect(resumo.blocoDoResumo()).toBe("Usuário: p1\nELYSIUM: r1");
+    expect(resumo.blocoDoResumo()).toBe("Usuário: p1\nEly: r1");
     expect(resumo.estadoDoResumo().pendentes).toBe(2);
     // Passou a espera de 100 ms: o lote está em voo e continua no bloco.
     await new Promise(r => setTimeout(r, 150));
-    expect(resumo.blocoDoResumo()).toBe("Usuário: p1\nELYSIUM: r1");
+    expect(resumo.blocoDoResumo()).toBe("Usuário: p1\nEly: r1");
     soltar("feito");
     await resumo.aguardarCompactacao();
     expect(resumo.blocoDoResumo()).toBe("feito");
@@ -68,7 +68,7 @@ describe("resumo do histórico (bloco 80)", () => {
       brain.recordAssistantReply(`r${i}`);
     }
     await resumo.aguardarCompactacao();
-    expect(resumo.blocoDoResumo()).toBe("Usuário: p1\nELYSIUM: r1");
+    expect(resumo.blocoDoResumo()).toBe("Usuário: p1\nEly: r1");
     aviso.mockRestore();
     brain.clearHistory();
     expect(resumo.blocoDoResumo()).toBe("");

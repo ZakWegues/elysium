@@ -38,7 +38,7 @@ $asTask = ([System.WindowsRuntimeSystemExtensions].GetMethods() | Where-Object {
 function Await($op, [Type]$tipo) { $t = $asTask.MakeGenericMethod($tipo).Invoke($null, @($op)); $t.Wait(-1) | Out-Null; $t.Result }
 try {
   $rec = New-Object Windows.Media.SpeechRecognition.SpeechRecognizer (New-Object Windows.Globalization.Language 'pt-BR')
-  $c = [Windows.Media.SpeechRecognition.SpeechRecognitionListConstraint]::new([string[]]@('elysium', 'ei elysium', 'ok elysium', 'oi elysium'), 'acordar')
+  $c = [Windows.Media.SpeechRecognition.SpeechRecognitionListConstraint]::new([string[]]@('ely', 'ei ely', 'oi ely', 'ok ely', 'elysium', 'ei elysium', 'ok elysium', 'oi elysium'), 'acordar')
   $tl = [System.Collections.Generic.ICollection[Windows.Media.SpeechRecognition.ISpeechRecognitionConstraint]]
   $tl.GetMethod('Add').Invoke($rec.Constraints, @($c)) | Out-Null
   $comp = Await ($rec.CompileConstraintsAsync()) ([Windows.Media.SpeechRecognition.SpeechRecognitionCompilationResult])
@@ -65,7 +65,7 @@ let aoOuvirAtual: ((confianca: Confianca) => void) | null = null;
 /** "OUVI|High|elysium" → true quando vale acordar. Exportado para os testes. */
 export function linhaAcorda(linha: string): boolean {
   const [tipo, confianca, texto] = linha.trim().split("|");
-  return tipo === "OUVI" && (confianca === "High" || confianca === "Medium") && /elysium/i.test(texto ?? "");
+  return tipo === "OUVI" && (confianca === "High" || confianca === "Medium") && /\bely(sium)?\b/i.test(texto ?? "");
 }
 
 function subir(): void {
@@ -104,7 +104,8 @@ function subir(): void {
  * frase que está sendo falada contém "Elysium" — ele se interromperia ao dizer o nome.
  */
 export function podeInterromper(confianca: Confianca, falando: string): boolean {
-  return confianca === "High" && !/elys/i.test(falando);
+  // A fala da resposta que contém o próprio nome ("Ely", "ELYSIUM") não pode se interromper.
+  return confianca === "High" && !/\bely/i.test(falando);
 }
 
 export function ligarPalavraDeAtivacao(aoOuvir: (confianca: Confianca) => void): void {

@@ -398,7 +398,7 @@ const PAINEIS_PC = {
   },
 
   memoria: {
-    titulo: "Memória", icone: "bookmark", resumo: () => "O que o ELYSIUM lembra de você",
+    titulo: "Memória", icone: "bookmark", resumo: () => "O que a Ely lembra de você",
     async render() {
       let fatos = [];
       try { fatos = (await window.nx.rpc("memory.list")).result?.facts ?? []; } catch { /* segue */ }

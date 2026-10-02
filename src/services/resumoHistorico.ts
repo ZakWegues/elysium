@@ -50,7 +50,7 @@ export function guardarTurnosPodados(turnos: TurnoResumo[]): void {
 export function blocoDoResumo(): string {
   const linhas: string[] = [];
   if (resumo) linhas.push(resumo);
-  for (const t of [...emVoo, ...pendentes]) linhas.push(t.role === "user" ? `Usuário: ${t.content}` : `ELYSIUM: ${t.content}`);
+  for (const t of [...emVoo, ...pendentes]) linhas.push(t.role === "user" ? `Usuário: ${t.content}` : `Ely: ${t.content}`);
   return linhas.join("\n");
 }
 
@@ -102,7 +102,7 @@ async function compactarComModelo(resumoAtual: string, turnos: TurnoResumo[]): P
   const cfg = getConfig();
   const provider: Provider = cfg.chatProvider === "ollama" ? "ollama" : (getApiKey() ? "groq" : "ollama");
   const model = provider === "ollama" ? cfg.ollamaChatModel : cfg.brainModel;
-  const conversa = turnos.map(t => (t.role === "user" ? `Usuário: ${t.content}` : `ELYSIUM: ${t.content}`)).join("\n");
+  const conversa = turnos.map(t => (t.role === "user" ? `Usuário: ${t.content}` : `Ely: ${t.content}`)).join("\n");
   return callChat({
     provider, model, temperature: 0.2, maxTokens: 180, timeoutMs: 20_000,
     messages: [

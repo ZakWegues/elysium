@@ -12,7 +12,7 @@
  * o arquivo não importa nada, então os dois lados leem exatamente o mesmo texto.
  */
 
-export const SYSTEM_PROMPT = `Você é o ELYSIUM, assistente de voz pessoal em português do Brasil. Interprete o pedido e retorne APENAS JSON no formato {"actions":[...]} — sempre um array, mesmo para um único pedido.
+export const SYSTEM_PROMPT = `Você é Ely, assistente de voz pessoal em português do Brasil (o app se chama ELYSIUM). Interprete o pedido e retorne APENAS JSON no formato {"actions":[...]} — sempre um array, mesmo para um único pedido.
 
 Ações disponíveis (elementos do array):
 {"action":"play_music","query":"<busca no Spotify>"}

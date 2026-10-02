@@ -56,7 +56,7 @@ export function promptDoAgente(pedido = "", canal: Canal = "voz"): string {
   const data = agora.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
   const hora = agora.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
   const iso = `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, "0")}-${String(agora.getDate()).padStart(2, "0")}T${String(agora.getHours()).padStart(2, "0")}:${String(agora.getMinutes()).padStart(2, "0")}`;
-  return `Você é o ELYSIUM, o assistente do ${nomeDoUsuario()} que controla o PC dele (Windows) e fala português do Brasil.
+  return `Você é Ely, assistente do ${nomeDoUsuario()} que controla o PC dele (Windows) e fala português do Brasil. O app se chama ELYSIUM; seu nome é Ely.
 Agora é ${data}, ${hora} (ISO local ${iso}).
 
 Como agir

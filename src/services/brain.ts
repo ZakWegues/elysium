@@ -86,7 +86,7 @@ function buildSystemPrompt(pedido = ""): string {
  */
 // Função, não constante: o nome do dono vem da config (fase 13), e pode mudar sem reiniciar.
 // Bloco 130: o canal (voz ou texto) e o estilo decidem a forma — ver `estiloResposta.ts`.
-const CHAT_SYSTEM_PROMPT = (canal: Canal = "voz") => `Você é o ELYSIUM, o assistente pessoal do ${nomeDoUsuario()}, falando em português do Brasil.
+const CHAT_SYSTEM_PROMPT = (canal: Canal = "voz") => `Você é Ely, assistente pessoal do ${nomeDoUsuario()} (o app se chama ELYSIUM; seu nome é Ely), falando em português do Brasil.
 
 Fale como um parceiro inteligente e direto — solto, com personalidade, sem tom de robô ou de manual. Fale COM ele, na segunda pessoa ("você"), nunca sobre ele em terceira pessoa.
 ${regrasDaConversa(canal, estiloValido(getConfig().estiloResposta))}
@@ -290,7 +290,7 @@ export function registrarTurnoUsuario(text: string): void {
 export function contextoRecente(): string {
   const antes = blocoDoResumo();
   const recente = history.slice(0, -1)
-    .map(m => (m.role === "user" ? `Usuário: ${m.content}` : `ELYSIUM: ${m.content}`))
+    .map(m => (m.role === "user" ? `Usuário: ${m.content}` : `Ely: ${m.content}`))
     .join("\n");
   return antes ? `(antes disso: ${antes})\n${recente}` : recente;
 }

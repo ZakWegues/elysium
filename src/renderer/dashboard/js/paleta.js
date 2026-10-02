@@ -249,7 +249,7 @@ function filtrarPaleta(consulta) {
   if (!q) lista = lista.filter(it => it.grupo === "nav" || it.grupo === "acao");
   else lista = lista.slice(0, 40);
   if (q.length >= 2) {
-    lista.push({ grupo: "chat", icone: "cpu", texto: `Perguntar ao ELYSIUM: “${q}”`, executar: () => {
+    lista.push({ grupo: "chat", icone: "cpu", texto: `Perguntar à Ely: “${q}”`, executar: () => {
       switchView("chat"); switchChatMode("ai");
       addBubble("user", q); recordMessage("me", q); window.nx.chatSend(q);
     } });
@@ -263,7 +263,7 @@ function desenharPaleta() {
   if (paletaIndice >= paletaVisiveis.length) paletaIndice = 0;
 
   if (paletaVisiveis.length === 0) {
-    paletaLista.innerHTML = `<div id="paleta-vazio">Nada com esse nome. Continue escrevendo para perguntar ao ELYSIUM.</div>`;
+    paletaLista.innerHTML = `<div id="paleta-vazio">Nada com esse nome. Continue escrevendo para perguntar à Ely.</div>`;
     return;
   }
   let html = "", grupoAtual = null;
