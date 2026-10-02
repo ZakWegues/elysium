@@ -5498,3 +5498,13 @@ Desktop **1.8.0** (assinada, CI verde) publicada e instalada por `update.install
 sem o Tailscale. Celular **1.8.0 / versionCode 18** (APK — o 129 trouxe módulo nativo).
 Testes: desktop 140, celular 38. Só o Zak: instalar o APK, dar a permissão de reconhecimento
 de fala, conferir o tema e dizer "Elysium" com o app aberto.
+
+### Depois da 1.8.0 — "não apareceu permissão nenhuma" (02/10)
+
+No Android o reconhecimento de fala usa a MESMA permissão de microfone do botão de voz; já
+dada, não aparece pedido — isso é normal. O problema real: nenhuma linha `palavra-cel` no log
+do PC, ou seja, o reconhecedor nunca começou e o código falhava calado. OTA no runtime da
+1.8.0: serviço do Google escolhido de propósito (no HyperOS o padrão pode ser o da Xiaomi),
+`getSupportedLocales` com prazo de 2,5 s, retentativas (offline→online, outro serviço),
+microfone no cabeçalho da Início (aceso/cortado, toque explica), linha "Agora: …" em Ajustes
+→ Voz, e cada falha/serviço achado vai na hora ao log do PC. Próximo passo: ler o log.
