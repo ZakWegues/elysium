@@ -5524,3 +5524,8 @@ padrão do sistema; modo que não confirma início em 4 s é largado (motivo no 
 aberto pausa a escuta (o teclado tinha ficado estranho com o reconhecedor ligando e
 desligando). Microfone no cabeçalho da Início: amarelo ligando, colorido ouvindo, cortado
 falhou.
+
+Pronúncia: a voz pt-BR lia "Ely" como "Élai"; `cleanTextForSpeech` troca a palavra inteira
+"Ely" por "Éli" (PC, e o MP3 que o celular toca), e o `expo-speech` do celular faz o mesmo.
+Desktop **1.8.2** instalado. Log de 02/10 10:04: celular "escutando (com.google.android.as,
+no aparelho)" e **1 disparo** — a escuta funciona depois da troca da permissão.
