@@ -35,3 +35,11 @@ describe("estilo de resposta (blocos 130 e 134)", () => {
     expect(paraFala("Veja:\n```js\nconst x = 1;\n```\nPronto.")).not.toMatch(/const/);
   });
 });
+
+describe("pronúncia do nome (02/10)", async () => {
+  const { cleanTextForSpeech } = await import("../src/services/tts");
+  it("Ely é lido Éli; ELYSIUM e outras palavras não mudam", () => {
+    expect(cleanTextForSpeech("Oi, eu sou a Ely do ELYSIUM.")).toBe("Oi, eu sou a Éli do ELYSIUM.");
+    expect(cleanTextForSpeech("Elysium e Elyane")).toBe("Elysium e Elyane");
+  });
+});

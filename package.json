@@ -1,6 +1,6 @@
 {
   "name": "elysium",
-  "version": "1.8.1",
+  "version": "1.8.2",
   "description": "ELYSIUM — assistente de voz desktop para Windows (Electron + Groq)",
   "author": "Zak",
   "license": "MIT",

@@ -38,6 +38,8 @@ export function cleanTextForSpeech(raw: string): string {
     .replace(/[-=_*~]{3,}/g, "")
     .replace(/^[-*+>]\s+/gm, "")
     .replace(/^\d+\.\s+/gm, "")
+    // "Ely" (o nome da assistente, 02/10) é lido "Éli" — a voz pt-BR lia "Élai", como em inglês.
+    .replace(/\bEly\b/gi, "Éli")
     .replace(/\s+/g, " ")
     .trim()
     .substring(0, 2000);
