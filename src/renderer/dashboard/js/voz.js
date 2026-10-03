@@ -44,7 +44,36 @@ const WAVE_LABELS = {
   speaking: "Respondendo…"
 };
 
+// ── Sons de escuta (02/10, como Alexa/Google) ──
+// Um bipe curto subindo quando ela começa a ouvir e um descendo quando para: dá para saber
+// sem olhar para a tela se ela pegou o atalho ou o "Ely". Gerados aqui (WebAudio), sem
+// arquivo. Desliga em Ajustes → Voz (`somDeEscuta`).
+let somDeEscuta = true;
+window.nx.getConfig().then((c) => { somDeEscuta = c?.somDeEscuta !== false; }).catch(() => {});
+let audioCtx = null;
+function bipe(de, para) {
+  if (!somDeEscuta) return;
+  try {
+    audioCtx ??= new AudioContext();
+    const t = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const ganho = audioCtx.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(de, t);
+    osc.frequency.exponentialRampToValueAtTime(para, t + 0.12);
+    ganho.gain.setValueAtTime(0.0001, t);
+    ganho.gain.exponentialRampToValueAtTime(0.18, t + 0.02);
+    ganho.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
+    osc.connect(ganho).connect(audioCtx.destination);
+    osc.start(t);
+    osc.stop(t + 0.18);
+  } catch { /* sem áudio, sem bipe */ }
+}
+
 function setState(s) {
+  const anterior = appState;
+  if (s === "listening" && anterior !== "listening") bipe(660, 990);
+  else if (anterior === "listening" && s === "processing") bipe(880, 590);
   appState = s;
   statusBadge.className = s;
   // O fundo acelera enquanto o app está ouvindo, pensando ou falando.

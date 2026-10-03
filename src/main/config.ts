@@ -101,6 +101,8 @@ export interface AppConfig {
   resumoAutomatico: boolean;
   /** Das 22 h às 7 h a voz sai 30% mais baixa (02/10). */
   vozBaixaDeNoite: boolean;
+  /** Bipe curto ao começar e ao parar de ouvir (02/10). */
+  somDeEscuta: boolean;
   /**
    * Acompanhar o acesso de fora de casa (Tailscale) no card Saúde, no resumo e na faixa do
    * celular (bloco 122). Desligado por padrão desde o bloco 128: o Zak não quer o Tailscale
@@ -203,6 +205,7 @@ const DEFAULTS: AppConfig = {
   nomeDoUsuario: "",
   resumoAutomatico: false,
   vozBaixaDeNoite: true,
+  somDeEscuta: true,
   acessoRemotoNaSaude: false,
   estiloResposta: "equilibrado",
   instrucoesPessoais: "",
