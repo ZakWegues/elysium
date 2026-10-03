@@ -14,8 +14,24 @@ const PROSODY_MASCULINA: ProsodyOptions = { rate: "-8%", pitch: "-3%", volume: "
 // A Francisca/Thalita (02/10) com o pitch baixado soa abafada; só um pouco mais devagar basta.
 const PROSODY_FEMININA: ProsodyOptions = { rate: "-4%", pitch: "+0%", volume: "+0%" };
 
-export function prosodiaDa(voz: string): ProsodyOptions {
-  return /^pt-BR-(Antonio|Macerio)/.test(voz) ? PROSODY_MASCULINA : PROSODY_FEMININA;
+/**
+ * Das 22 h às 7 h a Ely fala mais baixo (02/10): resposta no volume do dia, de madrugada,
+ * acorda a casa. Desliga em Ajustes → Voz (`vozBaixaDeNoite`).
+ */
+export function ehNoite(d = new Date(), ligado = getConfig().vozBaixaDeNoite !== false): boolean {
+  if (!ligado) return false;
+  const h = d.getHours();
+  return h >= 22 || h < 7;
+}
+
+export function prosodiaDa(voz: string, noite = ehNoite()): ProsodyOptions {
+  const base = /^pt-BR-(Antonio|Macerio)/.test(voz) ? PROSODY_MASCULINA : PROSODY_FEMININA;
+  return noite ? { ...base, volume: "-30%" } : base;
+}
+
+/** O volume entra na chave: a mesma frase sintetizada à tarde não pode tocar alta à noite. */
+function chaveMp3(voz: string, limpo: string): string {
+  return `${voz}|${ehNoite() ? "noite" : "dia"}|${limpo}`;
 }
 
 let _tts: MsEdgeTTS | null = null;
@@ -63,7 +79,7 @@ export async function sintetizarMp3(texto: string): Promise<Buffer> {
   const limpo = cleanTextForSpeech(texto);
   if (!limpo) throw new Error("nada para falar");
   const voz = getConfig().voice?.trim() || VOICE;
-  const chave = `${voz}|${limpo}`;
+  const chave = chaveMp3(voz, limpo);
   const guardado = cacheMp3.get(chave);
   if (guardado) return guardado;
 
@@ -190,7 +206,7 @@ export async function synthesize(text: string): Promise<void> {
         // metadataStream } em vez do stream direto.
         // Pendência 10 da §15: a chave `voice` existia no config e nunca era lida.
         const voz = getConfig().voice?.trim() || VOICE;
-        const jaPronto = cacheMp3.get(`${voz}|${clean}`);
+        const jaPronto = cacheMp3.get(chaveMp3(voz, clean));
         // O `{}` é obrigatório: a 2.0.7 declara o terceiro parâmetro como opcional e lê
         // `metadataOptions.voiceLocale` sem conferir a partir da SEGUNDA chamada na mesma
         // instância — a primeira fala saía neural e todas as seguintes caíam no SAPI.

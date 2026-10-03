@@ -66,6 +66,8 @@ const AJUSTES = [
         ["pt-BR-AntonioNeural", "Antonio — masculina"],
         ["pt-BR-ThalitaNeural", "Thalita — feminina, mais jovem"],
         ["pt-BR-MacerioMultilingualNeural", "Macerio — masculina, multilíngue"]] },
+      { chave: "vozBaixaDeNoite", rotulo: "Falar mais baixo à noite", tipo: "bool",
+        dica: "Das 22 h às 7 h a Ely fala 30% mais baixo." },
       { chave: "resumoAutomatico", rotulo: "Resumo do dia pela manhã", tipo: "bool",
         dica: "Na primeira volta ao PC entre 6 e 11 h (depois de 1 h parado ou ao destravar a tela), ele fala clima, lembretes, rotinas e o que pede atenção. Uma vez por dia. A qualquer hora: diga “bom dia” ou “resumo do dia”." },
       { chave: "palavraDeAtivacao", rotulo: "Acordar ao ouvir “Ely”", tipo: "bool",

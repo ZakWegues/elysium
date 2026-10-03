@@ -99,6 +99,8 @@ export interface AppConfig {
   nomeDoUsuario: string;
   /** Fala o resumo do dia na primeira volta ao PC entre 6 e 11 h (fase 13). */
   resumoAutomatico: boolean;
+  /** Das 22 h às 7 h a voz sai 30% mais baixa (02/10). */
+  vozBaixaDeNoite: boolean;
   /**
    * Acompanhar o acesso de fora de casa (Tailscale) no card Saúde, no resumo e na faixa do
    * celular (bloco 122). Desligado por padrão desde o bloco 128: o Zak não quer o Tailscale
@@ -200,6 +202,7 @@ const DEFAULTS: AppConfig = {
   atualizarDeMadrugada: true,
   nomeDoUsuario: "",
   resumoAutomatico: false,
+  vozBaixaDeNoite: true,
   acessoRemotoNaSaude: false,
   estiloResposta: "equilibrado",
   instrucoesPessoais: "",

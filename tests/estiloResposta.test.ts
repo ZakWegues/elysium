@@ -75,3 +75,17 @@ describe("fala por frase (02/10)", async () => {
     expect(p[p.length - 1]).not.toBe("Ok.");
   });
 });
+
+describe("voz baixa à noite (02/10)", async () => {
+  const { ehNoite, prosodiaDa } = await import("../src/services/tts");
+  it("22h–7h baixa 30%; desligado nunca baixa", () => {
+    const as = (h: number) => new Date(2026, 9, 2, h, 30);
+    expect(ehNoite(as(23), true)).toBe(true);
+    expect(ehNoite(as(6), true)).toBe(true);
+    expect(ehNoite(as(7), true)).toBe(false);
+    expect(ehNoite(as(21), true)).toBe(false);
+    expect(ehNoite(as(23), false)).toBe(false);
+    expect(prosodiaDa("pt-BR-FranciscaNeural", true).volume).toBe("-30%");
+    expect(prosodiaDa("pt-BR-FranciscaNeural", false).volume).toBe("+0%");
+  });
+});
