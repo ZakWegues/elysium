@@ -36,7 +36,7 @@ import {
 } from "../services/spotify";
 import { state } from "./state";
 import { notify } from "./notify";
-import { createTray, refreshTray, updateLastCommand, buildIcon as iconePadrao } from "./tray";
+import { createTray, refreshTray, updateLastCommand, buildIcon as iconePadrao, aoInterromperFala, marcarFalaNaBandeja } from "./tray";
 import { transcribe } from "../services/stt";
 import { clearHistory, desfazerUltimoTurno } from "../services/brain";
 import { modelosDaGroq } from "../services/catalogoGroq";
@@ -184,6 +184,17 @@ function interruptAll(): void {
   cancelSpeak();
   speakQueue.length = 0;
   isSpeaking = false;
+  avisarFala(false);
+}
+
+/**
+ * Avisa dashboard e bandeja se há fala saindo (02/10). O botão "Interromper voz" só aparecia
+ * no estado "speaking", que é o da resposta à voz — lembrete, timer, rotina e resumo do dia
+ * falavam sem botão nenhum para parar.
+ */
+function avisarFala(f: boolean): void {
+  marcarFalaNaBandeja(f);
+  dashWin?.webContents.send("tts:falando", f);
 }
 
 function speak(text: string): Promise<void> {
@@ -197,8 +208,9 @@ function speak(text: string): Promise<void> {
 let falandoAgora = "";
 
 async function drainSpeak(): Promise<void> {
-  if (speakQueue.length === 0) { isSpeaking = false; return; }
+  if (speakQueue.length === 0) { isSpeaking = false; avisarFala(false); return; }
   isSpeaking = true;
+  avisarFala(true);
   const item = speakQueue.shift()!;
   falandoAgora = item.text;
   try { await synthesize(item.text); } catch { /* best-effort */ }
@@ -525,6 +537,8 @@ ipcMain.handle("chat:starters", () => bolhasDoChat(4));
 ipcMain.handle("history:get", () => getTopHistory(8));
 
 // ── system IPC ────────────────────────────────────────────────────────────────
+
+aoInterromperFala(() => { interruptAll(); state.set("idle"); });
 
 ipcMain.on("tts:stop", () => {
   interruptAll();

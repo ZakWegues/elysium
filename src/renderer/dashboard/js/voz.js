@@ -32,6 +32,8 @@ const textZone     = document.getElementById("text-zone");
 const waveStatus   = document.getElementById("wave-status");
 const barsRow      = document.getElementById("bars-row");
 const stopZone     = document.getElementById("stop-zone");
+// Sai da barra do chat para o body: a aba do chat escondida levaria o botão junto.
+document.body.appendChild(stopZone);
 
 const STATE_LABELS = {
   idle: "Ocioso", listening: "OUVINDO", processing: "PROCESSANDO",
@@ -56,8 +58,7 @@ function setState(s) {
   if (s === "processing") barsRow.classList.add("state-processing");
   else barsRow.classList.remove("state-processing");
 
-  // Stop button — only during speaking
-  stopZone.style.display = (s === "speaking") ? "flex" : "none";
+  mostrarStop();
 
   if (s !== "listening") {
     currentH.fill(MIN_H);
@@ -73,6 +74,14 @@ function setState(s) {
 // ─────────────────────────────────────────────────
 // STOP TTS (kill switch)
 // ─────────────────────────────────────────────────
+// O botão aparece em QUALQUER fala (02/10): a resposta à voz ("speaking") e também lembrete,
+// timer, rotina e resumo do dia, que falam com o app ocioso — o main avisa por "tts:falando".
+let ttsFalando = false;
+function mostrarStop() {
+  stopZone.style.display = (appState === "speaking" || ttsFalando) ? "flex" : "none";
+}
+window.nx.onFalando?.((f) => { ttsFalando = f; mostrarStop(); });
+
 function doStop() {
   window.nx.stopTts();
   setState("idle");   // optimistic — backend also sets idle
@@ -81,7 +90,7 @@ function doStop() {
 document.getElementById("stop-btn").addEventListener("click", doStop);
 
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && appState === "speaking") doStop();
+  if (e.key === "Escape" && (appState === "speaking" || ttsFalando)) doStop();
 });
 
 // ─────────────────────────────────────────────────

@@ -164,9 +164,11 @@
 .cmt { color: #546e7a; font-style: italic; }
 
 /* Stop TTS kill switch */
+/* Flutua no topo, por cima de qualquer aba (02/10): a Ely fala também com o Chat fechado
+   (lembrete, timer, rotina), e o botão preso na barra do chat ficava invisível nessas horas. */
 #stop-zone {
   display: none; justify-content: center; align-items: center;
-  padding: 8px 0 4px;
+  position: fixed; top: 56px; left: 50%; transform: translateX(-50%); z-index: 900;
 }
 #stop-btn {
   display: flex; align-items: center; gap: 8px;

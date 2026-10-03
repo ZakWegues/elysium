@@ -51,6 +51,7 @@ contextBridge.exposeInMainWorld("nx", {
   killProcess:     (pid: number)                => ipcRenderer.send("system:kill-process", pid),
   mediaControl:    (op: string)                 => ipcRenderer.send("media:direct", op),
   stopTts:         ()                           => ipcRenderer.send("tts:stop"),
+  onFalando:       (cb: (f: boolean) => void)   => { ipcRenderer.on("tts:falando", (_e, f) => cb(f)); },
 
   // ── Conversas salvas ───────────────────────────────────────────────────────
   chatSessionsList:     ()                       => ipcRenderer.invoke("chat-sessions:list"),

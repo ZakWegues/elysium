@@ -14,6 +14,18 @@ let _onVoiceOpen: () => void;
 let _onCommand: (text: string) => void;
 let _currentState: AssistantState = "idle";
 let _lastCommand = "";
+/**
+ * "Interromper fala" na bandeja (02/10): lembrete, timer e rotina falam com o app no estado
+ * "ocioso", sem dashboard aberto — e a bandeja é o único lugar à mão para calar a Ely.
+ */
+let _falando = false;
+let _onInterromper: (() => void) | null = null;
+export function aoInterromperFala(fn: () => void): void { _onInterromper = fn; }
+export function marcarFalaNaBandeja(f: boolean): void {
+  if (_falando === f) return;
+  _falando = f;
+  refreshTray(_currentState);
+}
 
 /**
  * O ícone do app, para a bandeja e para as janelas.
@@ -107,6 +119,9 @@ function refreshMenu(st: AssistantState): void {
     { type: "separator" },
     { label: lastLabel, enabled: false },
     { type: "separator" },
+    ...(_falando && _onInterromper
+      ? [{ label: "⏹ Interromper fala", click: () => _onInterromper?.() }, { type: "separator" as const }]
+      : []),
     { label: "⚡ Frequentes", submenu: freqSubmenu },
     { label: "🎮 Presets",    submenu: presetSubmenu },
     { type: "separator" },
