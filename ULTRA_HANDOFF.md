@@ -5529,3 +5529,74 @@ Pronúncia: a voz pt-BR lia "Ely" como "Élai"; `cleanTextForSpeech` troca a pal
 "Ely" por "Éli" (PC, e o MP3 que o celular toca), e o `expo-speech` do celular faz o mesmo.
 Desktop **1.8.2** instalado. Log de 02/10 10:04: celular "escutando (com.google.android.as,
 no aparelho)" e **1 disparo** — a escuta funciona depois da troca da permissão.
+
+## 33. Fase 15 — voz da Ely, sem mão livre, rodada de testes (blocos 140–149, 02/10/2026)
+
+Pedido do Zak (02/10, à noite): tirar a mão livre, voltar com o botão de interromper a Ely
+enquanto ela fala, voz feminina, um plano de melhorias com testes do projeto todo e
+liberdade para mudanças. Plano em `~/.claude/plans/velvet-bubbling-frost.md`.
+
+### O que mudou
+
+**Celular (OTA, sem APK novo)**
+- **140 — mão livre fora.** "Ely" (ou o atalho "Falar com a Ely") vale UM pedido: o colado
+  na palavra ("Ely, pausa a música") ou o que a pessoa falar em seguida (8 s de espera, fecha
+  no silêncio). Responde, fala e encerra. Faixa "Pode falar o pedido / Pensando…" com X.
+  O botão de fone saiu; o de enviar fica sempre visível. Diagnóstico vai como `voz-ely`.
+- **141 — "Interromper"** (`components/BotaoInterromper.tsx`): pílula no topo, por cima de
+  qualquer tela, enquanto `useFalando()` (store em `falar.ts`). Cada fala tem um número de
+  geração: o `finally` de uma fala interrompida não solta mais o microfone no meio da nova.
+- **142 — voz feminina no aparelho**: sem PC, o `expo-speech` escolhe uma pt-BR feminina
+  (`lib/vozFeminina.ts`: "female", `-x-afs-`, `-x-pte-`, Samsung `SMTf`; local antes de
+  network); sem nenhuma, a padrão com `pitch 1.1`.
+- **Parar a resposta** enquanto ela chega: o botão de enviar vira um quadrado. Fecha o WS, o
+  que já chegou fica na bolha com "…", e não cai no HTTP de reserva.
+- **Tabelas** no markdown (`parseMarkdown` → bloco `tabela`, rolagem horizontal) e botão de
+  **copiar só o código** nos blocos de código. A voz pula tabela e código.
+- **"Ler respostas digitadas"** (Ajustes → Voz): desligável; pedido por voz sempre fala.
+- **Compartilhar conversa** em markdown (`lib/exportarConversa.ts`, ícone na lista).
+
+**Desktop**
+- **Voz Francisca por padrão**; troca ÚNICA de quem tinha Antonio/Macerio salvo
+  (`migrarVozFeminina`, marca `vozFemininaAplicada` — escolher masculina depois vale).
+  Prosódia por voz (feminina sem pitch baixado); SAPI de reserva prefere `Female`.
+- **Interromper em qualquer fala**: a fila de fala avisa `tts:falando` ao dashboard e à
+  bandeja. O `#stop-zone` saiu da barra do chat para o `body` (fixo no topo), aparece também
+  em lembrete/timer/rotina e enquanto ela PENSA ("Parar resposta"; Esc também). Bandeja ganha
+  "⏹ Interromper fala" enquanto fala.
+- **Fala por frase** (`dividirEmFrases` + `preSintetizar`): a primeira toca enquanto a
+  seguinte sintetiza no cache do MP3. `interruptAll` agora RESOLVE os pedaços descartados
+  (a promessa do `speak` mora no último; sem isso o `await speak` ficava pendurado).
+- **Voz 30% mais baixa das 22 h às 7 h** (`vozBaixaDeNoite`); o volume entra na chave do cache.
+- **Bipe ao ouvir** (WebAudio no dashboard, `somDeEscuta`).
+- **"Anota que…"** → lista Notas ("Anotei."); **"digita …" / "escreve aí …"** → digita na
+  janela em foco (`type_text` → `inputHost.type`). "Escreve um poema" continua sendo pedido.
+- **Sugestões da Início em paralelo** (smoke: 4,4 s → ~2,4 s).
+- **Ely no feminino**: "Você é a Ely, a assistente…" — sem o artigo o qwen 7B respondia
+  "seu assistente".
+
+### Rodada de testes (143)
+- Unitários: desktop 147, celular 46, `check` verde nos dois.
+- Smoke de contrato (`scratchpad/smoke-rpc.mjs`, 34 métodos de leitura, imprime só as chaves):
+  todos ok; `foco.lista` é escrita (falso positivo); lento só o `suggestions.list` → corrigido.
+- Dashboard dev: `erros-no-dashboard` limpo; config/stop-zone conferidos por eval; os 3
+  estados do botão (pensando/falando/ocioso) conferidos; screenshot de Ajustes.
+- Conversa pelo canal texto (`scratchpad/roteiro-texto.mjs`, pelo WS, sem fala no PC):
+  markdown, tabela, conta exata (calcular), fuso, busca com 4 fontes, sugestões. Achado: o
+  modelo local erra fato histórico (Santos Dumont) — é o limite do qwen 7B no chat; a Groq
+  (gpt-oss-120b) acertaria, mas trocar o provedor do chat é decisão do Zak (privacidade).
+- Bancada do agente: 27 casos (7 novos: listas, timers, conta, conversa, volume) → 24/27
+  (89%); a regra extra para pedidos condicionais PIOROU (80%) e foi revertida. Os 3 que
+  falham são condicionais ("se estiver aberto/tocando").
+- Sem teste audível: era madrugada. A síntese Francisca foi conferida pelo `/api/tts`
+  (MP3 de 24 kB em 1,2 s), sem tocar.
+
+### Para o Zak conferir
+- Celular: reabrir o app 2× (OTA). "Ely, que horas são" → responde uma vez e para; durante a
+  fala aparece "Interromper"; o botão de enviar vira quadrado enquanto a resposta chega.
+- PC: a voz nova (Francisca). Se preferir outra, Ajustes → Voz.
+
+### Ideias que ficaram
+- Modo intérprete ("traduz o que eu falar"), pergunta rápida flutuante (Raycast), resumo da
+  semana, fixar conversas. Bipe também no celular.
+- Pedidos condicionais na bancada: tentar um exemplo few-shot em vez de regra.
