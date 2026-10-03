@@ -72,7 +72,13 @@ function textoDeEspera(min: number): string {
  */
 async function candidatas(): Promise<Sugestao[]> {
   const c: Sugestao[] = [];
-  const tentar = async (fn: () => Promise<void> | void) => { try { await fn(); } catch { /* fonte muda */ } };
+  // As fontes rodam em PARALELO (02/10): em fila, telemetria (~2,4 s) + processos (~2 s) +
+  // Spotify + clima davam 4,4 s medidos no smoke de RPC, e a Início esperava por isso.
+  // Cada `tentar` só dispara; o `Promise.all` no fim espera todas.
+  const pendentes: Promise<void>[] = [];
+  const tentar = (fn: () => Promise<void> | void) => {
+    pendentes.push((async () => { try { await fn(); } catch { /* fonte muda */ } })());
+  };
 
   await tentar(async () => {
     const proximos = listAll()
@@ -251,6 +257,7 @@ async function candidatas(): Promise<Sugestao[]> {
     });
   });
 
+  await Promise.all(pendentes);
   return c;
 }
 
