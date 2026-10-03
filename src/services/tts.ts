@@ -84,6 +84,37 @@ export async function sintetizarMp3(texto: string): Promise<Buffer> {
   return mp3;
 }
 
+/**
+ * Divide uma fala longa em pedaços por frase (02/10), para a primeira começar a tocar
+ * enquanto a seguinte sintetiza — como o modo voz do ChatGPT. Frases curtas se juntam
+ * (cada pedaço é uma síntese e um player; "Ok." sozinho sairia picotado). Fala curta
+ * volta inteira. Pura, para teste.
+ */
+export function dividirEmFrases(texto: string, minimo = 70): string[] {
+  const t = texto.trim();
+  if (t.length <= minimo * 2) return t ? [t] : [];
+  const frases = t.split(/(?<=[.!?…])\s+/);
+  const pedacos: string[] = [];
+  let atual = "";
+  for (const f of frases) {
+    atual = atual ? `${atual} ${f}` : f;
+    if (atual.length >= minimo) { pedacos.push(atual); atual = ""; }
+  }
+  if (atual) {
+    if (pedacos.length && atual.length < minimo / 2) pedacos[pedacos.length - 1] += " " + atual;
+    else pedacos.push(atual);
+  }
+  return pedacos;
+}
+
+/**
+ * Sintetiza a próxima frase enquanto a atual toca (02/10). Vai para o mesmo cache do MP3
+ * do celular, que o `synthesize` consulta antes de abrir a conexão de novo.
+ */
+export function preSintetizar(texto: string): void {
+  sintetizarMp3(texto).catch(() => { /* o synthesize tenta de novo na hora */ });
+}
+
 export async function synthesize(text: string): Promise<void> {
   if (!text?.trim()) return;
   const clean = cleanTextForSpeech(text);
@@ -159,23 +190,28 @@ export async function synthesize(text: string): Promise<void> {
         // metadataStream } em vez do stream direto.
         // Pendência 10 da §15: a chave `voice` existia no config e nunca era lida.
         const voz = getConfig().voice?.trim() || VOICE;
+        const jaPronto = cacheMp3.get(`${voz}|${clean}`);
         // O `{}` é obrigatório: a 2.0.7 declara o terceiro parâmetro como opcional e lê
         // `metadataOptions.voiceLocale` sem conferir a partir da SEGUNDA chamada na mesma
         // instância — a primeira fala saía neural e todas as seguintes caíam no SAPI.
-        await _tts.setMetadata(voz, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3, {});
-        const { audioStream } = _tts.toStream(clean, prosodiaDa(voz));
+        let mp3: Buffer;
+        if (jaPronto) mp3 = jaPronto;
+        else {
+          await _tts.setMetadata(voz, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3, {});
+          const { audioStream } = _tts.toStream(clean, prosodiaDa(voz));
 
-        const chunks: Buffer[] = [];
-        audioStream.on("data", (c: Buffer) => { if (!settled) chunks.push(c); });
+          const chunks: Buffer[] = [];
+          audioStream.on("data", (c: Buffer) => { if (!settled) chunks.push(c); });
 
-        await new Promise<void>((res, rej) => {
-          audioStream.on("end", res);
-          audioStream.on("error", rej);
-        });
+          await new Promise<void>((res, rej) => {
+            audioStream.on("end", res);
+            audioStream.on("error", rej);
+          });
+          mp3 = Buffer.concat(chunks);
+        }
 
         if (settled) return;
 
-        const mp3 = Buffer.concat(chunks);
         if (!mp3.length) {
           console.error("[TTS] stream neural retornou 0 bytes — usando fallback offline");
           speakOffline();

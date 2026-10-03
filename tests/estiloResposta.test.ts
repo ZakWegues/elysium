@@ -59,3 +59,19 @@ describe("voz feminina (02/10)", async () => {
     expect(prosodiaDa("pt-BR-AntonioNeural").pitch).toBe("-3%");
   });
 });
+
+describe("fala por frase (02/10)", async () => {
+  const { dividirEmFrases } = await import("../src/services/tts");
+  it("curta inteira; longa em pedaços de frases inteiras, sem sobra minúscula", () => {
+    expect(dividirEmFrases("Pronto, abri o Spotify.")).toEqual(["Pronto, abri o Spotify."]);
+    expect(dividirEmFrases("   ")).toEqual([]);
+    const longa = "Hoje faz 24 graus em São Paulo, com sol a tarde toda e vento fraco. " +
+      "À noite esfria um pouco, chegando a 17 graus, e não deve chover. " +
+      "Amanhã a previsão é parecida, só um pouco mais quente. Ok.";
+    const p = dividirEmFrases(longa);
+    expect(p.length).toBeGreaterThan(1);
+    expect(p.join(" ")).toBe(longa);
+    expect(p.every(x => /[.!?]$/.test(x))).toBe(true);
+    expect(p[p.length - 1]).not.toBe("Ok.");
+  });
+});

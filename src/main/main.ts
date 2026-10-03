@@ -46,7 +46,7 @@ import { Confianca, desligarPalavraDeAtivacao, ligarPalavraDeAtivacao, podeInter
 iniciarLogEmArquivo();
 import { getTopHistory } from "../services/history";
 import { registrarPergunta, bolhasDoChat } from "../services/perguntas";
-import { synthesize, cancelSpeak } from "../services/tts";
+import { synthesize, cancelSpeak, dividirEmFrases, preSintetizar } from "../services/tts";
 import { ElysiumError } from "../services/errors";
 import { processCommand, processCommandStream, executarComando } from "../services/command";
 import { startServer, setActiveToken, broadcastMailboxEvent, broadcastNotify } from "../services/server";
@@ -182,7 +182,10 @@ let currentToken = 0;
 function interruptAll(): void {
   currentToken++;
   cancelSpeak();
-  speakQueue.length = 0;
+  // Resolve quem esperava pelos pedaços que não vão mais tocar: com a fala dividida em
+  // frases (02/10), a promessa do `speak` mora no ÚLTIMO pedaço, e descartá-lo sem resolver
+  // deixava o \`await speak(...)\` pendurado para sempre.
+  for (const item of speakQueue.splice(0)) item.resolve();
   isSpeaking = false;
   avisarFala(false);
 }
@@ -198,8 +201,13 @@ function avisarFala(f: boolean): void {
 }
 
 function speak(text: string): Promise<void> {
+  // Fala longa sai em pedaços (02/10): o primeiro toca enquanto o seguinte sintetiza. A
+  // promessa resolve no ÚLTIMO pedaço — quem espera a fala acabar continua esperando a fala
+  // inteira. Interromper esvazia a fila e resolve (interruptAll + resolve abaixo).
+  const pedacos = dividirEmFrases(text);
+  if (!pedacos.length) return Promise.resolve();
   return new Promise((resolve) => {
-    speakQueue.push({ text, resolve });
+    pedacos.forEach((p, i) => speakQueue.push({ text: p, resolve: i === pedacos.length - 1 ? resolve : () => {} }));
     if (!isSpeaking) drainSpeak();
   });
 }
@@ -213,6 +221,7 @@ async function drainSpeak(): Promise<void> {
   avisarFala(true);
   const item = speakQueue.shift()!;
   falandoAgora = item.text;
+  if (speakQueue[0]) preSintetizar(speakQueue[0].text);
   try { await synthesize(item.text); } catch { /* best-effort */ }
   falandoAgora = "";
   item.resolve();
