@@ -43,3 +43,19 @@ describe("pronúncia do nome (02/10)", async () => {
     expect(cleanTextForSpeech("Elysium e Elyane")).toBe("Elysium e Elyane");
   });
 });
+
+describe("voz feminina (02/10)", async () => {
+  const { migrarVozFeminina } = await import("../src/main/config");
+  const { prosodiaDa } = await import("../src/services/tts");
+  it("Antonio/Macerio salvos viram Francisca uma vez; escolha depois da marca é respeitada", () => {
+    expect(migrarVozFeminina({ voice: "pt-BR-AntonioNeural" })).toEqual({ vozFemininaAplicada: true, voice: "pt-BR-FranciscaNeural" });
+    expect(migrarVozFeminina({ voice: "pt-BR-MacerioMultilingualNeural" })?.voice).toBe("pt-BR-FranciscaNeural");
+    expect(migrarVozFeminina({ voice: "pt-BR-ThalitaNeural" })).toEqual({ vozFemininaAplicada: true });
+    expect(migrarVozFeminina({})).toEqual({ vozFemininaAplicada: true });
+    expect(migrarVozFeminina({ voice: "pt-BR-AntonioNeural", vozFemininaAplicada: true })).toBeNull();
+  });
+  it("prosódia: feminina sem pitch baixado, masculina como antes", () => {
+    expect(prosodiaDa("pt-BR-FranciscaNeural").pitch).toBe("+0%");
+    expect(prosodiaDa("pt-BR-AntonioNeural").pitch).toBe("-3%");
+  });
+});

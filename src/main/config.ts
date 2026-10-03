@@ -23,6 +23,8 @@ export interface AppConfig {
   silenceMs: number;
   maxRecordMs: number;
   voice: string;
+  /** Marca que a troca única para a voz feminina (02/10) já rodou — ver `migrarVozFeminina`. */
+  vozFemininaAplicada?: boolean;
   sttModel: string;
   /** Modelo que escreve as respostas de conversa — vale pagar qualidade aqui. */
   brainModel: string;
@@ -160,10 +162,8 @@ const DEFAULTS: AppConfig = {
   autoLaunch: true,
   silenceMs: 2500,
   maxRecordMs: 120000,
-  // Antonio é o que sempre tocou: o `tts.ts` ignorava esta chave e fixava a voz dele.
-  // Manter o padrão igual ao comportamento antigo é o que evita a voz mudar sozinha na
-  // primeira abertura depois de a chave passar a valer.
-  voice: "pt-BR-AntonioNeural",
+  // 02/10: a assistente se chama Ely, e o Zak pediu voz feminina. Antes era o Antonio.
+  voice: "pt-BR-FranciscaNeural",
   sttModel: "whisper-large-v3",
   brainModel: "openai/gpt-oss-120b",
   routerModel: "openai/gpt-oss-120b",
@@ -378,8 +378,28 @@ export function marcarModeloMorto(provider: "groq" | "ollama", modelo: string): 
   console.warn(`[config] "${modelo}" não existe no provedor ${provider}; caindo no padrão a partir de agora.`);
 }
 
+/** Vozes masculinas do seletor de Ajustes — as que a troca de 02/10 substitui. */
+const VOZES_MASCULINAS = /^pt-BR-(Antonio|Macerio)/;
+
+/**
+ * Troca única para a voz feminina (02/10). Quem tinha o Antonio salvo (era o padrão, então
+ * muita gente "escolheu" sem escolher) passa para a Francisca UMA vez; a marca garante que
+ * escolher de novo uma voz masculina em Ajustes depois disso é respeitado.
+ */
+export function migrarVozFeminina(o: Partial<AppConfig>): Partial<AppConfig> | null {
+  if (o.vozFemininaAplicada) return null;
+  const patch: Partial<AppConfig> = { vozFemininaAplicada: true };
+  if (o.voice && VOZES_MASCULINAS.test(o.voice)) patch.voice = "pt-BR-FranciscaNeural";
+  return patch;
+}
+
 export function getConfig(): AppConfig {
-  const overrides = store.get("overrides", {} as Partial<AppConfig>);
+  let overrides = store.get("overrides", {} as Partial<AppConfig>);
+  const vozNova = migrarVozFeminina(overrides);
+  if (vozNova) {
+    overrides = { ...overrides, ...vozNova };
+    store.set("overrides", overrides);
+  }
   const merged = { ...fileDefaults, ...overrides };
 
   // Modelo aposentado pela Groq volta ao padrão em vez de derrubar todo comando com

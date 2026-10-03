@@ -5,12 +5,18 @@ import * as path from "node:path";
 import { spawn, ChildProcess } from "node:child_process";
 import { getConfig } from "../main/config";
 
-const VOICE = "pt-BR-AntonioNeural";
+const VOICE = "pt-BR-FranciscaNeural";
 const TTS_TIMEOUT_MS = 30_000;
 
 // Rate/pitch levemente reduzidos: soa menos apressado e menos robótico
 // que o padrão (rate 1.0 / pitch +0Hz) do msedge-tts.
-const PROSODY: ProsodyOptions = { rate: "-8%", pitch: "-3%", volume: "+0%" };
+const PROSODY_MASCULINA: ProsodyOptions = { rate: "-8%", pitch: "-3%", volume: "+0%" };
+// A Francisca/Thalita (02/10) com o pitch baixado soa abafada; só um pouco mais devagar basta.
+const PROSODY_FEMININA: ProsodyOptions = { rate: "-4%", pitch: "+0%", volume: "+0%" };
+
+export function prosodiaDa(voz: string): ProsodyOptions {
+  return /^pt-BR-(Antonio|Macerio)/.test(voz) ? PROSODY_MASCULINA : PROSODY_FEMININA;
+}
 
 let _tts: MsEdgeTTS | null = null;
 let _cancelFn: (() => void) | null = null;
@@ -63,7 +69,7 @@ export async function sintetizarMp3(texto: string): Promise<Buffer> {
 
   if (!_ttsCelular) _ttsCelular = new MsEdgeTTS();
   await _ttsCelular.setMetadata(voz, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3, {});
-  const { audioStream } = _ttsCelular.toStream(limpo, PROSODY);
+  const { audioStream } = _ttsCelular.toStream(limpo, prosodiaDa(voz));
   const pedacos: Buffer[] = [];
   await new Promise<void>((ok, falha) => {
     const t = setTimeout(() => falha(new Error("síntese demorou demais")), TTS_TIMEOUT_MS);
@@ -119,7 +125,7 @@ export async function synthesize(text: string): Promise<void> {
         "$s = New-Object System.Speech.Synthesis.SpeechSynthesizer",
         "try {",
         "  $voices = $s.GetInstalledVoices() | Where-Object { $_.VoiceInfo.Culture.Name -like 'pt*' }",
-        "  $v = ($voices | Where-Object { $_.VoiceInfo.Gender -eq 'Male' } | Select-Object -First 1)",
+        "  $v = ($voices | Where-Object { $_.VoiceInfo.Gender -eq 'Female' } | Select-Object -First 1)",
         "  if (-not $v) { $v = $voices | Select-Object -First 1 }",
         "  if ($v) { $s.SelectVoice($v.VoiceInfo.Name) }",
         "} catch {}",
@@ -157,7 +163,7 @@ export async function synthesize(text: string): Promise<void> {
         // `metadataOptions.voiceLocale` sem conferir a partir da SEGUNDA chamada na mesma
         // instância — a primeira fala saía neural e todas as seguintes caíam no SAPI.
         await _tts.setMetadata(voz, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3, {});
-        const { audioStream } = _tts.toStream(clean, PROSODY);
+        const { audioStream } = _tts.toStream(clean, prosodiaDa(voz));
 
         const chunks: Buffer[] = [];
         audioStream.on("data", (c: Buffer) => { if (!settled) chunks.push(c); });

@@ -62,8 +62,8 @@ const AJUSTES = [
     nota: "Vozes neurais do Edge, pela internet. Sem rede o ELYSIUM cai na voz do Windows.",
     campos: [
       { chave: "voice", rotulo: "Voz", tipo: "select", opcoes: [
+        ["pt-BR-FranciscaNeural", "Francisca — feminina (padrão)"],
         ["pt-BR-AntonioNeural", "Antonio — masculina"],
-        ["pt-BR-FranciscaNeural", "Francisca — feminina"],
         ["pt-BR-ThalitaNeural", "Thalita — feminina, mais jovem"],
         ["pt-BR-MacerioMultilingualNeural", "Macerio — masculina, multilíngue"]] },
       { chave: "resumoAutomatico", rotulo: "Resumo do dia pela manhã", tipo: "bool",
@@ -134,7 +134,7 @@ const SECOES_AJUSTES = [
   { id: "cerebro", titulo: "Cérebro", icone: "cpu", nos: ["[data-secao='cerebro']", "[data-secao='modelos-da-groq']"],
     resumo: (c) => (c.routerProvider === "groq" ? "Nuvem" : "Local") + " · " + (c.chatProvider === "groq" ? "responde na nuvem" : "responde local") },
   { id: "voz", titulo: "Voz", icone: "mic", nos: ["[data-secao='voz']"],
-    resumo: (c) => (String(c.voice || "").match(/pt-BR-([A-Za-z]+?)(Multilingual)?Neural/)?.[1]) || "Antonio" },
+    resumo: (c) => (String(c.voice || "").match(/pt-BR-([A-Za-z]+?)(Multilingual)?Neural/)?.[1]) || "Francisca" },
   { id: "clima", titulo: "Clima", icone: "cloud", nos: ["#sec-clima"],
     resumo: (c) => c.climaCidade || "Cidade não definida" },
   { id: "conversa", titulo: "Conversa", icone: "message-circle", nos: ["[data-secao='conversa']"],
