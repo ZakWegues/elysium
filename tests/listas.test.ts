@@ -46,3 +46,20 @@ describe("listas (bloco 135)", async () => {
     expect(listaFalada({ id: "l", nome: "Compras", atualizadaEm: 0, itens: [] })).toBe("A lista Compras está vazia.");
   });
 });
+
+describe("notas e ditado (02/10)", async () => {
+  const { pedidoDeNota, pedidoDeDitado } = await import("../src/services/listas");
+  const { fastRoute } = await import("../src/services/fastRoute");
+  it("anota que… vira nota; lembra que… não", () => {
+    expect(pedidoDeNota("anota que a reunião mudou para quinta")).toBe("a reunião mudou para quinta");
+    expect(pedidoDeNota("Anota aí: comprar presente.")).toBe("comprar presente");
+    expect(pedidoDeNota("lembra que meu carro é prata")).toBeNull();
+    expect(fastRoute("anota que o dentista é às 3")).toEqual([{ action: "list_add", items: ["o dentista é às 3"], list: "Notas" }]);
+  });
+  it("digita… vira ditado; escreve um poema continua sendo pedido para a Ely", () => {
+    expect(pedidoDeDitado("digita bom dia a todos")).toBe("bom dia a todos");
+    expect(pedidoDeDitado("escreve aí: chego em 10 minutos")).toBe("chego em 10 minutos");
+    expect(pedidoDeDitado("escreve um poema sobre o mar")).toBeNull();
+    expect(fastRoute("digita olá")).toEqual([{ action: "type_text", text: "olá" }]);
+  });
+});

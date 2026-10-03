@@ -1,5 +1,5 @@
 import type { BrainAction } from "./brain";
-import { pedidoDeLista } from "./listas";
+import { pedidoDeDitado, pedidoDeLista, pedidoDeNota } from "./listas";
 import { interpretarTimer } from "./timers";
 import { calcular } from "./calculadora";
 import { pedidoDeHora } from "./horaMundo";
@@ -140,6 +140,10 @@ export function fastRoute(text: string): BrainAction[] | null {
   // acento: "café", "pão de queijo"), então vêm antes das regras sobre o normalizado.
   const lista = pedidoDeLista(text);
   if (lista) return [{ action: "list_add", items: lista.itens, list: lista.lista }];
+  const nota = pedidoDeNota(text);
+  if (nota) return [{ action: "list_add", items: [nota], list: "Notas" }];
+  const ditado = pedidoDeDitado(text);
+  if (ditado) return [{ action: "type_text", text: ditado }];
   const timer = interpretarTimer(text);
   if (timer) return [{ action: "timer_start", ms: timer.ms, name: timer.nome || undefined }];
   // Hora em outra cidade (fase 14): "que horas são em Tóquio" virava o clima de Tóquio.

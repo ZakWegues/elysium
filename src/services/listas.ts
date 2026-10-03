@@ -19,6 +19,7 @@ const semAcento = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLo
 const SINONIMOS: [RegExp, string][] = [
   [/^(compras?|mercado|supermercado|feira|lista de compras?|do mercado)$/, "Compras"],
   [/^(tarefas?|afazeres|a fazer|pendencias?|to ?do|coisas pra fazer|coisas para fazer)$/, "Tarefas"],
+  [/^(notas?|anotacoes|notas rapidas)$/, "Notas"],
 ];
 
 /** "lista do mercado" → "Compras"; "lista de presentes" → "Presentes". Pura. */
@@ -76,6 +77,25 @@ export function pedidoDeLista(texto: string): { itens: string[]; lista: string }
   const itens = separarItens(m[1]);
   if (!itens.length) return null;
   return { itens, lista: normalizarNomeLista(m[2] ? `lista de ${m[2]}` : undefined) };
+}
+
+/**
+ * "Anota que a reunião mudou para quinta" → item na lista Notas (02/10). Diferente de
+ * "lembra que…" (memória): a nota é para o Zak reler, a Ely não a usa como fato sobre ele.
+ * Pura.
+ */
+export function pedidoDeNota(texto: string): string | null {
+  const m = /^\s*(?:anota|anote|toma nota|tome nota)(?:\s+(?:a[ií]|isso|pra mim))?\s*(?:que\s+|:\s*)(.{3,300}?)\s*[.!]?\s*$/i.exec(texto);
+  return m ? m[1].trim() : null;
+}
+
+/**
+ * "Digita bom dia a todos" → digita onde o cursor está (02/10, ditado). Só com "digita" ou
+ * "escreve aí/aqui": "escreve um poema" é pedido de texto para a Ely, não ditado. Pura.
+ */
+export function pedidoDeDitado(texto: string): string | null {
+  const m = /^\s*(?:digita|digite|escreve a[ií]|escreva a[ií]|escreve aqui|escreva aqui)\s*[:,]?\s+(.{1,1000})$/i.exec(texto);
+  return m ? m[1].trim() : null;
 }
 
 /** Uma lista em frase curta (para a voz e para a ferramenta). Pura. */

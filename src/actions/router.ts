@@ -26,6 +26,7 @@ import { climaFalado } from "../services/clima";
 import { comecarFoco, focoFalado, pararFoco } from "../services/foco";
 import { resumoDoDia } from "../services/resumoDoDia";
 import { adicionarNaLista, listaFalada, listarListas, obterLista } from "../services/listas";
+import { inputHost } from "../services/inputHost";
 import { cancelarTimer, criarTimer, duracaoFalada, timersFalados } from "../services/timers";
 import { calcular, formatarNumero } from "../services/calculadora";
 import { horaEm } from "../services/horaMundo";
@@ -51,8 +52,13 @@ export async function routeAction(action: BrainAction): Promise<string> {
     case "system_info":       return systemInfo(action.query);
     case "weather":           return climaFalado();
     case "daily_summary":     return resumoDoDia();
+    case "type_text":
+      // Ditado (02/10): digita na janela em foco, como o celular faz pelo `input.type`.
+      await inputHost.type(action.text);
+      return "Pronto.";
     case "list_add": {
       const r = adicionarNaLista(action.list, action.items);
+      if (action.list === "Notas" && r.adicionados.length) return "Anotei.";
       if (!r.adicionados.length) return `${emFrase(r.repetidos)} já ${r.repetidos.length > 1 ? "estão" : "está"} na lista ${r.lista.nome}.`;
       return `Pus ${emFrase(r.adicionados)} na lista ${r.lista.nome}${r.repetidos.length ? ` (${emFrase(r.repetidos)} já estava)` : ""}.`;
     }
