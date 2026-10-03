@@ -77,20 +77,27 @@ function setState(s) {
 // O botão aparece em QUALQUER fala (02/10): a resposta à voz ("speaking") e também lembrete,
 // timer, rotina e resumo do dia, que falam com o app ocioso — o main avisa por "tts:falando".
 let ttsFalando = false;
+// Também enquanto ela PENSA (02/10, "parar geração" do ChatGPT): uma resposta longa que
+// saiu do rumo não precisa ser esperada até o fim. O main descarta o resto pelo token.
 function mostrarStop() {
-  stopZone.style.display = (appState === "speaking" || ttsFalando) ? "flex" : "none";
+  const pensando = appState === "processing";
+  stopZone.style.display = (appState === "speaking" || ttsFalando || pensando) ? "flex" : "none";
+  const rotulo = document.querySelector("#stop-btn span");
+  if (rotulo) rotulo.textContent = pensando ? "Parar resposta" : "Interromper voz";
 }
 window.nx.onFalando?.((f) => { ttsFalando = f; mostrarStop(); });
 
 function doStop() {
   window.nx.stopTts();
+  // O que já chegou fica na conversa, marcado como interrompido.
+  if (bolhaEmCurso) finalizarResposta(textoEmCurso.trimEnd() + " …");
   setState("idle");   // optimistic — backend also sets idle
 }
 
 document.getElementById("stop-btn").addEventListener("click", doStop);
 
 document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && (appState === "speaking" || ttsFalando)) doStop();
+  if (e.key === "Escape" && (appState === "speaking" || appState === "processing" || ttsFalando)) doStop();
 });
 
 // ─────────────────────────────────────────────────

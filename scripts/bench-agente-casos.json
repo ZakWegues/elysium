@@ -31,6 +31,13 @@
     { "texto": "quanto é 15% de 200?", "esperado": [], "leituras": ["calcular"] },
     { "texto": "que horas são em tóquio agora?", "esperado": [], "leituras": ["hora_em"] },
     { "texto": "coloca o volume em 40 e toca alguma coisa do Radiohead", "esperado": ["volume:40", "tocar_musica:radiohead"] },
-    { "texto": "apaga a rotina Bom dia", "esperado": ["apagar_rotina:bom"] }
+    { "texto": "apaga a rotina Bom dia", "esperado": ["apagar_rotina:bom"] },
+    { "texto": "põe pão e manteiga na lista do mercado", "esperado": ["adicionar_na_lista:pão|pao"] },
+    { "texto": "cria um timer de 10 minutos pro miojo", "esperado": ["criar_timer:miojo"] },
+    { "texto": "o que tem na minha lista de compras?", "esperado": [], "leituras": ["ver_lista"] },
+    { "texto": "quanto é 18% de 250?", "esperado": [], "leituras": ["calcular"] },
+    { "texto": "me explica rapidinho o que é um buraco negro", "esperado": "CHAT" },
+    { "texto": "cancela o timer do miojo", "esperado": ["cancelar_timer:miojo"] },
+    { "texto": "abaixa o volume pra 20", "esperado": ["volume:20"] }
   ]
 }
