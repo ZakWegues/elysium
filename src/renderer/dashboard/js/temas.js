@@ -24,6 +24,13 @@
  * das duas.
  */
 const THEMES = {
+  // Stark (fase 16): a família "ely" com o acabamento HUD por cima (`stark: true` liga a
+  // classe `theme-stark`, ver css/stark.css). "purple" é o acento principal em todo o CSS —
+  // aqui ele é o azul do reator; "cyan" vira o âmbar/dourado dos detalhes.
+  stark:        { name: "Stark — Reator", family: "ely", stark: true, purple: "#3cc8f0", purpleBright: "#8ee6ff", cyan: "#ffb547", cyanDark: "#d98f2b", bg: "#05080f", surface: "#0b1220", surface2: "#08101b", glassInk: "10,18,32", blobs: ["#0f3a52", "#123047", "#3a2a12"], shaft: "#3cc8f0" },
+  "stark-mark": { name: "Stark — Mark",   family: "ely", stark: true, purple: "#ff5a4e", purpleBright: "#ff9183", cyan: "#ffc857", cyanDark: "#d9a43a", bg: "#0b0607", surface: "#170c0e", surface2: "#120909", glassInk: "28,12,14", blobs: ["#5a1414", "#5a4214", "#2a1010"], shaft: "#ff5a4e" },
+  "stark-noite":{ name: "Stark — Noite",  family: "ely", stark: true, purple: "#7fb8d8", purpleBright: "#cfeaff", cyan: "#64ffda", cyanDark: "#3fcfae", bg: "#03050a", surface: "#0a0f18", surface2: "#070b12", glassInk: "8,13,22", blobs: ["#1a2a3a", "#123a35", "#20283a"], shaft: "#7fb8d8" },
+
   ely:         { name: "Campos Elísios", family: "ely", purple: "#d9b168", purpleBright: "#f2d49b", cyan: "#9fd8cf", cyanDark: "#6fb3a9", bg: "#0a0c14", surface: "#131726", surface2: "#0e1220", glassInk: "16,21,36", blobs: ["#8a6a2e", "#2f5d57", "#4a3f6b"], shaft: "#d9b168" },
   "ely-dusk":  { name: "Crepúsculo",     family: "ely", purple: "#f0a850", purpleBright: "#ffc47a", cyan: "#e07a9b", cyanDark: "#b85e7c", bg: "#0b0818", surface: "#171232", surface2: "#110d26", glassInk: "26,18,48", blobs: ["#7a4520", "#6b2f47", "#3b2a6b"], shaft: "#f0a850" },
   "ely-ether": { name: "Éter",           family: "ely", purple: "#a8c4d8", purpleBright: "#d3e4f0", cyan: "#7fd4c8", cyanDark: "#4fa89c", bg: "#080b12", surface: "#111624", surface2: "#0c101c", glassInk: "15,21,34", blobs: ["#33506b", "#2b5f59", "#3a4560"], shaft: "#a8c4d8" },
@@ -36,7 +43,7 @@ const THEMES = {
 /** Todas as famílias existentes, para limpar a classe anterior sem adivinhação. */
 const THEME_FAMILIES = ["lg", "ely"];
 
-const FALLBACK_THEME = "ely";
+const FALLBACK_THEME = "stark";
 
 /**
  * 🔴 Os quatro temas antigos saíram, mas a escolha do usuário ficou gravada em disco.
@@ -119,6 +126,7 @@ function applyTheme(id) {
   for (const fam of THEME_FAMILIES) {
     document.body.classList.toggle(`theme-${fam}`, fam === p.family);
   }
+  document.body.classList.toggle("theme-stark", !!p.stark);
   // Classe comum às duas famílias. Carrega só o que é movimento — molas, entradas de modal
   // e bolha, brilho nos botões, a camada de blobs — que é idêntico entre elas.
   document.body.classList.add("theme-rich");
@@ -131,7 +139,7 @@ function renderThemeSwatches() {
   if (!wrap) return;
   wrap.innerHTML = "";
   const grades = {};
-  for (const [fam, rotulo] of [["ely", "ELYSIUM — noite"], ["lg", "Vidro Líquido — dia"]]) {
+  for (const [fam, rotulo] of [["stark", "Stark — HUD"], ["ely", "ELYSIUM — noite"], ["lg", "Vidro Líquido — dia"]]) {
     const bloco = document.createElement("div");
     bloco.innerHTML = `<div class="theme-familia">${rotulo}</div><div class="theme-grade"></div>`;
     wrap.appendChild(bloco);
@@ -152,7 +160,7 @@ function renderThemeSwatches() {
       cfgAtual.theme = id;
       window.nx.setConfig({ theme: id }).catch(() => {});
     });
-    grades[t.family].appendChild(div);
+    grades[t.stark ? "stark" : t.family].appendChild(div);
   });
 }
 

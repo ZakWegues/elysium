@@ -52,3 +52,14 @@ describe("Hoje (fase 16)", () => {
       .toBe("Sistemas no ar. Dois lembretes para hoje, falta um hábito e chuva no radar.");
   });
 });
+
+describe("metas pela fala (fase 16)", async () => {
+  const { pedidoDeMeta } = await import("../src/services/habitos");
+  it("soma, avança e tira", () => {
+    expect(pedidoDeMeta("soma 2 na meta teste livros")).toEqual({ meta: "teste livros", delta: 2 });
+    expect(pedidoDeMeta("mais um livro na meta leitura")).toEqual({ meta: "leitura", delta: 1 });
+    expect(pedidoDeMeta("avança a meta viagem em 200")).toEqual({ meta: "viagem", delta: 200 });
+    expect(pedidoDeMeta("tira 1 da meta leitura")).toEqual({ meta: "leitura", delta: -1 });
+    expect(pedidoDeMeta("qual a minha meta")).toBeNull();
+  });
+});

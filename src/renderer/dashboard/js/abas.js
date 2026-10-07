@@ -65,6 +65,7 @@ function switchView(view) {
   if (view === "chat") { requestAnimationFrame(moverPolegar); carregarBolhasChat(); }
   if (view === "pc") carregarPc();
   if (view === "rotinas") carregarRotinas();
+  if (view === "hoje") carregarHoje();
   if (view === "inicio") atualizarInicio().then(ligarArrasto);
   // Os canvas nascem dentro de um painel oculto, e elemento em `display:none` mede zero.
   // Só ao entrar na aba dá para saber a largura real.

@@ -1079,8 +1079,11 @@ app.on("ready", async () => {
   app.on("before-quit", () => desligarPalavraDeAtivacao());
   if (!ok) notify("ELYSIUM — Aviso", `Atalho ${cfg.shortcut} não pôde ser registrado. Tente via bandeja.`);
 
-  notify("ELYSIUM", "Pronto! Pressione Ctrl+Shift+J para falar.");
-  speak("Oi! O que faremos hoje?").catch(() => { /* best-effort */ });
+  notify("ELYSIUM", "Sistemas no ar. Ctrl+Shift+J para falar.");
+  // Fase 16, a persona FRIDAY: a fala de arranque é um status curto, com o tratamento.
+  const tratamento = (getConfig().tratamento ?? "").trim();
+  // Em desenvolvimento o app reinicia toda hora: falar a cada arranque só incomoda.
+  if (app.isPackaged) speak(tratamento ? `Sistemas no ar, ${tratamento}.` : "Sistemas no ar.").catch(() => { /* best-effort */ });
 });
 
 app.on("window-all-closed", () => { /* intentional no-op */ });

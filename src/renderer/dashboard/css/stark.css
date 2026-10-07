@@ -1,0 +1,110 @@
+/* dashboard/css/stark.css — tema Stark (fase 16, 07/10).
+   O pedido: "um aspecto mais Jarvis feminino, bem Tony Stark". A família Stark é a
+   família "ely" (escura, com vidro) + a classe `theme-stark`, que só ACRESCENTA o
+   acabamento HUD: grade técnica no fundo com uma varredura lenta, cantoneiras nos painéis,
+   tipografia técnica (Bahnschrift, que vem no Windows) em rótulos maiúsculos, e o orbe da
+   Início virando um reator com anéis. Nada aqui muda layout — só pele — e todo movimento
+   desliga com `prefers-reduced-motion`. */
+
+body.theme-stark {
+  --stark-font: "Bahnschrift", "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  --stark-linha: rgba(var(--purple-rgb), 0.22);
+}
+
+/* ── fundo: grade + varredura ── */
+body.theme-stark #ely-shafts { display: none; }
+body.theme-stark #lg-blob-bg .lg-blob { display: none; }
+body.theme-stark #lg-blob-bg {
+  background-image:
+    linear-gradient(rgba(var(--purple-rgb), 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(var(--purple-rgb), 0.06) 1px, transparent 1px);
+  background-size: 46px 46px;
+  -webkit-mask-image: radial-gradient(ellipse at 50% 35%, #000 25%, transparent 78%);
+  mask-image: radial-gradient(ellipse at 50% 35%, #000 25%, transparent 78%);
+}
+body.theme-stark #bg-tracos::after {
+  content: ""; position: absolute; left: 0; right: 0; top: 0; height: 140px;
+  background: linear-gradient(180deg, transparent, rgba(var(--purple-rgb), 0.07), transparent);
+  animation: stark-varre 11s linear infinite;
+}
+body.theme-stark.vivo #bg-tracos::after { animation-duration: 4s; }
+@keyframes stark-varre { from { transform: translateY(-160px); } to { transform: translateY(120vh); } }
+
+/* ── tipografia técnica ── */
+body.theme-stark .home-greet,
+body.theme-stark .hoje-cabeca h2,
+body.theme-stark .pc-topo h2,
+body.theme-stark #gaveta-titulo { font-family: var(--stark-font); font-weight: 600; letter-spacing: 0.01em; }
+body.theme-stark .vtab-label,
+body.theme-stark .hoje-painel h3,
+body.theme-stark .rot-h3,
+body.theme-stark .home-card-title,
+body.theme-stark #status-badge,
+body.theme-stark .hoje-rotulo { font-family: var(--stark-font); text-transform: uppercase; letter-spacing: 0.12em; }
+body.theme-stark .vtab-label { font-size: 11.5px; }
+body.theme-stark .home-relogio,
+body.theme-stark .hoje-seq b,
+body.theme-stark .hoje-anel-num b,
+body.theme-stark .rotina-hora { font-family: var(--stark-font); font-weight: 500; }
+
+/* ── painéis: cantoneiras HUD ──
+   Oito traços de 10px nos quatro cantos, feitos com gradientes (sem pseudo-elementos,
+   que alguns painéis já usam). A cor sai do acento do tema. */
+body.theme-stark .home-card,
+body.theme-stark .hoje-painel,
+body.theme-stark .rotina,
+body.theme-stark .rot-card {
+  border-color: var(--stark-linha);
+  background-image:
+    linear-gradient(var(--purple-bright), var(--purple-bright)),
+    linear-gradient(var(--purple-bright), var(--purple-bright)),
+    linear-gradient(var(--purple-bright), var(--purple-bright)),
+    linear-gradient(var(--purple-bright), var(--purple-bright)),
+    linear-gradient(var(--purple-bright), var(--purple-bright)),
+    linear-gradient(var(--purple-bright), var(--purple-bright)),
+    linear-gradient(var(--purple-bright), var(--purple-bright)),
+    linear-gradient(var(--purple-bright), var(--purple-bright));
+  background-repeat: no-repeat;
+  background-size: 12px 1.5px, 1.5px 12px, 12px 1.5px, 1.5px 12px, 12px 1.5px, 1.5px 12px, 12px 1.5px, 1.5px 12px;
+  background-position: 0 0, 0 0, 100% 0, 100% 0, 0 100%, 0 100%, 100% 100%, 100% 100%;
+}
+body.theme-stark .home-card:hover,
+body.theme-stark .hoje-painel:hover { border-color: rgba(var(--purple-rgb), 0.4); box-shadow: 0 0 0 1px rgba(var(--purple-rgb), 0.08), 0 0 22px rgba(var(--purple-rgb), 0.08); }
+
+/* ── orbe → reator ──
+   Dois anéis: um tracejado girando devagar, outro fino no sentido contrário. Acelera
+   quando ela ouve/pensa/fala (`body.vivo`, o mesmo sinal que acelera o fundo). */
+body.theme-stark #orbe {
+  width: 42px; height: 42px; border-color: rgba(var(--purple-rgb), 0.45);
+  background: radial-gradient(circle, rgba(var(--purple-rgb), 0.35) 0%, rgba(var(--purple-rgb), 0.08) 45%, transparent 70%);
+  box-shadow: 0 0 18px rgba(var(--purple-rgb), 0.35), inset 0 0 10px rgba(var(--purple-rgb), 0.35);
+}
+body.theme-stark #orbe::before,
+body.theme-stark #orbe::after {
+  content: ""; position: absolute; border-radius: 50%; pointer-events: none;
+}
+body.theme-stark #orbe::before { inset: -6px; border: 1.5px dashed rgba(var(--purple-rgb), 0.55); animation: stark-gira 14s linear infinite; }
+body.theme-stark #orbe::after { inset: 5px; border: 1px solid rgba(var(--purple-rgb), 0.6); border-left-color: transparent; border-right-color: transparent; animation: stark-gira 6s linear infinite reverse; }
+body.theme-stark.vivo #orbe::before { animation-duration: 3s; }
+body.theme-stark.vivo #orbe::after { animation-duration: 1.4s; }
+@keyframes stark-gira { to { transform: rotate(360deg); } }
+
+/* O anel de hábitos da aba Hoje ganha o mesmo anel externo do reator. */
+body.theme-stark .hoje-reator::before {
+  content: ""; position: absolute; inset: -5px; border-radius: 50%;
+  border: 1px dashed rgba(var(--purple-rgb), 0.45); animation: stark-gira 24s linear infinite;
+}
+
+/* ── detalhes ── */
+body.theme-stark #status-badge { border-radius: 4px; font-size: 10.5px; }
+body.theme-stark .hoje-check,
+body.theme-stark .hoje-cont { font-family: var(--stark-font); }
+body.theme-stark #stop-btn { font-family: var(--stark-font); text-transform: uppercase; letter-spacing: 0.1em; border-radius: 6px; }
+body.theme-stark ::selection { background: rgba(var(--purple-rgb), 0.35); }
+
+@media (prefers-reduced-motion: reduce) {
+  body.theme-stark #bg-tracos::after,
+  body.theme-stark #orbe::before,
+  body.theme-stark #orbe::after,
+  body.theme-stark .hoje-reator::before { animation: none; }
+}

@@ -1,5 +1,5 @@
 import { getApiKey, getConfig, nomeDoUsuario } from "../main/config";
-import { blocoDeInstrucoes, Canal, regraDoAgente } from "./estiloResposta";
+import { blocoDeInstrucoes, Canal, personaStark, regraDoAgente } from "./estiloResposta";
 import { buildMemoryBlock } from "./memoryStore";
 import { callChatComFerramentas, ChatMessage, ChamadaDeFerramenta, Provider } from "./llm";
 import { definicoesDeFerramentas, executarFerramenta, ferramenta } from "./ferramentas";
@@ -57,6 +57,7 @@ export function promptDoAgente(pedido = "", canal: Canal = "voz"): string {
   const hora = agora.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
   const iso = `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, "0")}-${String(agora.getDate()).padStart(2, "0")}T${String(agora.getHours()).padStart(2, "0")}:${String(agora.getMinutes()).padStart(2, "0")}`;
   return `Você é a Ely, a assistente do ${nomeDoUsuario()} que controla o PC dele (Windows) e fala português do Brasil. O app se chama ELYSIUM; seu nome é Ely, e você fala de si no feminino ("a Ely", "a sua assistente", "pronta", "obrigada").
+${personaStark(getConfig().tratamento ?? "chefe")}
 Agora é ${data}, ${hora} (ISO local ${iso}).
 
 Como agir

@@ -27,7 +27,7 @@ import { comecarFoco, focoFalado, pararFoco } from "../services/foco";
 import { resumoDoDia } from "../services/resumoDoDia";
 import { adicionarNaLista, listaFalada, listarListas, obterLista } from "../services/listas";
 import { inputHost } from "../services/inputHost";
-import { acharHabito, listarHabitos, marcarHabito, resumirHabito } from "../services/habitos";
+import { acharHabito, avancarMeta, listarHabitos, listarMetas, marcarHabito, resumirHabito } from "../services/habitos";
 import { cancelarTimer, criarTimer, duracaoFalada, timersFalados } from "../services/timers";
 import { calcular, formatarNumero } from "../services/calculadora";
 import { horaEm } from "../services/horaMundo";
@@ -60,6 +60,14 @@ export async function routeAction(action: BrainAction): Promise<string> {
       const novo = marcarHabito(h.id, true);
       const seq = novo ? resumirHabito(novo).sequencia : 0;
       return `${h.nome} marcado. Sequência de ${seq} dia${seq === 1 ? "" : "s"}.`;
+    }
+    case "goal_add": {
+      const metas = listarMetas();
+      const achada = acharHabito(metas.map(m => ({ ...m, nome: m.titulo })), action.name);
+      if (!achada) return `Não achei a meta ${action.name}.`;
+      const m = avancarMeta(achada.id, action.delta);
+      if (!m) return "Não consegui atualizar a meta.";
+      return m.concluidaEm ? `Meta ${m.titulo} concluída: ${m.progresso} de ${m.alvo}.` : `Meta ${m.titulo}: ${m.progresso} de ${m.alvo}${m.unidade ? " " + m.unidade : ""}.`;
     }
     case "type_text":
       // Ditado (02/10): digita na janela em foco, como o celular faz pelo `input.type`.

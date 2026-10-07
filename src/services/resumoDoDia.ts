@@ -1,3 +1,4 @@
+import { listarHabitos, resumirHabito } from "./habitos";
 import { getConfig } from "../main/config";
 import { climaFalado } from "./clima";
 import { listPending } from "./scheduler";
@@ -29,6 +30,8 @@ export interface FatosResumo {
   versaoNova: string | null;
   /** Bloco 120 — entra quando a agenda do Google estiver ligada. */
   agenda?: { titulo: string; em: number }[];
+  /** Fase 16: hábitos que valem hoje e ainda não foram feitos, com a sequência em jogo. */
+  habitosFaltando?: { nome: string; sequencia: number }[];
 }
 
 function hhmm(ms: number): string {
@@ -65,6 +68,13 @@ export function montarResumo(f: FatosResumo): string {
 
   // Ponto e vírgula, não "a, b e c": cada alerta já tem "título: detalhe" e a vírgula
   // embaralhava os dois (bloco 126, lido no card Hoje).
+  // Fase 16: hábito pendente com sequência em jogo é o lembrete que mais vale ("não quebra
+  // os 12 dias da leitura").
+  const hab = f.habitosFaltando ?? [];
+  if (hab.length) {
+    const emRisco = hab.filter(h => h.sequencia >= 3).sort((a, b) => b.sequencia - a.sequencia)[0];
+    partes.push(`${hab.length === 1 ? `Falta um hábito hoje: ${hab[0].nome}` : `Faltam ${hab.length} hábitos hoje: ${lista(hab.slice(0, 4).map(h => h.nome))}`}${emRisco ? ` — a sequência de ${emRisco.sequencia} dias de ${emRisco.nome} está em jogo` : ""}.`);
+  }
   if (f.alertas.length) partes.push(`Atenção: ${f.alertas.slice(0, 3).join("; ")}.`);
   if (f.versaoNova) partes.push(`A versão ${f.versaoNova} do ELYSIUM está pronta para instalar.`);
 
@@ -107,6 +117,7 @@ export async function resumoDoDia(agenda?: FatosResumo["agenda"]): Promise<strin
     recadosNovos,
     alertas,
     versaoNova: e.desktop?.pronto ? e.desktop.versao : null,
+    habitosFaltando: listarHabitos().map(h => resumirHabito(h, agora)).filter(h => h.valeHoje && !h.feitoHoje).map(h => ({ nome: h.nome, sequencia: h.sequencia })),
     agenda: agenda ?? (eventos ?? []).filter(e => !e.diaInteiro && e.inicio > agora.getTime()).map(e => ({ titulo: e.titulo, em: e.inicio })),
   });
 }

@@ -81,7 +81,8 @@ const AJUSTES = [
   {
     grupo: "Conversa",
     campos: [
-      { chave: "nomeDoUsuario", rotulo: "Como te chamar", tipo: "texto", dica: "Aparece na saudação e o assistente usa ao falar com você." },
+      { chave: "nomeDoUsuario", rotulo: "Seu nome", tipo: "texto", dica: "A Ely usa nos prompts; fica só neste PC." },
+      { chave: "tratamento", rotulo: "Como a Ely te chama", tipo: "texto", dica: "Ex.: chefe, senhor, o seu nome. Vazio = sem tratamento. Aparece na saudação e de vez em quando nas respostas." },
       // Bloco 134: o jeito de responder. Fica só na config deste PC (dado pessoal).
       { chave: "estiloResposta", rotulo: "Tamanho das respostas", tipo: "select", opcoes: [
         ["direto", "Direto — o mínimo que resolve"], ["equilibrado", "Equilibrado — conforme a pergunta"], ["detalhado", "Detalhado — com o porquê e exemplos"]],

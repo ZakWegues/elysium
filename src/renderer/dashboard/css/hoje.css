@@ -1,0 +1,101 @@
+/* dashboard/css/hoje.css — aba Hoje (fase 16).
+   O briefing em painéis: cabeçalho com o anel de hábitos (o "reator" do dia), a linha de
+   status, e uma grade de painéis. As cores vêm das variáveis do tema; o tema Stark
+   (stark.css) só acrescenta o acabamento HUD por cima. */
+
+#view-hoje {
+  overflow-y: auto; padding: 18px 24px 28px;
+  scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+}
+.hoje-topo { display: grid; grid-template-columns: 96px minmax(0, 1fr) auto; gap: 18px; align-items: center; margin-bottom: 16px; }
+.hoje-reator { position: relative; width: 84px; height: 84px; }
+.hoje-anel { width: 84px; height: 84px; transform: rotate(-90deg); }
+.hoje-anel-fundo { fill: none; stroke: rgba(var(--purple-rgb), 0.14); stroke-width: 6; }
+.hoje-anel-luz {
+  fill: none; stroke: var(--purple-bright); stroke-width: 6; stroke-linecap: round;
+  transition: stroke-dashoffset 600ms var(--mov-curva, ease);
+  filter: drop-shadow(0 0 6px rgba(var(--purple-rgb), 0.55));
+}
+.hoje-anel-num { position: absolute; inset: 0; display: flex; align-items: baseline; justify-content: center; padding-top: 28px; font-variant-numeric: tabular-nums; }
+.hoje-anel-num b { font-size: 22px; color: var(--text); }
+.hoje-anel-num span { font-size: 12px; color: var(--muted); }
+.hoje-rotulo { font-size: 10.5px; letter-spacing: 0.14em; color: var(--purple-bright); text-transform: uppercase; font-weight: 600; }
+.hoje-cabeca h2 { font-size: 26px; margin: 2px 0 4px; color: var(--text); font-weight: 700; }
+.hoje-cabeca p { margin: 0; color: var(--muted); font-size: 13px; }
+.hoje-botoes { display: flex; gap: 8px; }
+.hoje-botoes button, .hoje-acao {
+  display: inline-flex; align-items: center; gap: 6px; padding: 7px 13px; border-radius: var(--radius-20, 20px);
+  background: rgba(var(--purple-rgb), 0.14); border: 1px solid var(--border);
+  color: var(--purple-bright); font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+}
+.hoje-botoes button:hover, .hoje-acao:hover { background: rgba(var(--purple-rgb), 0.26); }
+.hoje-botoes button:disabled, .hoje-acao:disabled { opacity: 0.5; cursor: default; }
+
+.hoje-alertas { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+.hoje-alerta { display: flex; gap: 8px; align-items: center; padding: 9px 12px; border-radius: var(--radius-10); border: 1px solid rgba(240,180,60,0.35); background: rgba(240,180,60,0.08); font-size: 12.5px; color: var(--text); }
+.hoje-alerta.erro { border-color: rgba(224,82,82,0.45); background: rgba(224,82,82,0.08); }
+.hoje-alerta .ico { color: var(--yellow, #f0b43c); flex-shrink: 0; }
+
+.hoje-grade { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; align-items: start; }
+@media (max-width: 1100px) { .hoje-grade { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 760px) { .hoje-grade { grid-template-columns: 1fr; } }
+.hoje-largo { grid-column: span 2; }
+@media (max-width: 760px) { .hoje-largo { grid-column: auto; } }
+.hoje-painel {
+  position: relative; padding: 14px 16px; border-radius: var(--radius-10);
+  background: var(--surface); border: 1px solid var(--border);
+  box-shadow: var(--shadow-card, none); backdrop-filter: var(--glass-blur);
+}
+.hoje-painel-topo { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.hoje-painel h3 { margin: 0; font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+.hoje-vazio { color: var(--muted); font-size: 12.5px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+/* hábitos */
+.hoje-habito { display: grid; grid-template-columns: 34px minmax(0, 1fr) 54px; gap: 12px; align-items: center; padding: 8px 0; border-top: 1px solid var(--border); }
+.hoje-habito:first-child { border-top: 0; }
+.hoje-check {
+  width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  border: 1.5px solid rgba(var(--purple-rgb), 0.5); background: transparent; color: transparent; cursor: pointer;
+  transition: background var(--mov-micro, 120ms), color var(--mov-micro, 120ms);
+}
+.hoje-check:hover { background: rgba(var(--purple-rgb), 0.15); color: var(--purple-bright); }
+.hoje-habito.feito .hoje-check { background: var(--purple-bright); color: var(--bg); border-color: var(--purple-bright); box-shadow: 0 0 10px rgba(var(--purple-rgb), 0.5); }
+.hoje-habito-nome { font-size: 13.5px; font-weight: 600; color: var(--text); cursor: pointer; margin-bottom: 5px; }
+.hoje-habito.feito .hoje-habito-nome { color: var(--muted); }
+.hoje-habito-nome:hover { text-decoration: underline; text-decoration-color: var(--border); }
+.hoje-mapa { display: grid; grid-template-columns: repeat(30, 1fr); gap: 2px; max-width: 360px; }
+.hoje-mapa i { height: 8px; border-radius: 2px; background: rgba(var(--purple-rgb), 0.10); }
+.hoje-mapa i.sim { background: var(--purple-bright); }
+.hoje-mapa i.nao { background: transparent; border: 1px dashed rgba(var(--purple-rgb), 0.12); }
+.hoje-seq { text-align: center; line-height: 1; }
+.hoje-seq b { display: block; font-size: 20px; color: var(--cyan); font-variant-numeric: tabular-nums; }
+.hoje-seq span { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+
+/* metas */
+.hoje-meta { padding: 8px 0; border-top: 1px solid var(--border); }
+.hoje-meta:first-child { border-top: 0; }
+.hoje-meta-topo { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; color: var(--text); }
+.hoje-meta-topo span { cursor: pointer; }
+.hoje-meta-topo b { font-variant-numeric: tabular-nums; color: var(--purple-bright); font-size: 12px; }
+.hoje-barra { height: 6px; border-radius: 3px; background: rgba(var(--purple-rgb), 0.12); margin: 7px 0; overflow: hidden; }
+.hoje-barra i { display: block; height: 100%; background: linear-gradient(90deg, var(--purple), var(--purple-bright)); border-radius: 3px; transition: width 400ms var(--mov-curva, ease); }
+.hoje-meta-acoes { display: flex; align-items: center; gap: 6px; }
+.hoje-meta-acoes button { min-width: 34px; padding: 3px 8px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--text); cursor: pointer; font-family: inherit; font-size: 12px; }
+.hoje-meta-acoes button:hover { background: rgba(var(--purple-rgb), 0.15); }
+.hoje-meta-acoes small { margin-left: auto; color: var(--muted); font-size: 11px; }
+
+/* agenda, clima, listas */
+.hoje-linha { display: flex; align-items: center; gap: 8px; padding: 6px 0; font-size: 12.5px; color: var(--text); border-top: 1px solid var(--border); }
+.hoje-linha:first-child { border-top: 0; }
+.hoje-linha .ico { color: var(--muted); flex-shrink: 0; }
+.hoje-hora { font-variant-numeric: tabular-nums; color: var(--purple-bright); font-weight: 600; min-width: 42px; }
+.hoje-timer b { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--cyan); }
+.hoje-clima { display: flex; gap: 14px; align-items: center; color: var(--text); font-size: 13px; }
+.hoje-clima small { color: var(--muted); }
+.hoje-clima-temp { font-size: 34px; font-weight: 300; color: var(--purple-bright); line-height: 1; }
+.hoje-lista { padding: 6px 0; font-size: 12.5px; color: var(--text); border-top: 1px solid var(--border); }
+.hoje-lista:first-child { border-top: 0; }
+.hoje-lista div { color: var(--muted); margin-top: 3px; }
+.hoje-cont { display: inline-block; min-width: 18px; padding: 0 6px; border-radius: 9px; background: rgba(var(--purple-rgb), 0.18); color: var(--purple-bright); font-size: 11px; text-align: center; }
+.hoje-manchetes-texto { font-size: 12.5px; color: var(--text); line-height: 1.55; }
+.hoje-manchetes-texto ul { padding-left: 18px; margin: 4px 0; }

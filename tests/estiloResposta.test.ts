@@ -89,3 +89,19 @@ describe("voz baixa à noite (02/10)", async () => {
     expect(prosodiaDa("pt-BR-FranciscaNeural", false).volume).toBe("+0%");
   });
 });
+
+describe("tema Stark (fase 16)", async () => {
+  const { migrarTemaStark } = await import("../src/main/config");
+  it("troca uma vez e depois respeita a escolha", () => {
+    expect(migrarTemaStark({ theme: "lg" })).toEqual({ temaStarkAplicado: true, theme: "stark" });
+    expect(migrarTemaStark({ theme: "lg", temaStarkAplicado: true })).toBeNull();
+  });
+});
+
+describe("persona Stark (fase 16)", async () => {
+  const { personaStark } = await import("../src/services/estiloResposta");
+  it("leva o tratamento só quando há um", () => {
+    expect(personaStark("chefe")).toMatch(/FRIDAY[\s\S]*"chefe"/);
+    expect(personaStark("")).not.toMatch(/Chame-o/);
+  });
+});

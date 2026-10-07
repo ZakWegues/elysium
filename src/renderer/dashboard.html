@@ -22,6 +22,8 @@
 <link rel="stylesheet" href="dashboard/css/rotinas.css">
 <link rel="stylesheet" href="dashboard/css/paleta.css">
 <link rel="stylesheet" href="dashboard/css/inicio.css">
+<link rel="stylesheet" href="dashboard/css/hoje.css">
+<link rel="stylesheet" href="dashboard/css/stark.css">
 </head>
 <body>
 
@@ -168,6 +170,7 @@
 <nav id="viewtabs" role="tablist" aria-label="Seções">
   <button class="vtab active" data-view="inicio"  role="tab" aria-selected="true"><span class="vtab-ico"><svg class="ico" aria-hidden="true"><use href="#i-home"/></svg></span><span class="vtab-label">Início</span><span class="vtab-dot"></span></button>
   <button class="vtab"        data-view="chat"    role="tab" aria-selected="false"><span class="vtab-ico"><svg class="ico" aria-hidden="true"><use href="#i-message-circle"/></svg></span><span class="vtab-label">Chat</span><span class="vtab-dot"></span></button>
+  <button class="vtab"        data-view="hoje"    role="tab" aria-selected="false"><span class="vtab-ico"><svg class="ico" aria-hidden="true"><use href="#i-sun"/></svg></span><span class="vtab-label">Hoje</span><span class="vtab-dot"></span></button>
   <button class="vtab"        data-view="pc" role="tab" aria-selected="false"><span class="vtab-ico"><svg class="ico" aria-hidden="true"><use href="#i-monitor"/></svg></span><span class="vtab-label">PC</span><span class="vtab-dot"></span></button>
   <button class="vtab"        data-view="rotinas" role="tab" aria-selected="false"><span class="vtab-ico"><svg class="ico" aria-hidden="true"><use href="#i-calendar"/></svg></span><span class="vtab-label">Rotinas</span><span class="vtab-dot"></span></button>
   <!-- A lupa do Ctrl+K, sempre à vista. Não é um campo de verdade: clicar (ou começar a
@@ -242,6 +245,50 @@
     <section class="pc-vitais" id="pc-vitais"></section>
     <section class="pc-midia" id="pc-midia"></section>
     <div class="pc-grade mov-lista" id="pc-grade"></div>
+  </div>
+
+  <!-- ABA HOJE (fase 16) — o briefing do dia no estilo HUD: status, hábitos com sequência,
+       metas, agenda, listas, alertas do PC e manchetes sob demanda. Ver js/hoje.js. -->
+  <div id="view-hoje">
+    <header class="hoje-topo">
+      <div class="hoje-reator" id="hoje-reator" aria-label="Hábitos feitos hoje"></div>
+      <div class="hoje-cabeca">
+        <div class="hoje-rotulo">BRIEFING · <span id="hoje-data">hoje</span></div>
+        <h2 id="hoje-saudacao">Olá.</h2>
+        <p id="hoje-frase">Carregando…</p>
+      </div>
+      <div class="hoje-botoes">
+        <button id="hoje-ler" title="A Ely lê o resumo do dia"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-volume"/></svg><span>Ler o briefing</span></button>
+        <button id="hoje-recarregar" title="Atualizar"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-refresh"/></svg></button>
+      </div>
+    </header>
+    <div id="hoje-alertas" class="hoje-alertas" hidden></div>
+    <div class="hoje-grade">
+      <section class="hoje-painel hoje-largo">
+        <div class="hoje-painel-topo"><h3>Hábitos de hoje</h3><button class="hoje-acao" data-hoje-novo-habito="1"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-plus"/></svg><span>Hábito</span></button></div>
+        <div id="hoje-habitos"></div>
+      </section>
+      <section class="hoje-painel">
+        <div class="hoje-painel-topo"><h3>Agenda</h3></div>
+        <div id="hoje-agenda"></div>
+      </section>
+      <section class="hoje-painel">
+        <div class="hoje-painel-topo"><h3>Metas</h3><button class="hoje-acao" data-hoje-nova-meta="1"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-plus"/></svg><span>Meta</span></button></div>
+        <div id="hoje-metas"></div>
+      </section>
+      <section class="hoje-painel">
+        <div class="hoje-painel-topo"><h3>Clima</h3></div>
+        <div id="hoje-clima" class="hoje-clima"></div>
+      </section>
+      <section class="hoje-painel">
+        <div class="hoje-painel-topo"><h3>Listas</h3></div>
+        <div id="hoje-listas"></div>
+      </section>
+      <section class="hoje-painel hoje-largo">
+        <div class="hoje-painel-topo"><h3>Manchetes</h3><button class="hoje-acao" id="hoje-btn-manchetes"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-globe"/></svg><span>Buscar agora</span></button></div>
+        <div id="hoje-manchetes"><div class="hoje-vazio">Sob demanda — a busca vai à internet.</div></div>
+      </section>
+    </div>
   </div>
 
   <!-- ABA ROTINAS (bloco 68) — o que acontece sozinho, na hora certa: rotinas (texto que o
@@ -543,6 +590,7 @@
 <script src="dashboard/js/presets.js"></script>
 <script src="dashboard/js/pc.js"></script>
 <script src="dashboard/js/rotinas.js"></script>
+<script src="dashboard/js/hoje.js"></script>
 <script src="dashboard/js/inicio.js"></script>
 <script src="dashboard/js/paleta.js"></script>
 <script src="dashboard/js/boot.js"></script>

@@ -25,6 +25,8 @@ export interface AppConfig {
   voice: string;
   /** Marca que a troca única para a voz feminina (02/10) já rodou — ver `migrarVozFeminina`. */
   vozFemininaAplicada?: boolean;
+  /** Marca que a troca única para o tema Stark (fase 16) já rodou — ver `migrarTemaStark`. */
+  temaStarkAplicado?: boolean;
   sttModel: string;
   /** Modelo que escreve as respostas de conversa — vale pagar qualidade aqui. */
   brainModel: string;
@@ -220,7 +222,7 @@ const DEFAULTS: AppConfig = {
   chatHistoryTurns: 6,
   chatIdleResetMs: 300000,
   serverPort: 4200,
-  theme: "ely",
+  theme: "stark",
   layout: { order: ["perf", "storage", "taskmgr"], hidden: [] },
   movimento: "auto",
   climaCidade: "",
@@ -405,11 +407,20 @@ export function migrarVozFeminina(o: Partial<AppConfig>): Partial<AppConfig> | n
   return patch;
 }
 
+/**
+ * Troca única para o tema Stark (fase 16, 07/10): o Zak pediu o visual "Jarvis feminino"
+ * como PADRÃO. Roda uma vez para todo mundo; escolher outro tema depois é respeitado.
+ */
+export function migrarTemaStark(o: Partial<AppConfig>): Partial<AppConfig> | null {
+  if (o.temaStarkAplicado) return null;
+  return { temaStarkAplicado: true, theme: "stark" };
+}
+
 export function getConfig(): AppConfig {
   let overrides = store.get("overrides", {} as Partial<AppConfig>);
-  const vozNova = migrarVozFeminina(overrides);
-  if (vozNova) {
-    overrides = { ...overrides, ...vozNova };
+  const trocas = { ...(migrarVozFeminina(overrides) ?? {}), ...(migrarTemaStark(overrides) ?? {}) };
+  if (Object.keys(trocas).length) {
+    overrides = { ...overrides, ...trocas };
     store.set("overrides", overrides);
   }
   const merged = { ...fileDefaults, ...overrides };

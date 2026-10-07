@@ -1,6 +1,6 @@
 import type { BrainAction } from "./brain";
 import { pedidoDeDitado, pedidoDeLista, pedidoDeNota } from "./listas";
-import { acharHabito, listarHabitos, pedidoDeHabito } from "./habitos";
+import { acharHabito, listarHabitos, listarMetas, pedidoDeHabito, pedidoDeMeta } from "./habitos";
 import { interpretarTimer } from "./timers";
 import { calcular } from "./calculadora";
 import { pedidoDeHora } from "./horaMundo";
@@ -149,6 +149,8 @@ export function fastRoute(text: string): BrainAction[] | null {
   // "fiz o café" não é hábito e segue para o cérebro.
   const habito = pedidoDeHabito(text);
   if (habito && acharHabito(listarHabitos(), habito)) return [{ action: "habit_mark", name: habito }];
+  const meta = pedidoDeMeta(text);
+  if (meta && acharHabito(listarMetas().map(m => ({ nome: m.titulo })), meta.meta)) return [{ action: "goal_add", name: meta.meta, delta: meta.delta }];
   const timer = interpretarTimer(text);
   if (timer) return [{ action: "timer_start", ms: timer.ms, name: timer.nome || undefined }];
   // Hora em outra cidade (fase 14): "que horas são em Tóquio" virava o clima de Tóquio.

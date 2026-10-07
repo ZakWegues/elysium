@@ -134,6 +134,24 @@ export function pedidoDeHabito(texto: string): string | null {
   return m ? m[1].trim() : null;
 }
 
+/**
+ * "soma 2 na meta leitura", "avança a meta viagem em 200", "mais um na meta livros",
+ * "tira 1 da meta X" → { meta, delta }. Pura — o fastRoute confere se a meta existe.
+ * O 7B respondia "16 livros" sem chamar a ferramenta (alucinava a conta); o atalho
+ * garante a soma de verdade.
+ */
+export function pedidoDeMeta(texto: string): { meta: string; delta: number } | null {
+  const t = texto.trim().replace(/[.!]$/, "");
+  const numero = (s: string) => /^(um|uma|mais um|mais uma)$/i.test(s) ? 1 : Number(s.replace(",", "."));
+  let m = /^(?:soma|somar|adiciona|acrescenta|põe|poe|coloca|mais)\s+(\d+(?:[.,]\d+)?|um|uma)\s+(?:\w+\s+)?(?:na|à|a)\s+meta\s+(?:de\s+|do\s+|da\s+)?(.{2,60})$/i.exec(t);
+  if (m) return { meta: m[2].trim(), delta: numero(m[1]) };
+  m = /^(?:avança|avanca|avançar)\s+(?:a\s+)?meta\s+(?:de\s+|do\s+|da\s+)?(.{2,60}?)\s+em\s+(\d+(?:[.,]\d+)?)$/i.exec(t);
+  if (m) return { meta: m[1].trim(), delta: numero(m[2]) };
+  m = /^(?:tira|tirar|desconta|descontar)\s+(\d+(?:[.,]\d+)?|um|uma)\s+(?:\w+\s+)?da\s+meta\s+(?:de\s+|do\s+|da\s+)?(.{2,60})$/i.exec(t);
+  if (m) return { meta: m[2].trim(), delta: -numero(m[1]) };
+  return null;
+}
+
 /** Soma ao progresso, sem passar do alvo nem ficar negativo. Pura. */
 export function somarProgresso(m: Meta, delta: number, agora = Date.now()): Meta {
   const progresso = Math.max(0, Math.min(m.alvo, m.progresso + delta));

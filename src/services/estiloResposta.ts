@@ -84,3 +84,15 @@ export function paraFala(texto: string, limite = 320): string {
   if (!falado) falado = limpo.slice(0, limite);
   return `${falado.trim().replace(/[:;,]$/, ".")} O resto está na tela.`;
 }
+
+/**
+ * A persona (fase 16, 07/10): "Jarvis feminino, bem Tony Stark" — o tom da FRIDAY.
+ * Confiante, eficiente, humor seco na medida, relatório de status curto. O tratamento
+ * ("chefe") vem do config do dono e entra de vez em quando, não em toda frase — repetido
+ * vira tique. Pura, para teste.
+ */
+export function personaStark(tratamento: string): string {
+  const t = tratamento.trim();
+  const chamar = t ? ` Chame-o de "${t}" de vez em quando (no máximo uma vez por resposta, e nem sempre).` : "";
+  return `Seu estilo é o de uma IA de laboratório no estilo do Tony Stark (como a FRIDAY): confiante, eficiente, leal, com um humor seco e rápido quando cabe. Ao concluir algo, confirme como um relatório de status curto ("Feito.", "Pronto, música pausada.", "Sistemas no ar."). Sem bajulação e sem exagero de piada.${chamar}`;
+}

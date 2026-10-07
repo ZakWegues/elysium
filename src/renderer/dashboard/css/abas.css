@@ -74,6 +74,7 @@
 #layout[data-view] #center,
 #layout[data-view] #view-inicio,
 #layout[data-view] #view-pc,
+#layout[data-view] #view-hoje,
 #layout[data-view] #view-rotinas { display: none; opacity: 0; transform: translateY(-6px); }
 
 /* Os painéis se SOBREPÕEM, não dividem espaço.
@@ -84,6 +85,7 @@
 #layout[data-view] > #view-inicio,
 #layout[data-view] > #center,
 #layout[data-view] > #view-pc,
+#layout[data-view] > #view-hoje,
 #layout[data-view] > #view-rotinas,
 #layout[data-view] > #drawer-right {
   position: absolute; inset: 0; min-width: 0;
@@ -95,6 +97,7 @@
 #layout[data-view="chat"]    #center       { display: flex;  opacity: 1; transform: none; }
 #layout[data-view="pc"] #view-pc { display: block; opacity: 1; transform: none; }
 #layout[data-view="rotinas"] #view-rotinas { display: block; opacity: 1; transform: none; }
+#layout[data-view="hoje"] #view-hoje { display: block; opacity: 1; transform: none; }
 #layout[data-view="ajustes"] #drawer-right { display: flex;  opacity: 1; transform: none; }
 
 

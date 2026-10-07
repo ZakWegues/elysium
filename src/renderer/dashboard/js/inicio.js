@@ -740,7 +740,13 @@ let notasTimer = 0;
 async function atualizarInicio() {
   const saud = document.getElementById("home-greet");
   // O nome vem da config (fase 13): dado pessoal fica nos dados do app, não no código.
-  if (saud) { let nome = ""; try { nome = String((await window.nx.getConfig())?.nomeDoUsuario ?? "").trim(); } catch { /* sem nome */ } saud.textContent = nome ? `${saudacao()}, ${nome}` : saudacao(); }
+  // Fase 16: o tratamento ("chefe") vem antes do nome — é como a Ely chama o dono. Sem os
+  // dois, só a saudação.
+  if (saud) {
+    let quem = "";
+    try { const c = await window.nx.getConfig(); quem = String(c?.tratamento ?? "").trim() || String(c?.nomeDoUsuario ?? "").trim(); } catch { /* sem nome */ }
+    saud.textContent = quem ? `${saudacao()}, ${quem}.` : `${saudacao()}.`;
+  }
   const sub = document.getElementById("home-sub");
   if (sub) sub.textContent = dataPorExtenso();
   atualizarRelogio();

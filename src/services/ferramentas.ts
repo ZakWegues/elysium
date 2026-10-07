@@ -319,7 +319,7 @@ export const FERRAMENTAS: Ferramenta[] = [
       const ms = listarMetas();
       if (!hs.length && !ms.length) return "Nenhum hábito nem meta cadastrados ainda.";
       const linhas = hs.filter(h => h.valeHoje).map(h => `${h.nome}: ${h.feitoHoje ? "feito hoje" : "falta hoje"}, sequência de ${h.sequencia} dia(s)`);
-      for (const m of ms) linhas.push(`Meta ${m.titulo}: ${m.progresso} de ${m.alvo}${m.unidade ? " " + m.unidade : ""}${m.concluidaEm ? " (concluída)" : ""}`);
+      for (const m of ms) linhas.push(`Meta ${m.titulo}: já tem ${m.progresso} de ${m.alvo}${m.unidade ? " " + m.unidade : ""}${m.concluidaEm ? " (concluída)" : `, faltam ${m.alvo - m.progresso}`}`);
       return linhas.join("; ") || "Nenhum hábito vale para hoje.";
     },
   },
