@@ -44,7 +44,7 @@ const { definicoesDeFerramentas } = require(path.join(raiz, "dist/services/ferra
 const { promptDoAgente, chamadasEmTexto } = require(path.join(raiz, "dist/services/agente.js"));
 
 const OLLAMA = "http://127.0.0.1:11434/api/chat";
-const LEITURA = new Set(["programas_abertos", "estado_do_pc", "processos_pesados", "clima", "lembretes", "memoria", "rotinas", "presets", "tocando_agora", "area_de_transferencia", "espaco_em_disco", "versao_do_elysium", "resumo_do_dia", "agenda", "ver_lista", "ver_timers", "calcular", "resumir_link", "hora_em"]);
+const LEITURA = new Set(["programas_abertos", "estado_do_pc", "processos_pesados", "clima", "lembretes", "memoria", "rotinas", "presets", "tocando_agora", "area_de_transferencia", "espaco_em_disco", "versao_do_elysium", "resumo_do_dia", "agenda", "ver_lista", "ver_timers", "calcular", "resumir_link", "hora_em", "ver_habitos", "painel_do_dia"]);
 
 /** O PC de mentira: o que cada leitura devolve quando o caso não diz outra coisa. */
 const CENARIO_PADRAO = {

@@ -42,6 +42,8 @@ import { resumoDoDia } from "./resumoDoDia";
 import { buscarNasConversas } from "./buscaConversas";
 import { estiloValido, MAX_INSTRUCOES } from "./estiloResposta";
 import { adicionarNaLista, alternarItem, apagarLista, limparFeitos, listarListas, removerItem, separarItens } from "./listas";
+import { apagarHabito, apagarMeta, avancarMeta, listarHabitos, listarMetas, marcarHabito, resumirHabito, salvarHabito, salvarMeta } from "./habitos";
+import { montarPainelHoje } from "./hoje";
 import { cancelarTimer, criarTimer, listarTimers } from "./timers";
 import { apagarComando, listarComandos, rodarComando, salvarComando } from "./comandosIa";
 import { resumirLink } from "./leitorDeLink";
@@ -923,6 +925,41 @@ const METHODS: Record<string, MethodDef> = {
   },
   "listas.clearDone": { handler: async (params) => ({ removidos: limparFeitos(requireString(params, "lista")) }) },
   "listas.delete": { destructive: true, handler: async (params) => ({ ok: apagarLista(requireString(params, "listaId")) }) },
+  // Hábitos e metas (fase 16). A lista já vem com as contas (sequência, recorde, taxa, mapa).
+  "habitos.list": { handler: async () => ({ habitos: listarHabitos().map(h => resumirHabito(h)), metas: listarMetas() }) },
+  "habitos.save": {
+    handler: async (params) => {
+      const dias = Array.isArray(params["dias"]) ? (params["dias"] as unknown[]).map(Number) : undefined;
+      try {
+        return { habito: resumirHabito(salvarHabito({ id: typeof params["id"] === "string" ? params["id"] : undefined, nome: requireString(params, "nome"), icone: typeof params["icone"] === "string" ? params["icone"] : undefined, dias, horaLembrete: typeof params["horaLembrete"] === "string" ? params["horaLembrete"] : undefined })) };
+      } catch (e) { throw new RpcError(400, (e as Error).message); }
+    },
+  },
+  "habitos.marcar": {
+    handler: async (params) => {
+      const h = marcarHabito(requireString(params, "id"), params["feito"] !== false, typeof params["dia"] === "string" && /^\d{4}-\d{2}-\d{2}$/.test(params["dia"]) ? params["dia"] : undefined);
+      if (!h) throw new RpcError(404, "hábito não encontrado");
+      return { habito: resumirHabito(h) };
+    },
+  },
+  "habitos.delete": { destructive: true, handler: async (params) => ({ ok: apagarHabito(requireString(params, "id")) }) },
+  "metas.save": {
+    handler: async (params) => {
+      try {
+        return { meta: salvarMeta({ id: typeof params["id"] === "string" ? params["id"] : undefined, titulo: requireString(params, "titulo"), alvo: Number(params["alvo"]), unidade: typeof params["unidade"] === "string" ? params["unidade"] : undefined, progresso: typeof params["progresso"] === "number" ? params["progresso"] : undefined, prazo: typeof params["prazo"] === "string" ? params["prazo"] : undefined }) };
+      } catch (e) { throw new RpcError(400, (e as Error).message); }
+    },
+  },
+  "metas.progresso": {
+    handler: async (params) => {
+      const m = avancarMeta(requireString(params, "id"), Number(params["delta"]));
+      if (!m) throw new RpcError(404, "meta não encontrada (ou delta inválido)");
+      return { meta: m };
+    },
+  },
+  "metas.delete": { destructive: true, handler: async (params) => ({ ok: apagarMeta(requireString(params, "id")) }) },
+  // Central "Hoje" (fase 16): o briefing inteiro numa chamada.
+  "hoje.painel": { handler: async () => montarPainelHoje() },
   // Timers com nome (bloco 136).
   "timers.list": { handler: async () => ({ timers: listarTimers(), agora: Date.now() }) },
   "timers.start": {
@@ -964,17 +1001,18 @@ const METHODS: Record<string, MethodDef> = {
   "perfil.get": {
     handler: async () => {
       const c = getConfig();
-      return { estiloResposta: estiloValido(c.estiloResposta), instrucoesPessoais: c.instrucoesPessoais ?? "" };
+      return { estiloResposta: estiloValido(c.estiloResposta), instrucoesPessoais: c.instrucoesPessoais ?? "", tratamento: c.tratamento ?? "chefe" };
     },
   },
   "perfil.set": {
     handler: async (params) => {
-      const patch: { estiloResposta?: string; instrucoesPessoais?: string } = {};
+      const patch: { estiloResposta?: string; instrucoesPessoais?: string; tratamento?: string } = {};
+      if (typeof params["tratamento"] === "string") patch.tratamento = params["tratamento"].trim().slice(0, 30);
       if (params["estiloResposta"] !== undefined) patch.estiloResposta = estiloValido(params["estiloResposta"]);
       if (typeof params["instrucoesPessoais"] === "string") patch.instrucoesPessoais = params["instrucoesPessoais"].trim().slice(0, MAX_INSTRUCOES);
       setOverride(patch);
       const c = getConfig();
-      return { estiloResposta: estiloValido(c.estiloResposta), instrucoesPessoais: c.instrucoesPessoais ?? "" };
+      return { estiloResposta: estiloValido(c.estiloResposta), instrucoesPessoais: c.instrucoesPessoais ?? "", tratamento: c.tratamento ?? "chefe" };
     },
   },
   // Busca dentro das conversas salvas (bloco 133): paleta do PC e, no futuro, o celular.

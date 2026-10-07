@@ -42,6 +42,7 @@ export type BrainAction =
   // Listas e timers (fase 14, blocos 135/136): o fastRoute e as ferramentas produzem.
   | { action: "list_add";          items: string[]; list: string }
   | { action: "type_text";         text: string }
+  | { action: "habit_mark";        name: string }
   | { action: "list_show";         list?: string }
   | { action: "timer_start";       ms: number; name?: string }
   | { action: "timer_list" }
@@ -173,6 +174,7 @@ function actionSummary(action: BrainAction): string {
     case "daily_summary":     return "Resumo do dia";
     case "list_add":          return `Lista ${action.list}: ${action.items.join(", ")}`;
     case "type_text":         return "Digitando…";
+    case "habit_mark":        return `Hábito ${action.name}`;
     case "list_show":         return `Lista ${action.list ?? ""}`.trim();
     case "timer_start":       return `Timer${action.name ? ` do ${action.name}` : ""}`;
     case "timer_list":        return "Timers";
@@ -206,7 +208,7 @@ const ACOES_VALIDAS = new Set<string>([
   "send_to_mobile", "power_control", "remember", "forget", "list_memory",
   "create_reminder", "list_reminders", "cancel_reminder", "web_search",
   "look_at_screen", "chat", "unknown", "weather", "focus", "daily_summary",
-  "list_add", "type_text", "list_show", "timer_start", "timer_list", "timer_cancel", "calculate", "world_time",
+  "list_add", "type_text", "habit_mark", "list_show", "timer_start", "timer_list", "timer_cancel", "calculate", "world_time",
 ]);
 
 /**

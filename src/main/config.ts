@@ -112,6 +112,11 @@ export interface AppConfig {
   /** Bloco 134: tamanho das respostas — "direto", "equilibrado" ou "detalhado". */
   estiloResposta: string;
   /**
+   * Como a Ely chama o dono (fase 16, a persona FRIDAY): "chefe" por padrão. Vazio = sem
+   * tratamento. Fica no config do userData; o código só tem o padrão genérico.
+   */
+  tratamento: string;
+  /**
    * Bloco 134: como o dono quer que o ELYSIUM responda, em texto livre (até 1500
    * caracteres). Dado pessoal: mora só aqui, na config do app — nunca no código.
    */
@@ -208,6 +213,7 @@ const DEFAULTS: AppConfig = {
   somDeEscuta: true,
   acessoRemotoNaSaude: false,
   estiloResposta: "equilibrado",
+  tratamento: "chefe",
   instrucoesPessoais: "",
   evitarGpuOcupada: true,
   spotifyClientId: "042904fef8cc41f0bf05b7abeda2d66f",

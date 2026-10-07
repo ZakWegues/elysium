@@ -1,5 +1,6 @@
 import type { BrainAction } from "./brain";
 import { pedidoDeDitado, pedidoDeLista, pedidoDeNota } from "./listas";
+import { acharHabito, listarHabitos, pedidoDeHabito } from "./habitos";
 import { interpretarTimer } from "./timers";
 import { calcular } from "./calculadora";
 import { pedidoDeHora } from "./horaMundo";
@@ -144,6 +145,10 @@ export function fastRoute(text: string): BrainAction[] | null {
   if (nota) return [{ action: "list_add", items: [nota], list: "Notas" }];
   const ditado = pedidoDeDitado(text);
   if (ditado) return [{ action: "type_text", text: ditado }];
+  // "marquei academia" (fase 16): atalho só quando o nome bate com um hábito cadastrado —
+  // "fiz o café" não é hábito e segue para o cérebro.
+  const habito = pedidoDeHabito(text);
+  if (habito && acharHabito(listarHabitos(), habito)) return [{ action: "habit_mark", name: habito }];
   const timer = interpretarTimer(text);
   if (timer) return [{ action: "timer_start", ms: timer.ms, name: timer.nome || undefined }];
   // Hora em outra cidade (fase 14): "que horas são em Tóquio" virava o clima de Tóquio.

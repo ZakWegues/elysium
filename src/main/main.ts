@@ -46,7 +46,8 @@ import { Confianca, desligarPalavraDeAtivacao, ligarPalavraDeAtivacao, podeInter
 iniciarLogEmArquivo();
 import { getTopHistory } from "../services/history";
 import { registrarPergunta, bolhasDoChat } from "../services/perguntas";
-import { synthesize, cancelSpeak, dividirEmFrases, preSintetizar } from "../services/tts";
+import { synthesize, cancelSpeak, dividirEmFrases, preSintetizar, ehNoite } from "../services/tts";
+import { habitosParaLembrar } from "../services/habitos";
 import { ElysiumError } from "../services/errors";
 import { processCommand, processCommandStream, executarComando } from "../services/command";
 import { startServer, setActiveToken, broadcastMailboxEvent, broadcastNotify } from "../services/server";
@@ -1025,6 +1026,18 @@ app.on("ready", async () => {
     dashWin?.webContents.send("timer:acabou", t);
   });
   retomarTimers();
+
+  // Hábitos (fase 16): no horário, SÓ se ainda não foi feito hoje — avisar de algo já
+  // feito ensina a ignorar o aviso. Confere a cada 30 s; a marca de "lembrado" impede repetir.
+  setInterval(() => {
+    for (const h of habitosParaLembrar()) {
+      const frase = `Hora do ${h.nome}. Ainda não está marcado hoje.`;
+      notify("ELYSIUM — Hábito", frase);
+      if (!ehNoite()) speak(frase).catch(() => { /* best-effort */ });
+      void sendPush("reminder", "Hábito", frase, {});
+      broadcastNotify(enfileirarEntrega({ tipo: "lembrete", titulo: "Hábito", corpo: frase, ref: h.id }));
+    }
+  }, 30_000);
 
   // Rotinas: o texto passa pelo mesmo pipeline do chat e da voz. O comando não pode
   // atropelar uma gravação em andamento, então espera o app ficar ocioso (até 60 s).

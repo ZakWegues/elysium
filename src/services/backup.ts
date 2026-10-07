@@ -6,6 +6,7 @@ import { getAllPresets, PresetEntry, PresetsMap, savePreset } from "./presetsSto
 import { listarRotinas, Rotina, salvarRotina } from "./rotinas";
 import { ChatSession, listSessions, mergeSession } from "./chatSessionsStore";
 import { importarListas, Lista, listarListas } from "./listas";
+import { Habito, importarHabitos, listarHabitos, listarMetas, Meta } from "./habitos";
 
 /**
  * Exportar e importar tudo o que é do Zak (bloco 96) — o seguro contra formatar o PC.
@@ -37,6 +38,9 @@ export interface Backup {
   ajustes: Partial<AppConfig>;
   /** Bloco 135. Opcional: backup antigo não tem. */
   listas?: Lista[];
+  /** Fase 16. Opcional: backup antigo não tem. */
+  habitos?: Habito[];
+  metas?: Meta[];
 }
 
 export interface ResumoImportacao {
@@ -47,6 +51,7 @@ export interface ResumoImportacao {
   conversas: number;
   ajustes: number;
   listas: number;
+  habitos: number;
 }
 
 /** Ajustes que não viajam: dependem desta máquina e quebrariam em outra. */
@@ -67,6 +72,8 @@ export function montarBackup(): Backup {
     conversas: listSessions(),
     ajustes: ajustes as Partial<AppConfig>,
     listas: listarListas(),
+    habitos: listarHabitos(),
+    metas: listarMetas(),
   };
 }
 
@@ -84,11 +91,13 @@ export function lerBackup(bruto: unknown): Backup {
     conversas: Array.isArray(b.conversas) ? b.conversas : [],
     ajustes: b.ajustes && typeof b.ajustes === "object" ? b.ajustes : {},
     listas: Array.isArray(b.listas) ? b.listas : [],
+    habitos: Array.isArray(b.habitos) ? b.habitos : [],
+    metas: Array.isArray(b.metas) ? b.metas : [],
   };
 }
 
 export function aplicarBackup(b: Backup): ResumoImportacao {
-  const resumo: ResumoImportacao = { memoria: 0, lembretes: 0, presets: 0, rotinas: 0, conversas: 0, ajustes: 0, listas: 0 };
+  const resumo: ResumoImportacao = { memoria: 0, lembretes: 0, presets: 0, rotinas: 0, conversas: 0, ajustes: 0, listas: 0, habitos: 0 };
 
   for (const texto of b.memoria) {
     try { if (addFact(texto).created) resumo.memoria++; } catch { /* fato inválido: pula */ }
@@ -122,6 +131,7 @@ export function aplicarBackup(b: Backup): ResumoImportacao {
 
   // Itens pendentes somam na lista de mesmo nome; o que já está lá não duplica.
   try { resumo.listas = importarListas(b.listas ?? []); } catch { /* pula */ }
+  try { resumo.habitos = importarHabitos(b.habitos ?? [], b.metas ?? []); } catch { /* pula */ }
 
   const ajustes = { ...b.ajustes } as Record<string, unknown>;
   for (const k of AJUSTES_LOCAIS) delete ajustes[k];

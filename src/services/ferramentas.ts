@@ -1,3 +1,5 @@
+import { acharHabito, avancarMeta, listarHabitos, listarMetas, marcarHabito, resumirHabito } from "./habitos";
+import { montarPainelHoje } from "./hoje";
 import { clipboard } from "electron";
 import { limparFeitos, marcarItem, normalizarNomeLista } from "./listas";
 import { calcular, formatarNumero } from "./calculadora";
@@ -306,6 +308,65 @@ export const FERRAMENTAS: Ferramenta[] = [
     description: "Lê uma lista (o que falta comprar, as tarefas). Sem nome, as listas mais recentes.",
     parameters: obj({ lista: s("Nome da lista, opcional") }),
     executar: a => acao({ action: "list_show", list: str(a, "lista") || undefined }),
+  },
+  // ── hábitos, metas e o painel do dia (fase 16) ──
+  {
+    name: "ver_habitos",
+    description: "Lê os hábitos de hoje (feito ou não, sequência 🔥) e as metas com o progresso. Use para 'como estão meus hábitos', 'o que falta hoje', 'quanto falta da meta'.",
+    parameters: obj({}),
+    executar: async () => {
+      const hs = listarHabitos().map(h => resumirHabito(h));
+      const ms = listarMetas();
+      if (!hs.length && !ms.length) return "Nenhum hábito nem meta cadastrados ainda.";
+      const linhas = hs.filter(h => h.valeHoje).map(h => `${h.nome}: ${h.feitoHoje ? "feito hoje" : "falta hoje"}, sequência de ${h.sequencia} dia(s)`);
+      for (const m of ms) linhas.push(`Meta ${m.titulo}: ${m.progresso} de ${m.alvo}${m.unidade ? " " + m.unidade : ""}${m.concluidaEm ? " (concluída)" : ""}`);
+      return linhas.join("; ") || "Nenhum hábito vale para hoje.";
+    },
+  },
+  {
+    name: "marcar_habito",
+    description: "Marca um hábito como feito hoje (ou desmarca). Use para 'marquei academia', 'fiz a leitura', 'já meditei hoje'.",
+    parameters: obj({ habito: s("Nome do hábito"), feito: { type: "boolean", description: "true = feito (padrão)" } }, ["habito"]),
+    executar: async a => {
+      const h = acharHabito(listarHabitos(), str(a, "habito"));
+      if (!h) {
+        const nomes = listarHabitos().map(x => x.nome);
+        return nomes.length ? `Não achei esse hábito. Os cadastrados: ${nomes.join(", ")}.` : "Ainda não há hábitos cadastrados — dá para criar na página Hoje.";
+      }
+      const novo = marcarHabito(h.id, a["feito"] !== false);
+      if (!novo) return "Não consegui marcar.";
+      const r = resumirHabito(novo);
+      return a["feito"] === false ? `Desmarquei ${h.nome} de hoje.` : `${h.nome} marcado. Sequência de ${r.sequencia} dia${r.sequencia === 1 ? "" : "s"}.`;
+    },
+    acao: a => ({ action: "habit_mark", name: str(a, "habito") }),
+  },
+  {
+    name: "avancar_meta",
+    description: "Soma progresso a uma meta ('li mais um livro', 'guardei 200 na meta da viagem'). Número negativo desconta.",
+    parameters: obj({ meta: s("Título da meta"), quanto: { type: "number", description: "Quanto somar (padrão 1)" } }, ["meta"]),
+    executar: async a => {
+      const metas = listarMetas();
+      const achada = acharHabito(metas.map(m => ({ ...m, nome: m.titulo })), str(a, "meta"));
+      if (!achada) return metas.length ? `Não achei essa meta. As cadastradas: ${metas.map(m => m.titulo).join(", ")}.` : "Ainda não há metas cadastradas.";
+      const m = avancarMeta(achada.id, num(a, "quanto") ?? 1);
+      if (!m) return "Não consegui atualizar a meta.";
+      return m.concluidaEm ? `Meta ${m.titulo} concluída: ${m.progresso} de ${m.alvo}.` : `Meta ${m.titulo}: ${m.progresso} de ${m.alvo}${m.unidade ? " " + m.unidade : ""}.`;
+    },
+  },
+  {
+    name: "painel_do_dia",
+    description: "O briefing de hoje: clima, lembretes, timers, listas pendentes, hábitos, metas, próxima rotina e alertas do PC. Use para 'como está meu dia', 'o que tenho hoje', 'me dá o status'.",
+    parameters: obj({}),
+    executar: async () => {
+      const p = await montarPainelHoje();
+      const partes = [p.frase];
+      if (p.clima) partes.push(`Clima: ${p.clima.temperatura}° em ${p.clima.cidade}, ${p.clima.descricao}`);
+      if (p.lembretes.length) partes.push(`Lembretes: ${p.lembretes.map(l => l.texto).join(", ")}`);
+      if (p.habitos.length) partes.push(`Hábitos: ${p.habitos.map(h => `${h.nome} ${h.feitoHoje ? "feito" : "pendente"}`).join(", ")}`);
+      if (p.proximaRotina) partes.push(`Próxima rotina: ${p.proximaRotina.nome}`);
+      if (p.alertas.length) partes.push(`Alertas: ${p.alertas.map(x => x.titulo).join(", ")}`);
+      return partes.join(". ");
+    },
   },
   {
     name: "marcar_item",
