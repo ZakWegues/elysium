@@ -1,3 +1,4 @@
+import { provedorDeFundo } from "./cerebroHibrido";
 import { getConfig } from "../main/config";
 import { callChat } from "./llm";
 import type { BrainAction } from "./brain";
@@ -44,7 +45,8 @@ export function interpretarSugestoes(bruto: string, pergunta = ""): string[] {
 
 export async function sugerirContinuacoes(pergunta: string, resposta: string): Promise<string[]> {
   const cfg = getConfig();
-  const provider = cfg.chatProvider;
+  // Tarefa de fundo, barata: com "auto" fica no local (fase 16).
+  const provider = provedorDeFundo(cfg.chatProvider);
   const model = provider === "ollama" ? cfg.ollamaChatModel : cfg.brainModel;
   try {
     const bruto = await callChat({

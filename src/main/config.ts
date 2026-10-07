@@ -27,6 +27,8 @@ export interface AppConfig {
   vozFemininaAplicada?: boolean;
   /** Marca que a troca única para o tema Stark (fase 16) já rodou — ver `migrarTemaStark`. */
   temaStarkAplicado?: boolean;
+  /** Marca a troca única para o cérebro híbrido (fase 16) — ver `migrarCerebroHibrido`. */
+  cerebroHibridoAplicado?: boolean;
   sttModel: string;
   /** Modelo que escreve as respostas de conversa — vale pagar qualidade aqui. */
   brainModel: string;
@@ -74,7 +76,8 @@ export interface AppConfig {
    * fora da união e queda do Ollama.
    */
   routerProvider: "groq" | "ollama";
-  chatProvider: "groq" | "ollama";
+  /** "auto" (fase 16): conhecimento e chat escrito na Groq, ação e conversa curta no local. */
+  chatProvider: "groq" | "ollama" | "auto";
   /** Sem o sufixo `/v1`: o `llm.ts` fala com o endpoint nativo, o único que honra keep_alive. */
   ollamaBaseUrl: string;
   ollamaRouterModel: string;
@@ -184,7 +187,7 @@ const DEFAULTS: AppConfig = {
   visionModel: "qwen/qwen3.8-27b",
   searchModel: "openai/gpt-oss-120b",
   routerProvider: "ollama",
-  chatProvider: "ollama",
+  chatProvider: "auto",
   ollamaBaseUrl: "http://127.0.0.1:11434",
   // Bloco 82 (20/09/2026): medido na bancada do agente (scripts/bench-agente.mjs, 20 casos
   // compostos e condicionais × 3), o qwen2.5:7b acertou 80% em 1,0 s (p50) contra 73% em
@@ -416,9 +419,19 @@ export function migrarTemaStark(o: Partial<AppConfig>): Partial<AppConfig> | nul
   return { temaStarkAplicado: true, theme: "stark" };
 }
 
+/**
+ * Troca única para o cérebro híbrido (fase 16): quem estava no local ("ollama", o padrão
+ * antigo) passa para "auto". Quem tinha escolhido a nuvem fica. Escolher de novo em
+ * Ajustes → Cérebro depois disso é respeitado.
+ */
+export function migrarCerebroHibrido(o: Partial<AppConfig>): Partial<AppConfig> | null {
+  if (o.cerebroHibridoAplicado) return null;
+  return o.chatProvider === "groq" ? { cerebroHibridoAplicado: true } : { cerebroHibridoAplicado: true, chatProvider: "auto" };
+}
+
 export function getConfig(): AppConfig {
   let overrides = store.get("overrides", {} as Partial<AppConfig>);
-  const trocas = { ...(migrarVozFeminina(overrides) ?? {}), ...(migrarTemaStark(overrides) ?? {}) };
+  const trocas = { ...(migrarVozFeminina(overrides) ?? {}), ...(migrarTemaStark(overrides) ?? {}), ...(migrarCerebroHibrido(overrides) ?? {}) };
   if (Object.keys(trocas).length) {
     overrides = { ...overrides, ...trocas };
     store.set("overrides", overrides);

@@ -1,3 +1,4 @@
+import { provedorDeFundo } from "./cerebroHibrido";
 import { getConfig } from "../main/config";
 import { callChat } from "./llm";
 import { listFacts, sugerirFato, SugestaoDeFato } from "./memoryStore";
@@ -39,7 +40,8 @@ export async function aprenderDaConversa(falasDoUsuario: string[]): Promise<Suge
   // Conversa curta demais não tem fato pessoal: poupa a chamada.
   if (falas.join(" ").length < 25) return [];
   const cfg = getConfig();
-  const provider = cfg.chatProvider;
+  // Tarefa de fundo, barata: com "auto" fica no local (fase 16).
+  const provider = provedorDeFundo(cfg.chatProvider);
   const model = provider === "ollama" ? cfg.ollamaChatModel : cfg.brainModel;
   const sabidos = listFacts().map(f => `- ${f.text}`).join("\n") || "(nada)";
   try {

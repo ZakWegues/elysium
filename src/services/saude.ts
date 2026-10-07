@@ -158,7 +158,7 @@ function lerBackupChaves(): number | null {
 
 export async function verificarSaude(): Promise<ItemSaude[]> {
   const cfg = getConfig();
-  const cerebroLocal = cfg.routerProvider === "ollama" || cfg.chatProvider === "ollama";
+  const cerebroLocal = cfg.routerProvider === "ollama" || cfg.chatProvider !== "groq";
   const [ollama, inicio, discos, tailscale] = await Promise.all([
     cerebroLocal ? ollamaDisponivel(cfg.ollamaRouterModel) : Promise.resolve({ ok: true, detalhe: "" }),
     inicioAutomaticoConfere().catch(() => ({ ok: true, detalhe: "não consegui ler o Registro" })),

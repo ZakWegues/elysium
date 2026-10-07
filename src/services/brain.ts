@@ -1,3 +1,4 @@
+import { provedorDaConversa } from "./cerebroHibrido";
 import { getApiKey, getConfig, AppConfig, nomeDoUsuario } from "../main/config";
 import { blocoDeInstrucoes, Canal, estiloValido, maxTokensDaConversa, personaStark, regrasDaConversa } from "./estiloResposta";
 import { apiKeyError } from "./errors";
@@ -417,7 +418,8 @@ export async function composeChatReply(
     return texto.trim() || null;
   };
 
-  const primeiro: Provider = cfg.chatProvider === "ollama" ? "ollama" : "groq";
+  // Fase 16: "auto" escolhe por pedido — conhecimento e chat escrito na Groq, o resto local.
+  const primeiro: Provider = provedorDaConversa(cfg.chatProvider, userText, canal, !!getApiKey());
 
   try {
     const reply = await tentar(primeiro);
@@ -427,6 +429,10 @@ export async function composeChatReply(
     if (parcial.trim()) return parcial.trim();
   }
 
+  // Na volta, se a Groq (escolhida pelo "auto") falhou, o local responde.
+  if (primeiro === "groq" && cfg.chatProvider === "auto") {
+    try { return await tentar("ollama"); } catch (e) { console.error("[brain] o local também falhou:", e); }
+  }
   if (primeiro === "ollama" && cfg.fallbackToGroq) {
     try {
       return await tentar("groq");

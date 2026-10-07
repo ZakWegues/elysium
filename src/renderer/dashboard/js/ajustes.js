@@ -37,7 +37,8 @@ const AJUSTES = [
       { chave: "routerProvider", rotulo: "Quem decide a ação", tipo: "select", opcoes: [
         ["ollama", "Local — Ollama nesta máquina"], ["groq", "Nuvem — Groq"]] },
       { chave: "chatProvider", rotulo: "Quem escreve a resposta", tipo: "select", opcoes: [
-        ["ollama", "Local — Ollama nesta máquina"], ["groq", "Nuvem — Groq"]] },
+        ["auto", "Híbrido — conhecimento na nuvem, o resto local"], ["ollama", "Local — Ollama nesta máquina"], ["groq", "Nuvem — Groq"]],
+        dica: "Híbrido: perguntas de conhecimento e o chat escrito vão para a Groq (acerta mais fato); ações e conversa curta ficam no local." },
       { chave: "ollamaRouterModel", rotulo: "Modelo local", tipo: "texto", dica: "ollama pull qwen2.5:7b" },
       { chave: "cerebroFerramentas", rotulo: "Agir em etapas (ferramentas)", tipo: "bool",
         dica: "O modelo olha o PC (o que está aberto, clima, estado) antes de agir e encadeia ações. Desligado, volta ao roteador de uma lista só." },
@@ -137,7 +138,7 @@ const SECOES_AJUSTES = [
   { id: "atalho", titulo: "Atalho e conta", icone: "key", nos: ["#sec-atalho"],
     resumo: (c) => c.shortcut || "Ctrl+Shift+J" },
   { id: "cerebro", titulo: "Cérebro", icone: "cpu", nos: ["[data-secao='cerebro']", "[data-secao='modelos-da-groq']"],
-    resumo: (c) => (c.routerProvider === "groq" ? "Nuvem" : "Local") + " · " + (c.chatProvider === "groq" ? "responde na nuvem" : "responde local") },
+    resumo: (c) => (c.routerProvider === "groq" ? "Nuvem" : "Local") + " · " + (c.chatProvider === "groq" ? "responde na nuvem" : c.chatProvider === "auto" ? "híbrido" : "responde local") },
   { id: "voz", titulo: "Voz", icone: "mic", nos: ["[data-secao='voz']"],
     resumo: (c) => (String(c.voice || "").match(/pt-BR-([A-Za-z]+?)(Multilingual)?Neural/)?.[1]) || "Francisca" },
   { id: "clima", titulo: "Clima", icone: "cloud", nos: ["#sec-clima"],
