@@ -999,7 +999,7 @@ const METHODS: Record<string, MethodDef> = {
   "memory.recusar": {
     handler: async (params) => ({ recusada: recusarSugestao(requireString(params, "id")) }),
   },
-  // O celular conta como algo se comportou (bloco 116: a mão livre, para calibrar os
+  // O celular conta como algo se comportou (bloco 116: o pedido por voz, para calibrar os
   // limiares). Cai no log do PC — o único log que existe; o celular não tem onde guardar.
   // Teto de 20 linhas × 300 caracteres e passa pelo `mascarar`: um cliente com o token não
   // pode encher o disco nem gravar segredo no log.

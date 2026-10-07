@@ -643,12 +643,20 @@ function handleUpgrade(
   // Os pedaços viajam como `{type:"chunk", text}` antes do `{type:"reply"}` final, que
   // continua trazendo a resposta inteira. App antigo que não conhece "chunk" ignora e
   // segue lendo o reply — o contrato não quebra.
+  /**
+   * O celular fechou a conexão no meio (o botão "Parar", 02/10): a resposta que ainda vem não
+   * tem para quem ir, e o turno sai do histórico — senão a conversa seguinte continuaria de
+   * uma resposta que ninguém leu (07/10).
+   */
+  let fechado = false;
+  socket.on("close", () => { fechado = true; });
+
   const executar = async (texto: string, canal: "voz" | "texto" = "voz"): Promise<{ reply: string; fontes?: Fonte[] }> => {
     if (!processStream) return { reply: await processCommand(texto, canal) };
     const r = await processStream(texto, (token) => sendToClient(client, JSON.stringify({ type: "chunk", text: token })), canal);
     // Bloco 132: as sugestões chegam DEPOIS do reply, numa mensagem própria — o celular já
     // fechou a bolha; app antigo ignora o tipo que não conhece.
-    if (deveSugerir(r.actions, canal)) {
+    if (deveSugerir(r.actions, canal) && !fechado) {
       sugerirContinuacoes(texto, r.reply)
         .then(sugestoes => { if (sugestoes.length) sendToClient(client, JSON.stringify({ type: "sugestoes", sugestoes })); })
         .catch(() => { /* sem chips */ });
@@ -664,7 +672,10 @@ function handleUpgrade(
         if (msg.refazer === true) desfazerUltimoTurno();
         executar(msg.text, msg.canal === "texto" ? "texto" : "voz")
           // Bloco 131: `fontes` vai junto; app antigo lê só o `reply`.
-          .then(({ reply, fontes }) => sendToClient(client, JSON.stringify({ type: "reply", reply, ...(fontes?.length ? { fontes } : {}) })))
+          .then(({ reply, fontes }) => {
+            if (fechado) { desfazerUltimoTurno(); console.log("[WS] conexão fechada no meio; resposta descartada."); return; }
+            sendToClient(client, JSON.stringify({ type: "reply", reply, ...(fontes?.length ? { fontes } : {}) }));
+          })
           .catch(err  => {
             console.error("[WS] falha ao processar comando de texto:", err);
             sendToClient(client, JSON.stringify({ type: "error", error: String(err) }));

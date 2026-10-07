@@ -6,7 +6,7 @@
  * explica como funciona um SSD" no teclado e receber três frases secas é o oposto do que
  * se elogia no ChatGPT e no Claude. Agora o canal decide:
  *
- * - **voz** (microfone do PC, mão livre e áudio do celular, palavra "Elysium"): continua
+ * - **voz** (microfone do PC, pedido por voz e áudio do celular, palavra "Elysium"): continua
  *   exatamente como era — curta, corrida, sem marcação.
  * - **texto** (chat do dashboard e o digitado no celular): resposta de chat de verdade,
  *   com markdown quando ajuda e do tamanho que a pergunta pede.

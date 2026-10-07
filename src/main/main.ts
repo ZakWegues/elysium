@@ -174,7 +174,7 @@ let appQuitting = false;
 
 // ── speak queue ───────────────────────────────────────────────────────────────
 
-type SpeakItem = { text: string; resolve: () => void };
+type SpeakItem = { text: string; resolve: () => void; inteira?: string };
 const speakQueue: SpeakItem[] = [];
 let isSpeaking = false;
 let currentToken = 0;
@@ -186,6 +186,7 @@ function interruptAll(): void {
   // frases (02/10), a promessa do `speak` mora no ÚLTIMO pedaço, e descartá-lo sem resolver
   // deixava o \`await speak(...)\` pendurado para sempre.
   for (const item of speakQueue.splice(0)) item.resolve();
+  falandoAgora = "";
   isSpeaking = false;
   avisarFala(false);
 }
@@ -207,23 +208,27 @@ function speak(text: string): Promise<void> {
   const pedacos = dividirEmFrases(text);
   if (!pedacos.length) return Promise.resolve();
   return new Promise((resolve) => {
-    pedacos.forEach((p, i) => speakQueue.push({ text: p, resolve: i === pedacos.length - 1 ? resolve : () => {} }));
+    pedacos.forEach((p, i) => speakQueue.push({ text: p, inteira: text, resolve: i === pedacos.length - 1 ? resolve : () => {} }));
     if (!isSpeaking) drainSpeak();
   });
 }
 
-/** A frase que está saindo na caixa de som agora — o barge-in confere se ela tem "Elysium". */
+/**
+ * O que está saindo na caixa de som — o barge-in confere se tem "Ely". É a fala INTEIRA, não
+ * só a frase do pedaço (07/10): o reconhecimento chega ~0,5 s depois, quando a frase com o
+ * nome já acabou e a seguinte começou, e ela se interrompia ao dizer o próprio nome. Só
+ * esvazia quando a fila acaba, sem buraco entre os pedaços.
+ */
 let falandoAgora = "";
 
 async function drainSpeak(): Promise<void> {
-  if (speakQueue.length === 0) { isSpeaking = false; avisarFala(false); return; }
+  if (speakQueue.length === 0) { isSpeaking = false; falandoAgora = ""; avisarFala(false); return; }
   isSpeaking = true;
   avisarFala(true);
   const item = speakQueue.shift()!;
-  falandoAgora = item.text;
+  falandoAgora = item.inteira ?? item.text;
   if (speakQueue[0]) preSintetizar(speakQueue[0].text);
   try { await synthesize(item.text); } catch { /* best-effort */ }
-  falandoAgora = "";
   item.resolve();
   drainSpeak();
 }
