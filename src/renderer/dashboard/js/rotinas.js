@@ -17,6 +17,19 @@
 const DIAS_CURTOS = ["D", "S", "T", "Q", "Q", "S", "S"];
 const DIAS_LONGOS = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
 
+/**
+ * Modelos prontos (fase 16): as rotinas que mais se elogiam em assistentes (o "bom dia"
+ * da Alexa, o fim de expediente, a hora de dormir). Um toque abre o formulário já
+ * preenchido — nada é criado sem o Zak salvar.
+ */
+const ROTINAS_MODELO = [
+  { nome: "Briefing da manhã", texto: "me dá o resumo do dia", hora: "07:30", dias: [1, 2, 3, 4, 5], falar: true, entregar: ["pc", "celular"] },
+  { nome: "Fim do expediente", texto: "como foi meu dia? o que ficou pendente nas listas e nos hábitos?", hora: "18:30", dias: [1, 2, 3, 4, 5], entregar: ["pc", "celular"] },
+  { nome: "Hora de dormir", texto: "abaixa o volume para 15", hora: "23:00", dias: [], entregar: ["pc"] },
+  { nome: "Pausa para água", texto: "me lembra, numa frase curta, de beber um copo de água agora", hora: "15:00", dias: [1, 2, 3, 4, 5], entregar: ["celular"] },
+  { nome: "Revisão da semana", texto: "como estão meus hábitos e minhas metas esta semana?", hora: "18:00", dias: [5], falar: true, entregar: ["pc", "celular"] },
+];
+
 const ROTINAS_EXEMPLO = [
   { nome: "Bom dia", texto: "como está o tempo hoje?", hora: "07:30", dias: [1, 2, 3, 4, 5], falar: true },
   { nome: "Lembretes do dia", texto: "quais são os meus lembretes de hoje?", hora: "08:00", dias: [] },
@@ -47,7 +60,18 @@ function diasTexto(dias) {
   return dias.map(d => DIAS_LONGOS[d]).join(", ");
 }
 
+function desenharModelos() {
+  const alvo = document.getElementById("rot-modelos");
+  if (!alvo) return;
+  // Some o modelo que já virou rotina (mesmo nome): oferecer de novo seria duplicar.
+  const nomes = new Set(rotinasCache.map(r => r.nome.toLowerCase()));
+  const livres = ROTINAS_MODELO.map((m, i) => ({ m, i })).filter(({ m }) => !nomes.has(m.nome.toLowerCase()));
+  alvo.hidden = !livres.length;
+  alvo.innerHTML = `<span class="rot-modelos-rotulo">Modelos prontos</span>${livres.map(({ m, i }) => `<button data-modelo="${i}" title="${escHtml(m.texto)}">${ico("plus", "ico-sm")}${escHtml(m.nome)}<small>${escHtml(m.hora)}</small></button>`).join("")}`;
+}
+
 function desenharRotinas() {
+  desenharModelos();
   const alvo = document.getElementById("rot-lista");
   if (!alvo) return;
   if (!rotinasCache.length) {
@@ -70,6 +94,7 @@ function desenharRotinas() {
         ${r.condicao ? `<div class="rotina-condicao">${ico("bulb", "ico-sm")}<span>só ${escHtml(r.condicao)}</span></div>` : ""}
         ${gatilhoTexto(r) ? "" : `<div class="rotina-dias" title="${escHtml(diasTexto(r.dias))}">${DIAS_CURTOS.map((d, i) => `<span class="${!r.dias.length || r.dias.includes(i) ? "on" : ""}">${d}</span>`).join("")}</div>`}
         ${r.ultimoResultado ? `<div class="rotina-resultado"><em>última vez, ${escHtml(quandoTexto(r.ultimaExecucao))}</em>${escHtml(r.ultimoResultado)}</div>` : ""}
+        ${(r.historico?.length ?? 0) > 1 ? `<details class="rotina-hist"><summary>últimas ${r.historico.length} execuções</summary>${r.historico.map(h => `<div><em>${escHtml(quandoTexto(h.em))}</em> ${escHtml(h.resultado)}</div>`).join("")}</details>` : ""}
       </div>
       <div class="rotina-acoes">
         <label class="cfg-switch" title="${r.ativa ? "Pausar" : "Ativar"}"><input type="checkbox" data-rot-ativa="${escHtml(r.id)}"${r.ativa ? " checked" : ""}><span></span></label>
@@ -163,6 +188,8 @@ function abrirFormRotina(base = {}) {
 document.getElementById("view-rotinas")?.addEventListener("click", async (e) => {
   const alvo = (sel) => e.target.closest(sel);
   if (alvo("#rot-nova")) { abrirFormRotina(); return; }
+  const mod = alvo("[data-modelo]");
+  if (mod) { abrirFormRotina(ROTINAS_MODELO[Number(mod.dataset.modelo)]); return; }
   const ex = alvo("[data-exemplo]");
   if (ex) { abrirFormRotina(ROTINAS_EXEMPLO[Number(ex.dataset.exemplo)]); return; }
 

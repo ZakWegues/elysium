@@ -110,3 +110,18 @@
 .rot-form .home-acoes .principal { background: rgba(var(--purple-rgb),0.24); }
 .rot-exemplos { margin-top: 4px; }
 .mus-sep { width: 1px; height: 22px; background: var(--border); margin: 0 4px; }
+
+/* Modelos prontos (fase 16): uma faixa de chips acima das colunas. */
+.rot-modelos { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 16px; }
+.rot-modelos-rotulo { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-right: 4px; }
+.rot-modelos button {
+  display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: var(--radius-20, 20px);
+  background: rgba(var(--purple-rgb), 0.08); border: 1px dashed rgba(var(--purple-rgb), 0.35);
+  color: var(--text); font-family: inherit; font-size: 12px; cursor: pointer;
+}
+.rot-modelos button small { color: var(--muted); font-variant-numeric: tabular-nums; }
+.rot-modelos button:hover { background: rgba(var(--purple-rgb), 0.18); border-style: solid; }
+.rotina-hist { margin-top: 6px; font-size: 11px; color: var(--muted); }
+.rotina-hist summary { cursor: pointer; }
+.rotina-hist div { padding: 3px 0 0 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rotina-hist em { font-style: normal; color: var(--purple-bright); }

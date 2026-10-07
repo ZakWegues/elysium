@@ -132,6 +132,10 @@ async function montarIndicePaleta() {
     { grupo: "nav", icone: "smartphone", texto: "Recados do celular", executar: () => { switchView("chat"); switchChatMode("self"); } },
     { grupo: "nav", icone: "monitor", texto: "PC", chaves: ["programas", "processos", "energia", "monitor"], executar: () => switchView("pc") },
     { grupo: "nav", icone: "calendar", texto: "Rotinas", chaves: ["automações", "agendar"], executar: () => switchView("rotinas") },
+    // Fase 16: a aba Hoje e os atalhos de hábito/meta.
+    { grupo: "nav", icone: "sun", texto: "Hoje", chaves: ["briefing", "hábitos", "metas", "resumo do dia"], executar: () => switchView("hoje") },
+    { grupo: "acao", icone: "check", texto: "Novo hábito", chaves: ["hábito", "streak", "sequência"], executar: () => { switchView("hoje"); formHabito(); } },
+    { grupo: "acao", icone: "star", texto: "Nova meta", chaves: ["meta", "objetivo"], executar: () => { switchView("hoje"); formMeta(); } },
     { grupo: "nav", icone: "plus", texto: "Nova rotina", executar: () => { switchView("rotinas"); setTimeout(() => abrirFormRotina(), 80); } },
     { grupo: "nav", icone: "settings", texto: "Ajustes", executar: () => switchView("ajustes") },
     { grupo: "nav", icone: "edit", texto: "Nova conversa", executar: () => { switchView("chat"); switchChatMode("ai"); startNewConversation(); } },

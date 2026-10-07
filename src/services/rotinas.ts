@@ -64,6 +64,8 @@ export interface Rotina {
   criadaEm: number;
   ultimaExecucao?: number;
   ultimoResultado?: string;
+  /** As últimas 5 execuções (fase 16), da mais nova para a mais antiga. */
+  historico?: { em: number; resultado: string }[];
 }
 
 export interface Entrega {
@@ -157,6 +159,7 @@ export function salvarRotina(input: Partial<Rotina> & { nome: string; texto: str
     criadaEm: existente?.criadaEm ?? Date.now(),
     ultimaExecucao: existente?.ultimaExecucao,
     ultimoResultado: existente?.ultimoResultado,
+    historico: existente?.historico,
   };
   store.set("rotinas", existente ? todas.map(r => (r.id === rotina.id ? rotina : r)) : [...todas, rotina]);
   return rotina;
@@ -185,6 +188,7 @@ function registrarExecucao(id: string, resultado: string): void {
   if (!r) return;
   r.ultimaExecucao = Date.now();
   r.ultimoResultado = resultado.slice(0, 400);
+  r.historico = [{ em: r.ultimaExecucao, resultado: resultado.slice(0, 200) }, ...(r.historico ?? [])].slice(0, 5);
   store.set("rotinas", todas);
 }
 
