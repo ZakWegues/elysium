@@ -68,3 +68,16 @@ describe("assinatura do instalador (bloco 115)", async () => {
     expect(assinaturaConfere("Valid", "0000000000000000000000000000000000000000")).toBe(false);
   });
 });
+
+describe("atualizador mais firme (07/10)", async () => {
+  const { maiorRelease, versionCodeDasNotas } = await import("../src/services/atualizacao");
+  it("escolhe a MAIOR versão, sem rascunho nem pré-lançamento", () => {
+    const rel = (tag: string, extra: object = {}) => ({ tag_name: tag, published_at: "", draft: false, prerelease: false, assets: [], ...extra });
+    expect(maiorRelease([rel("v1.9.0"), rel("v1.10.0"), rel("v2.0.0", { draft: true }), rel("v1.11.0", { prerelease: true })])?.tag_name).toBe("v1.10.0");
+    expect(maiorRelease([])).toBeNull();
+  });
+  it("lê o versionCode das notas", () => {
+    expect(versionCodeDasNotas("Novidades\n\nversionCode 20")).toBe(20);
+    expect(versionCodeDasNotas("sem")).toBeUndefined();
+  });
+});

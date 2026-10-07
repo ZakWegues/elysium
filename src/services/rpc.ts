@@ -831,9 +831,11 @@ const METHODS: Record<string, MethodDef> = {
       // `aguardar`: só para diagnóstico e teste — espera o download terminar antes de responder.
       if (params["aguardar"] === true) await aguardarDownloads();
       const e = estadoAtualizacao();
-      const resumo = (x?: { versao: string; notas: string; publicadaEm: string; tamanho: number; pronto: boolean; progresso: number }) =>
-        x ? { versao: x.versao, notas: x.notas, publicadaEm: x.publicadaEm, tamanho: x.tamanho, pronto: x.pronto, progresso: x.progresso } : null;
-      return { pc: e.atual, verificadoEm: e.verificadoEm ?? null, erro: e.erro ?? null, desktop: resumo(e.desktop), celular: resumo(e.celular) };
+      const resumo = (x?: { versao: string; notas: string; publicadaEm: string; tamanho: number; pronto: boolean; progresso: number; versionCode?: number }) =>
+        x ? { versao: x.versao, notas: x.notas, publicadaEm: x.publicadaEm, tamanho: x.tamanho, pronto: x.pronto, progresso: x.progresso, versionCode: x.versionCode } : null;
+      // `semToken` vai junto (07/10): sem ele o celular dizia "versão mais nova" quando o PC
+      // nem conseguia perguntar ao GitHub.
+      return { pc: e.atual, verificadoEm: e.verificadoEm ?? null, erro: e.erro ?? null, semToken: !!e.semToken, desktop: resumo(e.desktop), celular: resumo(e.celular) };
     },
   },
   // Armazenamento (fase 12): o que ocupa o disco e o que dá para liberar sem risco.

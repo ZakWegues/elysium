@@ -46,6 +46,8 @@ export interface Pacote {
   /** 0–1 enquanto baixa; 1 quando está no disco e conferido. */
   progresso: number;
   pronto: boolean;
+  /** Só do APK: o versionCode, lido da linha "versionCode N" que o script põe nas notas (07/10). */
+  versionCode?: number;
 }
 
 export interface EstadoAtualizacao {
@@ -59,8 +61,8 @@ export interface EstadoAtualizacao {
   celular?: Pacote;
 }
 
-interface AssetGitHub { id: number; name: string; size: number; digest?: string | null }
-interface ReleaseGitHub { tag_name: string; body?: string | null; published_at: string; draft: boolean; prerelease: boolean; assets: AssetGitHub[] }
+export interface AssetGitHub { id: number; name: string; size: number; digest?: string | null }
+export interface ReleaseGitHub { tag_name: string; body?: string | null; published_at: string; draft: boolean; prerelease: boolean; assets: AssetGitHub[] }
 
 let estado: EstadoAtualizacao = { atual: app.getVersion(), verificando: false };
 const ouvintes = new Set<(e: EstadoAtualizacao) => void>();
@@ -131,16 +133,30 @@ async function token(): Promise<string> {
 
 // ── GitHub ───────────────────────────────────────────────────────────────────
 
+/**
+ * A release de MAIOR versão (07/10). O `releases/latest` é a que o GitHub marcou como mais
+ * recente, e isso nem sempre bate com a maior tag (uma republicação antiga mexe na marca).
+ * E 404 aqui não é "sem release": num repositório privado é o token sem acesso a ele — antes
+ * virava "nenhuma versão nova" em silêncio.
+ */
+export function maiorRelease(rels: ReleaseGitHub[]): ReleaseGitHub | null {
+  let melhor: ReleaseGitHub | null = null;
+  for (const r of rels) {
+    if (r.draft || r.prerelease) continue;
+    if (!melhor || compararVersoes(r.tag_name, melhor.tag_name) > 0) melhor = r;
+  }
+  return melhor;
+}
+
 async function ultimaRelease(repo: string, tk: string): Promise<ReleaseGitHub | null> {
-  const r = await fetch(`https://api.github.com/repos/${DONO}/${repo}/releases/latest`, {
+  const r = await fetch(`https://api.github.com/repos/${DONO}/${repo}/releases?per_page=20`, {
     headers: { Authorization: `Bearer ${tk}`, Accept: "application/vnd.github+json", "User-Agent": "ELYSIUM", "X-GitHub-Api-Version": "2022-11-28" },
     signal: AbortSignal.timeout(15000),
   });
-  if (r.status === 404) return null; // repositório sem release ainda
+  if (r.status === 404) throw new Error(`o token do GitHub não enxerga o repositório ${repo} (404)`);
   if (r.status === 401) throw new Error("o token do GitHub foi recusado (401)");
   if (!r.ok) throw new Error(`GitHub respondeu ${r.status}`);
-  const rel = await r.json() as ReleaseGitHub;
-  return rel.draft || rel.prerelease ? null : rel;
+  return maiorRelease(await r.json() as ReleaseGitHub[]);
 }
 
 /**
@@ -151,6 +167,7 @@ async function ultimaRelease(repo: string, tk: string): Promise<ReleaseGitHub | 
  */
 async function baixarAsset(repo: string, asset: AssetGitHub, destino: string, tk: string, aoProgresso: (p: number) => void): Promise<void> {
   const api = `https://api.github.com/repos/${DONO}/${repo}/releases/assets/${asset.id}`;
+  let vigia: { parar: AbortController; rearmar: () => void; fim: () => void } | null = null;
   let r = await fetch(api, {
     headers: { Authorization: `Bearer ${tk}`, Accept: "application/octet-stream", "User-Agent": "ELYSIUM" },
     redirect: "manual",
@@ -159,9 +176,15 @@ async function baixarAsset(repo: string, asset: AssetGitHub, destino: string, tk
   if (r.status >= 300 && r.status < 400) {
     const onde = r.headers.get("location");
     if (!onde) throw new Error("redirecionamento sem destino");
-    r = await fetch(onde, { headers: { "User-Agent": "ELYSIUM" } });
+    // 🔴 07/10: sem prazo aqui, um download parado deixava `baixando` em true para sempre e
+    // nenhuma verificação seguinte baixava nada até reiniciar o app. O prazo é de INATIVIDADE
+    // (60 s sem bytes), não do download inteiro — 115 MB numa rede lenta passam do minuto.
+    const parar = new AbortController();
+    let parado: NodeJS.Timeout = setTimeout(() => parar.abort(), 60_000);
+    r = await fetch(onde, { headers: { "User-Agent": "ELYSIUM" }, signal: parar.signal });
+    vigia = { parar, rearmar: () => { clearTimeout(parado); parado = setTimeout(() => parar.abort(), 60_000); }, fim: () => clearTimeout(parado) };
   }
-  if (!r.ok || !r.body) throw new Error(`download respondeu ${r.status}`);
+  if (!r.ok || !r.body) { vigia?.fim(); throw new Error(`download respondeu ${r.status}`); }
 
   const temp = `${destino}.parcial`;
   const hash = crypto.createHash("sha256");
@@ -170,6 +193,7 @@ async function baixarAsset(repo: string, asset: AssetGitHub, destino: string, tk
   try {
     for await (const pedaco of Readable.fromWeb(r.body as never)) {
       const b = pedaco as Buffer;
+      vigia?.rearmar();
       hash.update(b);
       lidos += b.length;
       if (!saida.write(b)) await new Promise<void>(res => saida.once("drain", () => res()));
@@ -182,6 +206,8 @@ async function baixarAsset(repo: string, asset: AssetGitHub, destino: string, tk
     saida.destroy();
     fs.rmSync(temp, { force: true });
     throw e;
+  } finally {
+    vigia?.fim();
   }
 
   if (asset.size && lidos !== asset.size) {
@@ -199,10 +225,17 @@ async function baixarAsset(repo: string, asset: AssetGitHub, destino: string, tk
 
 // ── ciclo ────────────────────────────────────────────────────────────────────
 
+/** "…\nversionCode 20" no fim das notas → 20. Pura. */
+export function versionCodeDasNotas(notas: string): number | undefined {
+  const m = /versionCode (\d+)/.exec(notas);
+  return m ? parseInt(m[1], 10) : undefined;
+}
+
 function pacoteDe(rel: ReleaseGitHub, asset: AssetGitHub): Pacote {
   const arquivo = path.join(pasta(), asset.name);
   const pronto = fs.existsSync(arquivo) && fs.statSync(arquivo).size === asset.size;
   return {
+    versionCode: /\.apk$/i.test(asset.name) ? versionCodeDasNotas(rel.body ?? "") : undefined,
     versao: rel.tag_name.replace(/^v/i, ""),
     notas: (rel.body ?? "").trim().slice(0, 2000),
     publicadaEm: rel.published_at,
@@ -215,36 +248,57 @@ function pacoteDe(rel: ReleaseGitHub, asset: AssetGitHub): Pacote {
 
 /** Apaga o que sobrou de versões antigas — 80 MB + 110 MB por release não podem acumular. */
 function limparAntigos(manter: string[]): void {
-  try {
-    for (const f of fs.readdirSync(pasta())) {
-      const p = path.join(pasta(), f);
-      if (!manter.includes(p)) fs.rmSync(p, { force: true });
-    }
-  } catch { /* pasta sumiu: nada a limpar */ }
+  let arquivos: string[] = [];
+  try { arquivos = fs.readdirSync(pasta()); } catch { return; /* pasta sumiu: nada a limpar */ }
+  // Um por um (07/10): o APK velho em uso pelo celular (sendo baixado) fica travado no
+  // Windows, e um único try em volta do laço parava a limpeza inteira ali.
+  for (const f of arquivos) {
+    const p = path.join(pasta(), f);
+    if (manter.includes(p)) continue;
+    try { fs.rmSync(p, { force: true }); } catch { /* em uso: fica para a próxima */ }
+  }
 }
+
+/**
+ * Versões cujo instalador veio SEM a assinatura deste PC (07/10). Antes o arquivo era
+ * apagado e a verificação seguinte (6 h depois) baixava de novo, para sempre.
+ */
+const rejeitadas = new Set<string>();
 
 let baixando = false;
 
 async function baixarPendentes(tk: string, assetPc?: AssetGitHub, assetCel?: AssetGitHub): Promise<void> {
   baixando = true;
+  const falhou = (oque: string, e: unknown) => {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.warn(`[atualizacao] download do ${oque} falhou:`, msg);
+    mudar({ erro: `download do ${oque}: ${msg}` });
+  };
   try {
+    // Cada um no seu try (07/10): o .exe falhando não impede mais o APK do celular.
     const d = estado.desktop;
-    if (d && !d.pronto && assetPc) {
-      await baixarAsset(REPO_DESKTOP, assetPc, d.arquivo, tk, p => mudar({ desktop: { ...estado.desktop!, progresso: p } }));
-      mudar({ desktop: { ...estado.desktop!, progresso: 1, pronto: true } });
-      // Sem assinatura: some do disco e o APK do celular segue sendo baixado.
-      if (!app.isPackaged || (await conferirAssinatura(estado.desktop!))) console.log(`[atualizacao] ELYSIUM ${d.versao} baixado.`);
+    if (d && !d.pronto && assetPc && !rejeitadas.has(d.versao)) {
+      try {
+        await baixarAsset(REPO_DESKTOP, assetPc, d.arquivo, tk, p => { if (estado.desktop?.versao === d.versao) mudar({ desktop: { ...estado.desktop, progresso: p } }); });
+        // "Pronto" só se ainda é a MESMA versão: uma verificação no meio do download pode ter
+        // trocado o pacote, e marcar o novo como pronto apontava para um arquivo que não existe.
+        if (estado.desktop?.versao === d.versao) {
+          mudar({ desktop: { ...estado.desktop, progresso: 1, pronto: true } });
+          // Sem assinatura: some do disco e o APK do celular segue sendo baixado.
+          if (!app.isPackaged || (await conferirAssinatura(estado.desktop!))) console.log(`[atualizacao] ELYSIUM ${d.versao} baixado.`);
+        }
+      } catch (e) { falhou("ELYSIUM", e); }
     }
     const c = estado.celular;
     if (c && !c.pronto && assetCel) {
-      await baixarAsset(REPO_CELULAR, assetCel, c.arquivo, tk, p => mudar({ celular: { ...estado.celular!, progresso: p } }));
-      mudar({ celular: { ...estado.celular!, progresso: 1, pronto: true } });
-      console.log(`[atualizacao] ELYSIUM-M ${c.versao} guardado para o celular.`);
+      try {
+        await baixarAsset(REPO_CELULAR, assetCel, c.arquivo, tk, p => { if (estado.celular?.versao === c.versao) mudar({ celular: { ...estado.celular, progresso: p } }); });
+        if (estado.celular?.versao === c.versao) {
+          mudar({ celular: { ...estado.celular, progresso: 1, pronto: true } });
+          console.log(`[atualizacao] ELYSIUM-M ${c.versao} guardado para o celular.`);
+        }
+      } catch (e) { falhou("ELYSIUM-M", e); }
     }
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    console.warn("[atualizacao] download falhou:", msg);
-    mudar({ erro: `download: ${msg}` });
   } finally { baixando = false; }
 }
 
@@ -261,7 +315,11 @@ export async function verificarAtualizacoes(): Promise<EstadoAtualizacao> {
     const tk = await token();
     if (!tk) { mudar({ semToken: true, verificadoEm: Date.now() }); return estadoAtualizacao(); }
 
-    const [relPc, relCel] = await Promise.all([ultimaRelease(REPO_DESKTOP, tk), ultimaRelease(REPO_CELULAR, tk)]);
+    // Cada repositório por si (07/10): o token sem acesso a um deles não pode esconder o outro.
+    const erros: string[] = [];
+    const pegar = (repo: string) => ultimaRelease(repo, tk).catch((e: unknown) => { erros.push(e instanceof Error ? e.message : String(e)); return null; });
+    const [relPc, relCel] = await Promise.all([pegar(REPO_DESKTOP), pegar(REPO_CELULAR)]);
+    if (erros.length === 2) throw new Error(erros[0]);
     const assetPc = relPc?.assets.find(a => /\.exe$/i.test(a.name));
     const assetCel = relCel?.assets.find(a => /\.apk$/i.test(a.name));
 
@@ -276,6 +334,7 @@ export async function verificarAtualizacoes(): Promise<EstadoAtualizacao> {
       desktop: baixando && desktop && estado.desktop?.versao === desktop.versao ? estado.desktop : desktop,
       celular: baixando && celular && estado.celular?.versao === celular.versao ? estado.celular : celular,
       verificadoEm: Date.now(),
+      erro: erros[0],
     });
     // Nunca com download em curso: o `.parcial` que está sendo escrito não está na lista de
     // quem fica, e seria apagado debaixo do próprio download.
@@ -341,6 +400,8 @@ function lerAssinatura(arquivo: string): Promise<{ status: string; impressao: st
 async function conferirAssinatura(d: Pacote): Promise<boolean> {
   const a = await lerAssinatura(d.arquivo);
   if (assinaturaConfere(a.status, a.impressao)) return true;
+  // Falha do PowerShell ("erro") não é assinatura errada: não rejeita a versão, tenta de novo.
+  if (a.status !== "erro") rejeitadas.add(d.versao);
   console.error(`[atualizacao] ${d.versao} NÃO tem a assinatura deste PC (status ${a.status}, ${a.impressao || "sem certificado"}); apagando e não instalando.`);
   try { fs.rmSync(d.arquivo, { force: true }); } catch { /* segue */ }
   mudar({ desktop: { ...d, pronto: false, progresso: 0 }, erro: `a versão ${d.versao} não tem a assinatura do ELYSIUM — não instalei` });
@@ -355,8 +416,20 @@ export async function instalarAtualizacaoDesktop(): Promise<{ ok: boolean; mensa
   if (!(await conferirAssinatura(d))) return { ok: false, mensagem: `A versão ${d.versao} não tem a assinatura do ELYSIUM; não instalei.` };
   // As notas vão junto para a versão nova mostrar na Início ao abrir.
   gravarNovidades({ ...lerNovidades(), notas: { versao: d.versao, texto: d.notas } });
-  const filho = spawn(d.arquivo, ["/S", "--updated", "--force-run"], { detached: true, stdio: "ignore", windowsHide: true });
-  filho.unref();
+  // Só fecha o app quando o instalador DE FATO abriu (07/10). Antes o `setTimeout(sair)`
+  // rodava de qualquer jeito: se o spawn falhasse, o ELYSIUM fechava e não voltava — e o
+  // celular perdia o PC até alguém abrir o app na mão.
+  const abriu = await new Promise<boolean>((resolve) => {
+    let filho: ReturnType<typeof spawn>;
+    try { filho = spawn(d.arquivo, ["/S", "--updated", "--force-run"], { detached: true, stdio: "ignore", windowsHide: true }); }
+    catch { resolve(false); return; }
+    filho.once("spawn", () => { filho.unref(); resolve(true); });
+    filho.once("error", (e) => { console.error("[atualizacao] o instalador não abriu:", e.message); resolve(false); });
+  });
+  if (!abriu) {
+    mudar({ erro: `o instalador da ${d.versao} não abriu` });
+    return { ok: false, mensagem: `O instalador da versão ${d.versao} não abriu; o ELYSIUM continua na ${estado.atual}.` };
+  }
   console.log(`[atualizacao] instalando ${d.versao}; o app fecha agora e volta sozinho.`);
   setTimeout(sair, 400);
   return { ok: true, mensagem: `Instalando a versão ${d.versao}. O ELYSIUM volta em alguns segundos.` };
