@@ -2,9 +2,9 @@ import { addFact, listFacts, removeFactByText } from "../services/memoryStore";
 import {
   cancelReminderByText, createReminder, listPending, Reminder,
 } from "../services/scheduler";
-import { ajustarPeloTexto, interpretarQuando, planejarLembretes } from "../services/planoDeLembrete";
+import { ajustarPeloTexto, ehCompromisso, HORA_PADRAO, interpretarQuando, planejarLembretes } from "../services/planoDeLembrete";
 import { pedidoAtual } from "../services/contextoComando";
-import { criarTarefa, desvincularLembrete } from "../services/tarefas";
+import { criarTarefa, desvincularLembrete, listarTarefasTodas, marcarMigracao, migracaoFeita } from "../services/tarefas";
 
 // ── memória ───────────────────────────────────────────────────────────────────
 
@@ -86,6 +86,29 @@ export function createReminderAction(text: string, dueAt: string, weekly?: boole
   return vespera
     ? `Combinado: te lembro na véspera, ${formatWhen(vespera.em)}, e no dia, ${formatWhen(principal.em)} — ${text.trim()}.`
     : `Combinado, te aviso ${formatWhen(principal.em)}: ${text.trim()}.`;
+}
+
+/**
+ * Uma vez (fase 17): os lembretes de uma vez que já existiam entram na lista de tarefas, e o
+ * compromisso ganha o aviso da véspera às 16h — o mesmo que um lembrete novo ganharia.
+ * Marcado no store das tarefas; rodar de novo não duplica.
+ */
+export function migrarLembretesParaTarefas(): number {
+  if (migracaoFeita()) return 0;
+  let n = 0;
+  const jaLigados = new Set(listarTarefasTodas().flatMap(t => t.lembreteIds ?? []));
+  for (const r of listPending()) {
+    if (r.kind !== "once" || jaLigados.has(r.id) || r.dueAt <= Date.now()) continue;
+    const ids = [r.id];
+    if (ehCompromisso(r.text)) {
+      const d = new Date(r.dueAt);
+      const vespera = new Date(d.getFullYear(), d.getMonth(), d.getDate() - 1, HORA_PADRAO, 0, 0, 0).getTime();
+      if (vespera > Date.now()) ids.unshift(createReminder({ text: `Amanhã: ${r.text}`, dueAt: vespera }).id);
+    }
+    try { criarTarefa({ texto: r.text, prazo: r.dueAt, lembreteIds: ids, origem: "lembrete" }); n++; } catch { /* segue */ }
+  }
+  marcarMigracao();
+  return n;
 }
 
 export function listRemindersAction(): string {

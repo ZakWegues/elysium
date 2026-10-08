@@ -3,6 +3,7 @@
 // rodasse depois, o primeiro store já teria criado o arquivo novo vazio e a cópia seria
 // descartada pela própria guarda dela. Ver src/main/migrateUserData.ts.
 import "./migrateUserData";
+import { migrarLembretesParaTarefas } from "../actions/memoryActions";
 import { app, BrowserWindow, globalShortcut, ipcMain, clipboard, nativeImage, dialog, shell, powerMonitor } from "electron";
 import { paraFala } from "../services/estiloResposta";
 import { ouvirTimers, retomarTimers } from "../services/timers";
@@ -1027,6 +1028,8 @@ app.on("ready", async () => {
     dashWin?.webContents.send("timer:acabou", t);
   });
   retomarTimers();
+  // Fase 17: os lembretes que já existiam viram tarefas (uma vez só).
+  try { const n = migrarLembretesParaTarefas(); if (n) console.log(`[tarefas] ${n} lembrete(s) antigos entraram na lista.`); } catch (e) { console.warn("[tarefas] migração falhou:", e); }
 
   // Hábitos (fase 16): no horário, SÓ se ainda não foi feito hoje — avisar de algo já
   // feito ensina a ignorar o aviso. Confere a cada 30 s; a marca de "lembrado" impede repetir.

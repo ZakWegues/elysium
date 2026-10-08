@@ -26,7 +26,11 @@ export interface Tarefa {
   origem: "manual" | "lembrete";
 }
 
-const store = new Store<{ tarefas: Tarefa[] }>({ name: "tarefas", defaults: { tarefas: [] } });
+const store = new Store<{ tarefas: Tarefa[]; lembretesMigrados: boolean }>({ name: "tarefas", defaults: { tarefas: [], lembretesMigrados: false } });
+
+/** A migração única dos lembretes antigos para a lista (ver `migrarLembretesParaTarefas`). */
+export function migracaoFeita(): boolean { return store.get("lembretesMigrados", false); }
+export function marcarMigracao(): void { store.set("lembretesMigrados", true); }
 const TRINTA_DIAS = 30 * 86_400_000;
 
 const novoId = () => `t-${Date.now().toString(36)}${crypto.randomBytes(2).toString("hex")}`;
