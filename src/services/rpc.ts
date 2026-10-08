@@ -50,6 +50,7 @@ import { apagarHabito, apagarMeta, avancarMeta, listarHabitos, listarMetas, marc
 import { fatosDoDia, montarPainelHoje } from "./hoje";
 import { apagarCorrida, apagarTreino, importarTreinos, lerPerfil, marcarTreino, montarPainelCorpo, registrarCorrida, registrarPeso, salvarPerfil, salvarTreino, type PerfilCorpo } from "./corpo";
 import { dicaDoCorpo, ideiaDoDia, marcarTeste } from "./ideiasDoDia";
+import { revisaoDaSemana } from "./revisaoSemana";
 import { cancelarTimer, criarTimer, listarTimers } from "./timers";
 import { apagarComando, listarComandos, rodarComando, salvarComando } from "./comandosIa";
 import { resumirLink } from "./leitorDeLink";
@@ -1162,6 +1163,18 @@ const METHODS: Record<string, MethodDef> = {
       return { ideia: await ideiaDoDia(fatosDoDia(p), true) };
     },
   },
+  // Fase 18: esconder (ou mostrar de novo) uma seção do Hoje — "não quero ver manchetes".
+  "hoje.ocultar": {
+    handler: async (params) => {
+      const secao = requireString(params, "secao").slice(0, 30);
+      const atuais = new Set(getConfig().hojeOcultos ?? []);
+      if (params["ocultar"] === false) atuais.delete(secao); else atuais.add(secao);
+      setOverride({ hojeOcultos: [...atuais].slice(0, 30) });
+      return { ocultos: [...atuais] };
+    },
+  },
+  // Fase 18: a revisão da semana (feitas, atrasadas, hábitos, metas, treino).
+  "hoje.revisao": { handler: async () => revisaoDaSemana() },
   "hoje.testar": {
     handler: async (params) => {
       const item = requireString(params, "item").slice(0, 300);

@@ -152,9 +152,81 @@ function desenharHoje() {
   el.querySelector("#hoje-ideia").innerHTML = p.ideia ? `<p>${escHtml(p.ideia)}</p>` : `<div class="hoje-vazio">Sem ideia agora — toque em Outra.</div>`;
   desenharElysiumHoje(p.elysium);
   if (typeof desenharCorpoHoje === "function") desenharCorpoHoje(p.corpo ?? null, p.dica ?? null);
+  desenharAmanhaHoje(p.amanha ?? null);
+  aplicarSecoesOcultas(p.ocultos ?? []);
   const alertas = el.querySelector("#hoje-alertas");
   alertas.innerHTML = p.alertas.map(a => `<div class="hoje-alerta ${a.nivel}">${ico("alert", "ico-sm")}<span><b>${escHtml(a.titulo)}</b> — ${escHtml(a.detalhe)}</span></div>`).join("");
   alertas.hidden = !p.alertas.length;
+}
+
+// ── Fase 18: seções ocultáveis, "Meu amanhã" e revisão da semana ──────────────
+
+const chaveDaSecao = (titulo) => titulo.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
+/** Cada painel ganha a chave (pelo título) e o botão de ocultar; os ocultos somem. */
+function aplicarSecoesOcultas(ocultos) {
+  const el = hojeEl();
+  if (!el) return;
+  let escondidos = 0;
+  el.querySelectorAll(".hoje-grade > .hoje-painel").forEach(sec => {
+    const titulo = sec.querySelector("h3")?.textContent?.trim() ?? "";
+    const chave = sec.dataset.secao || chaveDaSecao(titulo);
+    sec.dataset.secao = chave;
+    if (!sec.querySelector("[data-hoje-ocultar]")) {
+      sec.querySelector(".hoje-painel-topo")?.insertAdjacentHTML("beforeend", `<button class="hoje-ocultar" data-hoje-ocultar="${chave}" title="Ocultar esta seção (dá para mostrar de novo no fim da página)" aria-label="Ocultar ${escHtml(titulo)}">${ico("x", "ico-sm")}</button>`);
+    }
+    const oculta = ocultos.includes(chave);
+    sec.classList.toggle("oculta", oculta);
+    if (oculta) escondidos++;
+  });
+  let rodape = el.querySelector("#hoje-ocultos");
+  if (!rodape) {
+    rodape = document.createElement("div");
+    rodape.id = "hoje-ocultos";
+    rodape.className = "hoje-ocultos";
+    el.querySelector(".hoje-grade")?.after(rodape);
+  }
+  rodape.innerHTML = escondidos ? `<button class="hoje-acao" data-hoje-mostrar-ocultos="1">${ico("eye", "ico-sm")}<span>Mostrar ${escondidos} seç${escondidos === 1 ? "ão oculta" : "ões ocultas"}</span></button>` : "";
+}
+
+/** "Meu amanhã": depois das 18h, um painel com o que vem amanhã e o clima. */
+function desenharAmanhaHoje(a) {
+  const grade = hojeEl()?.querySelector(".hoje-grade");
+  if (!grade) return;
+  let sec = grade.querySelector("#hoje-sec-amanha");
+  if (!a) { sec?.remove(); return; }
+  if (!sec) {
+    sec = document.createElement("section");
+    sec.className = "hoje-painel hoje-largo";
+    sec.id = "hoje-sec-amanha";
+    sec.dataset.secao = "amanha";
+    sec.innerHTML = `<div class="hoje-painel-topo"><h3>Meu amanhã</h3></div><div id="hoje-amanha"></div>`;
+    grade.prepend(sec);
+  }
+  const clima = a.clima ? `<div class="hoje-linha">${ico(a.clima.icone || "sun", "ico-sm")}<span>${Math.round(a.clima.min)}°–${Math.round(a.clima.max)}°</span></div>` : "";
+  const tarefas = a.tarefas.length
+    ? a.tarefas.map(t => `<div class="hoje-linha">${ico("check", "ico-sm")}<span>${escHtml(t.texto)}</span><b>${t.semHora ? "dia todo" : horaCurta(t.prazo)}</b></div>`).join("")
+    : `<div class="hoje-vazio">Nada marcado para amanhã. Bom momento para escolher a prioridade do dia.</div>`;
+  sec.querySelector("#hoje-amanha").innerHTML = clima + tarefas;
+}
+
+async function abrirRevisaoSemana() {
+  const r = await window.nx.rpc("hoje.revisao");
+  if (r.error) { showToast(r.error, true); return; }
+  const v = r.result;
+  abrirGaveta({
+    titulo: "Revisão da semana", icone: "calendar", classe: "gaveta-pc",
+    html: `<div class="hoje-revisao">
+      <p>${escHtml(v.texto)}</p>
+      ${v.habitos.length ? `<h4 class="hoje-sub">Hábitos</h4>${v.habitos.map(h => `<div class="hoje-linha"><span>${escHtml(h.nome)}</span><b>${h.feitos}/${h.dias} · força ${h.forca}%</b></div>`).join("")}` : ""}
+      ${v.atrasadas.length ? `<h4 class="hoje-sub">Atrasadas</h4>${v.atrasadas.map(x => `<div class="hoje-linha"><span>${escHtml(x)}</span></div>`).join("")}` : ""}
+      <div class="home-acoes"><button class="principal" data-revisao-ouvir="1">${ico("volume", "ico-sm")}<span>Ouvir</span></button>${v.atrasadas.length ? `<button data-revisao-tarefas="1">${ico("layers", "ico-sm")}<span>Ver as tarefas</span></button>` : ""}</div>
+    </div>`,
+    aoAbrir: (corpo) => corpo.addEventListener("click", (e) => {
+      if (e.target.closest("[data-revisao-ouvir]")) { window.nx.chatSend("faz a revisão da semana"); showToast("Lendo a revisão…"); }
+      if (e.target.closest("[data-revisao-tarefas]")) { fecharGaveta(); abrirTarefasCheia(); }
+    }),
+  });
 }
 
 /** Rotinas que ainda rodam hoje e as que já rodaram, com ✓/✗ (fase 18). */
@@ -352,6 +424,21 @@ hojeEl()?.addEventListener("click", async (e) => {
   if (em) { formMeta(painelHoje?.metas.find(m => m.id === em.dataset.hojeEditarMeta) ?? {}); return; }
   if (alvo("#hoje-ler")) { window.nx.chatSend("me dá o resumo do dia"); showToast("Lendo o briefing…"); return; }
   if (alvo("#hoje-recarregar")) { carregarHoje(); return; }
+  if (alvo("#hoje-revisao")) { abrirRevisaoSemana(); return; }
+  const oc = alvo("[data-hoje-ocultar]");
+  if (oc) {
+    const r = await window.nx.rpc("hoje.ocultar", { secao: oc.dataset.hojeOcultar, ocultar: true });
+    if (r.error) { showToast(r.error, true); return; }
+    if (painelHoje) painelHoje.ocultos = r.result.ocultos;
+    aplicarSecoesOcultas(r.result.ocultos);
+    return;
+  }
+  if (alvo("[data-hoje-mostrar-ocultos]")) {
+    for (const s of painelHoje?.ocultos ?? []) await window.nx.rpc("hoje.ocultar", { secao: s, ocultar: false });
+    if (painelHoje) painelHoje.ocultos = [];
+    aplicarSecoesOcultas([]);
+    return;
+  }
   const ideia = alvo("[data-hoje-ideia]");
   if (ideia) {
     ideia.disabled = true;

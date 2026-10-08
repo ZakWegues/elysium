@@ -23,6 +23,21 @@ export function pedidoFecharSeAberto(texto: string): string | null {
   return app.length >= 2 ? app : null;
 }
 
+/**
+ * "me lembra daqui a 20 minutos de tirar o bolo" → { minutos: 20, texto: "tirar o bolo" }.
+ * O 7B criava um TIMER no lugar do lembrete (a bancada pegou): os dois avisam, mas o
+ * lembrete entra na lista e tem o texto. "daqui a N" é conta de relógio — não precisa de modelo.
+ */
+export function pedidoLembreteDaquiA(texto: string): { minutos: number; texto: string } | null {
+  const t = texto.trim().replace(/[.!]+$/, "");
+  const m = /^(?:me\s+)?(?:lembra|lembre|lembrar|avisa|avise)(?:[- ]me)?\s+daqui\s+a\s+(\d{1,3}|uma|um|meia)\s+(minutos?|min|horas?|h)\s+(?:de|para|pra|que|do|da)\s+(.{2,120})$/i.exec(t);
+  if (!m) return null;
+  const n = m[1] === "uma" || m[1] === "um" ? 1 : m[1] === "meia" ? 0.5 : Number(m[1]);
+  const minutos = /^h/i.test(m[2]) ? Math.round(n * 60) : Math.round(n);
+  if (!minutos || minutos > 24 * 60) return null;
+  return { minutos, texto: m[3].trim() };
+}
+
 /** "se estiver tocando alguma coisa, pausa" → "pause". */
 export function pedidoPausarSeTocando(texto: string): "pause" | null {
   return /^se\s+(?:estiver|tiver|esta|ta|tiver alguma coisa)\s+(?:tocando|rodando)(?:\s+(?:alguma coisa|algo|musica|uma musica|algum som))?\s*,?\s*(?:entao\s+)?(?:pausa|pause|pausar|para|pare|parar)(?:\s+(?:a musica|ela|isso))?$/.test(sem(texto)) ? "pause" : null;

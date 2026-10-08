@@ -4,6 +4,7 @@ import { criarLembreteComTarefa, reagendarTarefa } from "../actions/memoryAction
 import { adiarPara, interpretarTexto, type Adiamento } from "./planoDeLembrete";
 import { acharHabito, avancarMeta, listarHabitos, listarMetas, marcarHabito, resumirHabito } from "./habitos";
 import { montarPainelHoje } from "./hoje";
+import { revisaoDaSemana } from "./revisaoSemana";
 import { marcarTreinoFalado, metaFalada, registrarCorridaFalada, registrarPesoFalado, treinoDeHojeFalado } from "./corpoFalado";
 import { clipboard } from "electron";
 import { limparFeitos, marcarItem, normalizarNomeLista } from "./listas";
@@ -478,6 +479,12 @@ export const FERRAMENTAS: Ferramenta[] = [
       return Number.isFinite(kg) ? registrarPesoFalado(kg) : "Preciso do peso em quilos.";
     },
     acao: a => ({ action: "weight_log", kg: Number(a["kg"]) || 0 }),
+  },
+  {
+    name: "revisao_da_semana",
+    description: "A revisão da semana: tarefas concluídas e atrasadas, hábitos (quantos dias de cada), metas, academia e corrida. Use para 'como foi minha semana', 'faz a revisão da semana'.",
+    parameters: obj({}),
+    executar: async () => revisaoDaSemana().texto,
   },
   {
     name: "painel_do_dia",

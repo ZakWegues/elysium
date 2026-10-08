@@ -128,6 +128,14 @@ export interface AppConfig {
   instrucoesPessoais: string;
   /** Com jogo aberto, rotear pela nuvem em vez de disputar VRAM. Ver `gpuGuard.ts`. */
   evitarGpuOcupada: boolean;
+  /** Fase 18: seções do Hoje que o dono escondeu ("ideia", "manchetes"…). */
+  hojeOcultos: string[];
+  /**
+   * Fase 18: quantos avisos que a Ely toma a iniciativa de dar (lembrete de hábito) podem
+   * FALAR ou ir para o celular por dia. Acima disso, só a notificação discreta no PC. Os
+   * lembretes que o dono pediu não contam — esses sempre tocam.
+   */
+  avisosProativosPorDia: number;
   spotifyClientId: string;
   chatHistoryTurns: number;
   chatIdleResetMs: number;
@@ -221,6 +229,8 @@ const DEFAULTS: AppConfig = {
   tratamento: "chefe",
   instrucoesPessoais: "",
   evitarGpuOcupada: true,
+  hojeOcultos: [],
+  avisosProativosPorDia: 6,
   spotifyClientId: "042904fef8cc41f0bf05b7abeda2d66f",
   chatHistoryTurns: 6,
   chatIdleResetMs: 300000,

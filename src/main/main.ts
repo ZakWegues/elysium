@@ -55,6 +55,7 @@ import { getTopHistory } from "../services/history";
 import { registrarPergunta, bolhasDoChat } from "../services/perguntas";
 import { synthesize, cancelSpeak, dividirEmFrases, preSintetizar, ehNoite } from "../services/tts";
 import { habitosParaLembrar } from "../services/habitos";
+import { podeAvisarAlto } from "../services/avisos";
 import { ElysiumError } from "../services/errors";
 import { processCommand, processCommandStream, executarComando } from "../services/command";
 import { startServer, setActiveToken, broadcastMailboxEvent, broadcastNotify } from "../services/server";
@@ -1049,6 +1050,9 @@ app.on("ready", async () => {
     for (const h of habitosParaLembrar()) {
       const frase = `Hora do ${h.nome}. Ainda não está marcado hoje.`;
       notify("ELYSIUM — Hábito", frase);
+      // Fase 18: falar e mandar para o celular gastam o orçamento de avisos do dia (e o modo
+      // foco segura); fora dele fica só a notificação discreta acima. Ver avisos.ts.
+      if (!podeAvisarAlto()) continue;
       if (!ehNoite()) speak(frase).catch(() => { /* best-effort */ });
       void sendPush("reminder", "Hábito", frase, {});
       broadcastNotify(enfileirarEntrega({ tipo: "lembrete", titulo: "Hábito", corpo: frase, ref: h.id }));

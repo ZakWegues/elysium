@@ -5,7 +5,7 @@ import { interpretarTimer } from "./timers";
 import { calcular } from "./calculadora";
 import { pedidoDeHora } from "./horaMundo";
 import { listarTreinos, pedidoDeCorrida, pedidoDePeso, pedidoDeTreino } from "./corpo";
-import { pedidoFecharSeAberto, pedidoPausarSeTocando } from "./condicionais";
+import { pedidoFecharSeAberto, pedidoLembreteDaquiA, pedidoPausarSeTocando } from "./condicionais";
 
 /**
  * Roteamento local, sem IA.
@@ -155,6 +155,12 @@ export function fastRoute(text: string): BrainAction[] | null {
   const fecharSe = pedidoFecharSeAberto(text);
   if (fecharSe) return [{ action: "close_if_open", app_name: fecharSe }];
   if (pedidoPausarSeTocando(text)) return [{ action: "pause_if_playing" }];
+  const daquiA = pedidoLembreteDaquiA(text);
+  if (daquiA) {
+    const d = new Date(Date.now() + daquiA.minutos * 60_000);
+    const p = (n: number) => String(n).padStart(2, "0");
+    return [{ action: "create_reminder", text: daquiA.texto, due_at: `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}` }];
+  }
   // Treino, corrida e peso (fase 18). "Treinei" só vira atalho com treino cadastrado.
   const treino = pedidoDeTreino(text);
   if (treino && listarTreinos().length) return [{ action: "workout_mark", name: treino.nome }];

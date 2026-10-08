@@ -47,7 +47,7 @@ const { promptDoAgente, chamadasEmTexto } = require(path.join(raiz, "dist/servic
 const { fastRoute } = require(path.join(raiz, "dist/services/fastRoute.js"));
 
 const OLLAMA = "http://127.0.0.1:11434/api/chat";
-const LEITURA = new Set(["programas_abertos", "estado_do_pc", "processos_pesados", "clima", "lembretes", "memoria", "rotinas", "presets", "tocando_agora", "area_de_transferencia", "espaco_em_disco", "versao_do_elysium", "resumo_do_dia", "agenda", "ver_lista", "ver_timers", "calcular", "resumir_link", "hora_em", "ver_habitos", "painel_do_dia", "ver_tarefas", "treino_de_hoje", "ver_meta_calorias"]);
+const LEITURA = new Set(["programas_abertos", "estado_do_pc", "processos_pesados", "clima", "lembretes", "memoria", "rotinas", "presets", "tocando_agora", "area_de_transferencia", "espaco_em_disco", "versao_do_elysium", "resumo_do_dia", "agenda", "ver_lista", "ver_timers", "calcular", "resumir_link", "hora_em", "ver_habitos", "painel_do_dia", "ver_tarefas", "treino_de_hoje", "ver_meta_calorias", "revisao_da_semana"]);
 
 /** O PC de mentira: o que cada leitura devolve quando o caso não diz outra coisa. */
 const CENARIO_PADRAO = {
@@ -127,7 +127,10 @@ function avaliar(caso, { chamadas, texto }) {
   const leituras = chamadas.filter(c => LEITURA.has(c.name)).map(c => c.name);
   const erros = [];
   if (caso.esperado === "CHAT") {
-    if (!/^\W*chat\b/i.test(texto) && !/^\s*\{[^}]*"chat"/i.test(texto)) erros.push(`esperava CHAT, veio ${acoes.length ? acoes.map(a => a.name).join("+") : JSON.stringify(texto.slice(0, 50))}`);
+    // Como na produção (agente.ts, bloco 130): texto sem nenhuma ferramenta É conversa — a
+    // resposta de verdade vem da composeChatReply, com a persona e o canal. Só falha se agiu.
+    const conversa = /^\W*chat\b/i.test(texto) || /^\s*\{[^}]*"chat"/i.test(texto) || (!chamadas.length && texto.length > 0);
+    if (!conversa) erros.push(`esperava CHAT, veio ${acoes.length ? acoes.map(a => a.name).join("+") : JSON.stringify(texto.slice(0, 50))}`);
     if (acoes.length) erros.push("agiu numa conversa");
     return erros;
   }

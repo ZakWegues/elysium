@@ -49,6 +49,10 @@ export interface PainelHoje {
   elysium: { versao: string; novidades: string[]; paraTestar: { item: string; feito: boolean }[]; atualizacaoPronta: string | null };
   /** "Algo legal para fazer hoje" (renova: `hoje.ideia`). */
   ideia: string | null;
+  /** Fase 18: "Meu amanhã" — depois das 18h, o que vem amanhã e o clima. */
+  amanha: { tarefas: Tarefa[]; clima: { max: number; min: number; icone: string } | null } | null;
+  /** Seções escondidas pelo dono (cada app esconde a sua). */
+  ocultos: string[];
   geradoEm: number;
 }
 
@@ -96,7 +100,7 @@ async function seguro<T>(fn: () => Promise<T> | T, padrao: T): Promise<T> {
 let cacheHumano: { chave: string; frase: string; em: number } | null = null;
 
 /** Os fatos em linhas curtas, do mais importante ao menos. Pura, para teste. */
-export function fatosDoDia(p: Omit<PainelHoje, "frase" | "geradoEm" | "dica" | "ideia" | "elysium">, agora = new Date()): string[] {
+export function fatosDoDia(p: Omit<PainelHoje, "frase" | "geradoEm" | "dica" | "ideia" | "elysium" | "amanha" | "ocultos">, agora = new Date()): string[] {
   const f: string[] = [];
   const hora = (ms: number) => new Date(ms).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
   const amanha = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate() + 1).getTime();
@@ -122,7 +126,7 @@ export function fatosDoDia(p: Omit<PainelHoje, "frase" | "geradoEm" | "dica" | "
   return f;
 }
 
-async function fraseHumana(p: Omit<PainelHoje, "frase" | "geradoEm" | "dica" | "ideia" | "elysium">, reserva: string, tratamento: string, agora: Date): Promise<string> {
+async function fraseHumana(p: Omit<PainelHoje, "frase" | "geradoEm" | "dica" | "ideia" | "elysium" | "amanha" | "ocultos">, reserva: string, tratamento: string, agora: Date): Promise<string> {
   const fatos = fatosDoDia(p, agora);
   const chave = `${agora.getHours() < 12 ? "m" : agora.getHours() < 18 ? "t" : "n"}|${tratamento}|${fatos.join("|")}`;
   if (cacheHumano && cacheHumano.chave === chave && Date.now() - cacheHumano.em < 20 * 60_000) return cacheHumano.frase;
@@ -206,7 +210,20 @@ export async function montarPainelHoje(agora = new Date()): Promise<PainelHoje> 
     seguro(() => ideiaDoDia(fatos, false, agora), null),
     cardElysium(),
   ]);
-  return { ...base, frase, dica, ideia, elysium, geradoEm: Date.now() };
+  return { ...base, frase, dica, ideia, elysium, amanha: meuAmanha(tarefas, clima, agora), ocultos: cfg.hojeOcultos ?? [], geradoEm: Date.now() };
+}
+
+/**
+ * "Meu amanhã" (fase 18): o pedido mais repetido do Microsoft To Do é planejar o dia seguinte
+ * na véspera. Depois das 18h o Hoje mostra o que vem amanhã — tarefas com prazo e o clima.
+ * Pura (dados → card), para teste.
+ */
+export function meuAmanha(tarefas: Tarefa[], clima: Clima | null, agora = new Date()): PainelHoje["amanha"] {
+  if (agora.getHours() < 18) return null;
+  const inicio = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate() + 1).getTime();
+  const fim = inicio + 86_400_000;
+  const deAmanha = tarefas.filter(t => !t.feita && t.prazo !== undefined && t.prazo >= inicio && t.prazo < fim);
+  return { tarefas: deAmanha, clima: clima?.amanha ?? null };
 }
 
 /** Card ELYSIUM: versão rodando, o que veio nela e o checklist "Para testar". */

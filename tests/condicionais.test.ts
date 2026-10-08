@@ -19,3 +19,13 @@ describe("condicionais sem modelo (fase 18)", () => {
     expect(await closeAppIfOpen("calculadora", [{ name: "chrome" }])).toMatch(/não está aberto/);
   });
 });
+
+describe("lembrete 'daqui a N' sem modelo (fase 18)", () => {
+  it("minutos, horas, meia hora", async () => {
+    const { pedidoLembreteDaquiA } = await import("../src/services/condicionais");
+    expect(pedidoLembreteDaquiA("me lembra daqui a 20 minutos de tirar o bolo do forno")).toEqual({ minutos: 20, texto: "tirar o bolo do forno" });
+    expect(pedidoLembreteDaquiA("me avisa daqui a 2 horas pra ligar pra minha mãe")).toEqual({ minutos: 120, texto: "ligar pra minha mãe" });
+    expect(pedidoLembreteDaquiA("lembra daqui a meia hora de tomar remédio")).toEqual({ minutos: 30, texto: "tomar remédio" });
+    expect(pedidoLembreteDaquiA("me lembra amanhã de pagar a luz")).toBeNull();
+  });
+});
