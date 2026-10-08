@@ -153,6 +153,9 @@ function desenharHoje() {
 }
 
 async function carregarHoje() {
+  // Volta à aba (08/10): o último painel aparece na hora e o novo chega por trás — a mesma
+  // regra das abas vivas do celular. Sem isto os timers ficavam parados até o RPC voltar.
+  if (painelHoje) desenharHoje();
   try {
     const r = await window.nx.rpc("hoje.painel");
     if (r.result) painelHoje = r.result;
