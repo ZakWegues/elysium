@@ -64,9 +64,13 @@ const AJUSTES = [
     campos: [
       { chave: "voice", rotulo: "Voz", tipo: "select", opcoes: [
         ["pt-BR-FranciscaNeural", "Francisca — feminina (padrão)"],
-        ["pt-BR-AntonioNeural", "Antonio — masculina"],
-        ["pt-BR-ThalitaNeural", "Thalita — feminina, mais jovem"],
-        ["pt-BR-MacerioMultilingualNeural", "Macerio — masculina, multilíngue"]] },
+        ["pt-BR-ThalitaMultilingualNeural", "Thalita — feminina, mais jovem"],
+        ["pt-BR-AntonioNeural", "Antonio — masculina"]],
+        dica: "As três vozes brasileiras do Edge. (A Macerio só existe no Azure pago: quem tinha escolhido ouve o Antonio.)" },
+      { chave: "velocidadeFala", rotulo: "Velocidade da fala", tipo: "faixa", min: -10, max: 10, passo: 1, unidade: "%",
+        dica: "0 é o normal de cada voz. Por cima disso ela já fala um pouco mais devagar à noite e quando você parece cansado, e mais rápido quando você está com pressa." },
+      { chave: "falaAntecipada", rotulo: "Começar a falar antes de terminar", tipo: "bool",
+        dica: "Na conversa por voz, ela fala a primeira frase assim que fica pronta, sem esperar a resposta inteira. Se a fala picotar, desligue." },
       { chave: "somDeEscuta", rotulo: "Bipe ao ouvir", tipo: "bool",
         dica: "Um som curto quando ela começa e quando para de ouvir. Vale ao reabrir o dashboard." },
       { chave: "vozBaixaDeNoite", rotulo: "Falar mais baixo à noite", tipo: "bool",
@@ -121,6 +125,7 @@ const AJUSTES = [
 
 /** Formata um valor de faixa para leitura humana. */
 function valorLegivel(campo, v) {
+  if (campo.unidade === "%") return `${v > 0 ? "+" : ""}${v}%`;
   if (campo.unidade !== "ms") return String(v);
   if (v < 1000) return `${v} ms`;
   if (v < 60000) return `${(v / 1000).toFixed(v % 1000 ? 1 : 0).replace(".", ",")} s`;
@@ -408,9 +413,11 @@ function desenharAjustes(cfg) {
         } else if (c.tipo === "bool") {
           controle = `<label class="cfg-switch"><input type="checkbox" data-cfg="${c.chave}"${v ? " checked" : ""}><span></span></label>`;
         } else if (c.tipo === "faixa") {
+          // `Number(v) || min` transformava o 0 legítimo (velocidade normal) no mínimo da faixa.
+          const num = v === undefined || v === null || v === "" || !Number.isFinite(Number(v)) ? c.min : Number(v);
           controle = `<div class="cfg-faixa">
-            <input type="range" data-cfg="${c.chave}" min="${c.min}" max="${c.max}" step="${c.passo}" value="${Number(v) || c.min}">
-            <span class="cfg-faixa-val" data-val-de="${c.chave}">${escHtml(valorLegivel(c, Number(v) || c.min))}</span>
+            <input type="range" data-cfg="${c.chave}" min="${c.min}" max="${c.max}" step="${c.passo}" value="${num}">
+            <span class="cfg-faixa-val" data-val-de="${c.chave}">${escHtml(valorLegivel(c, num))}</span>
           </div>`;
         } else if (c.tipo === "area") {
           controle = `<textarea data-cfg="${c.chave}" rows="4" maxlength="1500" placeholder="Como você quer que ele responda…">${escHtml(String(v ?? ""))}</textarea>`;

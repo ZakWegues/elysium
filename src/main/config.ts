@@ -109,6 +109,13 @@ export interface AppConfig {
   /** Bipe curto ao começar e ao parar de ouvir (02/10). */
   somDeEscuta: boolean;
   /**
+   * Fase 19: a voz começa na primeira frase pronta, sem esperar a resposta inteira. Tem
+   * interruptor porque foi feito sem poder ouvir (na nuvem) — se picotar, desliga aqui.
+   */
+  falaAntecipada: boolean;
+  /** Fase 19: velocidade da fala, de −10 a +10 (por cento, por cima do ajuste de cada voz). */
+  velocidadeFala: number;
+  /**
    * Acompanhar o acesso de fora de casa (Tailscale) no card Saúde, no resumo e na faixa do
    * celular (bloco 122). Desligado por padrão desde o bloco 128: o Zak não quer o Tailscale
    * agora, e um aviso permanente que ele decidiu ignorar vira ruído no card.
@@ -224,6 +231,8 @@ const DEFAULTS: AppConfig = {
   resumoAutomatico: false,
   vozBaixaDeNoite: true,
   somDeEscuta: true,
+  falaAntecipada: true,
+  velocidadeFala: 0,
   acessoRemotoNaSaude: false,
   estiloResposta: "equilibrado",
   tratamento: "chefe",

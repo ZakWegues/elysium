@@ -5,6 +5,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { spawn, ChildProcess } from "node:child_process";
 import { getConfig } from "../main/config";
+import type { Humor } from "./humor";
 
 const VOICE = "pt-BR-FranciscaNeural";
 const TTS_TIMEOUT_MS = 30_000;
@@ -30,9 +31,58 @@ export function prosodiaDa(voz: string, noite = ehNoite()): ProsodyOptions {
   return noite ? { ...base, volume: "-30%" } : base;
 }
 
-/** O volume entra na chave: a mesma frase sintetizada à tarde não pode tocar alta à noite. */
-function chaveMp3(voz: string, limpo: string): string {
-  return `${voz}|${ehNoite() ? "noite" : "dia"}|${limpo}`;
+/**
+ * Vozes que mudaram de nome ou não existem no serviço gratuito do Edge (fase 19): a
+ * "pt-BR-ThalitaNeural" hoje é "ThalitaMultilingualNeural", e a Macerio é só do Azure pago.
+ * Com o nome errado a síntese falha e cai calada no SAPI do Windows — a voz robótica que
+ * parece "bug da Ely". Pura.
+ */
+export function vozEfetiva(voz: string | undefined): string {
+  const v = voz?.trim() || VOICE;
+  if (v === "pt-BR-ThalitaNeural") return "pt-BR-ThalitaMultilingualNeural";
+  if (/^pt-BR-Macerio/.test(v)) return "pt-BR-AntonioNeural";
+  return v;
+}
+
+function pct(n: number): string {
+  const r = Math.round(n);
+  return `${r >= 0 ? "+" : ""}${r}%`;
+}
+
+/**
+ * A prosódia do momento (fase 19, bloco 189). O Edge gratuito não aceita estilos de emoção
+ * (`express-as`), só velocidade, tom e volume — então o "jeito" da fala vem daqui, em
+ * passos pequenos (o que passa de ~8% soa artificial):
+ *  - a velocidade que o dono escolheu em Ajustes (−10 a +10);
+ *  - com pressa, mais rápida; cansado ou triste, mais lenta e um pouco mais grave;
+ *  - à noite, um pouco mais lenta e 30% mais baixa (o volume já existia).
+ * Pura, para teste.
+ */
+export function prosodiaDoMomento(voz: string, opcoes: { noite?: boolean; humor?: Humor; velocidade?: number } = {}): ProsodyOptions {
+  const masculina = /^pt-BR-(Antonio|Macerio)/.test(voz);
+  let rate = masculina ? -8 : -4;
+  let pitch = masculina ? -3 : 0;
+  const vel = Number(opcoes.velocidade);
+  rate += Number.isFinite(vel) ? Math.max(-10, Math.min(10, vel)) : 0;
+  switch (opcoes.humor) {
+    case "apressado": rate += 6; break;
+    case "cansado":   rate -= 5; break;
+    case "triste":    rate -= 5; pitch -= 2; break;
+    case "animado":   rate += 3; pitch += 2; break;
+    default: break;
+  }
+  if (opcoes.noite) rate -= 3;
+  return { rate: pct(rate), pitch: pct(pitch), volume: opcoes.noite ? "-30%" : "+0%" };
+}
+
+/** A prosódia de agora, com a config e o relógio. */
+function prosodiaAgora(voz: string, humor?: Humor): ProsodyOptions {
+  return prosodiaDoMomento(voz, { noite: ehNoite(), humor, velocidade: getConfig().velocidadeFala });
+}
+
+/** A prosódia inteira entra na chave: a mesma frase à tarde não pode tocar alta à noite, nem lenta com pressa. */
+function chaveMp3(voz: string, limpo: string, p: ProsodyOptions): string {
+  return `${voz}|${p.rate}|${p.pitch}|${p.volume}|${limpo}`;
 }
 
 let _tts: MsEdgeTTS | null = null;
@@ -78,17 +128,18 @@ export function cleanTextForSpeech(raw: string): string {
 let _ttsCelular: MsEdgeTTS | null = null;
 const cacheMp3 = new Map<string, Buffer>();
 
-export async function sintetizarMp3(texto: string): Promise<Buffer> {
+export async function sintetizarMp3(texto: string, humor?: Humor): Promise<Buffer> {
   const limpo = cleanTextForSpeech(texto);
   if (!limpo) throw new Error("nada para falar");
-  const voz = getConfig().voice?.trim() || VOICE;
-  const chave = chaveMp3(voz, limpo);
+  const voz = vozEfetiva(getConfig().voice);
+  const prosodia = prosodiaAgora(voz, humor);
+  const chave = chaveMp3(voz, limpo, prosodia);
   const guardado = cacheMp3.get(chave);
   if (guardado) return guardado;
 
   if (!_ttsCelular) _ttsCelular = new MsEdgeTTS();
   await _ttsCelular.setMetadata(voz, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3, {});
-  const { audioStream } = _ttsCelular.toStream(limpo, prosodiaDa(voz));
+  const { audioStream } = _ttsCelular.toStream(limpo, prosodia);
   const pedacos: Buffer[] = [];
   await new Promise<void>((ok, falha) => {
     const t = setTimeout(() => falha(new Error("síntese demorou demais")), TTS_TIMEOUT_MS);
@@ -130,11 +181,11 @@ export function dividirEmFrases(texto: string, minimo = 70): string[] {
  * Sintetiza a próxima frase enquanto a atual toca (02/10). Vai para o mesmo cache do MP3
  * do celular, que o `synthesize` consulta antes de abrir a conexão de novo.
  */
-export function preSintetizar(texto: string): void {
-  sintetizarMp3(texto).catch(() => { /* o synthesize tenta de novo na hora */ });
+export function preSintetizar(texto: string, humor?: Humor): void {
+  sintetizarMp3(texto, humor).catch(() => { /* o synthesize tenta de novo na hora */ });
 }
 
-export async function synthesize(text: string): Promise<void> {
+export async function synthesize(text: string, humor?: Humor): Promise<void> {
   if (!text?.trim()) return;
   const clean = cleanTextForSpeech(text);
   if (!clean) return;
@@ -208,8 +259,9 @@ export async function synthesize(text: string): Promise<void> {
         // handshake; a 2.x acompanha. Na 2.x o `toStream` devolve { audioStream,
         // metadataStream } em vez do stream direto.
         // Pendência 10 da §15: a chave `voice` existia no config e nunca era lida.
-        const voz = getConfig().voice?.trim() || VOICE;
-        const jaPronto = cacheMp3.get(chaveMp3(voz, clean));
+        const voz = vozEfetiva(getConfig().voice);
+        const prosodia = prosodiaAgora(voz, humor);
+        const jaPronto = cacheMp3.get(chaveMp3(voz, clean, prosodia));
         // O `{}` é obrigatório: a 2.0.7 declara o terceiro parâmetro como opcional e lê
         // `metadataOptions.voiceLocale` sem conferir a partir da SEGUNDA chamada na mesma
         // instância — a primeira fala saía neural e todas as seguintes caíam no SAPI.
@@ -217,7 +269,7 @@ export async function synthesize(text: string): Promise<void> {
         if (jaPronto) mp3 = jaPronto;
         else {
           await _tts.setMetadata(voz, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3, {});
-          const { audioStream } = _tts.toStream(clean, prosodiaDa(voz));
+          const { audioStream } = _tts.toStream(clean, prosodia);
 
           const chunks: Buffer[] = [];
           audioStream.on("data", (c: Buffer) => { if (!settled) chunks.push(c); });

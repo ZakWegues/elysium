@@ -84,6 +84,8 @@ import { mediaControl } from "../actions/mediaControl";
 import { logAnomaly, getAnomalyHistory, getInsights } from "../services/telemetryLog";
 import { getAllPresets } from "../services/presetsStore";
 import { fraseDeArranque, fraseDeEspera, fraseDeHabito, fraseDeLembrete, fraseDeTimer } from "../services/falasVivas";
+import { criarFatiador, restoParaFalar } from "../services/fatiadorDeFrases";
+import { lerHumor, type Humor } from "../services/humor";
 import {
   checkAndMarkUnseenFromMobile, addMessage, listMessagesForDesktop, inferKind, mailboxEvents,
   isKnownAttachmentPath, listMailboxSessions, createMailboxSession, renameMailboxSession,
@@ -224,7 +226,7 @@ let appQuitting = false;
 
 // ── speak queue ───────────────────────────────────────────────────────────────
 
-type SpeakItem = { text: string; resolve: () => void; inteira?: string };
+type SpeakItem = { text: string; resolve: () => void; inteira?: string; humor?: Humor };
 const speakQueue: SpeakItem[] = [];
 let isSpeaking = false;
 let currentToken = 0;
@@ -251,14 +253,14 @@ function avisarFala(f: boolean): void {
   dashWin?.webContents.send("tts:falando", f);
 }
 
-function speak(text: string): Promise<void> {
+function speak(text: string, humor?: Humor): Promise<void> {
   // Fala longa sai em pedaços (02/10): o primeiro toca enquanto o seguinte sintetiza. A
   // promessa resolve no ÚLTIMO pedaço — quem espera a fala acabar continua esperando a fala
   // inteira. Interromper esvazia a fila e resolve (interruptAll + resolve abaixo).
   const pedacos = dividirEmFrases(text);
   if (!pedacos.length) return Promise.resolve();
   return new Promise((resolve) => {
-    pedacos.forEach((p, i) => speakQueue.push({ text: p, inteira: text, resolve: i === pedacos.length - 1 ? resolve : () => {} }));
+    pedacos.forEach((p, i) => speakQueue.push({ text: p, inteira: text, humor, resolve: i === pedacos.length - 1 ? resolve : () => {} }));
     if (!isSpeaking) drainSpeak();
   });
 }
@@ -277,8 +279,8 @@ async function drainSpeak(): Promise<void> {
   avisarFala(true);
   const item = speakQueue.shift()!;
   falandoAgora = item.inteira ?? item.text;
-  if (speakQueue[0]) preSintetizar(speakQueue[0].text);
-  try { await synthesize(item.text); } catch { /* best-effort */ }
+  if (speakQueue[0]) preSintetizar(speakQueue[0].text, speakQueue[0].humor);
+  try { await synthesize(item.text, item.humor); } catch { /* best-effort */ }
   item.resolve();
   drainSpeak();
 }
@@ -489,15 +491,35 @@ ipcMain.on("audio-data", async (_event, buffer: Buffer) => {
     // olhando várias coisas) ganha um "Um instante." — silêncio longo na voz parece que caiu.
     // Sem modelo, e nunca diz que terminou: a resposta de verdade vem logo atrás na fila.
     // Fase 19: a frase diz o que ela está fazendo ("Vou pesquisar.") e não repete a última.
-    const espera = setTimeout(() => { if (currentToken === meuToken) void speak(fraseDeEspera(text)).catch(() => {}); }, 2500);
+    // Fase 19, bloco 189: a voz começa na primeira frase pronta em vez de esperar a resposta
+    // inteira (§19, bloco 21, esperava). Cada frase que fecha no streaming vai para a fila de
+    // fala; no fim, só o que faltou. O tom de quem pediu ajusta a prosódia (humor.ts).
+    const humor = lerHumor(text);
+    const antecipar = getConfig().falaAntecipada !== false;
+    const fatiador = criarFatiador();
+    let jaFalado = "";
+    // As promessas das frases já enfileiradas: o turno só termina (estado ocioso) quando a
+    // ÚLTIMA delas acabar de tocar — senão o ícone voltava a "ocioso" com ela ainda falando.
+    const falas: Promise<void>[] = [];
+    const espera = setTimeout(() => { if (currentToken === meuToken && !falas.length) void speak(fraseDeEspera(text)).catch(() => {}); }, 2500);
+    const falarFrase = (frase: string) => {
+      if (currentToken !== meuToken || !frase) return;
+      clearTimeout(espera);
+      jaFalado += ` ${frase}`;
+      state.set("speaking");
+      falas.push(speak(frase, humor).catch(() => {}));
+    };
     const { reply: combined } = await executarComando(text, {
       onActions: (actions) => {
         const label = getActionsLabel(actions);
         dashWin?.webContents.send("voice:action-label", label);
         dashWin?.webContents.send("dash:action-log", { icon: "settings", text: label, ok: true });
       },
-      // A voz espera a resposta fechar (§19, bloco 21); só a tela recebe os pedaços.
-      onToken: (token) => { if (currentToken === meuToken) dashWin?.webContents.send("chat:chunk", token); },
+      onToken: (token) => {
+        if (currentToken !== meuToken) return;
+        dashWin?.webContents.send("chat:chunk", token);
+        if (antecipar) for (const frase of fatiador.push(token)) falarFrase(frase);
+      },
     }).finally(() => clearTimeout(espera));
     if (currentToken !== meuToken) return;
     updateLastCommand(text);
@@ -505,7 +527,11 @@ ipcMain.on("audio-data", async (_event, buffer: Buffer) => {
 
     dashWin?.webContents.send("voice:reply", combined);
     state.set("speaking");
-    await speak(combined);
+    // O que ainda não foi dito: o fim da resposta (ou ela inteira, sem fala antecipada).
+    // O `speak` entra na mesma fila, depois das frases já enfileiradas.
+    fatiador.fim();
+    falas.push(speak(restoParaFalar(combined, jaFalado), humor));
+    await Promise.all(falas);
   } catch (err) {
     if (currentToken !== meuToken) return;
     const msg = err instanceof ElysiumError ? err.spoken : "Tive um problema, mas já voltei ao normal.";
@@ -588,7 +614,7 @@ ipcMain.on("chat:send", async (_event, text: string, opcoes?: { refazer?: boolea
     }
     state.set("speaking");
     // Bloco 130: a resposta escrita pode ser longa; a caixa de som fala só o começo.
-    await speak(paraFala(combined));
+    await speak(paraFala(combined), lerHumor(text));
   } catch (err) {
     if (currentToken !== meuToken) return;
     const msg = err instanceof ElysiumError ? err.spoken : "Tive um problema, mas já voltei ao normal.";

@@ -105,3 +105,22 @@ describe("persona Stark (fase 16)", async () => {
     expect(personaStark("")).not.toMatch(/Chame-o/);
   });
 });
+
+describe("prosódia do momento e vozes (bloco 189)", async () => {
+  const { prosodiaDoMomento, vozEfetiva } = await import("../src/services/tts");
+  it("base de cada voz, velocidade do dono e humor em passos pequenos", () => {
+    expect(prosodiaDoMomento("pt-BR-FranciscaNeural")).toEqual({ rate: "-4%", pitch: "+0%", volume: "+0%" });
+    expect(prosodiaDoMomento("pt-BR-AntonioNeural")).toEqual({ rate: "-8%", pitch: "-3%", volume: "+0%" });
+    expect(prosodiaDoMomento("pt-BR-FranciscaNeural", { velocidade: 6 }).rate).toBe("+2%");
+    expect(prosodiaDoMomento("pt-BR-FranciscaNeural", { velocidade: 99 }).rate).toBe("+6%");
+    expect(prosodiaDoMomento("pt-BR-FranciscaNeural", { humor: "apressado" }).rate).toBe("+2%");
+    expect(prosodiaDoMomento("pt-BR-FranciscaNeural", { humor: "triste" })).toEqual({ rate: "-9%", pitch: "-2%", volume: "+0%" });
+    expect(prosodiaDoMomento("pt-BR-FranciscaNeural", { noite: true })).toEqual({ rate: "-7%", pitch: "+0%", volume: "-30%" });
+  });
+  it("nomes de voz que não existem no Edge gratuito viram os que existem", () => {
+    expect(vozEfetiva("pt-BR-ThalitaNeural")).toBe("pt-BR-ThalitaMultilingualNeural");
+    expect(vozEfetiva("pt-BR-MacerioMultilingualNeural")).toBe("pt-BR-AntonioNeural");
+    expect(vozEfetiva(undefined)).toBe("pt-BR-FranciscaNeural");
+    expect(vozEfetiva("pt-BR-FranciscaNeural")).toBe("pt-BR-FranciscaNeural");
+  });
+});
