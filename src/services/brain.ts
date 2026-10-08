@@ -5,6 +5,9 @@ import { blocoDeInstrucoes, Canal, estiloValido, maxTokensDaConversa, personaSta
 import { apiKeyError } from "./errors";
 import { callChat, ChatMessage, Provider } from "./llm";
 import { quemOcupaGpu } from "./gpuGuard";
+import { contextoDoMomento } from "./persona";
+import { lerHumor, linhaDoHumor } from "./humor";
+import { estadoFoco } from "./foco";
 import type { MediaOperation } from "../actions/mediaControl";
 import type { WinOperation }   from "../actions/windowManagement";
 import type { PowerOperation } from "../actions/powerControl";
@@ -109,6 +112,13 @@ ${regrasDaConversa(canal, estiloValido(getConfig().estiloResposta))}
 
 let history: Message[] = [];
 let lastActivity = Date.now();
+/**
+ * Quando foi o pedido anterior a este, e quanto tempo passou (bloco 186). `null` até o
+ * primeiro pedido depois de abrir o app: sem isso, a primeira conversa do dia viraria
+ * "vocês não conversavam desde que o app abriu", o que não quer dizer nada.
+ */
+let ultimoPedidoEm: number | null = null;
+let ausenciaAntesDoPedido = 0;
 
 export function clearHistory(): void {
   history = [];
@@ -134,6 +144,8 @@ function podarHistorico(): void {
 function zerarSeOcioso(now: number): void {
   if (now - lastActivity > getConfig().chatIdleResetMs) { history = []; limparResumo(); }
   lastActivity = now;
+  ausenciaAntesDoPedido = ultimoPedidoEm === null ? 0 : now - ultimoPedidoEm;
+  ultimoPedidoEm = now;
   agendarAprendizado();
 }
 
@@ -401,6 +413,17 @@ export async function decideBrain(text: string, jaRegistrado = false): Promise<B
 }
 
 /**
+ * Data, hora, ausência e foco (bloco 186) e o tom de quem pediu (bloco 187). O prompt de
+ * conversa não tinha nem a data — "ainda dá tempo de estudar hoje?" saía no chute.
+ */
+function blocoDoMomento(userText: string): string {
+  let focoAtivo = false;
+  try { focoAtivo = estadoFoco().ativo; } catch { /* sem foco */ }
+  const tom = linhaDoHumor(lerHumor(userText));
+  return `\n\n${contextoDoMomento(new Date(), { ausenciaMs: ausenciaAntesDoPedido, focoAtivo })}${tom ? `\n${tom}` : ""}`;
+}
+
+/**
  * Escreve a resposta de conversa no modelo bom.
  *
  * Devolve `null` em qualquer falha — quem chama decide o que dizer no lugar. Uma
@@ -422,7 +445,7 @@ export async function composeChatReply(
   const recent = history.slice(-cfg.chatHistoryTurns * 2);
   const ultimo = recent[recent.length - 1];
   const messages: ChatMessage[] = [
-    { role: "system", content: CHAT_SYSTEM_PROMPT(canal) + blocoDeInstrucoes(cfg.instrucoesPessoais) + buildMemoryBlock(userText) + (blocoDoResumo() ? `\n\n[O QUE VEIO ANTES NESTA CONVERSA]\n${blocoDoResumo()}` : "") },
+    { role: "system", content: CHAT_SYSTEM_PROMPT(canal) + blocoDoMomento(userText) + blocoDeInstrucoes(cfg.instrucoesPessoais) + buildMemoryBlock(userText) + (blocoDoResumo() ? `\n\n[O QUE VEIO ANTES NESTA CONVERSA]\n${blocoDoResumo()}` : "") },
     ...recent.map(m => ({ role: m.role, content: m.content })),
     // Rede de segurança: se alguém chamar a composição sem passar pelo roteador, o
     // pedido não estaria no histórico e o modelo responderia ao turno anterior.

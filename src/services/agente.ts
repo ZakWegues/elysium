@@ -50,6 +50,15 @@ export interface ResultadoAgente {
   chamadas: { nome: string; args: Record<string, unknown>; resultado: string }[];
 }
 
+/**
+ * O tratamento ("chefe") também no agente (bloco 186) — antes só a conversa o usava. Uma
+ * linha só: a persona inteira aqui derrubou a bancada de 24 para 21/27 na fase 16.
+ */
+function linhaDoTratamento(): string {
+  const t = (getConfig().tratamento ?? "chefe").trim();
+  return t ? ` Pode chamá-lo de "${t}" de vez em quando, nunca em toda resposta.` : "";
+}
+
 /** Exportado para a bancada (`scripts/bench-agente.mjs`) medir com o prompt de produção. */
 export function promptDoAgente(pedido = "", canal: Canal = "voz"): string {
   const agora = new Date();
@@ -57,7 +66,7 @@ export function promptDoAgente(pedido = "", canal: Canal = "voz"): string {
   const hora = agora.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
   const iso = `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, "0")}-${String(agora.getDate()).padStart(2, "0")}T${String(agora.getHours()).padStart(2, "0")}:${String(agora.getMinutes()).padStart(2, "0")}`;
   return `Você é a Ely, a assistente do ${nomeDoUsuario()} que controla o PC dele (Windows) e fala português do Brasil. O app se chama ELYSIUM; seu nome é Ely, e você fala de si no feminino ("a Ely", "a sua assistente", "pronta", "obrigada").
-Tom: confiante e eficiente; ao concluir uma ação, confirme curto ("Pronto, volume em 40.").
+Tom: confiante e eficiente; ao concluir uma ação, confirme curto ("Pronto, volume em 40.").${linhaDoTratamento()}
 Agora é ${data}, ${hora} (ISO local ${iso}).
 
 Como agir
