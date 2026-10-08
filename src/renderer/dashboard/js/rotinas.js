@@ -206,7 +206,7 @@ document.getElementById("view-rotinas")?.addEventListener("click", async (e) => 
   if (editar) { abrirFormRotina(rotinasCache.find(r => r.id === editar.dataset.rotEditar) ?? {}); return; }
   const apagar = alvo("[data-rot-apagar]");
   if (apagar) {
-    try { await window.nx.rpc("rotinas.delete", { id: apagar.dataset.rotApagar }); showToast("Rotina apagada."); carregarRotinas(); }
+    try { const r = await window.nx.rpc("rotinas.delete", { id: apagar.dataset.rotApagar }); if (r.cancelado) return; showToast("Rotina apagada."); carregarRotinas(); }
     catch { showToast("Não consegui apagar.", true); }
     return;
   }

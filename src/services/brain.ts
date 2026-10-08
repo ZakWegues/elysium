@@ -212,7 +212,7 @@ function actionSummary(action: BrainAction): string {
 }
 
 /** Nomes válidos da união `BrainAction`, para reconhecer invenção do modelo. */
-const ACOES_VALIDAS = new Set<string>([
+export const ACOES_VALIDAS = new Set<string>([
   "play_music", "open_url", "open_app", "close_app", "volume_control", "media_control",
   "window_management", "write_text", "create_file", "clipboard_read", "screenshot",
   "system_info", "run_preset", "list_presets", "delete_preset", "create_preset",

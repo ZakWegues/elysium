@@ -100,7 +100,9 @@ function rpcToast(metodo, params, okMsg) {
   return async () => {
     try {
       const r = await window.nx.rpc(metodo, params);
-      if (r.result?.cancelado) return;
+      // O `cancelado` vem no topo da resposta, não dentro de `result` (ver preload-dashboard).
+      if (r.cancelado) return;
+      if (r.error) { showToast(r.error, true); return; }
       showToast(r.result?.message ?? okMsg ?? "Feito.");
     } catch (err) { showToast(err?.message || "Não deu certo.", true); }
   };

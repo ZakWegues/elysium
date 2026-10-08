@@ -37,12 +37,18 @@ export function getAllPresets(): PresetsMap {
   return store.get("presets");
 }
 
+/**
+ * O preset pelo nome falado. Nome exato primeiro; o parcial ("modo foco" acha "foco") só vale
+ * se apontar para UM preset (08/10). Antes o primeiro que casasse em qualquer sentido ganhava:
+ * "apaga o preset o" apagava o primeiro preset com "o" no nome.
+ */
 export function findPresetKey(nameOrQuery: string): string | undefined {
   const name = nameOrQuery.toLowerCase().trim();
-  const presets = getAllPresets();
-  return Object.keys(presets).find(
-    (k) => k === name || k.includes(name) || name.includes(k)
-  );
+  if (!name) return undefined;
+  const chaves = Object.keys(getAllPresets());
+  if (chaves.includes(name)) return name;
+  const parciais = chaves.filter(k => k.includes(name) || (k.length >= 3 && name.includes(k)));
+  return parciais.length === 1 ? parciais[0] : undefined;
 }
 
 export function getPreset(nameOrQuery: string): PresetEntry | undefined {

@@ -145,7 +145,7 @@ presetPop?.addEventListener("click", async (e) => {
   const apagar = alvo("button[data-apagar]");
   if (apagar) {
     const nome = apagar.dataset.apagar;
-    try { await window.nx.rpc("presets.delete", { name: nome }); showToast(`Preset ${nome} apagado.`); await carregarPresetsPop(); }
+    try { const r = await window.nx.rpc("presets.delete", { name: nome }); if (r.cancelado) return; showToast(`Preset ${nome} apagado.`); await carregarPresetsPop(); }
     catch { showToast("Não consegui apagar."); }
     return;
   }

@@ -84,6 +84,21 @@ function descreverAlvo(method: string, params: Record<string, unknown>): { titul
           : "",
       };
     }
+    case "chat.delete":
+      return { titulo: "Apagar a conversa", detalhe: "Ela some do PC e do celular." };
+    case "memory.remove":
+      return { titulo: "Esquecer esta lembrança", detalhe: "A Ely deixa de saber isto sobre você." };
+    case "tarefas.delete":
+      return { titulo: "Apagar a tarefa", detalhe: "Os avisos que ainda faltavam são cancelados." };
+    case "comandos.delete":
+      return { titulo: "Apagar o comando de IA", detalhe: "" };
+    case "presets.delete":
+      return { titulo: `Apagar o preset "${String(params.name ?? "")}"`, detalhe: "" };
+    case "rotinas.delete":
+      return { titulo: "Apagar a rotina", detalhe: "Ela para de rodar e o histórico dela some." };
+    case "presets.save":
+    case "rotinas.save":
+      return { titulo: "Gravar uma ação que desliga, reinicia ou apaga", detalhe: "Depois ela roda sem perguntar de novo — confirme só se foi você que montou." };
     case "apps.close":
       return {
         titulo: `Fechar o programa "${String(params.name ?? "")}"`,
@@ -120,6 +135,13 @@ export function registerRpcBridge(): void {
       const result = await handleRpc(method, safeParams, { confirmed });
       return { result };
     } catch (e) {
+      // 403 de um método comum = destrutivo só pelo CONTEÚDO (preset com desligar, rotina que
+      // apaga — 08/10). Pergunta aqui mesmo e tenta de novo confirmado.
+      if (e instanceof RpcError && e.status === 403 && !confirmed && typeof method === "string") {
+        if (!(await confirmarDestrutivo(method, safeParams))) return { cancelado: true };
+        try { return { result: await handleRpc(method, safeParams, { confirmed: true }) }; }
+        catch (e2) { if (e2 instanceof RpcError) return { error: e2.message, status: e2.status }; throw e2; }
+      }
       // A mensagem do RpcError já é em PT-BR e é a mesma que o celular recebe; traduzir de
       // novo aqui faria os dois lados divergirem no texto do mesmo erro.
       if (e instanceof RpcError) return { error: e.message, status: e.status };

@@ -1,3 +1,4 @@
+import * as dns from "node:dns/promises";
 import { getApiKey, getConfig } from "../main/config";
 import { callChat, Provider } from "./llm";
 import { canalAtual } from "./contextoComando";
@@ -42,30 +43,74 @@ export function extrairTextoLegivel(html: string): { titulo: string; texto: stri
   return { titulo, texto };
 }
 
+/**
+ * IP que não é da internet pública: loopback, rede local, link-local, CGNAT, e o IPv4 escrito
+ * dentro de um IPv6 ("::ffff:127.0.0.1" ou "::ffff:7f00:1" — 08/10, passava antes). Pura.
+ */
+export function ipPrivado(ip: string): boolean {
+  let h = ip.toLowerCase().replace(/^\[|\]$/g, "");
+  const mapeado = /^(?:0{0,4}:){0,5}:?ffff:(.+)$/.exec(h) ?? /^::(\d+\.\d+\.\d+\.\d+)$/.exec(h);
+  if (mapeado) {
+    const resto = mapeado[1];
+    const hex = /^([0-9a-f]{1,4}):([0-9a-f]{1,4})$/.exec(resto);
+    h = hex ? [parseInt(hex[1], 16) >> 8, parseInt(hex[1], 16) & 255, parseInt(hex[2], 16) >> 8, parseInt(hex[2], 16) & 255].join(".") : resto;
+  }
+  const v4 = /^(\d+)\.(\d+)\.(\d+)\.(\d+)$/.exec(h);
+  if (v4) {
+    const [a, b] = [Number(v4[1]), Number(v4[2])];
+    return a === 10 || a === 127 || a === 0 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127) || a >= 224;
+  }
+  if (!h.includes(":")) return false;
+  return h === "::" || h === "::1" || /^f[cd][0-9a-f]{0,2}:/.test(h) || /^fe[89ab][0-9a-f]?:/.test(h);
+}
+
 /** Recusa o que não é página pública: outro esquema, localhost, IP de rede local. Pura. */
 export function urlPermitida(url: string): boolean {
   let u: URL;
   try { u = new URL(url); } catch { return false; }
   if (u.protocol !== "http:" && u.protocol !== "https:") return false;
   const h = u.hostname.toLowerCase().replace(/^\[|\]$/g, "");
-  if (h === "localhost" || h.endsWith(".local") || h.endsWith(".localhost") || h === "::1" || h === "0.0.0.0") return false;
-  const ip = /^(\d+)\.(\d+)\.(\d+)\.(\d+)$/.exec(h);
-  if (ip) {
-    const [a, b] = [Number(ip[1]), Number(ip[2])];
-    if (a === 10 || a === 127 || a === 0 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 100 && b >= 64 && b <= 127)) return false;
+  if (h === "localhost" || h.endsWith(".local") || h.endsWith(".localhost") || h === "0.0.0.0") return false;
+  return !ipPrivado(h);
+}
+
+/**
+ * O nome resolve para um IP público? Um domínio qualquer pode apontar para 127.0.0.1
+ * ("127.0.0.1.nip.io") — conferir só o texto da URL deixava passar (08/10).
+ */
+async function resolvePublico(url: string): Promise<boolean> {
+  const host = new URL(url).hostname.replace(/^\[|\]$/g, "");
+  if (/^[\d.]+$/.test(host) || host.includes(":")) return !ipPrivado(host);
+  try {
+    const ips = await dns.lookup(host, { all: true });
+    return ips.length > 0 && ips.every(i => !ipPrivado(i.address));
+  } catch {
+    return false;
   }
-  if (/^f[cd][0-9a-f]{2}:|^fe80:/i.test(h)) return false;
-  return true;
 }
 
 export async function lerLink(url: string): Promise<{ titulo: string; texto: string; url: string }> {
   if (!urlPermitida(url)) throw new Error("Esse endereço não é uma página pública.");
-  const res = await fetch(url, {
-    redirect: "follow",
-    signal: AbortSignal.timeout(15_000),
-    headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ELYSIUM", "Accept": "text/html,application/xhtml+xml,text/plain" },
-  });
-  if (!urlPermitida(res.url || url)) throw new Error("O link redirecionou para um endereço que não é público.");
+  // Redirecionamento à mão (08/10): com "follow" os saltos do meio aconteciam ANTES de
+  // qualquer conferência — um link público podia levar o PC a bater num endereço interno.
+  // Cada salto agora passa pela mesma conferência, com DNS, e no máximo 3 saltos.
+  let atual = url;
+  let res: Response | null = null;
+  for (let salto = 0; salto <= 3; salto++) {
+    if (!urlPermitida(atual) || !(await resolvePublico(atual))) {
+      throw new Error(salto ? "O link redirecionou para um endereço que não é público." : "Esse endereço não é uma página pública.");
+    }
+    res = await fetch(atual, {
+      redirect: "manual",
+      signal: AbortSignal.timeout(15_000),
+      headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) ELYSIUM", "Accept": "text/html,application/xhtml+xml,text/plain" },
+    });
+    const destino = res.status >= 300 && res.status < 400 ? res.headers.get("location") : null;
+    if (!destino) break;
+    atual = new URL(destino, atual).toString();
+    if (salto === 3) throw new Error("O link redireciona demais.");
+  }
+  if (!res) throw new Error("Não consegui abrir o link.");
   if (!res.ok) throw new Error(`A página respondeu ${res.status}.`);
   const tipo = res.headers.get("content-type") ?? "";
   if (!/text\/html|text\/plain|xhtml/.test(tipo)) throw new Error("Esse link não é uma página de texto.");
@@ -73,7 +118,7 @@ export async function lerLink(url: string): Promise<{ titulo: string; texto: str
   const html = new TextDecoder("utf-8").decode(buf.slice(0, MAX_BYTES));
   const { titulo, texto } = /text\/plain/.test(tipo) ? { titulo: "", texto: html.slice(0, MAX_TEXTO) } : extrairTextoLegivel(html);
   if (texto.length < 80) throw new Error("Não achei texto para ler nessa página (pode precisar de login ou ser só vídeo).");
-  return { titulo, texto, url: res.url || url };
+  return { titulo, texto, url: atual };
 }
 
 export async function resumirLink(url: string, canal: Canal = canalAtual()): Promise<string> {

@@ -202,7 +202,8 @@ export async function agir(
 
     if (!resposta.toolCalls.length) {
       const content = resposta.content.trim();
-      console.log(`[agente] ${prov}/${mod} sem ferramentas: "${content.slice(0, 80)}"`);
+      // Só o tamanho, não o texto (08/10): o log em arquivo não guarda o que a pessoa conversa.
+      console.log(`[agente] ${prov}/${mod} sem ferramentas (${content.length} caracteres)`);
       // "CHAT" (antes ou depois de olhar alguma coisa) é conversa: o modelo de 8B às vezes
       // consulta uma ferramenta irrelevante e só então percebe que era papo.
       // "CHAT" solto ou embrulhado em JSON (`{"name": "CHAT", "parameters": {}}`, o 8B faz isso).
@@ -244,7 +245,8 @@ export async function agir(
       if (equivalente) acoes.push(equivalente);
       const resultado = await executarFerramenta(c.name, c.args);
       chamadas.push({ nome: c.name, args: c.args, resultado });
-      console.log(`[agente] ${c.name}(${JSON.stringify(c.args)}) → ${resultado.slice(0, 120)}`);
+      // Nome da ferramenta e se deu certo; argumentos e resultado podem ter dado pessoal.
+      console.log(`[agente] ${c.name}(${Object.keys(c.args).join(", ")}) → ${resultado.length} caracteres`);
       messages.push({ role: "tool", tool_call_id: c.id, name: c.name, content: resultado });
     }
 

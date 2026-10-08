@@ -16,6 +16,7 @@
 import { apagarTarefa, concluirTarefa, criarTarefa, desvincularLembrete, listarTarefas, reabrirTarefa } from "./tarefas";
 import { createReminderAction } from "../actions/memoryActions";
 import { app, clipboard } from "electron";
+import { ACOES_VALIDAS } from "./brain";
 import * as path from "node:path";
 import * as fs from "node:fs";
 import * as os from "node:os";
@@ -126,6 +127,31 @@ interface MethodDef {
   handler: Handler;
   /** Exige confirmação biométrica do lado do celular. */
   destructive?: boolean;
+}
+
+// ── presets e rotinas: o que não pode entrar sem confirmação ───────────────────
+
+/**
+ * 🔴 08/10. A trava de destrutivos (header X-Elysium-Confirm) era contornável: `presets.save`
+ * aceitava qualquer ação — inclusive `power_control` — sem validar nada, e `presets.run`
+ * executava sem confirmação. Agora cada ação precisa ser uma ação conhecida do cérebro, e um
+ * preset com ação destrutiva só é gravado com a confirmação. Rodar depois não pede de novo:
+ * quem confirmou ao criar sabia o que o preset faz.
+ */
+const ACOES_DESTRUTIVAS = new Set(["power_control", "delete_preset", "forget", "cancel_reminder", "close_app"]);
+export const TEXTO_DESTRUTIVO = /\b(deslig|reinici|hibern|suspend|deslog|apag|exclu|format|esvazi|limp[ae] a lixeira)/i;
+
+export function validarAcoesDePreset(acoes: unknown[], confirmado: boolean): void {
+  if (acoes.length > 20) throw new RpcError(400, "preset com ações demais (máx 20)");
+  for (const a of acoes) {
+    const tipo = a && typeof a === "object" ? (a as { action?: unknown }).action : undefined;
+    if (typeof tipo !== "string" || !ACOES_VALIDAS.has(tipo)) {
+      throw new RpcError(400, `ação inválida no preset: ${String(tipo).slice(0, 40)}`);
+    }
+    if (ACOES_DESTRUTIVAS.has(tipo) && !confirmado) {
+      throw new RpcError(403, `preset com "${tipo}" exige confirmação (header X-Elysium-Confirm)`);
+    }
+  }
 }
 
 // ── validadores de params ─────────────────────────────────────────────────────
@@ -544,7 +570,10 @@ const METHODS: Record<string, MethodDef> = {
   "chat.favorite": {
     handler: async (params) => ({ favorite: toggleChatFavorite(requireString(params, "id")) }),
   },
+  // 08/10: apagar conversa, memória, tarefa e comando de IA também pede confirmação — no
+  // celular a pergunta já existia na tela; no PC o diálogo do rpcBridge passa a valer.
   "chat.delete": {
+    destructive: true,
     handler: async (params) => ({ deleted: deleteChatSession(requireString(params, "id")) }),
   },
 
@@ -624,6 +653,7 @@ const METHODS: Record<string, MethodDef> = {
     },
   },
   "memory.remove": {
+    destructive: true,
     handler: async (params) => ({ removed: removeFactById(requireString(params, "id")) }),
   },
 
@@ -677,12 +707,13 @@ const METHODS: Record<string, MethodDef> = {
     },
   },
   "presets.save": {
-    handler: async (params) => {
+    handler: async (params, ctx) => {
       const nome = requireString(params, "name");
       const acoes = params?.actions;
       if (!Array.isArray(acoes) || !acoes.length) {
         throw new RpcError(400, 'param "actions" deve ser uma lista não vazia');
       }
+      validarAcoesDePreset(acoes, ctx.confirmed);
       savePreset(nome, {
         description: optionalString(params, "description") ?? nome,
         icon: optionalString(params, "icon"),
@@ -692,6 +723,7 @@ const METHODS: Record<string, MethodDef> = {
     },
   },
   "presets.delete": {
+    destructive: true,
     handler: async (params) => {
       const chave = findPresetKey(requireString(params, "name"));
       if (!chave) throw new RpcError(404, "preset não encontrado");
@@ -744,7 +776,12 @@ const METHODS: Record<string, MethodDef> = {
     }),
   },
   "rotinas.save": {
-    handler: async (params) => {
+    handler: async (params, ctx) => {
+      // Rotina que desliga/reinicia o PC roda sozinha depois, sem ninguém olhando: criar uma
+      // pede a mesma confirmação de desligar agora (08/10).
+      if (TEXTO_DESTRUTIVO.test(requireString(params, "texto")) && !ctx.confirmed) {
+        throw new RpcError(403, "rotina que desliga, reinicia ou apaga exige confirmação (header X-Elysium-Confirm)");
+      }
       const dias = Array.isArray(params.dias) ? (params.dias as unknown[]).map(Number) : [];
       const entregar = Array.isArray(params.entregar) ? (params.entregar as string[]) : ["pc", "celular"];
       const rotina = salvarRotina({
@@ -763,6 +800,7 @@ const METHODS: Record<string, MethodDef> = {
     },
   },
   "rotinas.delete": {
+    destructive: true,
     handler: async (params) => ({ deleted: apagarRotina(requireString(params, "id")) }),
   },
   "rotinas.toggle": {
@@ -969,6 +1007,7 @@ const METHODS: Record<string, MethodDef> = {
     },
   },
   "tarefas.delete": {
+    destructive: true,
     handler: async (params) => {
       const t = apagarTarefa(requireString(params, "id"));
       if (!t) throw new RpcError(404, "tarefa não encontrada");
@@ -1096,7 +1135,7 @@ const METHODS: Record<string, MethodDef> = {
       catch (e) { throw new RpcError(400, e instanceof Error ? e.message : String(e)); }
     },
   },
-  "comandos.delete": { handler: async (params) => ({ ok: apagarComando(requireString(params, "id")) }) },
+  "comandos.delete": { destructive: true, handler: async (params) => ({ ok: apagarComando(requireString(params, "id")) }) },
   "link.resumir": {
     handler: async (params) => {
       try { return { resumo: await comContexto("texto", () => resumirLink(requireString(params, "url"))) }; }
@@ -1202,7 +1241,8 @@ export async function handleRpc(
     throw new RpcError(400, "campo \"method\" é obrigatório");
   }
 
-  const def = METHODS[method];
+  // `hasOwn`: "toString" ou "constructor" não são métodos — antes viravam um 500 confuso.
+  const def = Object.prototype.hasOwnProperty.call(METHODS, method) ? METHODS[method] : undefined;
   if (!def) throw new RpcError(404, `método desconhecido: ${method}`);
 
   if (def.destructive && !ctx.confirmed) {

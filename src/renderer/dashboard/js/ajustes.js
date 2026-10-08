@@ -569,7 +569,7 @@ async function desenharComandos() {
 document.getElementById("comandos-corpo")?.addEventListener("click", async (ev) => {
   const b = ev.target.closest("[data-cmd-apagar]");
   if (!b) return;
-  try { await window.nx.rpc("comandos.delete", { id: b.dataset.cmdApagar }); showToast("Comando apagado."); } catch { showToast("Não deu certo.", true); }
+  try { const r = await window.nx.rpc("comandos.delete", { id: b.dataset.cmdApagar }); if (r.cancelado) return; if (r.error) { showToast(r.error, true); return; } showToast("Comando apagado."); } catch { showToast("Não deu certo.", true); }
   await desenharComandos();
 });
 document.getElementById("comandos-corpo")?.addEventListener("submit", async (ev) => {

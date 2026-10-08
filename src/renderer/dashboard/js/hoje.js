@@ -331,6 +331,7 @@ hojeEl()?.addEventListener("click", async (e) => {
   const tx = alvo("[data-tarefa-apagar]");
   if (tx) {
     const r = await window.nx.rpc("tarefas.delete", { id: tx.dataset.tarefaApagar });
+    if (r.cancelado) return;
     if (r.error) showToast(r.error, true); else { showToast("Tarefa apagada."); carregarHoje(); }
     return;
   }

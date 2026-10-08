@@ -1,4 +1,4 @@
-import { app } from "electron";
+import { app, safeStorage } from "electron";
 import Store from "electron-store";
 import * as crypto from "node:crypto";
 import * as fs from "node:fs";
@@ -478,14 +478,50 @@ export function setOverride(patch: Partial<AppConfig>): void {
 
 export function getApiKey(): string {
   // electron-store tem prioridade; .env só como fallback de desenvolvimento
-  const stored = store.get("apiKey", "");
-  if (stored && stored.trim()) return stored.trim();
+  const stored = lerSegredo("apiKey");
+  if (stored) return stored;
   const env = process.env.GROQ_API_KEY;
   return env && env.trim() ? env.trim() : "";
 }
 
 export function setApiKey(key: string): void {
-  store.set("apiKey", (key || "").trim());
+  gravarSegredo("apiKey", key);
+}
+
+// ── Segredos cifrados (08/10) ─────────────────────────────────────────────────
+//
+// A chave da Groq, o token do GitHub e o segredo do Google ficavam em texto puro no
+// elysium-config.json. Agora vão cifrados pelo `safeStorage` (no Windows, DPAPI: só esta conta
+// de usuário desta máquina decifra). Não protege de outro programa rodando como o próprio
+// usuário — protege o arquivo copiado, um backup do disco, um print do config.
+//
+// Migração preguiçosa: o primeiro acesso a um segredo antigo em texto puro o regrava cifrado.
+// Sem cifra disponível (raro), fica como estava — perder a chave seria pior.
+// O `serverToken` NÃO entra: ele já viaja no QR para o celular, e os scripts locais o leem.
+type ChaveSecreta = "apiKey" | "githubToken" | "googleClientSecret";
+const PREFIXO_CIFRA = "enc:v1:";
+
+function cifraDisponivel(): boolean {
+  try { return !!safeStorage?.isEncryptionAvailable(); } catch { return false; }
+}
+
+function lerSegredo(chave: ChaveSecreta): string {
+  const bruto = (store.get(chave, "") || "").trim();
+  if (!bruto) return "";
+  if (bruto.startsWith(PREFIXO_CIFRA)) {
+    try { return safeStorage.decryptString(Buffer.from(bruto.slice(PREFIXO_CIFRA.length), "base64")).trim(); }
+    catch { console.warn(`[config] não consegui decifrar ${chave} (outra conta do Windows?) — informe de novo.`); return ""; }
+  }
+  if (cifraDisponivel()) gravarSegredo(chave, bruto);
+  return bruto;
+}
+
+function gravarSegredo(chave: ChaveSecreta, valor: string): void {
+  const v = (valor || "").trim();
+  if (v && cifraDisponivel()) {
+    try { store.set(chave, PREFIXO_CIFRA + safeStorage.encryptString(v).toString("base64")); return; } catch { /* cai no texto puro */ }
+  }
+  store.set(chave, v);
 }
 
 /**
@@ -494,7 +530,7 @@ export function setApiKey(key: string): void {
  * diagnóstico. Vazio = o atualizador tenta o login do `gh` desta máquina.
  */
 export function getGithubToken(): string {
-  return (store.get("githubToken", "") || "").trim();
+  return lerSegredo("githubToken");
 }
 
 /**
@@ -502,16 +538,16 @@ export function getGithubToken(): string {
  * chave da Groq, fora dos `overrides`: não vai no backup nem no diagnóstico.
  */
 export function getGoogleCliente(): { id: string; segredo: string } {
-  return { id: (store.get("googleClientId", "") || "").trim(), segredo: (store.get("googleClientSecret", "") || "").trim() };
+  return { id: (store.get("googleClientId", "") || "").trim(), segredo: lerSegredo("googleClientSecret") };
 }
 
 export function setGoogleCliente(id: string, segredo: string): void {
   store.set("googleClientId", (id || "").trim());
-  store.set("googleClientSecret", (segredo || "").trim());
+  gravarSegredo("googleClientSecret", segredo);
 }
 
 export function setGithubToken(token: string): void {
-  store.set("githubToken", (token || "").trim());
+  gravarSegredo("githubToken", token);
 }
 
 export function hasApiKey(): boolean {

@@ -10,6 +10,12 @@ import { ouvirTimers, retomarTimers } from "../services/timers";
 import { deveSugerir, sugerirContinuacoes } from "../services/continuacoes";
 import * as path from "node:path";
 import * as fs from "node:fs";
+
+// Rede de segurança (08/10): um erro solto em qualquer canto do processo principal — um
+// callback de socket, uma promessa sem catch — derrubava o app inteiro em silêncio (o bug
+// do token do servidor fazia exatamente isso). Agora vai para o log e o ELYSIUM segue de pé.
+process.on("uncaughtException", (e) => { console.error("[main] erro não tratado:", e); });
+process.on("unhandledRejection", (motivo) => { console.error("[main] promessa rejeitada sem tratamento:", motivo); });
 import * as os from "node:os";
 import { sincronizarInicioAutomatico, removerEntradaLegada } from "./autoLaunch";
 import { iniciarLogEmArquivo, pastaDeLogs } from "./logArquivo";
@@ -95,7 +101,7 @@ function createRecorderWindow(): BrowserWindow {
       preload: path.join(__dirname, "../renderer/preload-recorder.js"),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false,
+      sandbox: true,
     },
   });
   win.loadFile(path.join(__dirname, "../renderer/recorder.html"));
@@ -127,7 +133,7 @@ function openDashboard(): void {
       preload: path.join(__dirname, "../renderer/preload-dashboard.js"),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false,
+      sandbox: true,
     },
   });
   dashWin.setMenu(null);
@@ -164,7 +170,7 @@ function openConfigWindow(): void {
       preload: path.join(__dirname, "../renderer/preload-config.js"),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: false,
+      sandbox: true,
     },
   });
   configWin.setMenu(null);

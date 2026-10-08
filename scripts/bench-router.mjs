@@ -73,7 +73,13 @@ function chaveGroq() {
   const arquivo = path.join(os.homedir(), "AppData", "Roaming", "elysium", "elysium-config.json");
   try {
     const bruto = fs.readFileSync(arquivo, "utf8").replace(/^﻿/, "");
-    return JSON.parse(bruto).apiKey?.trim() || null;
+    const chave = JSON.parse(bruto).apiKey?.trim() || null;
+    // Desde 08/10 a chave fica cifrada pelo safeStorage do Electron (só o app decifra).
+    if (chave?.startsWith("enc:")) {
+      console.error("A chave da Groq está cifrada no perfil do app — rode com GROQ_API_KEY=... no ambiente.");
+      return null;
+    }
+    return chave;
   } catch {
     return null;
   }

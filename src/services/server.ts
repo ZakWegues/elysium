@@ -63,6 +63,24 @@ const MAX_BODY_BYTES = 8 * 1024 * 1024;
 const RATE_LIMIT_WINDOW_MS = 10_000;
 const RATE_LIMIT_MAX_REQUESTS = 600;
 
+/**
+ * A mensagem que vai para o celular quando algo quebra: só o texto do erro, sem pilha nem
+ * nome de classe — o detalhe fica no log do PC (08/10).
+ */
+function mensagemDeErro(e: unknown): string {
+  return e instanceof Error && e.message ? e.message.slice(0, 300) : "erro interno no PC";
+}
+
+/**
+ * Limites do WebSocket (08/10). Sem eles, um cliente (com token) podia mandar um frame
+ * dizendo ter 2 GB e o `client.buf` crescia até a memória acabar; e uma conexão morta (Wi-Fi
+ * caiu sem fechar) ficava aberta para sempre. O áudio de um pedido tem bem menos de 8 MB.
+ */
+const WS_MAX_FRAME = 8 * 1024 * 1024;
+const WS_PING_MS = 30_000;
+const WS_OCIOSO_MS = 90_000;
+const WS_AUDIOS_SIMULTANEOS = 2;
+
 // ── WS frame codec ────────────────────────────────────────────────────────────
 
 interface WSFrame {
@@ -212,15 +230,26 @@ function authorized(req: http.IncomingMessage): boolean {
   const hdr = req.headers["authorization"] ?? "";
   if (typeof hdr === "string" && hdr.startsWith("Bearer ")) {
     const supplied = hdr.slice(7).trim();
+    if (!activeToken) return false;
     // Comparação de tempo constante: evita distinguir um token quase certo de um
     // completamente errado pelo tempo de resposta.
-    if (supplied.length !== activeToken.length || activeToken.length === 0) return false;
-    return crypto.timingSafeEqual(Buffer.from(supplied), Buffer.from(activeToken));
+    // 🔴 08/10: compara os HASHES, não os textos. Antes conferia o tamanho em caracteres e o
+    // timingSafeEqual compara bytes — um token de 64 caracteres com um "é" no meio tinha o
+    // mesmo tamanho em caracteres e outro em bytes, o timingSafeEqual lançava RangeError e o
+    // processo principal caía. Sem token nenhum: qualquer aparelho na rede derrubava o PC.
+    // Os dois hashes têm sempre 32 bytes.
+    const h = (t: string) => crypto.createHash("sha256").update(t, "utf8").digest();
+    return crypto.timingSafeEqual(h(supplied), h(activeToken));
   }
   return false;
 }
 
 // ── callback do OAuth do Spotify ──────────────────────────────────────────────
+
+function escaparHtml(t: string): string {
+  const mapa: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
+  return t.replace(/[&<>"']/g, c => mapa[c]);
+}
 
 /** Página simples devolvida ao navegador — o usuário volta para o app depois. */
 function spotifyResultPage(title: string, message: string, ok: boolean): string {
@@ -265,7 +294,8 @@ async function handleSpotifyCallback(
     sendPage(200, "Spotify conectado", "Pode fechar esta aba e voltar para o ELYSIUM.", true);
   } catch (e) {
     console.error("[spotify] callback falhou:", e);
-    sendPage(400, "Não deu certo", String(e instanceof Error ? e.message : e), false);
+    // A mensagem do erro vai para dentro do HTML: escapada, nunca crua.
+    sendPage(400, "Não deu certo", escaparHtml(String(e instanceof Error ? e.message : e)), false);
   }
 }
 
@@ -408,7 +438,8 @@ function makeHandler(
         const reply = await processCommand(text, canalHttp);
         sendJson(res, 200, { reply });
       } catch (e) {
-        sendJson(res, 500, { error: String(e) });
+        console.error("[HTTP] /api/command falhou:", e);
+        sendJson(res, 500, { error: mensagemDeErro(e) });
       }
       return;
     }
@@ -446,7 +477,7 @@ function makeHandler(
           return;
         }
         console.error("[RPC] erro não tratado:", e);
-        sendJson(res, 500, { error: String(e) });
+        sendJson(res, 500, { error: mensagemDeErro(e) });
       }
       return;
     }
@@ -507,8 +538,9 @@ function makeHandler(
           res.end(JSON.stringify({ error: "attachment too large, max 5MB" }));
           return;
         }
+        console.error("[HTTP] caixa falhou:", e);
         res.writeHead(500, { "Content-Type": "application/json; charset=utf-8" });
-        res.end(JSON.stringify({ error: String(e) }));
+        res.end(JSON.stringify({ error: mensagemDeErro(e) }));
       }
       return;
     }
@@ -596,13 +628,17 @@ function handleUpgrade(
   );
 
   const client: WSClient = { socket, buf: head };
+  // Vivo? O OkHttp do celular responde ping sozinho; sem nada chegando por 90 s, fecha.
+  let ultimoSinal = Date.now();
+  const vigia = setInterval(() => {
+    if (Date.now() - ultimoSinal > WS_OCIOSO_MS) { socket.destroy(); return; }
+    try { socket.write(buildFrame(0x09, Buffer.alloc(0))); } catch { /* fechando */ }
+  }, WS_PING_MS);
+  let audiosEmCurso = 0;
   wsClients.add(client);
   // Gatilho "quando o celular conectar" (bloco 79). Só o primeiro cliente conta: dois
   // apps abertos não são dois "conectou".
   if (wsClients.size === 1) emitirEvento("celular.conectou");
-
-  // Accumulate audio binary blobs from mobile; process each complete message independently.
-  const audioAccum: Buffer[] = [];
 
   function processBuffer(): void {
     while (client.buf.length >= 2) {
@@ -610,8 +646,6 @@ function handleUpgrade(
       const frame = parseFrame(client.buf);
       if (!frame) break;
       client.buf = client.buf.slice(frame.consumed);
-
-      console.log(`[WS] frame recebido: opcode=0x${frame.opcode.toString(16)} fin=${finBit} payload=${frame.payload.length}b`);
 
       switch (frame.opcode) {
         case 0x01: // text — control message from client e.g. {"type":"end"}
@@ -630,6 +664,8 @@ function handleUpgrade(
           break;
         case 0x09: // ping → pong
           socket.write(buildFrame(0x0a, frame.payload));
+          break;
+        case 0x0a: // pong (resposta ao nosso ping) — o `ultimoSinal` já foi atualizado
           break;
         case 0x00: // continuation — não suportado, ver aviso acima em 0x02
           console.error(`[WS] frame de continuação (0x00) recebido e ignorado — ${frame.payload.length} bytes de áudio perdidos`);
@@ -678,7 +714,7 @@ function handleUpgrade(
           })
           .catch(err  => {
             console.error("[WS] falha ao processar comando de texto:", err);
-            sendToClient(client, JSON.stringify({ type: "error", error: String(err) }));
+            sendToClient(client, JSON.stringify({ type: "error", error: mensagemDeErro(err) }));
           });
       }
     } catch (e) {
@@ -687,7 +723,12 @@ function handleUpgrade(
   }
 
   async function processBinaryAudio(audio: Buffer): Promise<void> {
-    console.log(`[WS] processando áudio binário: ${audio.length} bytes`);
+    // Cada áudio é uma transcrição paga na Groq: mais de dois ao mesmo tempo é laço, não gente.
+    if (audiosEmCurso >= WS_AUDIOS_SIMULTANEOS) {
+      sendToClient(client, JSON.stringify({ type: "error", error: "Ainda estou cuidando dos últimos áudios — tente de novo em instantes." }));
+      return;
+    }
+    audiosEmCurso++;
     try {
       const text = await transcribe(new Uint8Array(audio));
       if (!text) {
@@ -702,19 +743,37 @@ function handleUpgrade(
       sendToClient(client, JSON.stringify({ type: "reply", reply, ...(fontes?.length ? { fontes } : {}) }));
     } catch (e) {
       console.error("[WS] falha ao processar áudio (transcrição ou comando):", e);
-      sendToClient(client, JSON.stringify({ type: "error", error: String(e) }));
+      sendToClient(client, JSON.stringify({ type: "error", error: mensagemDeErro(e) }));
+    } finally {
+      audiosEmCurso--;
     }
   }
 
   socket.on("data", (chunk: Buffer) => {
+    ultimoSinal = Date.now();
     client.buf = Buffer.concat([client.buf, chunk]);
+    // Frame maior que o teto (ou um cabeçalho dizendo que vem um assim): fecha com 1009
+    // ("mensagem grande demais") antes de acumular — não depois de a memória acabar.
+    if (client.buf.length > WS_MAX_FRAME + 16 || tamanhoAnunciado(client.buf) > WS_MAX_FRAME) {
+      console.warn(`[WS] frame acima de ${WS_MAX_FRAME} bytes; conexão fechada.`);
+      try { socket.write(buildFrame(0x08, Buffer.from([0x03, 0xf1]))); } catch { /* já fechando */ }
+      socket.destroy();
+      return;
+    }
     processBuffer();
   });
 
-  socket.on("close", () => { wsClients.delete(client); });
-  socket.on("error", () => { wsClients.delete(client); });
+  socket.on("close", () => { clearInterval(vigia); wsClients.delete(client); });
+  socket.on("error", () => { clearInterval(vigia); wsClients.delete(client); });
+}
 
-  void audioAccum; // referenced inside closures above
+/** O tamanho que o cabeçalho do próximo frame anuncia (0 se ainda não chegou inteiro). */
+export function tamanhoAnunciado(buf: Buffer): number {
+  if (buf.length < 2) return 0;
+  const len = buf[1] & 0x7f;
+  if (len < 126) return len;
+  if (len === 126) return buf.length >= 4 ? buf.readUInt16BE(2) : 0;
+  return buf.length >= 10 ? Number(buf.readBigUInt64BE(2)) : 0;
 }
 
 // ── public API ────────────────────────────────────────────────────────────────

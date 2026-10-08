@@ -419,7 +419,7 @@ const PAINEIS_PC = {
     async clique(e) {
       const b = e.target.closest("[data-esquecer]");
       if (!b) return;
-      try { await window.nx.rpc("memory.remove", { id: b.dataset.esquecer }); showToast("Esquecido."); redesenharPainel(); }
+      try { const r = await window.nx.rpc("memory.remove", { id: b.dataset.esquecer }); if (r.cancelado) return; showToast("Esquecido."); redesenharPainel(); }
       catch { showToast("Não consegui esquecer.", true); }
     },
     async submit(e) {
@@ -456,7 +456,7 @@ const PAINEIS_PC = {
       }
       const a = e.target.closest("[data-apagar]");
       if (a) {
-        try { const x = await window.nx.rpc("presets.delete", { name: a.dataset.apagar }); if (x.result?.cancelado) return; showToast("Apagado."); redesenharPainel(); }
+        try { const x = await window.nx.rpc("presets.delete", { name: a.dataset.apagar }); if (x.cancelado) return; showToast("Apagado."); redesenharPainel(); }
         catch { showToast("Não consegui apagar.", true); }
       }
     },
