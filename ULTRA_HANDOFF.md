@@ -5897,3 +5897,15 @@ Mailbox e fecham menus.
 - RAG local de notas (FTS5 + vetores) e roteador de ferramentas por grupo para o 7B (pesquisa).
 - Pílula de fala também no desktop; despejo por voz com revisão antes de salvar (estilo Ramble).
 - Continua de pé: §15 (backup da chave, push no APK, `powercfg`), Agenda/Tailscale pausados.
+
+### Ajuste do Zak (08/10, depois da 2.4.0): treino só quando perguntar
+"Não precisava fazer tudo isso relacionado a treino": ele quer os dados guardados para
+perguntar de vez em quando, não telas e cards. Saíram: seções Treino/Nutrição/Corrida do Hoje
+(desktop e celular), `js/treino.js`, `TreinoScreen.tsx`, os cards `CardTreino`/`CardNutricao`/
+`CardCorrida`, o widget **Treino de hoje** (nunca chegou a ser publicado), "Marcar treino" na
+paleta, treino/meta/dica/corrida no resumo falado e na revisão da semana, e o treino nos fatos
+da frase/ideia do Hoje. **Ficou:** `corpo.ts` com os dados (A/B/C, perfil, rotação, corrida),
+os RPCs `corpo.*`/`treinos.*`/`corrida.*`, as ferramentas do agente (`treino_de_hoje`,
+`ver_meta_calorias`, `marcar_treino`, `registrar_corrida`, `registrar_peso`) e o atalho
+"treinei / corri / pesei". Desktop **2.4.1**. O APK 2.1.0 sai só com o widget Tarefas.
+- Não reintroduzir treino em superfície nenhuma sem ele pedir.
