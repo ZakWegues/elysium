@@ -69,6 +69,22 @@ export function addFact(text: string): { fact: MemoryFact; created: boolean } {
   return { fact, created: true };
 }
 
+/**
+ * Corrige um fato (fase 18, 08/10): a pesquisa sobre a memória do ChatGPT — o que mais irrita
+ * é não ter como ver e ajustar o que o assistente "acha" que sabe. Apagar e criar de novo
+ * perdia a data; editar mantém.
+ */
+export function editFact(id: string, text: string): MemoryFact | null {
+  const clean = text.trim().slice(0, MEMORY_MAX_TEXT_LENGTH);
+  if (!clean) return null;
+  const facts = store.get("facts");
+  const f = facts.find(x => x.id === id);
+  if (!f) return null;
+  const novo = { ...f, text: clean };
+  store.set("facts", facts.map(x => x.id === id ? novo : x));
+  return novo;
+}
+
 export function removeFactById(id: string): boolean {
   const facts = store.get("facts");
   const next = facts.filter(f => f.id !== id);

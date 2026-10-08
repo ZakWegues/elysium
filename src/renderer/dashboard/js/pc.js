@@ -402,10 +402,14 @@ const PAINEIS_PC = {
     async render() {
       let fatos = [];
       try { fatos = (await window.nx.rpc("memory.list")).result?.facts ?? []; } catch { /* segue */ }
+      // Fase 18: busca, data de quando aprendeu e editar (o painel de memória que a pesquisa pediu).
+      const quando = (ms) => new Date(ms).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
       return `
-        <div class="gp-secao"><h4>Fatos guardados</h4>
+        <div class="gp-secao"><h4>Fatos guardados <small>${fatos.length}</small></h4>
+          ${fatos.length > 5 ? `<input type="search" class="gp-busca" id="gp-memoria-busca" placeholder="Buscar na memória" aria-label="Buscar na memória">` : ""}
           <div class="gp-lista">${fatos.map(f => `
-            <div class="gp-linha">${ico("bulb", "ico-sm")}<span class="gp-nome" style="white-space:normal" title="${escHtml(f.text)}">${escHtml(f.text)}</span>
+            <div class="gp-linha" data-fato="${escHtml(f.text.toLowerCase())}">${ico("bulb", "ico-sm")}<span class="gp-nome" style="white-space:normal" title="Aprendi em ${quando(f.createdAt)}">${escHtml(f.text)}<small class="gp-quando">${quando(f.createdAt)}</small></span>
+              <button data-editar-fato="${escHtml(f.id)}" data-texto="${escHtml(f.text)}" title="Corrigir">${ico("edit", "ico-sm")}</button>
               <button data-esquecer="${escHtml(f.id)}" title="Esquecer">${ico("x", "ico-sm")}</button></div>`).join("") || `<div class="home-empty">Nada guardado. Diga "lembre que…" ou escreva abaixo.</div>`}</div>
         </div>
         <div class="gp-secao"><h4>Guardar um fato</h4>
@@ -417,6 +421,24 @@ const PAINEIS_PC = {
         </div>`;
     },
     async clique(e) {
+      const ed = e.target.closest("[data-editar-fato]");
+      if (ed) {
+        const linha = ed.closest(".gp-linha");
+        const span = linha.querySelector(".gp-nome");
+        span.innerHTML = `<input type="text" class="gp-edicao" value="${escHtml(ed.dataset.texto)}" maxlength="200" aria-label="Corrigir o fato">`;
+        const campo = span.querySelector("input");
+        campo.focus(); campo.select();
+        const salvar = async () => {
+          const texto = campo.value.trim();
+          if (!texto || texto === ed.dataset.texto) { redesenharPainel(); return; }
+          const r = await window.nx.rpc("memory.edit", { id: ed.dataset.editarFato, text: texto });
+          if (r.error) showToast(r.error, true); else showToast("Corrigido.");
+          redesenharPainel();
+        };
+        campo.addEventListener("keydown", (k) => { if (k.key === "Enter") { k.preventDefault(); salvar(); } if (k.key === "Escape") { k.stopPropagation(); redesenharPainel(); } });
+        campo.addEventListener("blur", salvar, { once: true });
+        return;
+      }
       const b = e.target.closest("[data-esquecer]");
       if (!b) return;
       try { const r = await window.nx.rpc("memory.remove", { id: b.dataset.esquecer }); if (r.cancelado) return; showToast("Esquecido."); redesenharPainel(); }
@@ -718,4 +740,11 @@ pcEl()?.addEventListener("change", async (e) => {
   try { await window.nx.rpc("volume.set", { level: Number(e.target.value) }); }
   catch { showToast("Não consegui mexer no volume.", true); }
   lerVolumePc();
+});
+
+// Busca na memória (fase 18): filtra as linhas pelo texto, sem ir ao PC.
+document.addEventListener("input", (e) => {
+  if (e.target.id !== "gp-memoria-busca") return;
+  const q = e.target.value.trim().toLowerCase();
+  e.target.closest(".gp-secao")?.querySelectorAll("[data-fato]").forEach(l => { l.hidden = !!q && !l.dataset.fato.includes(q); });
 });

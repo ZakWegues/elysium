@@ -61,7 +61,7 @@ import { aguardarDownloads, estadoAtualizacao, instalarAtualizacaoDesktop, verif
 import { captureScreen, listScreens } from "./screenCapture";
 import { screenshot } from "../actions/screenshot";
 import { inputHost, MouseButton } from "./inputHost";
-import { addFact, listFacts, removeFactById } from "./memoryStore";
+import { addFact, listFacts, removeFactById, editFact } from "./memoryStore";
 import { cancelReminder, createReminder, listAll, ReminderKind } from "./scheduler";
 import {
   listarRotinas, salvarRotina, apagarRotina, alternarRotina, executarRotina, proximoDisparo, descreverGatilho,
@@ -652,6 +652,13 @@ const METHODS: Record<string, MethodDef> = {
     handler: async (params) => {
       const { fact, created } = addFact(requireString(params, "text"));
       return { fact, created };
+    },
+  },
+  "memory.edit": {
+    handler: async (params) => {
+      const f = editFact(requireString(params, "id"), requireString(params, "text"));
+      if (!f) throw new RpcError(404, "fato não encontrado");
+      return { fact: f };
     },
   },
   "memory.remove": {
