@@ -5909,3 +5909,107 @@ os RPCs `corpo.*`/`treinos.*`/`corrida.*`, as ferramentas do agente (`treino_de_
 `ver_meta_calorias`, `marcar_treino`, `registrar_corrida`, `registrar_peso`) e o atalho
 "treinei / corri / pesei". Desktop **2.4.1**. O APK 2.1.0 sai só com o widget Tarefas.
 - Não reintroduzir treino em superfície nenhuma sem ele pedir.
+
+## 37. Estado do PC no celular, saída de som e animação do microfone (08/10/2026) — desktop 2.5.0, celular OTA
+
+**Pedidos do Zak:** (1) "uma animação especial ao clicar no microfone para falar com o
+ELYSIUM"; (2) "melhorar a conectividade do PC e celular, para eu ter uma noção melhor caso o
+ELYSIUM do PC esteja minimizado, na bandeja ou 100% fechado — ver tudo isso no celular";
+(3) no meio: "a Ely do desktop não tá falando".
+
+### "A Ely não fala" — não era bug do app
+A voz era sintetizada e tocada normalmente (`/api/tts` devolvia 31 KB; o MCI abria o MP3). A
+**saída de som padrão do Windows estava em "Alto-falantes (Steam Streaming Speakers)"**, o
+alto-falante virtual do Steam Remote Play. O Zak troca no ícone de som (o certo aqui é
+**SAMSUNG (NVIDIA High Definition Audio)**, o monitor). Configuração de sistema: o app só LÊ.
+- Novo `services/saidaDeSom.ts`: lê o dispositivo padrão pela API de áudio (IMMDeviceEnumerator
+  via PowerShell + C#, ~1 s), `ehVirtual` (Steam/VB-Audio/cabo/Voicemeeter/virtual),
+  `problemaDeSom` (virtual, mudo, volume ≤3%). `main.ts` confere 8 s depois de abrir e a cada
+  3 min; problema novo → notificação do Windows "ELYSIUM — som" + `[som]` no log.
+- O estado vai junto em `pc.estado` (`som`) e o celular mostra "Som do PC em … (virtual) — a voz
+  da Ely não sai" na linha de estado da Início.
+- Log útil: `%APPDATA%\ELYSIUM\logs\elysium-AAAA-MM-DD.log`. `[TTS] … código null` = fala
+  interrompida (parar / nova pergunta), não erro.
+
+### Estado do PC no celular
+- Desktop `services/estadoApp.ts`: `janela` (`foco` | `aberta` | `minimizada` | `bandeja`,
+  pela janela do dashboard: show/hide/minimize/restore/focus/blur), `bloqueado` (lock/unlock
+  do `powerMonitor`), `ociosoMin`, `iniciadoEm`, `pcLigadoDesde` (`os.uptime`), `versao`,
+  `anterior` (como terminou a sessão anterior: `fechado` | `atualizando` | `desligando` |
+  `suspenso` | `interrompido`), `som`. Batimento gravado a cada minuto em `estado-app.json`:
+  sem aviso de encerramento depois do último batimento = "interrompido" (queda, processo morto).
+- RPC `pc.estado`; frame WS `{type:"pc.estado", ...}` a cada mudança; ao encerrar,
+  `{type:"pc.estado", encerrando:{motivo, em}}`.
+- Encerramento: o `quit` da bandeja agora recebe o motivo (`fechado`; a atualização passa
+  `atualizando`), grava, manda o frame e um **push categoria `pc`** (teto de 2,5 s antes do
+  `app.exit`). `session-end` de qualquer janela (Windows desligando/reiniciando) → `desligando`;
+  `powerMonitor.suspend` → `suspenso` (a volta limpa). Atualização não manda push.
+- Push: categoria nova `"pc"` em `push.ts`/`push.setPrefs`; no celular, Ajustes → Notificações
+  ganhou "ELYSIUM fechou ou PC desligou" (dá para silenciar).
+- Celular `lib/estadoPc.ts`: store por PC (`chavePorPc`, AsyncStorage) com `useEstadoPc()`;
+  fontes: sonda do `useConnection` (a cada 30 s chama `pc.estado`), frames do WS (telemetria e
+  voz) e o push (`ouvirAvisosDoPc` em `notificacoes.ts`: o que chega com o app aberto e o que já
+  está na gaveta ao abrir/voltar). Aviso velho (o PC já respondeu depois) é ignorado.
+  `descreverEstadoPc`/`detalhesEstadoPc`/`haQuanto`/`avisoDeSomPc` puras e testadas.
+- UI: `components/EstadoPc.tsx` (`EstadoPcLinha`) no topo da Início no lugar de "PC online":
+  ponto que respira quando está aberto, ícone, "ELYSIUM na bandeja · rodando em segundo plano ·
+  PC parado há 25 min"; toque abre os detalhes (janela desde, ELYSIUM no ar desde + versão, PC
+  ligado há, antes disso, som do PC, última resposta). `ConnectionBanner` ganhou `motivo`: fora
+  do ar, diz "ELYSIUM fechado no PC · há 5 min (18:40)", "PC em suspensão", "PC desligado"; o
+  aviso do PC faz a faixa aparecer na hora, sem esperar a sonda.
+- PC anterior à 2.5 não tem `pc.estado`: o celular fica no "PC online" de sempre.
+
+### Animação do microfone
+- Celular `components/VozAoVivo.tsx` no Chat (segurar o mic e o pedido depois do "Ely"): núcleo
+  de luz que nasce com mola (ZoomIn) acima do campo, onda de choque, três anéis que saem no ritmo
+  da voz, cinco barras no núcleo pulando com o volume (medidor do gravador a cada 70 ms →
+  `nivelVoz`), anel tracejado girando, "OUVINDO · 0:03"; pensando (áudio enviado, resposta
+  ainda não começou): anéis param, giro acelera, núcleo respira; ao responder sobe e some.
+  `ReduceMotion.System` em tudo.
+- Desktop (`chat.css`, `voz.js`, `dashboard.html`): o botão dá um "pulo" com halo
+  (`mic-burst`), a zona de voz nasce com mola e desfoque, barras em cascata do centro, onda de
+  choque, núcleo de luz atrás das barras seguindo o volume (`--nivel`) e anéis enquanto ouve
+  (`.ouvindo`); pensando, o núcleo fica ciano e respira. `prefers-reduced-motion` desliga.
+- ⚠️ Não conferido a olho (o Zak confere): a animação do desktop e a do celular.
+
+### Entregas
+- Desktop **2.5.0** publicado e instalado aqui (`pc.estado` respondendo com `som` virtual).
+- Celular: OTA no runtime `e2443894…` (APK 2.1.0). Testes: desktop 227, celular 74.
+
+### Guia para a sessão na nuvem (o Zak vai continuar por lá)
+**O que a nuvem consegue:** clonar `ZakWegues/elysium` e `ZakWegues/elysium-m`, `npm ci`,
+`npm run check` (tsc + vitest; no celular também o `expo export`), editar, commitar e dar push
+na `main`. O CI do desktop roda no GitHub.
+**O que só dá na máquina do Zak (Windows):** rodar o app de verdade (PowerShell, MCI, SAPI,
+porta 4200, userData), `npm run dist` / `npm run release` (assinatura local), `npm run
+build:local` do APK (Android SDK, `google-services.json` fora do git, keystore), `eas update`
+(conta logada), testes ao vivo (`scratchpad/rpc.mjs`, `erros-no-dashboard`, `shot.mjs`).
+Então: a nuvem deixa o código pronto e testado; a próxima sessão local publica (bump, CI,
+dist, release, instalar; OTA ou APK).
+**Regras que continuam valendo:** comentários em PT; `npm run check && git commit` (nunca `;`);
+commit e push por bloco nos dois repos; mudança de servidor leva o cliente no mesmo trabalho;
+nenhum rastro de IA em commit/PR/código; dado pessoal do Zak nunca no código, teste, bancada ou
+handoff (fica só no userData do app); não ler o `elysium-config.json`; não mexer em Downloads;
+Agenda Google e Tailscale pausados; não reabrir "vários provedores de IA"; regex escrito com
+cuidado (heredoc e template comem barra invertida); treino/nutrição só por pergunta, sem telas
+novas (§36, ajuste do Zak); release exige `## Novidades` e `## Para testar`.
+**Handoff:** este arquivo existe em duas cópias (`elysium/ULTRA_HANDOFF.md` no repo e
+`ELYSIUM/ULTRA_HANDOFF.md` na pasta-mãe, fora de git). Na nuvem só a do repo: anexe ali; a
+próxima sessão local copia para a pasta-mãe.
+
+### Fila sugerida (prontas para a nuvem, sem precisar do Windows)
+1. **Widget "Estado do PC"** no celular com o estado novo (janela/fechado/desligado/som) — o
+   widget Estado já existe (`widgets/handler.tsx`); exige APK novo para registrar, então fica
+   para publicar localmente.
+2. **Aviso de som no dashboard**: card Saúde do desktop mostrando `problemaDeSom` (hoje só
+   notificação do Windows + celular). `ultimaSaidaDeSom()` já está pronto.
+3. **Histórico de sessões** do PC no celular (quando abriu/fechou nos últimos dias): gravar uma
+   lista curta em `estado-app.json` e expor em `pc.estado`.
+4. Reordenar as seções do Hoje (só ocultar existe).
+5. "Fecha tudo menos X" com confirmação falada listando o que vai fechar.
+6. Pílula de fala também no desktop; despejo por voz com revisão antes de salvar (Ramble).
+7. DNS rebinding no `leitorDeLink.ts` (`lookup` próprio no agente HTTP).
+8. Mais casos na bancada (`scripts/bench-agente-casos.json`) — rodar a bancada só local (Ollama).
+**Pendências só do Zak:** trocar a saída de som para SAMSUNG; idade e sexo no Perfil (treino,
+só se quiser); nome do 3º exercício do Treino C; conferir as animações e o estado do PC no
+celular; §15 (backup da chave, `powercfg`).
