@@ -965,7 +965,8 @@ app.on("ready", async () => {
   startServer(serverToken, processCommand, cfg.serverPort ?? 4200, processCommandStream);
   iniciarAtualizacoes({ sair: quit, ocupado: () => state.get() !== "idle" });
   // Cérebro local: se o Ollama estiver parado, sobe já — antes do primeiro pedido pagar a espera.
-  if (cfg.routerProvider === "ollama" || cfg.chatProvider === "ollama") void garantirOllama(baseDoOllama());
+  // "auto" (fase 16) também usa o local para a conversa curta.
+  if (cfg.routerProvider === "ollama" || cfg.chatProvider !== "groq") void garantirOllama(baseDoOllama());
   // Modo foco (fase 12): distração vira balão no PC; o resumo do fim vai também ao celular.
   iniciarFoco({
     avisar: (titulo, corpo) => {

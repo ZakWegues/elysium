@@ -118,11 +118,17 @@ export function mapa30(h: Pick<Habito, "dias" | "marcados">, hoje = new Date()):
 const semAcento = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
 
 /** "academia", "a academia", "Academia 💪" → o hábito certo. Pura. */
-export function acharHabito<T extends Pick<Habito, "nome">>(habitos: T[], nome: string): T | undefined {
+export function acharHabito<T extends Pick<Habito, "nome">>(habitos: T[], nome: string, exato = false): T | undefined {
   const n = semAcento(nome).replace(/^(o|a|os|as|meu|minha)\s+/, "").replace(/[^\p{L}\p{N} ]/gu, "").trim();
   if (!n) return undefined;
   const limpo = (h: T) => semAcento(h.nome).replace(/[^\p{L}\p{N} ]/gu, "").trim();
-  return habitos.find(h => limpo(h) === n) ?? habitos.find(h => limpo(h).includes(n) || n.includes(limpo(h)));
+  // Nome só de emoji vira "" e casaria com qualquer frase — fica de fora.
+  const validos = habitos.filter(h => limpo(h).length > 0);
+  const igual = validos.find(h => limpo(h) === n);
+  if (igual || exato) return igual;
+  // Aproximado só no sentido "o nome do hábito contém o que foi dito" e com 3+ letras: o
+  // contrário ("a frase contém o nome") marcava "Água" em "marca um lembrete de beber água".
+  return n.length >= 3 ? validos.find(h => limpo(h).includes(n)) : undefined;
 }
 
 /**
@@ -130,7 +136,7 @@ export function acharHabito<T extends Pick<Habito, "nome">>(habitos: T[], nome: 
  * Pura — o fastRoute confere se o nome existe antes de agir.
  */
 export function pedidoDeHabito(texto: string): string | null {
-  const m = /^\s*(?:marquei|marca|marcar|fiz|já fiz|ja fiz|concluí|conclui|completei)\s+(?:o\s+|a\s+)?(?:hábito\s+|habito\s+)?(?:de\s+)?(.{2,40}?)(?:\s+hoje)?\s*[.!]?\s*$/i.exec(texto);
+  const m = /^\s*(?:marquei|fiz|já fiz|ja fiz|concluí|conclui|completei)\s+(?:o\s+|a\s+)?(?:hábito\s+|habito\s+)?(?:de\s+)?(.{2,40}?)(?:\s+hoje)?\s*[.!]?\s*$/i.exec(texto);
   return m ? m[1].trim() : null;
 }
 
@@ -228,7 +234,8 @@ export function salvarMeta(dados: Partial<Meta> & { titulo: string; alvo: number
   if (!(dados.alvo > 0)) throw new Error("o alvo precisa ser maior que zero");
   const todas = listarMetas();
   const existente = dados.id ? todas.find(m => m.id === dados.id) : undefined;
-  const prazo = typeof dados.prazo === "string" && /^\d{4}-\d{2}-\d{2}$/.test(dados.prazo) ? dados.prazo : undefined;
+  // Sem a chave `prazo` (o celular não manda), fica o que já estava; "" apaga de propósito.
+  const prazo = typeof dados.prazo === "string" ? (/^\d{4}-\d{2}-\d{2}$/.test(dados.prazo) ? dados.prazo : undefined) : existente?.prazo;
   const m: Meta = somarProgresso({
     id: existente?.id ?? id("m"),
     titulo,

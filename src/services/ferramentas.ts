@@ -348,7 +348,9 @@ export const FERRAMENTAS: Ferramenta[] = [
       const metas = listarMetas();
       const achada = acharHabito(metas.map(m => ({ ...m, nome: m.titulo })), str(a, "meta"));
       if (!achada) return metas.length ? `Não achei essa meta. As cadastradas: ${metas.map(m => m.titulo).join(", ")}.` : "Ainda não há metas cadastradas.";
-      const m = avancarMeta(achada.id, num(a, "quanto") ?? 1);
+      // O 7B às vezes manda número como texto ("200"); sem isto virava +1.
+      const bruto = num(a, "quanto") ?? Number(String(a["quanto"] ?? "").replace(",", "."));
+      const m = avancarMeta(achada.id, Number.isFinite(bruto) && bruto !== 0 ? bruto : 1);
       if (!m) return "Não consegui atualizar a meta.";
       return m.concluidaEm ? `Meta ${m.titulo} concluída: ${m.progresso} de ${m.alvo}.` : `Meta ${m.titulo}: ${m.progresso} de ${m.alvo}${m.unidade ? " " + m.unidade : ""}.`;
     },

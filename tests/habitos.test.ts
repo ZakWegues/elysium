@@ -63,3 +63,28 @@ describe("metas pela fala (fase 16)", async () => {
     expect(pedidoDeMeta("qual a minha meta")).toBeNull();
   });
 });
+
+describe("revisão de 07/10", async () => {
+  const { acharHabito, pedidoDeHabito } = await import("../src/services/habitos");
+  it("hábito: nada de 'a frase contém o nome', nada de nome só de emoji", () => {
+    const hs = [{ nome: "Água" }, { nome: "💪" }, { nome: "Leitura da noite" }];
+    expect(acharHabito(hs, "um lembrete pra beber água às 3")).toBeUndefined();
+    expect(acharHabito(hs, "qualquer coisa")).toBeUndefined();
+    expect(acharHabito(hs, "leitura")?.nome).toBe("Leitura da noite");
+    expect(acharHabito(hs, "leitura", true)).toBeUndefined();
+    expect(acharHabito(hs, "água", true)?.nome).toBe("Água");
+    expect(pedidoDeHabito("marca um lembrete pra beber água")).toBeNull();
+  });
+  it("desfazerTurno tira só o próprio turno, mesmo com outra pergunta depois", async () => {
+    const brain = await import("../src/services/brain");
+    brain.registrarTurnoUsuario("pergunta A");
+    brain.registrarTurnoUsuario("pergunta B");
+    brain.recordAssistantReply("resposta A");
+    brain.desfazerTurno("pergunta A", "resposta A");
+    brain.recordAssistantReply("resposta B");
+    const ctx = brain.contextoRecente();
+    expect(ctx).toContain("pergunta B");
+    expect(ctx).not.toContain("pergunta A");
+    expect(ctx).not.toContain("resposta A");
+  });
+});

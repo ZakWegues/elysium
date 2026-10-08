@@ -177,6 +177,31 @@ function formMeta(base = {}) {
   });
 }
 
+/**
+ * Todos os hábitos e metas (revisão de 07/10): a aba só mostra os que valem HOJE e as metas
+ * em andamento — sem isto, um hábito de seg/qua/sex não dava para editar na terça, e meta
+ * concluída não dava para apagar.
+ */
+async function gerenciarHabitos() {
+  const r = await window.nx.rpc("habitos.list");
+  const hs = r.result?.habitos ?? [], ms = r.result?.metas ?? [];
+  todosHabitos = hs; todasMetas = ms;
+  abrirGaveta({
+    titulo: "Hábitos e metas", icone: "list", classe: "gaveta-pc",
+    html: `<div class="hoje-gerenciar">
+      <h4>Hábitos</h4>${hs.length ? hs.map(h => `<button data-g-habito="${escHtml(h.id)}">${ico("check", "ico-sm")}<span>${escHtml(h.nome)}</span><small>${h.dias.length ? h.dias.map(d => DIAS_LONGOS[d]).join(", ") : "todo dia"} · 🔥${h.sequencia}</small></button>`).join("") : '<p class="hoje-vazio">Nenhum hábito.</p>'}
+      <h4>Metas</h4>${ms.length ? ms.map(m => `<button data-g-meta="${escHtml(m.id)}">${ico("star", "ico-sm")}<span>${escHtml(m.titulo)}</span><small>${m.progresso}/${m.alvo}${m.concluidaEm ? " · concluída" : ""}</small></button>`).join("") : '<p class="hoje-vazio">Nenhuma meta.</p>'}
+    </div>`,
+    aoAbrir: (corpo) => corpo.addEventListener("click", (e) => {
+      const bh = e.target.closest("[data-g-habito]");
+      if (bh) { formHabito(todosHabitos.find(x => x.id === bh.dataset.gHabito) ?? {}); return; }
+      const bm = e.target.closest("[data-g-meta]");
+      if (bm) formMeta(todasMetas.find(x => x.id === bm.dataset.gMeta) ?? {});
+    }),
+  });
+}
+let todosHabitos = [], todasMetas = [];
+
 async function buscarManchetes(botao) {
   const caixa = document.getElementById("hoje-manchetes");
   botao.disabled = true;
@@ -205,6 +230,7 @@ hojeEl()?.addEventListener("click", async (e) => {
     carregarHoje();
     return;
   }
+  if (alvo("[data-hoje-gerenciar]")) { gerenciarHabitos(); return; }
   if (alvo("[data-hoje-novo-habito]")) { formHabito(); return; }
   if (alvo("[data-hoje-nova-meta]")) { formMeta(); return; }
   const eh = alvo("[data-hoje-editar-habito]");

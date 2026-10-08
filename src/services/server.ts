@@ -26,7 +26,7 @@
  */
 
 import * as http from "node:http";
-import { desfazerUltimoTurno } from "./brain";
+import { desfazerTurno, desfazerUltimoTurno } from "./brain";
 import type { ResultadoComando } from "./command";
 import type { Fonte } from "./contextoComando";
 import { deveSugerir, sugerirContinuacoes } from "./continuacoes";
@@ -673,7 +673,7 @@ function handleUpgrade(
         executar(msg.text, msg.canal === "texto" ? "texto" : "voz")
           // Bloco 131: `fontes` vai junto; app antigo lê só o `reply`.
           .then(({ reply, fontes }) => {
-            if (fechado) { desfazerUltimoTurno(); console.log("[WS] conexão fechada no meio; resposta descartada."); return; }
+            if (fechado) { desfazerTurno(msg.text!, reply); console.log("[WS] conexão fechada no meio; resposta descartada."); return; }
             sendToClient(client, JSON.stringify({ type: "reply", reply, ...(fontes?.length ? { fontes } : {}) }));
           })
           .catch(err  => {
@@ -697,6 +697,8 @@ function handleUpgrade(
       }
       sendToClient(client, JSON.stringify({ type: "transcript", text }));
       const { reply, fontes } = await executar(text);
+      // Parado no meio (o mesmo caso do texto): descarta e tira o turno do histórico.
+      if (fechado) { desfazerTurno(text, reply); return; }
       sendToClient(client, JSON.stringify({ type: "reply", reply, ...(fontes?.length ? { fontes } : {}) }));
     } catch (e) {
       console.error("[WS] falha ao processar áudio (transcrição ou comando):", e);

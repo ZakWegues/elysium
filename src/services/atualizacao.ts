@@ -317,16 +317,19 @@ export async function verificarAtualizacoes(): Promise<EstadoAtualizacao> {
 
     // Cada repositório por si (07/10): o token sem acesso a um deles não pode esconder o outro.
     const erros: string[] = [];
-    const pegar = (repo: string) => ultimaRelease(repo, tk).catch((e: unknown) => { erros.push(e instanceof Error ? e.message : String(e)); return null; });
+    // Repositório que FALHOU (rede, 404) é diferente de "sem release": o pacote que já estava
+    // baixado dele fica — antes ele sumia do estado e o `limparAntigos` apagava o arquivo.
+    const falhou = new Set<string>();
+    const pegar = (repo: string) => ultimaRelease(repo, tk).catch((e: unknown) => { erros.push(e instanceof Error ? e.message : String(e)); falhou.add(repo); return null; });
     const [relPc, relCel] = await Promise.all([pegar(REPO_DESKTOP), pegar(REPO_CELULAR)]);
     if (erros.length === 2) throw new Error(erros[0]);
     const assetPc = relPc?.assets.find(a => /\.exe$/i.test(a.name));
     const assetCel = relCel?.assets.find(a => /\.apk$/i.test(a.name));
 
     // Só interessa o instalador se for MAIS NOVO que o que está rodando.
-    const desktop = relPc && assetPc && compararVersoes(relPc.tag_name, estado.atual) > 0 ? pacoteDe(relPc, assetPc) : undefined;
+    const desktop = falhou.has(REPO_DESKTOP) ? estado.desktop : relPc && assetPc && compararVersoes(relPc.tag_name, estado.atual) > 0 ? pacoteDe(relPc, assetPc) : undefined;
     // O APK é guardado sempre (o PC não sabe a versão do celular; quem compara é o app).
-    const celular = relCel && assetCel ? pacoteDe(relCel, assetCel) : undefined;
+    const celular = falhou.has(REPO_CELULAR) ? estado.celular : relCel && assetCel ? pacoteDe(relCel, assetCel) : undefined;
     // Durante um download, o estado de quem está baixando fica como está: recriar o pacote
     // zeraria a barra até o próximo aviso de progresso.
     mudar({

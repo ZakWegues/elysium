@@ -148,7 +148,7 @@ export function fastRoute(text: string): BrainAction[] | null {
   // "marquei academia" (fase 16): atalho só quando o nome bate com um hábito cadastrado —
   // "fiz o café" não é hábito e segue para o cérebro.
   const habito = pedidoDeHabito(text);
-  if (habito && acharHabito(listarHabitos(), habito)) return [{ action: "habit_mark", name: habito }];
+  if (habito && acharHabito(listarHabitos(), habito, true)) return [{ action: "habit_mark", name: habito }];
   const meta = pedidoDeMeta(text);
   if (meta && acharHabito(listarMetas().map(m => ({ nome: m.titulo })), meta.meta)) return [{ action: "goal_add", name: meta.meta, delta: meta.delta }];
   const timer = interpretarTimer(text);

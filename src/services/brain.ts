@@ -261,6 +261,19 @@ export function recordAssistantReply(text: string): void {
  * "editar a última pergunta" do chat (bloco 84). Sem isto o modelo veria a pergunta duas
  * vezes seguidas, com a resposta rejeitada no meio, e tenderia a repeti-la.
  */
+/**
+ * Tira do histórico ESTE turno (07/10, revisão): a pergunta e a resposta dele, procurando de
+ * trás para frente. O "Parar" do celular fecha a conexão, mas o PC termina de gerar; se o Zak
+ * já tiver mandado outra pergunta, o `desfazerUltimoTurno` tiraria a pergunta NOVA e deixaria
+ * a resposta velha no lugar dela.
+ */
+export function desfazerTurno(pergunta: string, resposta: string): void {
+  const iResp = history.map(m => m.role === "assistant" && m.content === resposta).lastIndexOf(true);
+  if (iResp >= 0) history.splice(iResp, 1);
+  const iPerg = history.map(m => m.role === "user" && m.content === pergunta).lastIndexOf(true);
+  if (iPerg >= 0) history.splice(iPerg, 1);
+}
+
 export function desfazerUltimoTurno(): void {
   while (history.length && history[history.length - 1].role === "assistant") history.pop();
   if (history.length && history[history.length - 1].role === "user") history.pop();
