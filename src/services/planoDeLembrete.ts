@@ -18,7 +18,7 @@ const HORA_DO_DIA_DO_EVENTO = 8;
 const COMPROMISSO = /\b(prova|provas|exame|teste|simulado|vestibular|enem|concurso|entrevista|consulta|m[eé]dic[oa]|dentista|exame de sangue|reuni[aã]o|apresenta[cç][aã]o|semin[aá]rio|viagem|voo|embarque|anivers[aá]rio|casamento|formatura|audi[eê]ncia|entrega|prazo|defesa|tcc|trabalho de|trabalho para|show|jogo)\b/i;
 
 /** Tarefa sobre o compromisso ("ligar pro dentista", "marcar consulta") não é o compromisso. */
-const TAREFA_DE_VERBO = /^s*(ligar|marcar|agendar|desmarcar|remarcar|mandar|enviar|pagar|comprar|ver|olhar|confirmar|pesquisar|reservar)/i;
+const TAREFA_DE_VERBO = /^\s*(ligar|marcar|agendar|desmarcar|remarcar|mandar|enviar|pagar|comprar|ver|olhar|confirmar|pesquisar|reservar)\b/i;
 
 export function ehCompromisso(texto: string): boolean {
   return COMPROMISSO.test(texto) && !TAREFA_DE_VERBO.test(texto);
