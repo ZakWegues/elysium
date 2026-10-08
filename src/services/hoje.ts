@@ -115,15 +115,17 @@ async function fraseHumana(p: Omit<PainelHoje, "frase" | "geradoEm">, reserva: s
       provider,
       model: provider === "groq" ? cfg.brainModel : cfg.ollamaChatModel,
       temperature: 0.7,
-      maxTokens: 160,
+      // O gpt-oss raciocina antes de responder e o raciocínio conta no teto: com 160 a
+      // resposta saía vazia e caía sempre na frase fixa.
+      maxTokens: 900,
       timeoutMs: 8000,
       messages: [
-        { role: "system", content: `Você é a Ely, a assistente pessoal (no estilo da FRIDAY do Tony Stark: calorosa, esperta, um toque de humor). Escreva o resumo do topo da página "Hoje" em NO MÁXIMO duas frases curtas, em português do Brasil, falando direto com a pessoa${tratamento ? ` (chame de "${tratamento}" no máximo uma vez)` : ""}. Destaque o que mais importa (prova ou compromisso amanhã, algo atrasado, uma sequência de hábito em jogo) e, se fizer sentido, um incentivo ou dica prática. Use SÓ os fatos dados — não invente nada. Sem listas, sem emoji, sem aspas, sem saudação (a saudação já está acima). Se não houver nada, diga algo leve e gentil sobre o dia tranquilo.` },
+        { role: "system", content: `Você é a Ely, a assistente pessoal (no estilo da FRIDAY do Tony Stark: calorosa, esperta, um toque de humor). Escreva o resumo do topo da página "Hoje" em NO MÁXIMO duas frases curtas (até uns 220 caracteres no total), em português do Brasil, falando direto com a pessoa${tratamento ? ` (chame de "${tratamento}" no máximo uma vez)` : ""}. Destaque o que mais importa (prova ou compromisso amanhã, algo atrasado, uma sequência de hábito em jogo) e, se fizer sentido, um incentivo ou dica prática. Use SÓ os fatos dados — não invente nada. Sem listas, sem emoji, sem aspas, sem saudação (a saudação já está acima). Se não houver nada, diga algo leve e gentil sobre o dia tranquilo.` },
         { role: "user", content: `Agora: ${agora.toLocaleString("pt-BR", { weekday: "long", hour: "2-digit", minute: "2-digit" })}.\nFatos:\n${fatos.length ? fatos.map(x => `- ${x}`).join("\n") : "- nada pendente"}` },
       ],
     });
     const frase = texto.replace(/^["“]|["”]$/g, "").replace(/\s+/g, " ").trim();
-    if (!frase || frase.length > 400) return reserva;
+    if (!frase || frase.length > 400) { console.warn(`[hoje] frase do modelo descartada (${frase.length} caracteres)`); return reserva; }
     cacheHumano = { chave, frase, em: Date.now() };
     return frase;
   } catch {
