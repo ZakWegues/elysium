@@ -9,8 +9,7 @@ import { verificarSaude } from "./saude";
 import { listarTarefas, type Tarefa } from "./tarefas";
 import { callChat } from "./llm";
 import { getApiKey } from "../main/config";
-import { montarPainelCorpo, type PainelCorpo } from "./corpo";
-import { dicaDoCorpo, ideiaDoDia, testesFeitos } from "./ideiasDoDia";
+import { ideiaDoDia, testesFeitos } from "./ideiasDoDia";
 import { estadoAtualizacao, notasDaVersaoAtual, secoesDasNotas } from "./atualizacao";
 import { app } from "electron";
 
@@ -41,10 +40,6 @@ export interface PainelHoje {
   rotinasHoje: { id: string; nome: string; em: number }[];
   rotinasRodaram: { id: string; nome: string; em: number; ok: boolean; resultado: string }[];
   alertas: { titulo: string; detalhe: string; nivel: string }[];
-  /** Fase 18: treino da vez, meta de calorias, corrida — `null` sem nada cadastrado. */
-  corpo: PainelCorpo | null;
-  /** A dica de treino/nutrição da hora (renova ao tocar: `corpo.dica`). */
-  dica: { texto: string; em: number } | null;
   /** Card ELYSIUM: versão, o que veio na última atualização e o que testar. */
   elysium: { versao: string; novidades: string[]; paraTestar: { item: string; feito: boolean }[]; atualizacaoPronta: string | null };
   /** "Algo legal para fazer hoje" (renova: `hoje.ideia`). */
@@ -100,7 +95,7 @@ async function seguro<T>(fn: () => Promise<T> | T, padrao: T): Promise<T> {
 let cacheHumano: { chave: string; frase: string; em: number } | null = null;
 
 /** Os fatos em linhas curtas, do mais importante ao menos. Pura, para teste. */
-export function fatosDoDia(p: Omit<PainelHoje, "frase" | "geradoEm" | "dica" | "ideia" | "elysium" | "amanha" | "ocultos">, agora = new Date()): string[] {
+export function fatosDoDia(p: Omit<PainelHoje, "frase" | "geradoEm" | "ideia" | "elysium" | "amanha" | "ocultos">, agora = new Date()): string[] {
   const f: string[] = [];
   const hora = (ms: number) => new Date(ms).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
   const amanha = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate() + 1).getTime();
@@ -120,13 +115,11 @@ export function fatosDoDia(p: Omit<PainelHoje, "frase" | "geradoEm" | "dica" | "
   if (p.clima) f.push(`Clima: ${Math.round(p.clima.temperatura)} graus, ${p.clima.descricao}${p.clima.chuvaHoje ? ", com chuva hoje" : ""}`);
   if (p.alertas.length) f.push(`Alertas do PC: ${p.alertas.map(a => a.titulo).join(", ")}`);
   if (p.timers.length) f.push(`Timers correndo: ${p.timers.map(t => t.nome || "sem nome").join(", ")}`);
-  const th = p.corpo?.treinoHoje;
-  if (th) f.push(th.feitoHoje ? `Treino de hoje (${th.treino.nome}) já feito` : `Treino da vez: ${th.treino.nome}`);
   if (p.rotinasHoje?.length) f.push(`Rotinas ainda hoje: ${p.rotinasHoje.map(r => `${r.nome} às ${hora(r.em)}`).join(", ")}`);
   return f;
 }
 
-async function fraseHumana(p: Omit<PainelHoje, "frase" | "geradoEm" | "dica" | "ideia" | "elysium" | "amanha" | "ocultos">, reserva: string, tratamento: string, agora: Date): Promise<string> {
+async function fraseHumana(p: Omit<PainelHoje, "frase" | "geradoEm" | "ideia" | "elysium" | "amanha" | "ocultos">, reserva: string, tratamento: string, agora: Date): Promise<string> {
   const fatos = fatosDoDia(p, agora);
   const chave = `${agora.getHours() < 12 ? "m" : agora.getHours() < 18 ? "t" : "n"}|${tratamento}|${fatos.join("|")}`;
   if (cacheHumano && cacheHumano.chave === chave && Date.now() - cacheHumano.em < 20 * 60_000) return cacheHumano.frase;
@@ -184,9 +177,6 @@ export async function montarPainelHoje(agora = new Date()): Promise<PainelHoje> 
     .sort((a, b) => b.em - a.em)
     .slice(0, 8);
   const proximaRotina = rotinasHoje[0] ? { nome: rotinasHoje[0].nome, em: rotinasHoje[0].em } : null;
-  const corpoBruto = await seguro(() => montarPainelCorpo(agora), null);
-  // Sem treino nem perfil preenchido, o card não aparece — não é para todo mundo.
-  const corpo = corpoBruto && (corpoBruto.treinos.length || !corpoBruto.faltaPerfil.length) ? corpoBruto : null;
 
   const cfg = getConfig();
   const tratamento = cfg.tratamento ?? "chefe";
@@ -201,16 +191,17 @@ export async function montarPainelHoje(agora = new Date()): Promise<PainelHoje> 
     saudacao: saudacaoStark(agora.getHours(), tratamento),
     data: agora.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" }),
     clima: clima ? { cidade: clima.cidade, temperatura: clima.temperatura, max: clima.max, min: clima.min, descricao: clima.descricao, icone: clima.icone, chuvaHoje: clima.chuvaHoje } : null,
-    lembretes, tarefas, timers, listas, habitos, metas, proximaRotina, rotinasHoje, rotinasRodaram, alertas, corpo,
+    lembretes, tarefas, timers, listas, habitos, metas, proximaRotina, rotinasHoje, rotinasRodaram, alertas,
   };
   const fatos = fatosDoDia(base, agora);
-  const [frase, dica, ideia, elysium] = await Promise.all([
+  // Treino e nutrição ficam fora do Hoje (o Zak, 08/10): os dados estão no corpo.json e a Ely
+  // responde quando ele pergunta (ferramentas treino_de_hoje, ver_meta_calorias).
+  const [frase, ideia, elysium] = await Promise.all([
     fraseHumana(base, reserva, tratamento, agora),
-    corpo ? seguro(() => dicaDoCorpo(false, agora), null) : Promise.resolve(null),
     seguro(() => ideiaDoDia(fatos, false, agora), null),
     cardElysium(),
   ]);
-  return { ...base, frase, dica, ideia, elysium, amanha: meuAmanha(tarefas, clima, agora), ocultos: cfg.hojeOcultos ?? [], geradoEm: Date.now() };
+  return { ...base, frase, ideia, elysium, amanha: meuAmanha(tarefas, clima, agora), ocultos: cfg.hojeOcultos ?? [], geradoEm: Date.now() };
 }
 
 /**

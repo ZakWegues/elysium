@@ -102,17 +102,13 @@ describe("notas da release → card ELYSIUM", () => {
   });
 });
 
-describe("resumo falado com o corpo e o ELYSIUM", () => {
-  it("treino, meta, dica, ideia e novidade entram na ordem", () => {
+describe("resumo falado sem o corpo", () => {
+  it("treino e calorias ficam de fora (só quando perguntam); novidade e ideia entram", () => {
     const t = montarResumo({
       agora: new Date(2026, 9, 8, 9), nome: "", clima: null, lembretes: [], rotinas: [], recadosNovos: 0, alertas: [], versaoNova: null,
-      treino: { nome: "Treino B", exercicios: ["Puxada Alta", "Remada"], feito: false },
-      meta: { kcal: 2830, proteinaG: 114 }, dica: "Coma uma banana antes do treino",
       elysium: { versao: "2.2.0", novidade: "Abas vivas", paraTestar: 3 }, ideia: "Caminhe 20 minutos",
     });
-    expect(t).toContain("Hoje é dia de Treino B, começando por Puxada Alta e Remada.");
-    expect(t).toContain("Meta de hoje: 2830 calorias");
-    expect(t.indexOf("Treino B")).toBeLessThan(t.indexOf("Dica:"));
+    expect(t).not.toMatch(/treino|calorias/i);
     expect(t).toContain("No ELYSIUM 2.2.0: Abas vivas. Tem 3 itens para testar no Hoje.");
     expect(t.trim().endsWith("Uma ideia para hoje: Caminhe 20 minutos.")).toBe(true);
   });

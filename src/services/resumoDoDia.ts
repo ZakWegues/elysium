@@ -7,8 +7,7 @@ import { listMessages } from "./mailboxStore";
 import { verificarSaude } from "./saude";
 import { estadoAtualizacao } from "./atualizacao";
 import { eventosDoDia } from "./agenda";
-import { montarPainelCorpo } from "./corpo";
-import { dicaDoCorpo, ideiaDoDia } from "./ideiasDoDia";
+import { ideiaDoDia } from "./ideiasDoDia";
 import { listarTarefas } from "./tarefas";
 import { notasDaVersaoAtual, secoesDasNotas } from "./atualizacao";
 
@@ -38,10 +37,6 @@ export interface FatosResumo {
   habitosFaltando?: { nome: string; sequencia: number }[];
   /** Fase 18 (08/10): o resumo do Hoje completo — o Zak pediu "tudo que já tá e mais um pouco". */
   tarefasAtrasadas?: string[];
-  treino?: { nome: string; exercicios: string[]; feito: boolean } | null;
-  meta?: { kcal: number; proteinaG: number } | null;
-  dica?: string | null;
-  corrida?: { semana: number; texto: string; feitaHoje: boolean } | null;
   /** Uma frase sobre a última atualização do ELYSIUM e quantos itens há para testar. */
   elysium?: { versao: string; novidade: string | null; paraTestar: number } | null;
   ideia?: string | null;
@@ -84,16 +79,6 @@ export function montarResumo(f: FatosResumo): string {
   // Fase 16: hábito pendente com sequência em jogo é o lembrete que mais vale ("não quebra
   // os 12 dias da leitura").
   if (f.tarefasAtrasadas?.length) partes.push(`${f.tarefasAtrasadas.length === 1 ? "Uma tarefa atrasada" : `${f.tarefasAtrasadas.length} tarefas atrasadas`}: ${lista(f.tarefasAtrasadas.slice(0, 3))}.`);
-
-  // Corpo (fase 18): treino da vez, meta do dia e a dica — na ordem em que se usa.
-  if (f.treino) {
-    partes.push(f.treino.feito
-      ? `O ${f.treino.nome} de hoje já está feito.`
-      : `Hoje é dia de ${f.treino.nome}${f.treino.exercicios.length ? `, começando por ${lista(f.treino.exercicios.slice(0, 3))}` : ""}.`);
-  }
-  if (f.meta) partes.push(`Meta de hoje: ${f.meta.kcal} calorias, com ${f.meta.proteinaG} gramas de proteína.`);
-  if (f.dica) partes.push(`Dica: ${f.dica.replace(/[.!]?$/, ".")}`);
-  if (f.corrida && !f.corrida.feitaHoje) partes.push(`Na corrida, semana ${f.corrida.semana} do plano: ${f.corrida.texto.replace(/ · /g, ", ")}.`);
 
   const hab = f.habitosFaltando ?? [];
   if (hab.length) {
@@ -156,27 +141,20 @@ function ate<T>(ms: number, p: Promise<T>): Promise<T | null> {
 }
 
 /**
- * O que a fase 18 somou ao resumo. A dica e a ideia normalmente já estão no cache (o Hoje as
- * gerou); se não, esperam no máximo 4 s e o resumo segue sem elas.
+ * O que a fase 18 somou ao resumo. A ideia normalmente já está no cache (o Hoje a gerou); se
+ * não, espera no máximo 4 s e o resumo segue sem ela. Treino e nutrição não entram: só quando
+ * o Zak pergunta.
  */
 async function extrasFase18(agora: Date): Promise<Partial<FatosResumo>> {
-  const corpo = (() => { try { return montarPainelCorpo(agora); } catch { return null; } })();
-  const temCorpo = !!corpo && (corpo.treinos.length > 0 || !corpo.faltaPerfil.length);
-  const th = temCorpo ? corpo!.treinoHoje : null;
   let atrasadas: string[] = [];
   try { atrasadas = listarTarefas().filter(t => !t.feita && t.prazo && t.prazo < agora.getTime()).map(t => t.texto); } catch { /* segue */ }
-  const [dica, ideia, notas] = await Promise.all([
-    temCorpo ? ate(4000, dicaDoCorpo(false, agora)) : Promise.resolve(null),
+  const [ideia, notas] = await Promise.all([
     ate(4000, ideiaDoDia([], false, agora)),
     ate(4000, notasDaVersaoAtual()),
   ]);
   const secoes = notas ? secoesDasNotas(notas.texto) : null;
   return {
     tarefasAtrasadas: atrasadas,
-    treino: th ? { nome: th.treino.nome, exercicios: th.treino.exercicios.map(e => e.nome), feito: th.feitoHoje } : null,
-    meta: temCorpo && corpo!.meta ? { kcal: corpo!.meta.kcal, proteinaG: corpo!.meta.proteinaG } : null,
-    dica: dica?.texto ?? null,
-    corrida: temCorpo ? { semana: corpo!.corrida.semana, texto: corpo!.corrida.texto, feitaHoje: corpo!.corrida.feitaHoje } : null,
     elysium: notas && secoes?.novidades.length ? { versao: notas.versao, novidade: secoes.novidades[0], paraTestar: secoes.paraTestar.length } : null,
     ideia,
   };

@@ -135,12 +135,12 @@
 #hoje-agenda:not(:empty) { margin-top: 8px; padding-top: 6px; border-top: 1px dashed var(--border); }
 .hoje-concluir-nome { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
 
-/* Fase 18 (08/10): rotinas do dia, ideia, card ELYSIUM, treino, nutrição e corrida. */
+/* Fase 18 (08/10): rotinas do dia, ideia e card ELYSIUM. */
 .hoje-rodou b { color: var(--muted); }
 .hoje-rodou.ok .ico { color: var(--green, #3ecf8e); }
 .hoje-rodou.falhou .ico { color: var(--red, #e05252); }
 .hoje-ideia p { margin: 0; font-size: 13.5px; line-height: 1.5; color: var(--text); transition: opacity var(--mov-base, 220ms), transform var(--mov-base, 220ms); }
-.hoje-ideia.trocando p, .nutri-dica.trocando span { opacity: 0.25; transform: translateY(3px); }
+.hoje-ideia.trocando p { opacity: 0.25; transform: translateY(3px); }
 .hoje-sub { margin: 10px 0 6px; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--cyan); font-weight: 600; }
 .hoje-sub:first-child { margin-top: 0; }
 .hoje-novidades { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.55; color: var(--text); }
@@ -149,43 +149,7 @@
 .hoje-testar.feito span { color: var(--muted); text-decoration: line-through; }
 .hoje-alerta.aviso { margin-bottom: 8px; }
 
-.treino-topo { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 8px; }
-.treino-nome { font-size: 17px; font-weight: 700; color: var(--text); letter-spacing: 0.02em; }
-.treino-topo small { color: var(--muted); font-size: 11.5px; }
-.treino-topo.feito .treino-nome { color: var(--purple-bright); }
 .hoje-acao.principal { background: rgba(var(--purple-rgb), 0.22); border-color: rgba(var(--purple-rgb), 0.55); color: var(--text); }
-.treino-lista { margin: 0; padding-left: 20px; display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 4px 18px; }
-.treino-lista li { font-size: 13px; color: var(--text); padding: 3px 0; }
-.treino-lista li span { display: block; }
-.treino-lista li small { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
-
-.nutri-kcal { display: flex; align-items: baseline; gap: 8px; }
-.nutri-kcal b { font-size: 30px; font-weight: 700; color: var(--purple-bright); font-variant-numeric: tabular-nums; }
-.nutri-kcal span { color: var(--muted); font-size: 12px; }
-.nutri-macros { display: flex; flex-wrap: wrap; gap: 6px 14px; margin: 4px 0 8px; font-size: 12px; color: var(--muted); }
-.nutri-macros b { color: var(--text); }
-.nutri-dica {
-  display: flex; gap: 8px; align-items: flex-start; width: 100%; margin: 6px 0; padding: 9px 11px; text-align: left;
-  border-radius: var(--radius-8); border: 1px dashed rgba(var(--purple-rgb), 0.45); background: rgba(var(--purple-rgb), 0.08);
-  color: var(--text); font-family: inherit; font-size: 12.5px; line-height: 1.45; cursor: pointer;
-}
-.nutri-dica:hover { background: rgba(var(--purple-rgb), 0.14); }
-.nutri-dica .ico { flex-shrink: 0; margin-top: 2px; color: var(--cyan); }
-.nutri-dica span { transition: opacity var(--mov-base, 220ms), transform var(--mov-base, 220ms); }
-.nutri-nota { display: block; color: var(--muted); font-size: 10.5px; margin-top: 4px; }
-
-.corrida-semana { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--cyan); font-weight: 600; }
-.corrida-texto { margin: 6px 0 2px; font-size: 13.5px; color: var(--text); line-height: 1.45; }
-#hoje-corrida > small { color: var(--muted); font-size: 11.5px; }
-#hoje-corrida .home-acoes { margin-top: 8px; }
-.corrida-ultimas { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-.corrida-ultimas span { font-size: 11px; color: var(--muted); padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); }
-
-.treino-ex { display: grid; grid-template-columns: minmax(0, 1fr) 52px 62px 64px 80px 30px; gap: 6px; margin-bottom: 6px; }
-.treino-ex input { padding: 7px 8px; border-radius: var(--radius-8); border: 1px solid var(--border); background: rgba(0,0,0,0.2); color: var(--text); font-family: inherit; font-size: 12.5px; min-width: 0; }
-.theme-lg .treino-ex input { background: rgba(255,255,255,0.9); }
-.treino-ex button { border: 0; background: transparent; color: var(--muted); cursor: pointer; border-radius: 50%; }
-.treino-ex button:hover { color: var(--red, #e05252); }
 
 /* Tarefas em tela cheia (fase 18). Cobre a aba Hoje; a barra de abas continua em cima. */
 /* Aberta, a aba para de rolar e vai ao topo: a tela cheia cobre exatamente o que se vê. */

@@ -86,7 +86,7 @@ export async function ideiaDoDia(fatos: string[], nova = false, agora = new Date
   const dia = diaDe(agora);
   if (!nova && ideia?.dia === dia) return ideia.texto;
   const texto = await perguntar(
-    "Você é a Ely, assistente pessoal com jeito de FRIDAY (Tony Stark). Sugira UMA coisa legal, concreta e possível de fazer HOJE — lazer, aprender algo, cuidar de si, um projeto pessoal, algo com amigos — levando em conta os fatos (clima, dia da semana, compromissos, treino). Uma ou duas frases curtas (até 200 caracteres), português do Brasil, tom leve. Não repita o que já está nos compromissos. Sem emoji, sem aspas, sem saudação.",
+    "Você é a Ely, assistente pessoal com jeito de FRIDAY (Tony Stark). Sugira UMA coisa legal, concreta e possível de fazer HOJE — lazer, aprender algo, cuidar de si, um projeto pessoal, algo com amigos — levando em conta os fatos (clima, dia da semana, compromissos). Uma ou duas frases curtas (até 200 caracteres), português do Brasil, tom leve. Não repita o que já está nos compromissos. Sem emoji, sem aspas, sem saudação.",
     `Agora: ${agora.toLocaleString("pt-BR", { weekday: "long", hour: "2-digit", minute: "2-digit" })}.\nFatos:\n${fatos.length ? fatos.map(f => `- ${f}`).join("\n") : "- dia livre"}${nova && ideia ? `\nNão repita esta ideia: ${ideia.texto}` : ""}`,
   );
   const reserva = IDEIAS_RESERVA[(agora.getDate() + (nova ? Math.floor(Math.random() * 5) + 1 : 0)) % IDEIAS_RESERVA.length];

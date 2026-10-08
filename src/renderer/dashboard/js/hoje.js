@@ -147,11 +147,10 @@ function desenharHoje() {
   el.querySelector("#hoje-listas").innerHTML = p.listas.length
     ? p.listas.map(l => `<div class="hoje-lista"><b>${escHtml(l.nome)}</b> <span class="hoje-cont">${l.pendentes}</span><div>${l.itens.map(escHtml).join(" · ")}</div></div>`).join("")
     : `<div class="hoje-vazio">Nada pendente nas listas.</div>`;
-  // Fase 18: rotinas do dia, ideia, card ELYSIUM e o corpo (treino.js).
+  // Fase 18: rotinas do dia, ideia e card ELYSIUM. Treino só quando se pergunta à Ely.
   el.querySelector("#hoje-rotinas").innerHTML = desenharRotinasHoje(p.rotinasHoje ?? [], p.rotinasRodaram ?? []);
   el.querySelector("#hoje-ideia").innerHTML = p.ideia ? `<p>${escHtml(p.ideia)}</p>` : `<div class="hoje-vazio">Sem ideia agora — toque em Outra.</div>`;
   desenharElysiumHoje(p.elysium);
-  if (typeof desenharCorpoHoje === "function") desenharCorpoHoje(p.corpo ?? null, p.dica ?? null);
   desenharAmanhaHoje(p.amanha ?? null);
   aplicarSecoesOcultas(p.ocultos ?? []);
   const alertas = el.querySelector("#hoje-alertas");
