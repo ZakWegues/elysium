@@ -22,7 +22,8 @@ function hora(h: number, m: number): string {
 export function paraOuvido(texto: string): string {
   return texto
     // Dinheiro: "R$ 1.234,50" → "1234 reais e 50 centavos".
-    .replace(/R\$\s?(\d{1,3}(?:\.\d{3})*|\d+)(?:,(\d{2}))?/g, (_m, inteiro: string, cent?: string) => {
+    // Milhar com ponto primeiro; senão o número inteiro (sem isso "R$ 12345" virava "123 reais45").
+    .replace(/R\$\s?(\d{1,3}(?:\.\d{3})+|\d+)(?:,(\d{2}))?/g, (_m, inteiro: string, cent?: string) => {
       const reais = inteiro.replace(/\./g, "");
       const c = cent && cent !== "00" ? ` e ${Number(cent)} centavo${Number(cent) === 1 ? "" : "s"}` : "";
       return `${reais} rea${reais === "1" ? "l" : "is"}${c}`;

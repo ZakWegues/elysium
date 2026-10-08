@@ -66,7 +66,8 @@ export function cleanTextForSpeech(raw: string): string {
     .replace(/\bEly\b/gi, "Éli")
     .replace(/\s+/g, " ")
     .trim())
-    .substring(0, 2000);
+    // Teto DEPOIS de expandir ("16h" vira "16 horas"): folga para a parte de 1400 do celular.
+    .substring(0, 2600);
 }
 
 // ── Voz para o celular (bloco 85) ────────────────────────────────────────────

@@ -189,10 +189,13 @@ pedir de novo.**
 
 ### Git
 
-| Repo | HEAD (29/09/2026) | Estado |
+| Repo | HEAD (08/10/2026) | Estado |
 |---|---|---|
-| `elysium` | fase 13 (§31) — desktop **1.6.1**, instalado aqui | limpo, pusheado, CI verde, releases assinadas desde `v1.6.0` |
-| `elysium-m` | fase 12 (§30) — celular **1.5.2** (`versionCode` 16) | limpo, pusheado, releases `v1.4.0`…`v1.5.2` |
+| `elysium` | fase 18 (§36) — desktop **2.4.0**, instalado aqui | limpo, pusheado, CI verde, releases assinadas |
+| `elysium-m` | fase 18 (§36) — celular **2.1.0** (`versionCode` 21) + OTA | limpo, pusheado, releases com versão e certificado conferidos |
+
+> Atualizado em 08/10/2026 (fase 18). O texto abaixo da tabela é histórico — as versões
+> de verdade estão na tabela e no `git log`.
 
 > **Desde 29/09/2026 as versões saem como releases do GitHub e se atualizam sozinhas**
 > (§30, bloco 95). O desktop **instalado nesta máquina já é o 1.5.2**, em
@@ -1459,7 +1462,9 @@ Guardar para não re-medir:
 
 ## 16. Catálogo de features futuras
 
-Do plano de expansão, não implementadas. Nenhuma está começada.
+Do plano de expansão. ⚠️ Atualizado em 08/10/2026: várias saíram depois desta lista
+(C2 streaming, C3 palavra de ativação, C4 barge-in, C5, C9, C11, C13 — ver §26 em diante);
+o que segue aberto está na §36.
 
 ### Inteligência
 
@@ -1517,7 +1522,8 @@ removido, nada foi commitado. **Não retomar sem pedido explícito.**
 
 ## 17. Como validar
 
-Não há teste automatizado em nenhum dos dois repositórios.
+Desde a fase 12 há testes de lógica pura nos dois repositórios (vitest): `npm run check`
+roda tipos + testes (no celular, também o `expo export`). Na fase 18: 220+ no PC, 70+ no celular.
 
 ### Automático
 

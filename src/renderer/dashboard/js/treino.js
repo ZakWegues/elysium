@@ -63,8 +63,8 @@ function desenharCorpoHoje(corpo, dica) {
 
 // ── formulários ──────────────────────────────────────────────────────────────
 
-function linhaExercicio(e = {}) {
-  return `<div class="treino-ex">
+function linhaExercicio(e = {}, i) {
+  return `<div class="treino-ex"${i === undefined ? "" : ` data-ex-i="${i}"`}>
     <input type="text" name="nome" value="${escHtml(e.nome ?? "")}" placeholder="Exercício" maxlength="80" aria-label="Exercício">
     <input type="number" name="aquecimento" value="${e.aquecimento ?? ""}" min="0" max="5" placeholder="aq." title="Séries de aquecimento" aria-label="Aquecimento">
     <input type="number" name="series" value="${e.series ?? ""}" min="1" max="10" placeholder="séries" title="Séries válidas" aria-label="Séries">
@@ -107,7 +107,9 @@ function formTreino(base = {}) {
         const exercicios = [...caixa.querySelectorAll(".treino-ex")].map(l => {
           const v = (n) => l.querySelector(`[name="${n}"]`).value.trim();
           const n = (k) => (v(k) === "" ? undefined : Number(v(k)));
-          return { nome: v("nome"), aquecimento: n("aquecimento"), series: n("series"), reps: v("reps") || undefined, carga: v("carga") || undefined };
+          // Parte do original: o que o formulário não mostra (obs, tipo, descanso) não se perde.
+          const orig = l.dataset.exI !== undefined ? base.exercicios?.[Number(l.dataset.exI)] : undefined;
+          return { ...(orig ?? {}), nome: v("nome"), aquecimento: n("aquecimento"), series: n("series"), reps: v("reps") || undefined, carga: v("carga") || undefined };
         }).filter(x => x.nome);
         if (!exercicios.length) { showToast("Ponha pelo menos um exercício.", true); return; }
         const r = await window.nx.rpc("treinos.save", { id: base.id, nome: f.nomeTreino.value, exercicios, ordem: base.ordem });

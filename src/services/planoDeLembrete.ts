@@ -140,9 +140,17 @@ export function horaDoTexto(texto: string): { h: number; m: number; ambigua?: bo
   const t = sem(texto);
   if (/\bmeio[- ]dia\b/.test(t)) return { h: 12, m: 0 };
   if (/\bmeia[- ]noite\b/.test(t)) return { h: 0, m: 0 };
-  const m = /\b(?:as|a partir das|ate as)\s+(\d{1,2})(?:[:h](\d{2}))?(?:\s*(h|horas?))?(?:\s+da\s+(manha|tarde|noite))?/.exec(t)
-    ?? /\b(\d{1,2})(?::(\d{2})|h(\d{2})?)(?:\s+da\s+(manha|tarde|noite))?/.exec(t)
-    ?? /\b(\d{1,2})\s+da\s+(manha|tarde|noite)\b/.exec(t);
+  // A revisão de 08/10 pegou leituras falsas: "comprar as 2 camisas" virava lembrete às 14h e
+  // "estudar 2h de física" às 2h. Agora: "as N" sem unidade só vale se nada além de palavra de
+  // tempo vier depois; "Nh" seguido de "de/para/por…" (ou depois de "por/durante") é duração.
+  const depoisDe = (x: RegExpExecArray) => t.slice(x.index + x[0].length);
+  let m: RegExpExecArray | null = /\b(?:as|a partir das|ate as)\s+(\d{1,2})(?:[:h](\d{2}))?(?:\s*(h|horas?))?(?:\s+da\s+(manha|tarde|noite))?/.exec(t);
+  if (m && !m[2] && !m[3] && !m[4] && /^\s+(?!(?:e|hoje|amanha|na|no|de manha|da manha|a tarde|da tarde|a noite|da noite|em ponto)\b)[a-z]/.test(depoisDe(m))) m = null;
+  if (!m) {
+    m = /\b(\d{1,2})(?::(\d{2})|h(\d{2})?)(?:\s+da\s+(manha|tarde|noite))?/.exec(t);
+    if (m && !m[4] && (/^\s+(?:de|do|da|para|pra|por|seguidas?)\b/.test(depoisDe(m)) || /\b(?:por|durante|uns|umas|mais)\s+$/.test(t.slice(0, m.index)))) m = null;
+  }
+  m = m ?? /\b(\d{1,2})\s+da\s+(manha|tarde|noite)\b/.exec(t);
   if (!m) {
     // Só o período, sem número: um horário razoável para ele.
     if (/\b(de|pela) manha\b/.test(t)) return { h: 9, m: 0 };

@@ -92,11 +92,11 @@ export function sequenciaAtual(h: Pick<Habito, "dias" | "marcados" | "folgasPorS
     if (!contaNoDia(h, d)) continue;
     if (feitoNoDia(h, d)) { n++; continue; }
     if (i === 0) continue;
-    // Falta: gasta uma folga da semana, se houver (e se já houve algum feito para trás —
-    // folga não inventa sequência do nada).
+    // Falta: gasta uma folga da semana, se houver. Vale também para a falta mais recente
+    // (ontem faltou, anteontem fez): a folga não inventa sequência, porque só dias feitos contam.
     const s = semanaDe(d);
     const ja = usadas.get(s) ?? 0;
-    if (n > 0 && ja < folgas(h)) { usadas.set(s, ja + 1); continue; }
+    if (ja < folgas(h)) { usadas.set(s, ja + 1); continue; }
     break;
   }
   return n;

@@ -314,6 +314,9 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") { e.preventDefault(); fecharTarefasCheia(); return; }
   const digitando = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName ?? "");
   if (digitando || e.ctrlKey || e.altKey || e.metaKey) return;
+  // Espaço e Enter num botão, link ou item de menu são do controle, não da tarefa selecionada.
+  const emControle = /^(BUTTON|A)$/.test(document.activeElement?.tagName ?? "") || document.activeElement?.getAttribute("role") === "menuitem";
+  if (emControle && (e.key === " " || e.key === "Enter")) return;
   const ids = [...el.querySelectorAll(".tc-item")].map(i => i.dataset.tcId);
   const atual = ids.indexOf(tcSelecionada);
   if (e.key === "n" || e.key === "N") { e.preventDefault(); document.getElementById("tc-novo")?.focus(); return; }

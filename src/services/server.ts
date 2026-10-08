@@ -388,7 +388,7 @@ function makeHandler(
 
     // GET /api/tts?text=… — a mesma voz neural do PC, em MP3, para o celular tocar (bloco 85).
     // GET e não POST porque quem busca é o player do expo-audio, que só sabe fazer GET com
-    // cabeçalhos. O texto passa pelo mesmo limpador da fala (teto de 2000 caracteres).
+    // cabeçalhos. O texto passa pelo mesmo limpador da fala (teto de 2600 caracteres, contado depois da expansão).
     if (req.method === "GET" && url === "/api/tts") {
       const texto = new URL(req.url ?? "/", "http://x").searchParams.get("text") ?? "";
       if (!texto.trim()) { sendJson(res, 400, { error: "text vazio" }); return; }

@@ -44,6 +44,24 @@ describe("backup (bloco 96)", () => {
     expect(novo.rotinas.listarRotinas()).toHaveLength(1);
   });
 
+  it("tarefas voltam ligadas aos lembretes novos (fase 18)", async () => {
+    const a = await carregar();
+    const tarefas = await import("../src/services/tarefas");
+    const r = a.lembretes.createReminder({ text: "prova", dueAt: Date.now() + 2 * 86_400_000 });
+    tarefas.criarTarefa({ texto: "prova", prazo: r.dueAt, lembreteIds: [r.id], origem: "lembrete" });
+    const b = a.backup.montarBackup();
+    expect(b.lembretes[0].id).toBe(r.id);
+
+    const novo = await carregar();
+    const tarefasNovo = await import("../src/services/tarefas");
+    const res = novo.backup.aplicarBackup(novo.backup.lerBackup(JSON.parse(JSON.stringify(b))));
+    expect(res.tarefas).toBe(1);
+    const t = tarefasNovo.listarTarefasTodas()[0];
+    const pendentes = novo.lembretes.listPending().map(x => x.id);
+    expect(t.lembreteIds).toHaveLength(1);
+    expect(pendentes).toContain(t.lembreteIds![0]);
+  });
+
   it("recusa arquivo que não é backup e versão desconhecida", async () => {
     const { backup } = await carregar();
     expect(() => backup.lerBackup({ foo: 1 })).toThrow(/não é um backup/);

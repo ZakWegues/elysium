@@ -33,6 +33,8 @@ export interface Tarefa {
   prioridade?: "alta";
   /** Fase 18: repete. Concluir cria a próxima (o lembrete semanal virou isto). */
   repete?: "diaria" | "semanal";
+  /** A ocorrência seguinte que esta conclusão criou — reabrir apaga ela (senão duplicava). */
+  proximaId?: string;
 }
 
 /** O instante em que a tarefa passa a contar como atrasada. Sem hora = fim daquele dia. Pura. */
@@ -104,7 +106,8 @@ export function listarTarefas(): Tarefa[] { return ordenarTarefas(todas()); }
 export function listarPorFiltro(filtro: "abertas" | "feitas" | "todas"): Tarefa[] {
   const ts = todas();
   const pend = ordenarTarefas(ts.filter(t => !t.feita));
-  const feitas = ts.filter(t => t.feita).sort((a, b) => (b.feitaEm ?? 0) - (a.feitaEm ?? 0));
+  const limite = Date.now() - TRINTA_DIAS;
+  const feitas = ts.filter(t => t.feita && (t.feitaEm ?? 0) > limite).sort((a, b) => (b.feitaEm ?? 0) - (a.feitaEm ?? 0));
   return filtro === "abertas" ? pend : filtro === "feitas" ? feitas : [...pend, ...feitas];
 }
 
@@ -154,10 +157,13 @@ export function editarTarefa(id: string, m: { texto?: string; prazo?: number | n
  * Conclui, com ressalva opcional, e devolve os ids de lembrete que ainda não tocaram — quem
  * chama cancela (este módulo não conhece o agendador, para ficar puro de efeitos).
  */
-export function concluirTarefa(id: string, ressalva?: string): { tarefa: Tarefa; lembretes: string[] } | null {
+export function concluirTarefa(id: string, ressalva?: string): { tarefa: Tarefa; lembretes: string[]; jaEstava?: boolean } | null {
   const ts = todas();
   const t = ts.find(x => x.id === id);
   if (!t) return null;
+  // Já concluída (toque duplo no widget, repetição do pedido depois de um tempo esgotado):
+  // não conclui de novo — e quem chama não gera outra "próxima" da repetição.
+  if (t.feita) return { tarefa: t, lembretes: [], jaEstava: true };
   const nova: Tarefa = { ...t, feita: true, feitaEm: Date.now(), ressalva: ressalva?.trim().slice(0, 300) || undefined };
   gravar(ts.map(x => x.id === id ? nova : x));
   return { tarefa: nova, lembretes: t.lembreteIds ?? [] };
@@ -167,7 +173,7 @@ export function reabrirTarefa(id: string): Tarefa | null {
   const ts = todas();
   const t = ts.find(x => x.id === id);
   if (!t) return null;
-  const nova: Tarefa = { ...t, feita: false, feitaEm: undefined, ressalva: undefined };
+  const nova: Tarefa = { ...t, feita: false, feitaEm: undefined, ressalva: undefined, proximaId: undefined };
   gravar(ts.map(x => x.id === id ? nova : x));
   return nova;
 }
@@ -203,4 +209,11 @@ export function importarTarefas(ts: Tarefa[] = []): number {
   const novas = ts.filter(t => t?.id && t.texto && !atuais.some(x => x.id === t.id));
   gravar([...atuais, ...novas]);
   return novas.length;
+}
+
+/** Liga a concluída à ocorrência seguinte que ela criou (ver `proximaId`). */
+export function editarTarefaProxima(id: string, proximaId: string): void {
+  const ts = todas();
+  if (!ts.some(x => x.id === id)) return;
+  gravar(ts.map(x => x.id === id ? { ...x, proximaId } : x));
 }

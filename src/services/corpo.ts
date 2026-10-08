@@ -315,8 +315,16 @@ export function apagarTreino(id: string): boolean {
 /** Troca a lista inteira (importação dos treinos que já existiam em outro app). */
 export function importarTreinos(lista: { nome: string; exercicios: unknown[] }[]): Treino[] {
   if (!Array.isArray(lista) || !lista.length || lista.length > 14) throw new Error("lista de treinos inválida");
+  // Tudo ou nada: um treino inválido no meio da lista não pode deixar a lista velha apagada
+  // e a nova pela metade.
+  const antes = store.get("treinos", []);
   store.set("treinos", []);
-  return lista.map((t, i) => salvarTreino({ nome: t.nome, exercicios: t.exercicios, ordem: i }));
+  try {
+    return lista.map((t, i) => salvarTreino({ nome: t.nome, exercicios: t.exercicios, ordem: i }));
+  } catch (e) {
+    store.set("treinos", antes);
+    throw e;
+  }
 }
 
 /** Marca (ou desmarca) o treino como feito hoje. Sem id: o da vez. */

@@ -428,14 +428,18 @@ const PAINEIS_PC = {
         span.innerHTML = `<input type="text" class="gp-edicao" value="${escHtml(ed.dataset.texto)}" maxlength="200" aria-label="Corrigir o fato">`;
         const campo = span.querySelector("input");
         campo.focus(); campo.select();
+        let fechado = false;
         const salvar = async () => {
+          // Enter salva e redesenha; o redesenho tira o campo e dispara o blur — sem a trava, salvava duas vezes.
+          if (fechado) return;
+          fechado = true;
           const texto = campo.value.trim();
           if (!texto || texto === ed.dataset.texto) { redesenharPainel(); return; }
           const r = await window.nx.rpc("memory.edit", { id: ed.dataset.editarFato, text: texto });
           if (r.error) showToast(r.error, true); else showToast("Corrigido.");
           redesenharPainel();
         };
-        campo.addEventListener("keydown", (k) => { if (k.key === "Enter") { k.preventDefault(); salvar(); } if (k.key === "Escape") { k.stopPropagation(); redesenharPainel(); } });
+        campo.addEventListener("keydown", (k) => { if (k.key === "Enter") { k.preventDefault(); salvar(); } if (k.key === "Escape") { k.stopPropagation(); fechado = true; redesenharPainel(); } });
         campo.addEventListener("blur", salvar, { once: true });
         return;
       }

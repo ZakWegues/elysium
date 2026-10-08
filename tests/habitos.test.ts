@@ -96,6 +96,11 @@ describe("hábitos sem punição (fase 18)", () => {
     expect(sequenciaAtual({ dias: [], marcados: dias(0, 3) }, HOJE)).toBe(1);
     expect(sequenciaAtual({ dias: [], marcados: dias(0, 3), folgasPorSemana: 2 }, HOJE)).toBe(2);
   });
+  it("a folga vale para a falta mais recente quando hoje ainda não foi feito", () => {
+    // Hoje em aberto, ontem faltou, segunda e domingo feitos: a sequência é 2, não 0.
+    expect(sequenciaAtual({ dias: [], marcados: dias(2, 3) }, HOJE)).toBe(2);
+    expect(sequenciaAtual({ dias: [], marcados: dias(2, 3), folgasPorSemana: 0 }, HOJE)).toBe(0);
+  });
   it("dia pausado não é falta nem feito", () => {
     const h = { dias: [], marcados: dias(0, 2, 3), pausas: dias(1), folgasPorSemana: 0 };
     expect(sequenciaAtual(h, HOJE)).toBe(3);

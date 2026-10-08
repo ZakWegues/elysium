@@ -76,3 +76,15 @@ describe("tarefas: prazo, atraso, repetição e adiar (fase 18)", () => {
     expect(adiarPara(new Date(2026, 9, 7, 8).getTime(), true, "semana", AGORA)).toEqual({ quando: "2026-10-15", semHora: true });
   });
 });
+
+describe("hora não é lida onde não é hora (revisão 08/10)", () => {
+  it("artigo e duração", () => {
+    expect(horaDoTexto("comprar as 2 camisas")).toBeNull();
+    expect(horaDoTexto("estudar 2h de física")).toBeNull();
+    expect(horaDoTexto("correr por 1h")).toBeNull();
+    expect(horaDoTexto("prova sexta 14h")).toEqual({ h: 14, m: 0 });
+    expect(horaDoTexto("ligar às 3 amanhã")).toEqual({ h: 3, m: 0, ambigua: true });
+    expect(horaDoTexto("reunião às 15")).toEqual({ h: 15, m: 0 });
+    expect(interpretarTexto("Comprar as 2 camisas", AGORA).quando).toBeNull();
+  });
+});

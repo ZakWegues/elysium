@@ -75,6 +75,13 @@ export function criarLembreteComTarefa(text: string, dueAt: string, weekly?: boo
   const quando = interpretarQuando(dueAt ?? "", semHora);
   if (!quando) return { ok: false, mensagem: "Não entendi para quando é o lembrete." };
   const avisos = planejarLembretes(text.trim(), quando, Date.now(), weekly);
+  // Compromisso de HOJE sem hora, dito depois das 8h (a revisão pegou): o aviso do dia já
+  // passou, mas o dia não — entra na lista como "dia todo", sem aviso, em vez de recusar.
+  const hoje0 = new Date(); hoje0.setHours(0, 0, 0, 0);
+  if (!weekly && !avisos.length && !quando.temHora && quando.ms >= hoje0.getTime() && quando.ms < hoje0.getTime() + 86_400_000) {
+    const tarefa = criarTarefa({ texto: text.trim(), prazo: quando.ms, origem: "manual", semHora: true, prioridade: extras.prioridade, repete: extras.repete });
+    return { ok: true, tarefa, mensagem: `Anotado para hoje: ${text.trim()}.` };
+  }
   // Um lembrete no passado quase sempre é erro de cálculo do modelo, não pedido real.
   // Disparar na hora seria pior que avisar que não deu certo.
   if (!avisos.length || (!weekly && avisos.every(a => a.em <= Date.now()))) {
@@ -127,6 +134,12 @@ export function reagendarTarefa(id: string, quando: string | null, semHora = fal
   }
   const q = interpretarQuando(quando, semHora);
   if (!q) return { ok: false, mensagem: "Não entendi a data nova." };
+  // Tarefa já feita: corrigir a data não agenda aviso (tocaria por algo já concluído).
+  if (t.feita) {
+    for (const r of t.lembreteIds ?? []) cancelReminder(r);
+    const e = editarTarefa(id, { texto: novoTexto, prazo: q.ms, semHora: !q.temHora, lembreteIds: null });
+    return { ok: true, mensagem: "Data corrigida.", tarefa: e?.tarefa };
+  }
   const avisos = planejarLembretes(novoTexto, q, Date.now());
   if (!avisos.length) return { ok: false, mensagem: q.temHora ? "Esse horário já passou." : "Esse dia já passou." };
   for (const r of t.lembreteIds ?? []) cancelReminder(r);
@@ -157,7 +170,7 @@ export function proximaDaRepeticao(t: Tarefa): Tarefa | null {
 /** "dd/mm" ou "dd/mm HH:MM", curto, para o celular e a prévia do quick add. */
 export function rotuloDoPrazo(ms: number, semHora: boolean): string {
   const quando = formatWhen(ms);
-  return semHora ? quando.replace(/ às d+h(d{2})?$/, " · dia todo") : quando;
+  return semHora ? quando.replace(/ às \d+h(\d{2})?$/, " · dia todo") : quando;
 }
 
 /**

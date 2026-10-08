@@ -13,7 +13,7 @@
  * contra esse, a defesa é o token não vazar e a porta não ser exposta à internet.
  */
 
-import { apagarTarefa, concluirTarefa, criarTarefa, desvincularLembrete, editarTarefa, estaAtrasada, listarPorFiltro, listarTarefas, obterTarefa, reabrirTarefa } from "./tarefas";
+import { apagarTarefa, concluirTarefa, criarTarefa, desvincularLembrete, editarTarefa, editarTarefaProxima, estaAtrasada, listarPorFiltro, listarTarefas, obterTarefa, reabrirTarefa } from "./tarefas";
 import { createReminderAction, criarLembreteComTarefa, proximaDaRepeticao, reagendarTarefa, reavisarTarefa, rotuloDoPrazo } from "../actions/memoryActions";
 import { adiarPara, ehCompromisso, interpretarQuando, interpretarTexto, planejarLembretes, type Adiamento } from "./planoDeLembrete";
 import { app, clipboard } from "electron";
@@ -1096,15 +1096,22 @@ const METHODS: Record<string, MethodDef> = {
       if (!r) throw new RpcError(404, "tarefa não encontrada");
       // Concluída antes da hora: os avisos que faltam não tocam mais.
       for (const id of r.lembretes) cancelReminder(id);
-      // Repete (fase 18): a próxima entra na lista com o aviso dela.
-      const proxima = proximaDaRepeticao(r.tarefa);
+      // Repete (fase 18): a próxima entra na lista com o aviso dela — uma vez só.
+      const proxima = r.jaEstava ? null : proximaDaRepeticao(r.tarefa);
+      if (proxima) editarTarefaProxima(r.tarefa.id, proxima.id);
       return { tarefa: r.tarefa, tarefas: listarTarefas(), ...(proxima ? { proxima } : {}) };
     },
   },
   "tarefas.reabrir": {
     handler: async (params) => {
+      const antes = obterTarefa(requireString(params, "id"));
       const t = reabrirTarefa(requireString(params, "id"));
       if (!t) throw new RpcError(404, "tarefa não encontrada");
+      // Desfazer a conclusão de uma tarefa que repete apaga a "próxima" que ela tinha criado.
+      if (antes?.proximaId) {
+        const p = apagarTarefa(antes.proximaId);
+        for (const id of p?.lembreteIds ?? []) cancelReminder(id);
+      }
       // Concluir cancelou os avisos; reabrir com o prazo ainda à frente os traz de volta (08/10).
       reavisarTarefa(t.id);
       return { tarefa: obterTarefa(t.id) ?? t, tarefas: listarTarefas() };
