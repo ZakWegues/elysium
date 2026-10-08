@@ -5600,3 +5600,105 @@ liberdade para mudanças. Plano em `~/.claude/plans/velvet-bubbling-frost.md`.
 - Modo intérprete ("traduz o que eu falar"), pergunta rápida flutuante (Raycast), resumo da
   semana, fixar conversas. Bipe também no celular.
 - Pedidos condicionais na bancada: tentar um exemplo few-shot em vez de regra.
+
+## 34. Fase 16 — ELYSIUM 2.0: revisão, atualização infalível, Stark, Hoje + Hábitos, widgets (blocos 160–169, 07/10/2026)
+
+Pedido do Zak (07/10, antes de dormir): revisar as últimas atualizações (principalmente o
+celular) até ficarem perfeitas; tornar infalível a atualização dentro do app; acabar com a
+mão livre que "ainda está lá" (ele via o **botão de fone no Chat**); melhorar tudo — rotinas,
+uma página nova, IA, usabilidade, widgets Android novos — com um aspecto de **"Jarvis feminino,
+bem Tony Stark"**. Escolhas dele: tema Stark como padrão + persona FRIDAY; página "Hoje"
+(briefing) + hábitos e metas. Plano em `~/.claude/plans/velvet-bubbling-frost.md`.
+
+### Por que o botão de fone ainda aparecia (diagnóstico)
+- O OTA só valia na **segunda abertura a frio**: o app nunca chamava a API do `expo-updates`
+  (só lia o `updateId` para Ajustes). O aparelho dele seguia no bundle do APK 1.8.0. O runtime
+  conferia (e976ce95), o problema era só a aplicação.
+- E a fase 15 tinha uma regressão que agia como mão livre: `pedidoVoz` nunca era limpo e o
+  "já tratado" era um ref que zera ao remontar — toda abertura do Chat depois de um "Ely"
+  voltava a gravar sozinha (e reenviava o pedido colado).
+
+### 160 — revisão (três auditorias + correções)
+- Celular: `pedidoVoz` consumível (`onPedidoVozTratado`, como o `perguntaPendente`); envio com
+  ref síncrono (toque duplo não manda 2×); Parar vale em texto, áudio, voz e comando de IA, sem
+  bolha de erro proposital; `stream.close()` rejeita o `ready`; segurar-para-falar com chave
+  própria (`'segurar'`) e cala a Ely antes; `falar.ts`: interromper vale durante o download do
+  MP3 (geração), o teto cala o aparelho (a escuta ouvia o "Éli"), voz feminina tenta de novo se
+  a lista vier vazia e cai na padrão se a escolhida falhar; tabela com largura por coluna, `\|` e
+  barra dentro de código, separador exige barra, `paraFala` avisa quando pulou tabela/código;
+  exportar sem mensagens do app e com a data da conversa; compartilhar também nos achados da
+  busca; "Ouvir Ely" aplica na hora (`aoMudarPalavra`); câmera respeita "ler respostas";
+  `maoLivreDiag` → `vozDiag`; pílula Interromper abaixo do cabeçalho.
+- Desktop: o barge-in guarda a fala INTEIRA (a fala por frase fazia ela se interromper ao dizer
+  o próprio nome); WS fechado no meio → resposta descartada e turno fora do histórico.
+
+### 161 — atualização infalível
+- **OTA** (`lib/atualizacaoOta.ts`, `components/AvisoOta.tsx`): procura e baixa ao abrir e ao
+  voltar (a cada 15 min no máximo); faixa **"Atualização pronta — Reiniciar agora"**; voltou de
+  mais de 30 s fora com uma pendente → aplica sozinho. Ajustes → Sobre: "Procurar atualização
+  do app" diz o que achou. **Publicado como OTA no runtime do APK 1.8.0** (e976ce95) antes de
+  qualquer mudança nativa — o próximo OTA já chega pela faixa.
+- **APK** (cartão da Início/Sobre): re-pergunta ao PC com status > 30 min e ao voltar; mostra
+  erro e falta de token do PC (antes dizia "versão mais nova"); compara **versionCode**
+  (`codigoDoPacote`); Cancelar o download; limpa APKs velhos do cache; instalador que fecha sem
+  instalar → alerta com "Abrir a permissão" (fontes desconhecidas) e "Tentar de novo".
+- **PC** (`atualizacao.ts`): maior versão entre as releases (não o `latest`); 404 = token sem
+  acesso (antes "sem release" calado); prazo de inatividade de 60 s no download (antes um
+  download parado travava tudo até reiniciar); `.exe` e APK em try separados; "pronto" só se a
+  versão ainda é a mesma; limpeza arquivo a arquivo; assinatura errada → versão rejeitada (não
+  baixa de novo a cada 6 h); instalador que não abre não fecha mais o app.
+- **Release do celular**: aapt2/apksigner em qualquer build-tools; **falha** sem a versão certa
+  ou com outro certificado (pino `3b49374d…`).
+
+### 162 — Stark + persona FRIDAY
+- Desktop: temas **Stark — Reator / Mark / Noite** (família `ely` + classe `theme-stark`,
+  `css/stark.css`): grade HUD com varredura, tipografia Bahnschrift em maiúsculas, cantoneiras,
+  o orbe vira reator com anéis (acelera com `body.vivo`). Migração única para `stark`.
+- Celular: família `stark` (`familiaEscura()` substitui os `=== 'ely'`), `Reator.tsx`
+  (react-native-svg + reanimated), migração única para Stark — Reator.
+- Persona: `personaStark(tratamento)` no prompt da conversa; no agente só uma linha de tom (a
+  persona inteira derrubou a bancada de 24 para 21/27). `tratamento` (padrão "chefe") no config,
+  `perfil.*`, Ajustes → Conversa nos dois apps, saudação da Início, "Sistemas no ar, chefe." ao
+  ligar (só instalado), primeiro balão do chat sem o "Pareado com IP".
+
+### 163/164 — Hoje + Hábitos e metas
+- `services/habitos.ts` (`habitos.json`, entra no backup): dias da semana, sequência (hoje não
+  feito não quebra), recorde, taxa 30 d, mapa 30 d; metas com alvo/unidade/prazo; lembrete no
+  horário **só se não feito** (PC + celular). RPC `habitos.*`, `metas.*`, `hoje.painel`
+  (`services/hoje.ts`, fontes independentes). Ferramentas `ver_habitos`, `marcar_habito`,
+  `avancar_meta`, `painel_do_dia`; fastRoute "marquei academia" e "soma 2 na meta X" (o 7B
+  alucinava a soma). Resumo do dia cita hábitos pendentes e sequência em jogo.
+- Aba **Hoje** nos dois apps: reator de hábitos, status, alertas, hábitos com check e mapa,
+  metas ±1, agenda (lembretes, timers ao vivo, próxima rotina), clima, listas, manchetes sob
+  demanda. Paleta Ctrl+K: Hoje, Novo hábito, Nova meta.
+
+### 165–168
+- Rotinas: **modelos prontos** (Briefing da manhã, Fim do expediente, Hora de dormir, Pausa para
+  água, Revisão da semana) nos dois apps; histórico das 5 últimas execuções no PC.
+- **Widgets novos** (APK): Falar com a Ely (`elysium://falar`), Hoje, Hábitos (marca no toque),
+  Timers (5/10/25), Música (anterior/play/próxima), Listas (marca no toque); visual Stark.
+- **Cérebro híbrido** (`cerebroHibrido.ts`, `chatProvider: "auto"`, migração única de quem
+  estava no local): conhecimento e chat escrito na Groq gpt-oss-120b, ação e conversa curta no
+  local, local de reserva. Santos Dumont agora sai certo.
+- Acessibilidade: `accessibilityLabel` nos `GlassCircle`, alvos maiores na lista de conversas.
+
+### Testes
+- Desktop 162+, celular 52 testes; `check` verde em todo commit (exit code conferido).
+- Smoke RPC 36/36; erros-no-dashboard limpo; screenshots Stark (Hoje, Início, Rotinas);
+  roteiro de texto (nome, explicação, fuso, hábito, meta, briefing); bancada 23/27 (85%).
+- Dados de teste (hábitos, metas) apagados depois.
+
+### Revisão final (agente revisor sobre o diff das fases 15 e 16)
+Sem crash, TDZ ou contrato RPC quebrado. Consertados: o Parar do celular tirava a pergunta
+ERRADA do histórico quando outra já tinha chegado (`desfazerTurno(pergunta, resposta)`, e agora
+também no áudio); repositório que falhava na verificação apagava o pacote já baixado do outro;
+o atalho de hábito marcava "Água" em "marca um lembrete pra beber água" (só nome exato, sem
+"marca", sem nome só de emoji); editar meta pelo celular apagava o prazo; `avancar_meta` com
+número em texto somava 1; o Ollama não aquecia no modo híbrido; o OTA podia reiniciar na volta
+do seletor de arquivo/instalador/compartilhar (`emFluxoExterno`); hábito fora do dia e meta
+concluída não tinham como ser editados ("Todos" nos dois apps).
+
+### Versões
+- Desktop **2.0.0** e celular **2.0.0 (vc20)** — APK novo (widgets, `app.json`, react-native-svg).
+- Para o Zak: instalar o APK pelo cartão da Início (o PC já baixa sozinho); abrir a aba Hoje e
+  criar os hábitos; pôr os widgets novos na tela inicial; conferir o tema Stark.
