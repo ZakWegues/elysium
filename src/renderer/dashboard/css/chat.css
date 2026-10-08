@@ -344,3 +344,6 @@
   background: rgba(var(--purple-rgb),0.08); color: var(--text); font: inherit; font-size: 12px; cursor: pointer; text-align: left;
 }
 .chat-sugestoes button:hover { background: rgba(var(--purple-rgb),0.18); }
+
+/* Fase 18: a resposta veio do cérebro local porque a nuvem falhou. */
+.chat-local { display: inline-block; margin: 2px 0 4px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; }

@@ -16,7 +16,7 @@
  * volta ao modelo, e um pedido composto ganha uma volta a mais depois da ação.
  *
  * USO
- *   node scripts/bench-agente.mjs                              # llama3.1:8b
+ *   node scripts/bench-agente.mjs                              # qwen2.5:7b (o de produção)
  *   node scripts/bench-agente.mjs --modelos llama3.1:8b,qwen2.5:7b,llama3.2:3b
  *   node scripts/bench-agente.mjs --repeticoes 3
  *
@@ -42,9 +42,12 @@ Module._load = function (pedido, ...resto) {
 };
 const { definicoesDeFerramentas } = require(path.join(raiz, "dist/services/ferramentas.js"));
 const { promptDoAgente, chamadasEmTexto } = require(path.join(raiz, "dist/services/agente.js"));
+// Fase 18: o que o atalho resolve sem modelo (condicionais, treino, listas…) conta à parte —
+// na produção esses pedidos nem chegam ao modelo.
+const { fastRoute } = require(path.join(raiz, "dist/services/fastRoute.js"));
 
 const OLLAMA = "http://127.0.0.1:11434/api/chat";
-const LEITURA = new Set(["programas_abertos", "estado_do_pc", "processos_pesados", "clima", "lembretes", "memoria", "rotinas", "presets", "tocando_agora", "area_de_transferencia", "espaco_em_disco", "versao_do_elysium", "resumo_do_dia", "agenda", "ver_lista", "ver_timers", "calcular", "resumir_link", "hora_em", "ver_habitos", "painel_do_dia", "ver_tarefas"]);
+const LEITURA = new Set(["programas_abertos", "estado_do_pc", "processos_pesados", "clima", "lembretes", "memoria", "rotinas", "presets", "tocando_agora", "area_de_transferencia", "espaco_em_disco", "versao_do_elysium", "resumo_do_dia", "agenda", "ver_lista", "ver_timers", "calcular", "resumir_link", "hora_em", "ver_habitos", "painel_do_dia", "ver_tarefas", "treino_de_hoje", "ver_meta_calorias"]);
 
 /** O PC de mentira: o que cada leitura devolve quando o caso não diz outra coisa. */
 const CENARIO_PADRAO = {
@@ -80,7 +83,7 @@ const acaoOk = (nome, args) => {
 
 const argv = process.argv.slice(2);
 const arg = (n, p) => { const i = argv.indexOf(`--${n}`); return i === -1 ? p : argv[i + 1]; };
-const modelos = arg("modelos", "llama3.1:8b").split(",");
+const modelos = arg("modelos", "qwen2.5:7b").split(",");
 const repeticoes = Number(arg("repeticoes", 1));
 const { casos } = JSON.parse(fs.readFileSync(path.join(raiz, "scripts/bench-agente-casos.json"), "utf8"));
 
@@ -149,8 +152,11 @@ for (const modelo of modelos) {
   console.log(`\n══ ${modelo} ══`);
   // Aquece: a primeira chamada carrega o modelo (até 18 s) e não pode entrar na latência.
   try { await chat(modelo, [{ role: "user", content: "oi" }]); } catch (e) { console.log(`  indisponível: ${e.message.slice(0, 120)}`); continue; }
-  let ok = 0, total = 0; const tempos = []; const falhas = [];
+  let ok = 0, total = 0, atalho = 0; const tempos = []; const falhas = []; const porCaso = [];
   for (const caso of casos) for (let i = 0; i < repeticoes; i++) {
+    let rota = null;
+    try { rota = fastRoute(caso.texto); } catch { rota = null; }
+    if (rota?.length) { atalho++; ok++; total++; porCaso.push({ texto: caso.texto, ok: true, atalho: rota.map(a => a.action) }); continue; }
     const t0 = Date.now();
     let res;
     try { res = await rodarCaso(modelo, caso); } catch (e) { falhas.push(`${caso.texto} → erro: ${e.message.slice(0, 80)}`); total++; continue; }
@@ -159,7 +165,14 @@ for (const modelo of modelos) {
     total++;
     if (!erros.length) ok++;
     else falhas.push(`${caso.texto} → ${erros.join("; ")}`);
+    porCaso.push({ texto: caso.texto, ok: !erros.length, erros, ms: Date.now() - t0, chamadas: res.chamadas.map(c => c.name) });
   }
-  console.log(`  acerto ${ok}/${total} (${pct(ok, total)}) · p50 ${p(tempos, 0.5)} ms · p95 ${p(tempos, 0.95)} ms`);
+  console.log(`  acerto ${ok}/${total} (${pct(ok, total)}) · ${atalho} pelo atalho · p50 ${p(tempos, 0.5)} ms · p95 ${p(tempos, 0.95)} ms`);
   for (const f of falhas) console.log(`  ✗ ${f}`);
+  // Fase 18: o resultado fica gravado para comparar uma rodada com a outra (fora do git).
+  const pasta = path.join(raiz, "scripts", "bench-resultados");
+  fs.mkdirSync(pasta, { recursive: true });
+  const arquivo = path.join(pasta, `${new Date().toISOString().slice(0, 16).replace(/[:T]/g, "-")}-${modelo.replace(/[^\w.-]/g, "_")}.json`);
+  fs.writeFileSync(arquivo, JSON.stringify({ modelo, quando: new Date().toISOString(), ok, total, atalho, p50: p(tempos, 0.5), p95: p(tempos, 0.95), casos: porCaso }, null, 2));
+  console.log(`  gravado em ${path.relative(raiz, arquivo)}`);
 }

@@ -6,7 +6,7 @@ import { routeAction } from "../actions/router";
 import { trackUsage } from "./history";
 import { getConfig } from "../main/config";
 import type { Canal } from "./estiloResposta";
-import { comContexto, Fonte, fontesDoPedido } from "./contextoComando";
+import { comContexto, Fonte, fontesDoPedido, usouReserva } from "./contextoComando";
 
 export type ResultadoComando = {
   actions: BrainAction[];
@@ -16,6 +16,8 @@ export type ResultadoComando = {
   atalho: boolean;
   /** Bloco 131: as páginas que a busca na web leu para responder (vazio sem busca). */
   fontes: Fonte[];
+  /** Fase 18: a nuvem falhou e quem respondeu foi o cérebro local (o app mostra "modo local"). */
+  local?: boolean;
 };
 
 /**
@@ -46,7 +48,7 @@ export function executarComando(text: string, ganchos: GanchosComando = {}): Pro
   // Bloco 131: o pedido inteiro roda dentro de um contexto com o canal e as fontes.
   return comContexto(ganchos.canal ?? "voz", async () => {
     const r = await executarNoContexto(text, ganchos);
-    return { ...r, fontes: fontesDoPedido() };
+    return { ...r, fontes: fontesDoPedido(), ...(usouReserva() ? { local: true } : {}) };
   }, text);
 }
 

@@ -12,7 +12,7 @@ import type { Canal } from "./estiloResposta";
  */
 export interface Fonte { titulo: string; url: string }
 
-interface Contexto { canal: Canal; fontes: Fonte[]; pedido?: string }
+interface Contexto { canal: Canal; fontes: Fonte[]; pedido?: string; reserva?: boolean }
 
 const als = new AsyncLocalStorage<Contexto>();
 
@@ -36,6 +36,19 @@ export function registrarFontes(fontes: Fonte[]): void {
   const c = als.getStore();
   if (!c) return;
   for (const f of fontes) if (!c.fontes.some(x => x.url === f.url)) c.fontes.push(f);
+}
+
+/**
+ * Fase 18: a resposta veio do cérebro LOCAL porque a nuvem falhou. A pesquisa apontou o
+ * fallback silencioso como o que mais confunde ("por que ela ficou burra?"): o app mostra um
+ * selo discreto "modo local" nessa resposta.
+ */
+export function marcarReserva(): void {
+  const c = als.getStore();
+  if (c) c.reserva = true;
+}
+export function usouReserva(): boolean {
+  return als.getStore()?.reserva === true;
 }
 
 export function fontesDoPedido(): Fonte[] {

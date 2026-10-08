@@ -1,3 +1,4 @@
+import { paraOuvido } from "./falaParaOuvido";
 import { MsEdgeTTS, OUTPUT_FORMAT, ProsodyOptions } from "msedge-tts";
 import * as os from "node:os";
 import * as fs from "node:fs";
@@ -46,7 +47,8 @@ export function cancelSpeak(): void {
  * from text before TTS. Display side (chat) always receives the raw text.
  */
 export function cleanTextForSpeech(raw: string): string {
-  return raw
+  // Fase 18: depois de limpar o markdown, números, datas e unidades viram fala (falaParaOuvido.ts).
+  return paraOuvido(raw
     .replace(/```[\s\S]*?```/g, "trecho de código")
     .replace(/`[^`\n]+`/g, "código")
     .replace(/https?:\/\/[^\s)>\]"']+/gi, "o link")
@@ -63,7 +65,7 @@ export function cleanTextForSpeech(raw: string): string {
     // "Ely" (o nome da assistente, 02/10) é lido "Éli" — a voz pt-BR lia "Élai", como em inglês.
     .replace(/\bEly\b/gi, "Éli")
     .replace(/\s+/g, " ")
-    .trim()
+    .trim())
     .substring(0, 2000);
 }
 

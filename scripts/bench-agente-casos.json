@@ -38,6 +38,13 @@
     { "texto": "quanto é 18% de 250?", "esperado": [], "leituras": ["calcular"] },
     { "texto": "me explica rapidinho o que é um buraco negro", "esperado": "CHAT" },
     { "texto": "cancela o timer do miojo", "esperado": ["cancelar_timer:miojo"] },
-    { "texto": "abaixa o volume pra 20", "esperado": ["volume:20"] }
+    { "texto": "abaixa o volume pra 20", "esperado": ["volume:20"] },
+    { "texto": "anota aí: comprar pão, ligar pro dentista sexta e prova de física dia 20", "esperado": ["anotar_varias"] },
+    { "texto": "adia a prova de cálculo para amanhã", "esperado": ["adiar_tarefa:amanha"] },
+    { "texto": "terminei o relatório, mas faltou o gráfico", "esperado": ["concluir_tarefa:relat"] },
+    { "texto": "qual é o treino de hoje?", "esperado": [], "leituras": ["treino_de_hoje"] },
+    { "texto": "quantas calorias eu tenho que comer hoje?", "esperado": [], "leituras": ["ver_meta_calorias"] },
+    { "texto": "o que você acha de pizza com abacaxi?", "esperado": "CHAT" },
+    { "texto": "obrigado, Ely", "esperado": "CHAT" }
   ]
 }

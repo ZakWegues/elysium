@@ -8,3 +8,4 @@ Thumbs.db
 
 # Resultados de bancada gerados a cada execução. O de referência é versionado à mão.
 scripts/bench-resultado-*.txt
+scripts/bench-resultados/

@@ -28,9 +28,12 @@ const PROCESS_MAP: Record<string, string[]> = {
   postman:        ["Postman"],
   "visual studio code": ["Code"],
   claude:         ["claude"],
+  calculadora:    ["CalculatorApp", "calc"],
+  calculator:     ["CalculatorApp", "calc"],
+  "explorador de arquivos": ["explorer"],
 };
 
-function deriveProcessNames(appName: string): string[] {
+export function deriveProcessNames(appName: string): string[] {
   const key = appName.toLowerCase().trim();
   if (PROCESS_MAP[key]) return PROCESS_MAP[key];
   for (const [k, v] of Object.entries(PROCESS_MAP)) {
@@ -38,6 +41,17 @@ function deriveProcessNames(appName: string): string[] {
   }
   // Fallback: try appName directly and appName without spaces
   return [appName, appName.replace(/\s+/g, "")];
+}
+
+/**
+ * "se o X estiver aberto, fecha" (fase 18): confere na lista de processos antes. Não aberto =
+ * não faz nada e diz isso — antes o modelo fechava sem olhar ou olhava e não fechava.
+ */
+export async function closeAppIfOpen(appName: string, abertos: { name: string }[]): Promise<string> {
+  const nomes = deriveProcessNames(appName).map(n => n.toLowerCase());
+  const aberto = abertos.some(a => nomes.includes(a.name.toLowerCase()));
+  if (!aberto) return `${appName} não está aberto — nada para fechar.`;
+  return closeApp(appName);
 }
 
 export async function closeApp(appName: string): Promise<string> {

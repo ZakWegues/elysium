@@ -5,6 +5,7 @@ import { interpretarTimer } from "./timers";
 import { calcular } from "./calculadora";
 import { pedidoDeHora } from "./horaMundo";
 import { listarTreinos, pedidoDeCorrida, pedidoDePeso, pedidoDeTreino } from "./corpo";
+import { pedidoFecharSeAberto, pedidoPausarSeTocando } from "./condicionais";
 
 /**
  * Roteamento local, sem IA.
@@ -150,6 +151,10 @@ export function fastRoute(text: string): BrainAction[] | null {
   // "fiz o café" não é hábito e segue para o cérebro.
   const habito = pedidoDeHabito(text);
   if (habito && acharHabito(listarHabitos(), habito, true)) return [{ action: "habit_mark", name: habito }];
+  // Condicionais (fase 18): a condição é um fato que o PC confere na hora, sem modelo.
+  const fecharSe = pedidoFecharSeAberto(text);
+  if (fecharSe) return [{ action: "close_if_open", app_name: fecharSe }];
+  if (pedidoPausarSeTocando(text)) return [{ action: "pause_if_playing" }];
   // Treino, corrida e peso (fase 18). "Treinei" só vira atalho com treino cadastrado.
   const treino = pedidoDeTreino(text);
   if (treino && listarTreinos().length) return [{ action: "workout_mark", name: treino.nome }];

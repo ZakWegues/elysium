@@ -1,4 +1,5 @@
 import { provedorDaConversa } from "./cerebroHibrido";
+import { marcarReserva } from "./contextoComando";
 import { getApiKey, getConfig, AppConfig, nomeDoUsuario } from "../main/config";
 import { blocoDeInstrucoes, Canal, estiloValido, maxTokensDaConversa, personaStark, regrasDaConversa } from "./estiloResposta";
 import { apiKeyError } from "./errors";
@@ -49,6 +50,9 @@ export type BrainAction =
   | { action: "workout_mark";      name?: string }
   | { action: "run_log";           minutes: number; km?: number }
   | { action: "weight_log";        kg: number }
+  // Condicionais sem modelo (fase 18): o fastRoute produz; a condição é conferida na hora.
+  | { action: "close_if_open";     app_name: string }
+  | { action: "pause_if_playing" }
   | { action: "list_show";         list?: string }
   | { action: "timer_start";       ms: number; name?: string }
   | { action: "timer_list" }
@@ -186,6 +190,8 @@ function actionSummary(action: BrainAction): string {
     case "workout_mark":      return `Treino${action.name ? ` ${action.name}` : ""}`;
     case "run_log":           return `Corrida de ${action.minutes} min`;
     case "weight_log":        return `Peso ${action.kg} kg`;
+    case "close_if_open":     return `Fechar ${action.app_name} se aberto`;
+    case "pause_if_playing":  return "Pausar se tocando";
     case "list_show":         return `Lista ${action.list ?? ""}`.trim();
     case "timer_start":       return `Timer${action.name ? ` do ${action.name}` : ""}`;
     case "timer_list":        return "Timers";
@@ -219,7 +225,7 @@ export const ACOES_VALIDAS = new Set<string>([
   "send_to_mobile", "power_control", "remember", "forget", "list_memory",
   "create_reminder", "list_reminders", "cancel_reminder", "web_search",
   "look_at_screen", "chat", "unknown", "weather", "focus", "daily_summary",
-  "list_add", "type_text", "habit_mark", "goal_add", "workout_mark", "run_log", "weight_log", "list_show", "timer_start", "timer_list", "timer_cancel", "calculate", "world_time",
+  "list_add", "type_text", "habit_mark", "goal_add", "workout_mark", "run_log", "weight_log", "close_if_open", "pause_if_playing", "list_show", "timer_start", "timer_list", "timer_cancel", "calculate", "world_time",
 ]);
 
 /**
@@ -451,7 +457,7 @@ export async function composeChatReply(
 
   // Na volta, se a Groq (escolhida pelo "auto") falhou, o local responde.
   if (primeiro === "groq" && cfg.chatProvider === "auto") {
-    try { return await tentar("ollama"); } catch (e) { console.error("[brain] o local também falhou:", e); }
+    try { const r = await tentar("ollama"); if (r) marcarReserva(); return r; } catch (e) { console.error("[brain] o local também falhou:", e); }
   }
   if (primeiro === "ollama" && cfg.fallbackToGroq) {
     try {

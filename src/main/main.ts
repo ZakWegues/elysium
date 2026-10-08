@@ -441,6 +441,10 @@ ipcMain.on("audio-data", async (_event, buffer: Buffer) => {
 
     dashWin?.webContents.send("voice:transcript", text);
 
+    // Frase de espera (fase 18, 08/10): pedido que passa de 2,5 s (busca na web, o agente
+    // olhando várias coisas) ganha um "Um instante." — silêncio longo na voz parece que caiu.
+    // Fixa, sem modelo, e nunca diz que terminou: a resposta de verdade vem logo atrás na fila.
+    const espera = setTimeout(() => { if (currentToken === meuToken) void speak("Um instante.").catch(() => {}); }, 2500);
     const { reply: combined } = await executarComando(text, {
       onActions: (actions) => {
         const label = getActionsLabel(actions);
@@ -449,7 +453,7 @@ ipcMain.on("audio-data", async (_event, buffer: Buffer) => {
       },
       // A voz espera a resposta fechar (§19, bloco 21); só a tela recebe os pedaços.
       onToken: (token) => { if (currentToken === meuToken) dashWin?.webContents.send("chat:chunk", token); },
-    });
+    }).finally(() => clearTimeout(espera));
     if (currentToken !== meuToken) return;
     updateLastCommand(text);
     notify("ELYSIUM", combined);
@@ -512,7 +516,7 @@ ipcMain.on("chat:send", async (_event, text: string, opcoes?: { refazer?: boolea
     // e não conta de novo nas perguntas frequentes.
     if (opcoes?.refazer) desfazerUltimoTurno();
     else registrarPergunta(text);
-    const { reply: combined, fontes, actions } = await executarComando(text, {
+    const { reply: combined, fontes, actions, local } = await executarComando(text, {
       canal: "texto",
       onActions: (actions) => {
         const label = getActionsLabel(actions);
@@ -530,6 +534,8 @@ ipcMain.on("chat:send", async (_event, text: string, opcoes?: { refazer?: boolea
     dashWin?.webContents.send("chat:reply", combined);
     // Blocos 131 e 132: fontes da busca já; sugestões de continuação quando chegarem.
     if (fontes.length) dashWin?.webContents.send("chat:extras", { fontes });
+    // Fase 18: a nuvem falhou e o local respondeu — o selo "modo local" na bolha.
+    if (local) dashWin?.webContents.send("chat:extras", { local: true });
     if (deveSugerir(actions, "texto")) {
       sugerirContinuacoes(text, combined).then((sugestoes) => {
         if (sugestoes.length && currentToken === meuToken) dashWin?.webContents.send("chat:extras", { sugestoes });

@@ -687,7 +687,7 @@ function handleUpgrade(
   let fechado = false;
   socket.on("close", () => { fechado = true; });
 
-  const executar = async (texto: string, canal: "voz" | "texto" = "voz"): Promise<{ reply: string; fontes?: Fonte[] }> => {
+  const executar = async (texto: string, canal: "voz" | "texto" = "voz"): Promise<{ reply: string; fontes?: Fonte[]; local?: boolean }> => {
     if (!processStream) return { reply: await processCommand(texto, canal) };
     const r = await processStream(texto, (token) => sendToClient(client, JSON.stringify({ type: "chunk", text: token })), canal);
     // Bloco 132: as sugestões chegam DEPOIS do reply, numa mensagem própria — o celular já
@@ -697,7 +697,7 @@ function handleUpgrade(
         .then(sugestoes => { if (sugestoes.length) sendToClient(client, JSON.stringify({ type: "sugestoes", sugestoes })); })
         .catch(() => { /* sem chips */ });
     }
-    return { reply: r.reply, fontes: r.fontes };
+    return { reply: r.reply, fontes: r.fontes, local: r.local };
   };
 
   function handleTextFrame(text: string): void {
@@ -708,9 +708,9 @@ function handleUpgrade(
         if (msg.refazer === true) desfazerUltimoTurno();
         executar(msg.text, msg.canal === "texto" ? "texto" : "voz")
           // Bloco 131: `fontes` vai junto; app antigo lê só o `reply`.
-          .then(({ reply, fontes }) => {
+          .then(({ reply, fontes, local }) => {
             if (fechado) { desfazerTurno(msg.text!, reply); console.log("[WS] conexão fechada no meio; resposta descartada."); return; }
-            sendToClient(client, JSON.stringify({ type: "reply", reply, ...(fontes?.length ? { fontes } : {}) }));
+            sendToClient(client, JSON.stringify({ type: "reply", reply, ...(fontes?.length ? { fontes } : {}), ...(local ? { local } : {}) }));
           })
           .catch(err  => {
             console.error("[WS] falha ao processar comando de texto:", err);
@@ -737,10 +737,10 @@ function handleUpgrade(
         return;
       }
       sendToClient(client, JSON.stringify({ type: "transcript", text }));
-      const { reply, fontes } = await executar(text);
+      const { reply, fontes, local } = await executar(text);
       // Parado no meio (o mesmo caso do texto): descarta e tira o turno do histórico.
       if (fechado) { desfazerTurno(text, reply); return; }
-      sendToClient(client, JSON.stringify({ type: "reply", reply, ...(fontes?.length ? { fontes } : {}) }));
+      sendToClient(client, JSON.stringify({ type: "reply", reply, ...(fontes?.length ? { fontes } : {}), ...(local ? { local } : {}) }));
     } catch (e) {
       console.error("[WS] falha ao processar áudio (transcrição ou comando):", e);
       sendToClient(client, JSON.stringify({ type: "error", error: mensagemDeErro(e) }));

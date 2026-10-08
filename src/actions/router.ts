@@ -2,7 +2,9 @@ import { BrainAction } from "../services/brain";
 import { getAllPresets, findPresetKey, deletePresetByKey } from "../services/presetsStore";
 import { openUrl } from "./openUrl";
 import { openApp } from "./openApp";
-import { closeApp } from "./closeApp";
+import { closeApp, closeAppIfOpen } from "./closeApp";
+import { getRunningApps } from "./systemInfo";
+import * as spotifyApi from "../services/spotify";
 import { volumeControl } from "./volumeControl";
 import { playMusic } from "./playMusic";
 import { writeText } from "./writeText";
@@ -69,6 +71,15 @@ export async function routeAction(action: BrainAction): Promise<string> {
       const m = avancarMeta(achada.id, action.delta);
       if (!m) return "Não consegui atualizar a meta.";
       return m.concluidaEm ? `Meta ${m.titulo} concluída: ${m.progresso} de ${m.alvo}.` : `Meta ${m.titulo}: ${m.progresso} de ${m.alvo}${m.unidade ? " " + m.unidade : ""}.`;
+    }
+    case "close_if_open":     return closeAppIfOpen(action.app_name, await getRunningApps());
+    case "pause_if_playing": {
+      // Só com o Spotify dá para SABER se algo toca; a tecla de mídia sozinha é liga/desliga e
+      // daria play numa música parada — o contrário do pedido.
+      if (!spotifyApi.isConnected()) return "Sem o Spotify conectado não consigo ver se algo está tocando.";
+      const agora = await spotifyApi.getNowPlaying().catch(() => null);
+      if (!agora?.isPlaying) return "Nada tocando agora.";
+      return smartMediaControl("pause");
     }
     case "workout_mark":      return marcarTreinoFalado(action.name);
     case "run_log":           return registrarCorridaFalada(action.minutes, action.km);

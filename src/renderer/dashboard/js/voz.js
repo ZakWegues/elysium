@@ -230,6 +230,9 @@ function anexarExtras(x) {
     rodape.insertAdjacentHTML("beforeend", `<div class="chat-fontes">${x.fontes.map((f, i) =>
       `<button type="button" data-fonte="${escHtml(f.url)}" title="${escHtml(f.titulo)}"><b>${i + 1}</b>${escHtml(host(f.url))}</button>`).join("")}</div>`);
   }
+  if (x?.local && !rodape.querySelector(".chat-local")) {
+    rodape.insertAdjacentHTML("afterbegin", `<div class="chat-local" title="A nuvem não respondeu; quem respondeu foi o modelo deste PC — pode ser menos preciso.">modo local</div>`);
+  }
   if (x?.sugestoes?.length) {
     rodape.querySelector(".chat-sugestoes")?.remove();
     rodape.insertAdjacentHTML("beforeend", `<div class="chat-sugestoes">${x.sugestoes.map(s =>
