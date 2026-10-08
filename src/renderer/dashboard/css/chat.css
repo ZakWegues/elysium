@@ -203,6 +203,52 @@
 .vbar { width: 5px; border-radius: var(--radius-4); background: var(--purple-bright); filter: drop-shadow(0 0 5px var(--purple)); transition: filter 0.3s, background 0.3s; }
 .state-processing .vbar { background: var(--cyan); filter: drop-shadow(0 0 5px var(--cyan)); }
 
+/* Animação de falar com a Ely (08/10). Ao clicar no mic: a zona de voz nasce com mola, uma
+   onda de choque sai do centro e as barras entram em cascata. Ouvindo: um núcleo de luz atrás
+   das barras cresce com o volume (--nivel, 0–1, vindo do voz.js) e anéis saem dele. */
+#voice-zone { position: relative; isolation: isolate; --nivel: 0; }
+#voice-zone.active { animation: voz-nasce 420ms cubic-bezier(0.2, 1.4, 0.4, 1) both; }
+#voice-zone.active .vbar { animation: voz-barra 360ms cubic-bezier(0.2, 1.5, 0.4, 1) both; }
+#voice-zone.active .vbar:nth-child(1), #voice-zone.active .vbar:nth-child(9) { animation-delay: 160ms; }
+#voice-zone.active .vbar:nth-child(2), #voice-zone.active .vbar:nth-child(8) { animation-delay: 120ms; }
+#voice-zone.active .vbar:nth-child(3), #voice-zone.active .vbar:nth-child(7) { animation-delay: 80ms; }
+#voice-zone.active .vbar:nth-child(4), #voice-zone.active .vbar:nth-child(6) { animation-delay: 40ms; }
+#voice-zone::before {
+  content: ""; position: absolute; left: 50%; top: 58%; width: 120px; height: 120px; z-index: -1;
+  border-radius: 50%; pointer-events: none;
+  background: radial-gradient(circle, rgba(var(--purple-rgb), 0.55) 0%, rgba(var(--purple-rgb), 0.18) 45%, transparent 70%);
+  transform: translate(-50%, -50%) scale(calc(0.7 + var(--nivel) * 0.9));
+  opacity: calc(0.35 + var(--nivel) * 0.65);
+  transition: transform 90ms linear, opacity 120ms linear;
+}
+#voice-zone.active::after {
+  content: ""; position: absolute; left: 50%; top: 58%; width: 60px; height: 60px; z-index: -1;
+  border-radius: 50%; border: 2px solid rgba(var(--purple-rgb), 0.9); pointer-events: none;
+  animation: voz-choque 650ms cubic-bezier(0.1, 0.6, 0.3, 1) both;
+}
+#voice-zone .voz-anel {
+  position: absolute; left: 50%; top: 58%; width: 54px; height: 54px; z-index: -1; pointer-events: none;
+  border-radius: 50%; border: 1.5px solid rgba(var(--purple-rgb), 0.7); opacity: 0;
+}
+#voice-zone.ouvindo .voz-anel { animation: voz-anel 1.8s cubic-bezier(0.2, 0.6, 0.4, 1) infinite; }
+#voice-zone.ouvindo .voz-anel:nth-of-type(2) { animation-delay: 0.6s; }
+#voice-zone.ouvindo .voz-anel:nth-of-type(3) { animation-delay: 1.2s; }
+#voice-zone.state-processing::before, #voice-zone:has(.state-processing)::before {
+  background: radial-gradient(circle, rgba(var(--cyan-rgb, 0, 220, 255), 0.45) 0%, transparent 70%);
+  animation: voz-respira 1.3s ease-in-out infinite;
+}
+.mic-btn.mic-burst { animation: mic-burst 520ms cubic-bezier(0.2, 1.5, 0.4, 1); box-shadow: 0 0 0 0 rgba(var(--purple-rgb), 0.6); }
+@keyframes voz-nasce { from { opacity: 0; transform: translateY(8px) scale(0.92); filter: blur(4px); } to { opacity: 1; transform: none; filter: none; } }
+@keyframes voz-barra { from { transform: scaleY(0.1); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes voz-choque { from { transform: translate(-50%, -50%) scale(0.3); opacity: 0.9; } to { transform: translate(-50%, -50%) scale(3.2); opacity: 0; } }
+@keyframes voz-anel { 0% { transform: translate(-50%, -50%) scale(0.9); opacity: 0; } 15% { opacity: 0.55; } 100% { transform: translate(-50%, -50%) scale(calc(2.2 + var(--nivel) * 1.2)); opacity: 0; } }
+@keyframes voz-respira { 0%, 100% { transform: translate(-50%, -50%) scale(0.8); } 50% { transform: translate(-50%, -50%) scale(1.05); } }
+@keyframes mic-burst { 0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(var(--purple-rgb), 0.6); } 40% { transform: scale(1.22); } 100% { transform: scale(1); box-shadow: 0 0 0 18px rgba(var(--purple-rgb), 0); } }
+@media (prefers-reduced-motion: reduce) {
+  #voice-zone.active, #voice-zone.active .vbar, #voice-zone.active::after, #voice-zone.ouvindo .voz-anel, .mic-btn.mic-burst { animation: none; }
+  #voice-zone::before { transition: none; }
+}
+
 #text-zone { display: flex; gap: 8px; align-items: flex-end; }
 #text-zone.hidden { display: none; }
 /* Textarea desde o bloco 84: cresce com o texto até ~8 linhas (o JS mede), Shift+Enter

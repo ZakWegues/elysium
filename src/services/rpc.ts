@@ -18,6 +18,7 @@ import { createReminderAction, criarLembreteComTarefa, proximaDaRepeticao, reage
 import { adiarPara, ehCompromisso, interpretarQuando, interpretarTexto, planejarLembretes, type Adiamento } from "./planoDeLembrete";
 import { app, clipboard } from "electron";
 import { ACOES_VALIDAS } from "./brain";
+import { estadoDoApp } from "./estadoApp";
 import * as path from "node:path";
 import * as fs from "node:fs";
 import * as os from "node:os";
@@ -498,6 +499,13 @@ const METHODS: Record<string, MethodDef> = {
    * novo e continuava só funcionando em casa, obrigando a reparear. Agora ele reconsulta
    * sempre que está conectado e absorve endereços novos sozinho.
    */
+  /**
+   * Em que pé está o ELYSIUM no PC (08/10): janela na tela, minimizada ou na bandeja, tela
+   * bloqueada, há quanto tempo o PC está ligado e como terminou a sessão anterior.
+   */
+  "pc.estado": {
+    handler: async () => ({ estado: estadoDoApp() }),
+  },
   "pairing.endpoints": {
     handler: async () => {
       const endpoints = getAllLocalIPv4();
@@ -864,7 +872,7 @@ const METHODS: Record<string, MethodDef> = {
     handler: async (params) => {
       const muted = params["muted"];
       if (muted !== undefined) {
-        const allowed: PushCategory[] = ["reminder", "anomaly", "mailbox"];
+        const allowed: PushCategory[] = ["reminder", "anomaly", "mailbox", "pc"];
         if (!Array.isArray(muted) || muted.some(m => !allowed.includes(m as PushCategory))) {
           throw new RpcError(400, `param "muted" deve ser uma lista de: ${allowed.join(", ")}`);
         }

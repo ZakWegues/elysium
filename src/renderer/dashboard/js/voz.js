@@ -86,6 +86,9 @@ function setState(s) {
   if (WAVE_LABELS[s]) waveStatus.textContent = WAVE_LABELS[s];
   if (s === "processing") barsRow.classList.add("state-processing");
   else barsRow.classList.remove("state-processing");
+  // Animação da voz (08/10): anéis só enquanto ouve; o núcleo volta ao repouso fora disso.
+  voiceZone.classList.toggle("ouvindo", s === "listening");
+  if (s !== "listening") voiceZone.style.setProperty("--nivel", "0");
 
   mostrarStop();
 
@@ -158,6 +161,8 @@ window.nx.onState(setState);
 window.nx.onAudioLevel((level) => {
   if (appState !== "listening") return;
   lastLevelTs = Date.now();
+  // O núcleo de luz atrás das barras cresce com o volume (chat.css, #voice-zone::before).
+  voiceZone.style.setProperty("--nivel", Math.min(1, level * 6).toFixed(2));
   bars.forEach((bar, i) => {
     const variation = 0.7 + Math.random() * 0.6 + OFFSETS[i];
     const target = MIN_H + Math.min(MAX_H - MIN_H, level * 260 * variation);
@@ -301,6 +306,9 @@ cmdInput.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftK
 micBtn.addEventListener("click", () => {
   voiceActive = true;
   micBtn.classList.add("active");
+  // O "pulo" do botão ao clicar; a zona de voz nasce com a própria animação (chat.css).
+  micBtn.classList.remove("mic-burst"); void micBtn.offsetWidth; micBtn.classList.add("mic-burst");
+  setTimeout(() => micBtn.classList.remove("mic-burst"), 560);
   voiceZone.classList.add("active");
   textZone.classList.add("hidden");
   window.nx.startListening();

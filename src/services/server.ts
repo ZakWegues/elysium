@@ -188,6 +188,15 @@ export function broadcastNotify(entrega: { id: string; tipo: string; titulo: str
   }
 }
 
+/** O estado do app no PC mudou (janela, tela bloqueada, encerrando) — o celular atualiza na hora. */
+export function broadcastEstadoPc(estado: object): void {
+  if (wsClients.size === 0) return;
+  const frame = buildTextFrame(JSON.stringify({ type: "pc.estado", ...estado }));
+  for (const c of wsClients) {
+    try { c.socket.write(frame); } catch { wsClients.delete(c); }
+  }
+}
+
 export function broadcastMailboxEvent(direction: "toMobile" | "toDesktop", id: string): void {
   if (wsClients.size === 0) return;
   const frame = buildTextFrame(JSON.stringify({ type: "mailbox_new", direction, id }));

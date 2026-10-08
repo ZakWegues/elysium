@@ -29,6 +29,8 @@ import { getLocalIPv4, getAllLocalIPv4 } from "./network";
 import { inputHost } from "../services/inputHost";
 import { startScheduler, stopScheduler } from "../services/scheduler";
 import { sendPush } from "../services/push";
+import { lerSaidaDeSom, problemaDeSom } from "../services/saidaDeSom";
+import { aoMudarEstadoApp, definirSom, iniciarEstadoApp, janelaMudou, registrarEncerramento, telaBloqueada, voltouDaSuspensao, type Janela, type MotivoEncerramento } from "../services/estadoApp";
 import {
   listSessions as listChatSessions, getSession as getChatSession,
   upsertMessages as upsertChatMessages, toggleFavorite as toggleChatFavorite,
@@ -58,7 +60,7 @@ import { habitosParaLembrar } from "../services/habitos";
 import { podeAvisarAlto } from "../services/avisos";
 import { ElysiumError } from "../services/errors";
 import { processCommand, processCommandStream, executarComando } from "../services/command";
-import { startServer, setActiveToken, broadcastMailboxEvent, broadcastNotify } from "../services/server";
+import { startServer, setActiveToken, broadcastMailboxEvent, broadcastNotify, broadcastEstadoPc } from "../services/server";
 import { iniciarRotinas, pararRotinas, enfileirarEntrega } from "../services/rotinas";
 import { avaliarCondicao } from "../services/agente";
 import { emitirEvento, MARCOS_OCIOSO } from "../services/eventos";
@@ -156,7 +158,44 @@ function openDashboard(): void {
   dashWin.on("close", (e) => {
     if (!appQuitting) { e.preventDefault(); dashWin?.hide(); }
   });
-  dashWin.on("closed", () => { dashWin = null; });
+  dashWin.on("closed", () => { dashWin = null; janelaMudou(); });
+  // O celular mostra se o ELYSIUM está na tela, minimizado ou só na bandeja (08/10).
+  for (const ev of ["show", "hide", "minimize", "restore", "focus", "blur"] as const) {
+    dashWin.on(ev as "show", () => janelaMudou());
+  }
+}
+
+/** Em que pé está a janela do dashboard, para o celular. */
+function janelaAtual(): Janela {
+  if (!dashWin || dashWin.isDestroyed() || !dashWin.isVisible()) return "bandeja";
+  if (dashWin.isMinimized()) return "minimizada";
+  return dashWin.isFocused() ? "foco" : "aberta";
+}
+
+const TEXTO_ENCERRAMENTO: Record<MotivoEncerramento, [string, string]> = {
+  fechado: ["ELYSIUM fechado no PC", "O app foi fechado pela bandeja. Para voltar, abra o ELYSIUM no PC."],
+  atualizando: ["ELYSIUM atualizando", "O PC está instalando a versão nova e volta em instantes."],
+  desligando: ["PC desligando", "O Windows está desligando ou reiniciando."],
+  suspenso: ["PC em suspensão", "O PC entrou em suspensão; o ELYSIUM volta quando ele acordar."],
+  interrompido: ["ELYSIUM parou", "O app parou sem avisar."],
+};
+
+/**
+ * Conta ao celular que o app vai parar de responder — pelo WebSocket aberto e por push (que
+ * chega com o app do celular fechado). Devolve quando o push saiu ou desistiu (teto de 2,5 s,
+ * para não segurar o Sair nem o desligamento do Windows).
+ */
+function avisarEncerramento(motivo: MotivoEncerramento): Promise<void> {
+  registrarEncerramento(motivo);
+  const em = Date.now();
+  try { broadcastEstadoPc({ encerrando: { motivo, em } }); } catch { /* sem servidor */ }
+  // Atualização volta sozinha em um minuto: não vale uma notificação.
+  if (motivo === "atualizando") return Promise.resolve();
+  const [titulo, corpo] = TEXTO_ENCERRAMENTO[motivo];
+  return Promise.race([
+    sendPush("pc", titulo, corpo, { estadoPc: motivo, em }).catch(() => {}),
+    new Promise<void>(r => setTimeout(r, 2500)),
+  ]);
 }
 
 function openConfigWindow(): void {
@@ -377,8 +416,10 @@ function startTelemetryLoop(): void {
       for (const m of MARCOS_OCIOSO) if (min >= m && _marcoOcioso < m) { _marcoOcioso = m; emitirEvento("pc.ocioso", { minutos: m }); }
     } catch { /* powerMonitor indisponível */ }
   }, 60_000);
-  powerMonitor.on("resume", () => { emitirEvento("pc.voltou", { de: "suspensão" }); void resumoDaManha(); });
-  powerMonitor.on("unlock-screen", () => { emitirEvento("pc.voltou", { de: "tela bloqueada" }); void resumoDaManha(); });
+  powerMonitor.on("resume", () => { voltouDaSuspensao(); emitirEvento("pc.voltou", { de: "suspensão" }); void resumoDaManha(); });
+  powerMonitor.on("unlock-screen", () => { telaBloqueada(false); emitirEvento("pc.voltou", { de: "tela bloqueada" }); void resumoDaManha(); });
+  powerMonitor.on("lock-screen", () => telaBloqueada(true));
+  powerMonitor.on("suspend", () => { void avisarEncerramento("suspenso"); });
 }
 
 // ── resumo do dia (fase 13, bloco 117) ──────────────────────────────────────────
@@ -945,16 +986,39 @@ if (!app.requestSingleInstanceLock()) {
 app.on("ready", async () => {
   if (process.platform === "win32") app.setAppUserModelId("com.zak.elysium");
 
-  const quit = () => {
+  const quit = (motivo: MotivoEncerramento = "fechado") => {
+    if (appQuitting) return;
     appQuitting = true;
+    const aviso = avisarEncerramento(motivo);
     globalShortcut.unregisterAll();
     // O host de entrada é um PowerShell persistente; sem isso ele sobrevive ao app
     // e fica pendurado segurando o stdin.
     inputHost.stop();
     stopScheduler();
   pararRotinas();
-    app.exit(0);
+    void aviso.finally(() => app.exit(0));
   };
+
+  // Estado do app para o celular (08/10). O Windows avisa o fim da sessão (desligar,
+  // reiniciar, sair da conta) pela janela; qualquer janela serve, então todas escutam.
+  iniciarEstadoApp({ versao: app.getVersion(), janela: janelaAtual, ociosoMin: () => Math.floor(powerMonitor.getSystemIdleTime() / 60) });
+  aoMudarEstadoApp(e => broadcastEstadoPc(e));
+  // Saída de som (08/10): a voz saía para o alto-falante virtual do Steam e ninguém ouvia.
+  // Confere na partida e a cada 3 min; avisa no PC (notificação) quando o problema aparece.
+  let avisoDeSom: string | null = null;
+  const conferirSom = async () => {
+    const s = await lerSaidaDeSom();
+    if (!s) return;
+    definirSom({ nome: s.nome, volume: s.volume, mudo: s.mudo, virtual: s.virtual });
+    const p = problemaDeSom(s);
+    if (p && p !== avisoDeSom) { console.warn("[som] " + p); notify("ELYSIUM — som", p); }
+    avisoDeSom = p;
+  };
+  setTimeout(() => { void conferirSom(); }, 8_000);
+  setInterval(() => { void conferirSom(); }, 180_000);
+  app.on("browser-window-created", (_e, w) => {
+    w.on("session-end", () => { if (!appQuitting) { appQuitting = true; void avisarEncerramento("desligando"); } });
+  });
 
   // Ponte dos 52 métodos RPC para o dashboard. Antes do createTray porque o menu da
   // bandeja já pode disparar telas que usam a ponte.
@@ -978,7 +1042,7 @@ app.on("ready", async () => {
   const serverToken = getOrCreateServerToken();
   const cfg = getConfig();
   startServer(serverToken, processCommand, cfg.serverPort ?? 4200, processCommandStream);
-  iniciarAtualizacoes({ sair: quit, ocupado: () => state.get() !== "idle" });
+  iniciarAtualizacoes({ sair: () => quit("atualizando"), ocupado: () => state.get() !== "idle" });
   // Cérebro local: se o Ollama estiver parado, sobe já — antes do primeiro pedido pagar a espera.
   // "auto" (fase 16) também usa o local para a conversa curta.
   if (cfg.routerProvider === "ollama" || cfg.chatProvider !== "groq") void garantirOllama(baseDoOllama());

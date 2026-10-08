@@ -13,7 +13,8 @@ import Store from "electron-store";
 
 const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
 
-export type PushCategory = "reminder" | "anomaly" | "mailbox";
+/** "pc" (08/10): o ELYSIUM fechou, o PC vai desligar ou dormir — o celular sabe por que parou de responder. */
+export type PushCategory = "reminder" | "anomaly" | "mailbox" | "pc";
 
 interface PushPrefs {
   /** Tokens de todos os aparelhos pareados. */
