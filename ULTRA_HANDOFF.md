@@ -5740,3 +5740,160 @@ que deve virar lembrete e, para coisas como prova, avisar **um dia antes**; hor�
 - Versões: desktop **2.1.0** instalado; celular por OTA no runtime do APK 2.0.0 (4329051a).
 - Testes: desktop 173. Dados de teste apagados; o lembrete real do Zak (prova de matemática)
   virou tarefa com aviso na véspera.
+
+## 36. Fase 18 — fala contínua, treino e nutrição, tarefas em tela cheia, segurança e boas práticas (blocos 170–185, 08/10/2026)
+
+**Pedidos do Zak:** análise de todas as pendências + pesquisa de feedback positivo e boas
+práticas de outros assistentes/apps, e um plano grande de atualização com fixes (exemplo
+dele: "a todolist não dá pra deixar em tela cheia e tem uma parte cortada"). No meio do
+plano, mais quatro: abas que não recarregam e fala que continua ao trocar de aba (com uma
+pílula de controle, pausar/retomar, e continuar com o app minimizado); resumo do Hoje com
+tudo + o que veio na última versão + o que testar + uma ideia para o dia; os treinos da
+academia (prints A/B/C) e meta de calorias com dicas que se renovam.
+
+Três auditorias (celular, desktop, pesquisa web) viraram o plano em
+`~/.claude/plans/velvet-bubbling-frost.md`. Versões: desktop 2.2.0 → 2.2.1 → 2.3.0 → **2.4.0**;
+celular **2.1.0 (vc21)** + OTAs no runtime do APK 2.0 ao longo do dia.
+
+### 170 — Abas vivas + fala que não para (celular)
+- `App.tsx`: `AbaViva` mantém cada aba montada depois da 1ª visita (`display:none` quando
+  escondida). Início, Hoje e Chat pré-montam depois do 1º quadro (`InteractionManager`);
+  PC e Rotinas na 1ª visita; Conversas continua sob demanda. Regras em `lib/abas.ts` (testado).
+- `useAbaAtiva()` / `useAoReativar(fn)` (`components/AbaViva.tsx`): telemetria (Início, PC) e o
+  espelho só rodam com a aba à vista; voltar à aba atualiza por trás, sem spinner.
+- O Chat não chama mais `pararDeFalar()` ao sair; escondido no meio da ESCUTA, o turno é
+  cancelado. `ChatHub` recebe `pedidoModo` (número) para trocar de lado com o Chat vivo.
+- `lib/falar.ts` virou um pequeno player: texto em partes de ≤1800 caracteres por frase
+  (`divisaoFala.ts`, testado), a próxima baixando enquanto a atual toca; `pausarFala`/
+  `retomarFala`; estado global `useFala()`. Voz do aparelho (fallback) frase a frase — pausar
+  = calar e guardar o índice.
+- **Fora do app:** o APK 2.0 já tinha o serviço de reprodução do `expo-audio` (o plugin liga
+  `enableBackgroundPlayback` por padrão). Cada parte vira o "ativo da tela de bloqueio"
+  (`setActiveForLockScreen`) → notificação de mídia com play/pausa; `interruptionMode:'doNotMix'`
+  (pausa a música de outro app durante a fala — exigência dos controles). Voz do aparelho:
+  notificação fixa com "Parar" (`notificacoes.ts` `avisoDeFala`).
+- `components/FalaFlutuante.tsx` substitui o `BotaoInterromper`: pílula com reator; toque
+  expande (mola) e mostra o trecho, Pausar ⇄ Retomar (ícone animado) e Parar.
+- Gavetas (`GlassModal`) e as telas cheias fecham sozinhas se a aba for escondida por fora
+  (o "Ely" leva ao Chat) — senão o contador de sobreposição deixava a barra de abas sumida.
+
+### 171 — Hoje completo + card ELYSIUM
+- `hoje.ts`: `rotinasHoje`/`rotinasRodaram` (histórico de 5), `corpo`, `dica`, `elysium`
+  (versão, `## Novidades` e `## Para testar` das notas — `secoesDasNotas` em
+  `atualizacao.ts`, checklist marcável por versão em `hoje-testes.json`), `ideia` (Groq, cache
+  diário, "Outra"), `amanha` (depois das 18h), `ocultos`.
+- `llm.ts`: `esforco` → `reasoning_effort:"low"` no gpt-oss para textos curtos (no padrão o
+  raciocínio comia o teto e a frase do Hoje saía vazia).
+- `resumoDoDia.ts`: o resumo falado inclui tarefas atrasadas, treino, meta, dica, corrida,
+  novidade do ELYSIUM e ideia (dica/ideia esperam no máximo 4 s; normalmente vêm do cache).
+- **Release:** `npm run release` dos dois repos agora EXIGE `## Novidades` e `## Para testar`.
+
+### 172 — Treino, nutrição e corrida
+- `services/corpo.ts` (`corpo.json` no userData, entra no backup): treinos com exercícios
+  (composto = 2 aquec. + 3×4–6, isolador = 3×10–12, pelo nome), rotação A→B→C pelo último
+  feito, perfil (Mifflin-St Jeor × atividade; ganhar +15%, proteína 2 g/kg; **sem idade/sexo,
+  sem meta — não chuta**), pesos (sugere +150 kcal sem ganho em 2 semanas), plano de corrida
+  para iniciante (9 semanas × 3 sessões, avança por sessão anotada), gasto da corrida (MET)
+  somado na meta do dia. Contador de consumo **não** existe: o Zak usa outro app para isso.
+- `corpoFalado.ts`, ferramentas `treino_de_hoje`, `ver_meta_calorias`, `marcar_treino`,
+  `registrar_corrida`, `registrar_peso`; atalho "treinei", "corri 20 minutos", "pesei 58 kg".
+  Marcar o treino marca também o hábito "Academia" se existir.
+- `ideiasDoDia.ts`: dica da hora (Groq, reserva genérica no código) e ideia do dia.
+- Celular: cards no Hoje + `TreinoScreen` (tela cheia: exercícios marcáveis, editar, concluir,
+  peso, corrida, perfil). Desktop: `js/treino.js`.
+- **Dados do Zak carregados no userData (nunca no repo):** treinos A/B/C dos prints, perfil
+  57 kg / 1,76 m / ganhar / 4–5 dias / foco braços. **Faltam idade e sexo** (ele preenche no
+  Perfil). O 3º exercício do C ("Levantamento Terra com P…") ficou com obs "confirmar nome".
+
+### 173 — Segurança
+- 🔴 `server.ts authorized()`: comparava tamanho em caracteres e `timingSafeEqual` em bytes →
+  token com "é" derrubava o processo SEM token. Agora compara `sha256` dos dois. +
+  `uncaughtException`/`unhandledRejection` no `main.ts`.
+- WebSocket: teto de 8 MB por frame (fecha 1009 pelo cabeçalho), ping 30 s / fecha com 90 s
+  sem sinal, no máximo 2 áudios em paralelo; erros ao celular só com a mensagem.
+- RPC: `hasOwn`; `presets.save` valida ações contra `ACOES_VALIDAS` e exige confirmação com
+  ação destrutiva; `rotinas.save` com texto destrutivo idem; destrutivos novos: `chat.delete`,
+  `memory.remove`, `tarefas.delete`, `comandos.delete`, `presets.delete`, `rotinas.delete`.
+  `rpcBridge` pergunta e repete quando um método comum responde 403. Celular: `comConfirmacao`.
+- `findPresetKey`: exato primeiro, parcial só se único; `runPreset` sem laço (≤3 níveis).
+- `leitorDeLink.ts`: `ipPrivado` (inclui IPv4 mapeado em IPv6), DNS resolvido, redirecionamento
+  manual com conferência a cada salto.
+- `config.ts`: apiKey da Groq, token do GitHub e segredo do Google cifrados com `safeStorage`
+  (prefixo `enc:v1:`), migração preguiçosa no 1º acesso. ⚠️ Scripts que liam a chave crua
+  (`bench-router.mjs`) precisam de `GROQ_API_KEY` no ambiente. O `serverToken` continua puro.
+- Janelas com `sandbox: true` (os 3 preloads só usam `contextBridge`/`ipcRenderer`).
+- Log sem conteúdo de conversa (`agente.ts`), celular só em `__DEV__`.
+
+### 174–176 — Tarefas 2.0
+- Servidor: `tarefas.editar`, `adiar` (1h/hoje16/amanha/semana), `reagendarAtrasadas`,
+  `interpretar` (prévia), `list {filtro}`; `criar` lê data do texto ("prova sexta 14h"),
+  horário que passou é **400** (antes "sucesso" que apagava o texto); `reabrir` recria avisos;
+  `semHora` ("dia todo", só atrasa depois do dia), `prioridade:'alta'`, `repete`
+  (diária/semanal, a próxima nasce ao concluir). Semanal pela VOZ continua lembrete do agendador.
+- Parser: "às 3" ambígua (`resolverAmbigua`: 1–6 = tarde; o modelo só vale se escolheu +12),
+  "12 da noite" = 0h, dia da semana só com contexto ("segunda prova" não é data), dia 31
+  inexistente pula para o mês que tem. `limparDataDoTexto`, `interpretarTexto`.
+- Backup leva o id do lembrete e religa as tarefas aos lembretes novos.
+- Celular `TarefasScreen` (seções Todoist, swipe, Desfazer 5 s, editor com 14 dias, hora com
+  máscara, estrela, repetição), card do Hoje em duas fileiras (o corte era a linha de 312 px
+  num espaço de 294) com a data embaixo e "Ver todas"; `GlassModal altura="cheia"` + alça
+  arrastável. Deep link `elysium://tarefas`.
+- Desktop `js/tarefas.js`: tela cheia na aba Hoje com atalhos (N, ↑↓, Espaço, Enter, Del, Esc).
+
+### 177 — Hábitos sem punição
+`folgasPorSemana` (0–2, padrão 1), `pausas` ("congelar hoje"), `forca` (EMA estilo Loop,
+meia-vida ~13 dias). RPC `habitos.pausar`. UI nos dois.
+
+### 178 — Ely mais confiável
+- `condicionais.ts`: "se X estiver aberto, fecha" (`close_if_open` confere os processos) e "se
+  estiver tocando, pausa" (`pause_if_playing`, só com Spotify conectado — a tecla de mídia daria
+  play). "Fecha tudo menos X" fica com o agente de propósito (fechar é `Stop-Process -Force`).
+- "me lembra daqui a N minutos de X" no atalho (o 7B criava timer).
+- `falaParaOuvido.ts` no `cleanTextForSpeech`: horas, datas, R$, séries ("3×10–12"), unidades.
+- Frase de espera "Um instante." quando o pedido de voz passa de 2,5 s.
+- Selo "modo local" (desktop e celular) quando a Groq falhou e o local respondeu (`marcarReserva`).
+- Persona: sem bajulação explícita. Verbosidade já existia (`estiloResposta`).
+- Bancada: modelo padrão `qwen2.5:7b`, atalho contado à parte, conversa avaliada como na
+  produção, resultado em `scripts/bench-resultados/` (fora do git). **33/34 (97%), 13 pelo
+  atalho** no fim da fase (era 29/34 no meio); a falha que sobra é o "fecha tudo menos X" (o
+  modelo inventa programas).
+
+### 179–180 — Hoje estilo Pulse, memória
+- Seções ocultáveis (`hojeOcultos`, `hoje.ocultar`; celular: toque longo no título), Meu
+  amanhã, revisão da semana (`revisaoSemana.ts`, RPC `hoje.revisao`, ferramenta
+  `revisao_da_semana`), orçamento de avisos proativos (`avisos.ts`, padrão 6/dia, foco segura).
+- Memória: busca, data de quando aprendeu, `memory.edit` (corrigir sem apagar).
+
+### 181–183 — Usabilidade, acessibilidade, widgets
+- Celular: 401 não despareia mais (`lib/erroRpc.ts`), confirmações (conversa, lembrete), puxar
+  para atualizar real, composer multilinha, abas/switch com papel e estado, 52 botões só de
+  ícone com rótulo, `Button` com papel/estado, avisos acima da barra de gestos.
+- Desktop: abas com `tabpanel`/setas/nome, `:focus-visible`, gaveta com foco preso e devolvido,
+  `minWidth` 640, tabelas e listas numeradas no chat, paleta com tarefas/revisão/treino.
+- Widgets novos (APK 2.1.0): **Tarefas** (círculo conclui) e **Treino de hoje** (concluir, meta,
+  dica); Hábitos/Timers com "+N"; avisos de erro curtos.
+
+### 185 — Revisão final
+Um revisor passou pelo diff inteiro da fase. Corrigido: hora só onde é hora ("comprar as 2 camisas" e
+"estudar 2h" não viram horário); concluir duas vezes não cria duas "próximas" e desfazer apaga a próxima
+(`proximaId`); reagendar tarefa feita não agenda aviso; compromisso de HOJE sem hora dito
+depois das 8h entra como "dia todo" sem aviso (antes recusava); `importarTreinos` é tudo ou
+nada; editar treino/exercício guarda `obs`/`tipo`; "feitas" limitadas a 30 dias; folga
+vale para a falta de ontem quando hoje está em aberto; `runPreset` com a cadeia em
+`AsyncLocalStorage` (rotina e pedido rodando o mesmo preset não se barram); teto da fala
+(2600) contado DEPOIS da expansão; R$ com milhar; Espaço/Enter num botão da tela cheia de
+tarefas é do botão; edição de fato na memória salva uma vez e Esc cancela. Celular: fala
+pausada por outro app (ligação) tem teto de 10 min, parte nova nasce pausada, deslizar para
+concluir na direção certa, criar o 1º treino pela tela, abas escondidas param o poll do
+Mailbox e fecham menus.
+- **Anotado, não feito:** DNS rebinding no leitor de links (a checagem resolve o nome e o
+  `fetch` resolve de novo — fechar exigiria um `lookup` próprio no agente HTTP).
+
+### Pendências e ideias (o que ficou)
+- **Só o Zak:** preencher idade e sexo no Perfil (Treino); confirmar o nome do 3º exercício do
+  Treino C; instalar o APK 2.1.0 pelo card e pôr os widgets novos; testar a fala minimizada.
+- Reordenar seções do Hoje (só ocultar foi feito).
+- "Fecha tudo menos X" com confirmação falada listando o que vai fechar.
+- RAG local de notas (FTS5 + vetores) e roteador de ferramentas por grupo para o 7B (pesquisa).
+- Pílula de fala também no desktop; despejo por voz com revisão antes de salvar (estilo Ramble).
+- Continua de pé: §15 (backup da chave, push no APK, `powercfg`), Agenda/Tailscale pausados.
