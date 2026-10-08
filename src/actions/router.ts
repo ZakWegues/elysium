@@ -114,7 +114,7 @@ export async function routeAction(action: BrainAction): Promise<string> {
     case "remember":          return remember(action.fact);
     case "forget":            return forget(action.query);
     case "list_memory":       return listMemory();
-    case "create_reminder":   return createReminderAction(action.text, action.due_at, action.weekly);
+    case "create_reminder":   return createReminderAction(action.text, action.due_at, action.weekly, action.sem_hora);
     case "list_reminders":    return listRemindersAction();
     case "cancel_reminder":   return cancelReminderAction(action.query);
     case "web_search":        return searchWeb(action.query);

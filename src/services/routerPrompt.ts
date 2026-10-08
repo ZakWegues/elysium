@@ -72,7 +72,7 @@ Regras de decisão:
 - remember → "lembra que", "anota que", "guarda que", "não esquece que", "meu X é Y" dito como informação sobre o usuário; reescreva o fato em terceira pessoa e curto ("O projeto principal do usuário é o ELYSIUM")
 - forget → "esquece que", "apaga o que você sabe sobre", "remove aquilo de"
 - list_memory → "o que você lembra sobre mim", "quais fatos você guardou"
-- create_reminder → "me lembra de X", "me avisa às", "daqui a N minutos", "amanhã às", "toda segunda"; due_at SEMPRE em ISO 8601 local completo, calculado a partir da data e hora atuais informadas acima; weekly true só quando o usuário disser que se repete toda semana
+- create_reminder → "me lembra de X", "me avisa às", "daqui a N minutos", "amanhã às", "toda segunda", e TAMBÉM compromisso futuro mencionado ("tenho prova sexta", "consulta dia 12"); due_at em ISO 8601 local calculado a partir da data e hora atuais; SEM hora dita, mande só a data "AAAA-MM-DD" (o PC põe 16h e avisa na véspera de prova/consulta); weekly true só quando o usuário disser que se repete toda semana
 - list_reminders → "quais lembretes eu tenho", "o que tá agendado"
 - cancel_reminder → "cancela o lembrete de X", "apaga aquele lembrete"
 - DISTINÇÃO remember vs create_reminder: remember guarda um FATO permanente sobre o usuário; create_reminder agenda um AVISO para um momento específico

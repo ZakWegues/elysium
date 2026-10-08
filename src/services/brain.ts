@@ -52,7 +52,7 @@ export type BrainAction =
   // Conta exata (bloco 138): "quanto é 15% de 230" não passa pelo modelo.
   | { action: "calculate";         expression: string }
   | { action: "world_time";        city: string }
-  | { action: "create_reminder";   text: string; due_at: string; weekly?: boolean }
+  | { action: "create_reminder";   text: string; due_at: string; weekly?: boolean; sem_hora?: boolean }
   | { action: "list_reminders" }
   | { action: "cancel_reminder";   query: string }
   | { action: "web_search";        query: string }

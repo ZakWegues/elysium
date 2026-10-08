@@ -1,3 +1,4 @@
+import { importarTarefas, listarTarefasTodas, Tarefa } from "./tarefas";
 import { app } from "electron";
 import { AppConfig, getOverrides, setOverride } from "../main/config";
 import { addFact, listFacts } from "./memoryStore";
@@ -41,6 +42,8 @@ export interface Backup {
   /** Fase 16. Opcional: backup antigo não tem. */
   habitos?: Habito[];
   metas?: Meta[];
+  /** Fase 17. */
+  tarefas?: Tarefa[];
 }
 
 export interface ResumoImportacao {
@@ -74,6 +77,7 @@ export function montarBackup(): Backup {
     listas: listarListas(),
     habitos: listarHabitos(),
     metas: listarMetas(),
+    tarefas: listarTarefasTodas(),
   };
 }
 
@@ -93,6 +97,7 @@ export function lerBackup(bruto: unknown): Backup {
     listas: Array.isArray(b.listas) ? b.listas : [],
     habitos: Array.isArray(b.habitos) ? b.habitos : [],
     metas: Array.isArray(b.metas) ? b.metas : [],
+    tarefas: Array.isArray(b.tarefas) ? b.tarefas : [],
   };
 }
 
@@ -132,6 +137,7 @@ export function aplicarBackup(b: Backup): ResumoImportacao {
   // Itens pendentes somam na lista de mesmo nome; o que já está lá não duplica.
   try { resumo.listas = importarListas(b.listas ?? []); } catch { /* pula */ }
   try { resumo.habitos = importarHabitos(b.habitos ?? [], b.metas ?? []); } catch { /* pula */ }
+  try { resumo.habitos += importarTarefas(b.tarefas ?? []); } catch { /* pula */ }
 
   const ajustes = { ...b.ajustes } as Record<string, unknown>;
   for (const k of AJUSTES_LOCAIS) delete ajustes[k];

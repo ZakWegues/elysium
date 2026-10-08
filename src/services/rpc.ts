@@ -13,6 +13,8 @@
  * contra esse, a defesa é o token não vazar e a porta não ser exposta à internet.
  */
 
+import { apagarTarefa, concluirTarefa, criarTarefa, desvincularLembrete, listarTarefas, reabrirTarefa } from "./tarefas";
+import { createReminderAction } from "../actions/memoryActions";
 import { clipboard } from "electron";
 import * as path from "node:path";
 import * as fs from "node:fs";
@@ -711,18 +713,24 @@ const METHODS: Record<string, MethodDef> = {
       if (kind === "once" && dueAt <= Date.now()) {
         throw new RpcError(400, "dueAt já passou");
       }
-      return {
-        reminder: createReminder({
-          text,
-          dueAt,
-          kind,
-          weekday: kind === "weekly" ? new Date(dueAt).getDay() : undefined,
-        }),
-      };
+      const reminder = createReminder({
+        text,
+        dueAt,
+        kind,
+        weekday: kind === "weekly" ? new Date(dueAt).getDay() : undefined,
+      });
+      // Fase 17: o lembrete de uma vez vira item da lista de tarefas do Hoje.
+      if (kind === "once") { try { criarTarefa({ texto: text, prazo: dueAt, lembreteIds: [reminder.id], origem: "lembrete" }); } catch { /* extra */ } }
+      return { reminder };
     },
   },
   "reminders.cancel": {
-    handler: async (params) => ({ cancelled: cancelReminder(requireString(params, "id")) }),
+    handler: async (params) => {
+      const id = requireString(params, "id");
+      const cancelled = cancelReminder(id);
+      if (cancelled) desvincularLembrete(id);
+      return { cancelled };
+    },
   },
 
   // — rotinas (automações agendadas) e entregas para o celular — bloco 68 —
@@ -927,6 +935,45 @@ const METHODS: Record<string, MethodDef> = {
   },
   "listas.clearDone": { handler: async (params) => ({ removidos: limparFeitos(requireString(params, "lista")) }) },
   "listas.delete": { destructive: true, handler: async (params) => ({ ok: apagarLista(requireString(params, "listaId")) }) },
+  // Tarefas (fase 17): os lembretes viram lista de afazeres, com ressalva ao concluir.
+  "tarefas.list": { handler: async () => ({ tarefas: listarTarefas() }) },
+  "tarefas.criar": {
+    handler: async (params) => {
+      const texto = requireString(params, "texto");
+      const quando = optionalString(params, "quando");
+      // Com data: o mesmo caminho da voz (16h padrão, véspera para prova/consulta).
+      if (quando) {
+        const mensagem = createReminderAction(texto, quando, false, params["semHora"] === true);
+        return { tarefas: listarTarefas(), mensagem };
+      }
+      try { criarTarefa({ texto }); } catch (e) { throw new RpcError(400, (e as Error).message); }
+      return { tarefas: listarTarefas(), mensagem: "Anotado." };
+    },
+  },
+  "tarefas.concluir": {
+    handler: async (params) => {
+      const r = concluirTarefa(requireString(params, "id"), optionalString(params, "ressalva"));
+      if (!r) throw new RpcError(404, "tarefa não encontrada");
+      // Concluída antes da hora: os avisos que faltam não tocam mais.
+      for (const id of r.lembretes) cancelReminder(id);
+      return { tarefa: r.tarefa, tarefas: listarTarefas() };
+    },
+  },
+  "tarefas.reabrir": {
+    handler: async (params) => {
+      const t = reabrirTarefa(requireString(params, "id"));
+      if (!t) throw new RpcError(404, "tarefa não encontrada");
+      return { tarefa: t, tarefas: listarTarefas() };
+    },
+  },
+  "tarefas.delete": {
+    handler: async (params) => {
+      const t = apagarTarefa(requireString(params, "id"));
+      if (!t) throw new RpcError(404, "tarefa não encontrada");
+      for (const id of t.lembreteIds ?? []) cancelReminder(id);
+      return { ok: true, tarefas: listarTarefas() };
+    },
+  },
   // Hábitos e metas (fase 16). A lista já vem com as contas (sequência, recorde, taxa, mapa).
   "habitos.list": { handler: async () => ({ habitos: listarHabitos().map(h => resumirHabito(h)), metas: listarMetas() }) },
   "habitos.save": {

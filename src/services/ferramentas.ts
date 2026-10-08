@@ -1,3 +1,5 @@
+import { cancelReminder } from "./scheduler";
+import { acharTarefa, concluirTarefa, listarTarefas } from "./tarefas";
 import { acharHabito, avancarMeta, listarHabitos, listarMetas, marcarHabito, resumirHabito } from "./habitos";
 import { montarPainelHoje } from "./hoje";
 import { clipboard } from "electron";
@@ -309,6 +311,30 @@ export const FERRAMENTAS: Ferramenta[] = [
     parameters: obj({ lista: s("Nome da lista, opcional") }),
     executar: a => acao({ action: "list_show", list: str(a, "lista") || undefined }),
   },
+  // ── tarefas (fase 17): os lembretes como lista de afazeres ──
+  {
+    name: "ver_tarefas",
+    description: "Lê a lista de tarefas (os lembretes pendentes e o que já foi feito hoje, com ressalvas). Use para 'o que tenho pra fazer', 'minhas tarefas', 'o que falta'.",
+    parameters: obj({}),
+    executar: async () => {
+      const ts = listarTarefas();
+      if (!ts.length) return "A lista de tarefas está vazia.";
+      const quando = (ms?: number) => ms ? new Date(ms).toLocaleString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "sem data";
+      return ts.map(t => t.feita ? `[feita] ${t.texto}${t.ressalva ? ` (ressalva: ${t.ressalva})` : ""}` : `[pendente] ${t.texto} — ${quando(t.prazo)}`).join("; ");
+    },
+  },
+  {
+    name: "concluir_tarefa",
+    description: "Marca uma tarefa/lembrete como feito, com uma ressalva opcional ('terminei o relatório, mas faltou o gráfico'). Cancela os avisos que ainda não tocaram.",
+    parameters: obj({ tarefa: s("Trecho do texto da tarefa"), ressalva: s("O que ficou de fora ou observação, se o usuário disse") }, ["tarefa"]),
+    executar: async a => {
+      const t = acharTarefa(listarTarefas(), str(a, "tarefa"));
+      if (!t) return "Não achei essa tarefa na lista.";
+      const r = concluirTarefa(t.id, str(a, "ressalva") || undefined);
+      for (const id of r?.lembretes ?? []) cancelReminder(id);
+      return `Concluída: ${t.texto}${r?.tarefa.ressalva ? `, com a ressalva "${r.tarefa.ressalva}"` : ""}.`;
+    },
+  },
   // ── hábitos, metas e o painel do dia (fase 16) ──
   {
     name: "ver_habitos",
@@ -467,15 +493,15 @@ export const FERRAMENTAS: Ferramenta[] = [
   },
   {
     name: "criar_lembrete",
-    description: "Cria um lembrete ou alarme. Para 'daqui a N minutos/horas' use em_minutos (o PC calcula); para hora marcada ('amanhã às 9', 'às 15h') use quando.",
+    description: "Cria um lembrete (vira também item da lista de tarefas). Use SEMPRE que o usuário mencionar algo futuro com data para não esquecer — 'tenho prova sexta', 'consulta dia 12', 'entregar o relatório amanhã' — mesmo sem ele dizer 'me lembra'. Para 'daqui a N minutos' use em_minutos; com dia, use quando. Sem hora dita, mande só a data (AAAA-MM-DD): o PC põe 16h e, para prova/consulta/viagem, avisa também na véspera.",
     parameters: obj({
-      texto: s("O que lembrar"),
+      texto: s("O que lembrar, curto (ex.: 'prova de cálculo')"),
       em_minutos: { type: "integer", description: "Daqui a quantos minutos (2 h = 120). Prefira isto a calcular a hora." },
-      quando: s("Data e hora ISO 8601 local, ex.: 2026-09-19T09:00 — só quando o usuário disse uma hora"),
+      quando: s("Data local: AAAA-MM-DD sem hora dita, ou AAAA-MM-DDTHH:MM com hora"),
       semanal: { type: "boolean", description: "Repetir toda semana" },
     }, ["texto"]),
-    executar: a => acao({ action: "create_reminder", text: str(a, "texto"), due_at: quandoDoLembrete(a), weekly: a.semanal === true }),
-    acao: a => ({ action: "create_reminder", text: str(a, "texto"), due_at: quandoDoLembrete(a), weekly: a.semanal === true }),
+    executar: a => acao({ action: "create_reminder", text: str(a, "texto"), due_at: quandoDoLembrete(a), weekly: a.semanal === true, sem_hora: semHoraDita(a) }),
+    acao: a => ({ action: "create_reminder", text: str(a, "texto"), due_at: quandoDoLembrete(a), weekly: a.semanal === true, sem_hora: semHoraDita(a) }),
   },
   {
     name: "cancelar_lembrete",
@@ -595,6 +621,12 @@ function acharRotina(nome: string) {
  * "Daqui a 20 minutos" é conta que o 8B erra (devolveu a hora de agora). Com `em_minutos`
  * a conta é do PC; `quando` fica para hora dita pelo usuário.
  */
+/** Só data, sem hora (AAAA-MM-DD): o planejador põe as 16h. em_minutos sempre tem hora. */
+function semHoraDita(a: Record<string, unknown>): boolean {
+  if (num(a, "em_minutos")) return false;
+  return /^\d{4}-\d{2}-\d{2}$/.test(str(a, "quando"));
+}
+
 function quandoDoLembrete(a: Record<string, unknown>): string {
   const min = num(a, "em_minutos");
   if (min !== undefined && min > 0) {

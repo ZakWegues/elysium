@@ -2,6 +2,8 @@ import { addFact, listFacts, removeFactByText } from "../services/memoryStore";
 import {
   cancelReminderByText, createReminder, listPending, Reminder,
 } from "../services/scheduler";
+import { interpretarQuando, planejarLembretes } from "../services/planoDeLembrete";
+import { criarTarefa, desvincularLembrete } from "../services/tarefas";
 
 // ── memória ───────────────────────────────────────────────────────────────────
 
@@ -44,30 +46,35 @@ function formatWhen(dueAt: number): string {
   return mesmoDia ? `hoje às ${hora}` : `${d.toLocaleDateString("pt-BR")} às ${hora}`;
 }
 
-export function createReminderAction(text: string, dueAt: string, weekly?: boolean): string {
-  let ms: number;
-  try {
-    ms = parseDueAt(dueAt);
-  } catch {
-    return "Não entendi para quando é o lembrete.";
-  }
-
+/**
+ * Fase 17 (08/10): sem hora dita, 16h; compromisso (prova, consulta…) ganha aviso na
+ * véspera às 16h; e o lembrete entra na lista de tarefas do Hoje — concluir lá cancela os
+ * avisos que faltam. Ver `planoDeLembrete.ts` e `tarefas.ts`.
+ */
+export function createReminderAction(text: string, dueAt: string, weekly?: boolean, semHora?: boolean): string {
+  const quando = interpretarQuando(dueAt ?? "", semHora);
+  if (!quando) return "Não entendi para quando é o lembrete.";
+  const avisos = planejarLembretes(text.trim(), quando, Date.now(), weekly);
   // Um lembrete no passado quase sempre é erro de cálculo do modelo, não pedido real.
   // Disparar na hora seria pior que avisar que não deu certo.
-  if (ms <= Date.now() && !weekly) {
+  if (!avisos.length || (!weekly && avisos.every(a => a.em <= Date.now()))) {
     return "Esse horário já passou. Pode repetir dizendo quando?";
   }
-
-  const reminder = createReminder({
-    text,
-    dueAt: ms,
+  const criados = avisos.map(a => createReminder({
+    text: a.texto,
+    dueAt: a.em,
     kind: weekly ? "weekly" : "once",
-    weekday: weekly ? new Date(ms).getDay() : undefined,
-  });
-
-  return weekly
-    ? `Combinado, toda semana ${formatWhen(reminder.dueAt)}: ${reminder.text}.`
-    : `Combinado, te aviso ${formatWhen(reminder.dueAt)}: ${reminder.text}.`;
+    weekday: weekly ? new Date(a.em).getDay() : undefined,
+  }));
+  if (weekly) return `Combinado, toda semana ${formatWhen(criados[0].dueAt)}: ${criados[0].text}.`;
+  const principal = avisos.find(a => !a.vespera) ?? avisos[avisos.length - 1];
+  try {
+    criarTarefa({ texto: text.trim(), prazo: principal.em, lembreteIds: criados.map(r => r.id), origem: "lembrete" });
+  } catch { /* a lista é um extra: o aviso já está agendado */ }
+  const vespera = avisos.find(a => a.vespera);
+  return vespera
+    ? `Combinado: te lembro na véspera, ${formatWhen(vespera.em)}, e no dia, ${formatWhen(principal.em)} — ${text.trim()}.`
+    : `Combinado, te aviso ${formatWhen(principal.em)}: ${text.trim()}.`;
 }
 
 export function listRemindersAction(): string {
@@ -81,5 +88,6 @@ export function listRemindersAction(): string {
 
 export function cancelReminderAction(query: string): string {
   const removed = cancelReminderByText(query);
+  if (removed) desvincularLembrete(removed.id);
   return removed ? `Cancelei o lembrete: ${removed.text}.` : "Não achei esse lembrete.";
 }
