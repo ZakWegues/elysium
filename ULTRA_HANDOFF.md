@@ -5702,3 +5702,35 @@ concluída não tinham como ser editados ("Todos" nos dois apps).
 - Desktop **2.0.0** e celular **2.0.0 (vc20)** — APK novo (widgets, `app.json`, react-native-svg).
 - Para o Zak: instalar o APK pelo cartão da Início (o PC já baixa sozinho); abrir a aba Hoje e
   criar os hábitos; pôr os widgets novos na tela inicial; conferir o tema Stark.
+
+## 35. Fase 17 — lembretes como tarefas, lembretes inteligentes, resumo humano (08/10/2026)
+
+Pedido do Zak depois da 2.0 ("simplesmente perfeita"): vários arquivos de uma vez no chat do
+celular; tirar o microfone do topo da Início (ele lia como a mão livre); os lembretes virarem
+uma todo-list com **ressalva** ao concluir (o Hoje fica como está); a Ely identificar sozinha o
+que deve virar lembrete e, para coisas como prova, avisar **um dia antes**; horário padrão
+**16h**; e um resumo do Hoje mais humano.
+
+- `services/tarefas.ts`: tarefa = `{texto, prazo, lembreteIds, feita, feitaEm, ressalva}`.
+  Todo lembrete de uma vez criado (voz, RPC `reminders.create`, `tarefas.criar`) vira tarefa;
+  concluir cancela os avisos que faltam; cancelar o lembrete tira da tarefa (e apaga a que
+  ficou sem aviso). RPC `tarefas.list|criar|concluir|reabrir|delete`. Backup leva as tarefas.
+  Migração única dos lembretes antigos (com véspera para compromisso).
+- `services/planoDeLembrete.ts`: sem hora → 16h; compromisso (prova, consulta, entrevista,
+  viagem…; não "ligar pro dentista") → aviso na véspera às 16h + no dia (8h sem hora). **O dia e
+  a hora vêm da fala** (`diaDoTexto`, `horaDoTexto`, `ajustarPeloTexto`, via `pedidoAtual()` no
+  contexto do comando): testado ao vivo, o 7B pôs "sexta" no dia 13 (terça) e "amanhã" à
+  meia-noite. Dois dias no mesmo pedido → fica a conta do modelo. Respostas faladas com
+  "amanhã às 16h", "sábado às 10h".
+- Ferramentas `ver_tarefas`, `concluir_tarefa` (com ressalva); `criar_lembrete` instruída a
+  agir em compromisso mencionado mesmo sem "me lembra".
+- Hoje: painel "Lembretes e tarefas" nos dois apps (adicionar com dia/hora, concluir com
+  ressalva, reabrir, apagar). Resumo do topo escrito pela Ely a partir de `fatosDoDia` (cache
+  20 min, reserva na frase fixa); o gpt-oss precisa de teto ~900 tokens (raciocina antes).
+- Bug achado: `hoje.js` declarava `desenharAgenda`, o mesmo nome global da Google Agenda nos
+  Ajustes (scripts clássicos) — renomeado.
+- Celular: `DocumentPicker` com `multiple` (até 10, 5 MB cada); microfone da escuta fora do
+  topo da Início (estado em Ajustes → Voz).
+- Versões: desktop **2.1.0** instalado; celular por OTA no runtime do APK 2.0.0 (4329051a).
+- Testes: desktop 173. Dados de teste apagados; o lembrete real do Zak (prova de matemática)
+  virou tarefa com aviso na véspera.
