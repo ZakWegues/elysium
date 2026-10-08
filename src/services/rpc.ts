@@ -481,6 +481,8 @@ const METHODS: Record<string, MethodDef> = {
         conectados: clientesConectados(),
         // O celular usa na saudação (fase 13): o nome mora na config do PC, não no código.
         nome: (getConfig().nomeDoUsuario || "").trim(),
+        // Fase 16: como a Ely chama o dono — a saudação do celular usa antes do nome.
+        tratamento: (getConfig().tratamento ?? "").trim(),
         // Bloco 128: a faixa do celular só fala em Tailscale se o Zak ligou o acesso remoto.
         acessoRemoto: Boolean(getConfig().acessoRemotoNaSaude),
       };
