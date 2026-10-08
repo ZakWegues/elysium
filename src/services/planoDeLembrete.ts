@@ -94,7 +94,7 @@ function diaDaSemanaNoTexto(t: string): number | null {
   return diasDaSemanaNoTexto(t)[0] ?? null;
 }
 
-/** Dia N no mês de \`base\`; se não existir (31 de abril) ou já passou, o mês seguinte. Null se nunca existe. */
+/** Dia N no mês de `base`; se não existir (31 de abril) ou já passou, o mês seguinte. Null se nunca existe. */
 function diaNoMes(base: Date, n: number): Date | null {
   if (n < 1 || n > 31) return null;
   for (let k = 0; k < 3; k++) {
@@ -227,7 +227,7 @@ export function limparDataDoTexto(texto: string): string {
 
 /**
  * Uma tarefa escrita do jeito que se fala, para o "quick add" (Todoist): o texto limpo e,
- * se houver data ou hora nele, o \`quando\` no formato do \`interpretarQuando\`. Pura.
+ * se houver data ou hora nele, o `quando` no formato do `interpretarQuando`. Pura.
  */
 export function interpretarTexto(texto: string, agora = new Date()): { texto: string; quando: string | null; semHora: boolean } {
   const t = sem(texto);

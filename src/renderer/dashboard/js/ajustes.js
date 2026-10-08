@@ -192,7 +192,11 @@ function abrirGaveta({ titulo, icone = "grid", nos = [], html = "", aoAbrir, aoF
   document.getElementById("gaveta-veu").classList.add("aberto");
   corpo.scrollTop = 0;
   aoAbrir?.(corpo);
-  corpo.querySelector("input[type='text'], input[type='search'], select, button")?.focus?.({ preventScroll: true });
+  // Quem abriu já pôs o foco num campo (a ressalva do "Concluir"): respeita. Antes o foco ia
+  // para o primeiro campo/botão de qualquer jeito, e Enter concluía sem a ressalva (08/10).
+  if (!corpo.contains(document.activeElement)) {
+    corpo.querySelector("input[type='text'], input[type='search'], select, button")?.focus?.({ preventScroll: true });
+  }
 }
 
 /** Devolve cada nó movido exatamente de onde saiu (mesmo pai, mesma posição). */

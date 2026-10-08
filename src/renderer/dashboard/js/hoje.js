@@ -92,7 +92,7 @@ function desenharTarefasHoje(tarefas) {
     </div>`).join("");
 }
 
-function concluirTarefaComRessalva(t) {
+function concluirTarefaComRessalva(t, depois) {
   abrirGaveta({
     titulo: "Concluir", icone: "check", classe: "gaveta-pc",
     html: `<form class="rot-form">
@@ -112,7 +112,7 @@ function concluirTarefaComRessalva(t) {
         e.preventDefault();
         const r = await window.nx.rpc("tarefas.concluir", { id: t.id, ressalva: f.ressalva.value.trim() || undefined });
         if (r.error) { showToast(r.error, true); return; }
-        fecharGaveta(); showToast("Concluída."); carregarHoje();
+        fecharGaveta(); showToast("Concluída."); (depois ?? carregarHoje)();
       });
     },
   });

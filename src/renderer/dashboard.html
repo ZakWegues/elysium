@@ -263,6 +263,30 @@
       </div>
     </header>
     <div id="hoje-alertas" class="hoje-alertas" hidden></div>
+    <!-- Fase 18: tarefas em tela cheia (js/tarefas.js). Cobre a aba Hoje enquanto aberta. -->
+    <div id="tarefas-cheia" hidden role="dialog" aria-label="Tarefas em tela cheia">
+      <header class="tc-topo">
+        <button class="tc-voltar" data-tc-fechar="1" title="Voltar (Esc)" aria-label="Voltar"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-arrow-left"/></svg></button>
+        <h2>Tarefas</h2>
+        <span class="tc-dica">N nova · ↑↓ escolher · Espaço concluir · Enter editar · Del apagar</span>
+        <button class="hoje-acao" data-tc-nova="1"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-plus"/></svg><span>Com detalhes</span></button>
+      </header>
+      <form id="tc-form-novo" class="tc-novo" autocomplete="off">
+        <label class="sr-only" for="tc-novo">Nova tarefa</label>
+        <input type="text" id="tc-novo" placeholder='Escreva como fala — "prova de física sexta 14h"' maxlength="200">
+        <button type="submit" class="hoje-acao principal"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-plus"/></svg><span>Adicionar</span></button>
+      </form>
+      <div id="tc-previa" class="tc-previa" aria-live="polite"></div>
+      <div class="tc-filtros">
+        <button data-tc-filtro="abertas" class="on">Abertas</button>
+        <button data-tc-filtro="feitas">Feitas (30 dias)</button>
+        <button data-tc-filtro="todas">Todas</button>
+        <label class="sr-only" for="tc-busca">Buscar</label>
+        <input type="search" id="tc-busca" placeholder="Buscar">
+      </div>
+      <div id="tc-lista" class="tc-lista" role="list"></div>
+      <div id="tc-desfazer" class="tc-desfazer" hidden aria-live="polite"></div>
+    </div>
     <div class="hoje-grade">
       <section class="hoje-painel hoje-largo">
         <div class="hoje-painel-topo"><h3>Hábitos de hoje</h3><span class="hoje-botoes-mini"><button class="hoje-acao" data-hoje-gerenciar="1" title="Todos os hábitos e metas, inclusive os que não valem hoje e as metas concluídas"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-list"/></svg><span>Todos</span></button><button class="hoje-acao" data-hoje-novo-habito="1"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-plus"/></svg><span>Hábito</span></button></span></div>
@@ -270,11 +294,14 @@
       </section>
       <!-- Fase 17: os lembretes como lista de tarefas (concluir com ressalva). -->
       <section class="hoje-painel hoje-largo">
-        <div class="hoje-painel-topo"><h3>Lembretes e tarefas</h3></div>
+        <div class="hoje-painel-topo"><h3>Lembretes e tarefas</h3><button class="hoje-acao" id="hoje-btn-tarefas-cheia" title="A lista inteira, agrupada, com busca, adiar e atalhos de teclado"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-layers"/></svg><span>Tela cheia</span></button></div>
         <form class="hoje-nova-tarefa" id="hoje-nova-tarefa" autocomplete="off">
-          <input type="text" name="texto" placeholder="Nova tarefa ou lembrete — ex.: prova de cálculo" maxlength="200" required>
-          <input type="date" name="dia" title="Dia (opcional — sem hora, avisa às 16h; prova e consulta avisam também na véspera)">
-          <input type="time" name="hora" title="Hora (opcional)">
+          <label class="sr-only" for="hoje-nova-texto">Nova tarefa</label>
+          <input type="text" id="hoje-nova-texto" name="texto" placeholder="Nova tarefa — ex.: prova de cálculo sexta 14h" maxlength="200" required>
+          <label class="sr-only" for="hoje-nova-dia">Dia</label>
+          <input type="date" id="hoje-nova-dia" name="dia" title="Dia (opcional — sem hora, avisa às 16h; prova e consulta avisam também na véspera)">
+          <label class="sr-only" for="hoje-nova-hora">Hora</label>
+          <input type="time" id="hoje-nova-hora" name="hora" title="Hora (opcional)">
           <button type="submit" class="hoje-acao"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-plus"/></svg><span>Adicionar</span></button>
         </form>
         <div id="hoje-tarefas"></div>
@@ -626,6 +653,7 @@
 <script src="dashboard/js/rotinas.js"></script>
 <script src="dashboard/js/hoje.js"></script>
 <script src="dashboard/js/treino.js"></script>
+<script src="dashboard/js/tarefas.js"></script>
 <script src="dashboard/js/inicio.js"></script>
 <script src="dashboard/js/paleta.js"></script>
 <script src="dashboard/js/boot.js"></script>

@@ -192,7 +192,7 @@ function interruptAll(): void {
   cancelSpeak();
   // Resolve quem esperava pelos pedaços que não vão mais tocar: com a fala dividida em
   // frases (02/10), a promessa do `speak` mora no ÚLTIMO pedaço, e descartá-lo sem resolver
-  // deixava o \`await speak(...)\` pendurado para sempre.
+  // deixava o `await speak(...)` pendurado para sempre.
   for (const item of speakQueue.splice(0)) item.resolve();
   falandoAgora = "";
   isSpeaking = false;
