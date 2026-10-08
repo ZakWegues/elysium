@@ -110,3 +110,27 @@
 }
 .hoje-gerenciar button:hover { background: rgba(var(--purple-rgb), 0.10); }
 .hoje-gerenciar small { color: var(--muted); }
+
+/* Lembretes e tarefas (fase 17). */
+.hoje-nova-tarefa { display: grid; grid-template-columns: minmax(0, 1fr) 150px 110px auto; gap: 8px; margin-bottom: 10px; }
+@media (max-width: 760px) { .hoje-nova-tarefa { grid-template-columns: 1fr 1fr; } }
+.hoje-nova-tarefa input {
+  padding: 8px 11px; border-radius: var(--radius-8); border: 1px solid var(--border);
+  background: rgba(0,0,0,0.2); color: var(--text); font-family: inherit; font-size: 12.5px; outline: none; min-width: 0;
+}
+.theme-lg .hoje-nova-tarefa input { background: rgba(255,255,255,0.9); }
+.hoje-nova-tarefa input:focus { border-color: rgba(var(--purple-rgb), 0.6); }
+.hoje-tarefa { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto 26px; gap: 10px; align-items: center; padding: 7px 0; border-top: 1px solid var(--border); }
+.hoje-tarefa:first-child { border-top: 0; }
+.hoje-tarefa-texto { font-size: 13.5px; color: var(--text); }
+.hoje-tarefa.feita .hoje-tarefa-texto { color: var(--muted); text-decoration: line-through; text-decoration-color: rgba(var(--purple-rgb), 0.5); }
+.hoje-tarefa.feita .hoje-check { background: var(--purple-bright); color: var(--bg); border-color: var(--purple-bright); }
+.hoje-tarefa-quando { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.hoje-tarefa.atrasada .hoje-tarefa-quando { color: var(--red, #e05252); }
+.hoje-ressalva { display: flex; gap: 5px; align-items: center; margin-top: 3px; font-size: 11.5px; color: var(--cyan); }
+.hoje-ressalva .ico { width: 12px; height: 12px; flex-shrink: 0; }
+.hoje-tarefa-x { width: 26px; height: 26px; border-radius: 50%; border: 0; background: transparent; color: var(--muted); cursor: pointer; opacity: 0; transition: opacity var(--mov-micro, 120ms); }
+.hoje-tarefa:hover .hoje-tarefa-x, .hoje-tarefa-x:focus-visible { opacity: 1; }
+.hoje-tarefa-x:hover { color: var(--red, #e05252); background: rgba(224,82,82,0.1); }
+#hoje-agenda:not(:empty) { margin-top: 8px; padding-top: 6px; border-top: 1px dashed var(--border); }
+.hoje-concluir-nome { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 6px; }

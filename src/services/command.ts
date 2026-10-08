@@ -47,7 +47,7 @@ export function executarComando(text: string, ganchos: GanchosComando = {}): Pro
   return comContexto(ganchos.canal ?? "voz", async () => {
     const r = await executarNoContexto(text, ganchos);
     return { ...r, fontes: fontesDoPedido() };
-  });
+  }, text);
 }
 
 async function executarNoContexto(

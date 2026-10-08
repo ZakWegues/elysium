@@ -62,13 +62,69 @@ function desenharMetas(metas) {
   }).join("");
 }
 
-function desenharAgenda(p) {
+/**
+ * Lembretes e tarefas (fase 17): a lista de afazeres. Pendentes com o prazo ("atrasada" em
+ * vermelho), concluídas de hoje riscadas com a ressalva embaixo. Clicar no círculo abre a
+ * conclusão com ressalva opcional.
+ */
+function quandoTarefa(ms) {
+  if (!ms) return "";
+  const d = new Date(ms), hoje = new Date();
+  const amanha = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate() + 1);
+  const hora = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  if (d.toDateString() === hoje.toDateString()) return `hoje ${hora}`;
+  if (d.toDateString() === amanha.toDateString()) return `amanhã ${hora}`;
+  return `${d.toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit" })} ${hora}`;
+}
+
+function desenharTarefasHoje(tarefas) {
+  if (!tarefas?.length) return `<div class="hoje-vazio">Nada na lista. Escreva acima, ou diga à Ely "tenho prova sexta" — ela anota e avisa na véspera.</div>`;
+  const agora = Date.now();
+  return tarefas.map(t => `
+    <div class="hoje-tarefa${t.feita ? " feita" : ""}${!t.feita && t.prazo && t.prazo < agora ? " atrasada" : ""}">
+      <button class="hoje-check" data-tarefa-check="${escHtml(t.id)}" data-feita="${t.feita ? "1" : ""}" title="${t.feita ? "Reabrir" : "Concluir"}" aria-pressed="${t.feita}">${ico("check", "ico-sm")}</button>
+      <div class="hoje-tarefa-meio">
+        <div class="hoje-tarefa-texto">${escHtml(t.texto)}</div>
+        ${t.ressalva ? `<div class="hoje-ressalva">${ico("edit", "ico-sm")}<span>${escHtml(t.ressalva)}</span></div>` : ""}
+      </div>
+      <span class="hoje-tarefa-quando">${t.feita ? "feita" : t.prazo ? (t.prazo < agora ? "atrasada · " : "") + quandoTarefa(t.prazo) : ""}</span>
+      <button class="hoje-tarefa-x" data-tarefa-apagar="${escHtml(t.id)}" title="Apagar (e cancelar os avisos)">${ico("x", "ico-sm")}</button>
+    </div>`).join("");
+}
+
+function concluirTarefaComRessalva(t) {
+  abrirGaveta({
+    titulo: "Concluir", icone: "check", classe: "gaveta-pc",
+    html: `<form class="rot-form">
+      <div class="hoje-concluir-nome">${escHtml(t.texto)}</div>
+      <label>Ressalva<small>Opcional — o que ficou de fora, uma observação. Fica anotado na tarefa.</small>
+        <textarea name="ressalva" maxlength="300" placeholder="Ex.: fiz, mas faltou revisar o capítulo 3"></textarea></label>
+      <div class="home-acoes">
+        <button type="submit" class="principal">${ico("check", "ico-sm")}<span>Concluir</span></button>
+        <button type="button" data-cancelar="1">${ico("x", "ico-sm")}<span>Cancelar</span></button>
+      </div>
+    </form>`,
+    aoAbrir: (corpo) => {
+      const f = corpo.querySelector("form");
+      f.querySelector("textarea").focus();
+      f.querySelector("[data-cancelar]").addEventListener("click", () => fecharGaveta());
+      f.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const r = await window.nx.rpc("tarefas.concluir", { id: t.id, ressalva: f.ressalva.value.trim() || undefined });
+        if (r.error) { showToast(r.error, true); return; }
+        fecharGaveta(); showToast("Concluída."); carregarHoje();
+      });
+    },
+  });
+}
+
+function desenharAgendaHoje(p) {
   const itens = [
     ...p.lembretes.map(l => ({ em: l.em, html: `<span class="hoje-hora">${horaCurta(l.em)}</span>${ico("bell", "ico-sm")}<span>${escHtml(l.texto)}</span>` })),
     ...(p.proximaRotina ? [{ em: p.proximaRotina.em, html: `<span class="hoje-hora">${horaCurta(p.proximaRotina.em)}</span>${ico("zap", "ico-sm")}<span>Rotina ${escHtml(p.proximaRotina.nome)}</span>` }] : []),
   ].sort((a, b) => a.em - b.em);
   const timers = p.timers.map(t => `<div class="hoje-linha hoje-timer">${ico("clock", "ico-sm")}<span>${escHtml(t.nome || "Timer")}</span><b data-fim="${t.fimEm}">${restante(t.fimEm)}</b></div>`).join("");
-  if (!itens.length && !timers) return `<div class="hoje-vazio">Agenda livre hoje.</div>`;
+  if (!itens.length && !timers) return "";
   return timers + itens.map(i => `<div class="hoje-linha">${i.html}</div>`).join("");
 }
 
@@ -83,7 +139,8 @@ function desenharHoje() {
   el.querySelector("#hoje-reator").innerHTML = anelHoje(feitos, p.habitos.length);
   el.querySelector("#hoje-habitos").innerHTML = desenharHabitos(p.habitos);
   el.querySelector("#hoje-metas").innerHTML = desenharMetas(p.metas);
-  el.querySelector("#hoje-agenda").innerHTML = desenharAgenda(p);
+  el.querySelector("#hoje-tarefas").innerHTML = desenharTarefasHoje(p.tarefas);
+  el.querySelector("#hoje-agenda").innerHTML = desenharAgendaHoje(p);
   el.querySelector("#hoje-clima").innerHTML = p.clima
     ? `<div class="hoje-clima-temp">${Math.round(p.clima.temperatura)}°</div><div><div>${escHtml(p.clima.descricao)}</div><small>${escHtml(p.clima.cidade)} · ${Math.round(p.clima.min)}°–${Math.round(p.clima.max)}°${p.clima.chuvaHoje ? " · chuva hoje" : ""}</small></div>`
     : `<div class="hoje-vazio">Clima indisponível.</div>`;
@@ -230,6 +287,20 @@ hojeEl()?.addEventListener("click", async (e) => {
     carregarHoje();
     return;
   }
+  const tc = alvo("[data-tarefa-check]");
+  if (tc) {
+    const t = painelHoje?.tarefas.find(x => x.id === tc.dataset.tarefaCheck);
+    if (!t) return;
+    if (t.feita) { await window.nx.rpc("tarefas.reabrir", { id: t.id }); carregarHoje(); }
+    else concluirTarefaComRessalva(t);
+    return;
+  }
+  const tx = alvo("[data-tarefa-apagar]");
+  if (tx) {
+    const r = await window.nx.rpc("tarefas.delete", { id: tx.dataset.tarefaApagar });
+    if (r.error) showToast(r.error, true); else { showToast("Tarefa apagada."); carregarHoje(); }
+    return;
+  }
   if (alvo("[data-hoje-gerenciar]")) { gerenciarHabitos(); return; }
   if (alvo("[data-hoje-novo-habito]")) { formHabito(); return; }
   if (alvo("[data-hoje-nova-meta]")) { formMeta(); return; }
@@ -241,4 +312,20 @@ hojeEl()?.addEventListener("click", async (e) => {
   if (alvo("#hoje-recarregar")) { carregarHoje(); return; }
   const mc = alvo("#hoje-btn-manchetes");
   if (mc) { buscarManchetes(mc); return; }
+});
+
+// Nova tarefa: com dia, vira lembrete (16h sem hora; véspera para prova e consulta).
+document.getElementById("hoje-nova-tarefa")?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const f = e.currentTarget;
+  const texto = f.texto.value.trim();
+  if (!texto) return;
+  const hora = f.hora.value;
+  // Hora sem dia: hoje.
+  const dia = f.dia.value || (hora ? new Date().toLocaleDateString("sv-SE") : "");
+  const r = await window.nx.rpc("tarefas.criar", { texto, quando: dia ? (hora ? `${dia}T${hora}` : dia) : undefined });
+  if (r.error) { showToast(r.error, true); return; }
+  f.reset();
+  showToast(r.result?.mensagem ?? "Anotado.");
+  carregarHoje();
 });

@@ -17,6 +17,8 @@ describe("lembretes inteligentes (fase 17)", () => {
   it("compromisso ganha véspera às 16h; sem hora, o aviso do dia é às 8h", () => {
     expect(ehCompromisso("prova de cálculo")).toBe(true);
     expect(ehCompromisso("ligar pra mãe")).toBe(false);
+    expect(ehCompromisso("ligar pro dentista")).toBe(false);
+    expect(ehCompromisso("consulta no dentista")).toBe(true);
     const p = planejarLembretes("prova de cálculo", { ms: em(9, 16), temHora: false }, AGORA);
     expect(p).toEqual([
       { texto: "Amanhã: prova de cálculo", em: em(8, 16), vespera: true },
@@ -61,5 +63,39 @@ describe("lista de tarefas (fase 17)", () => {
       "Já concluídas hoje: academia (ressalva: só cardio)",
       "Hábitos que faltam hoje: Leitura (sequência de 5 dias em jogo)",
     ]);
+  });
+});
+
+describe("dia e hora da fala (fase 17)", async () => {
+  const { diaDoTexto, horaDoTexto, ajustarPeloTexto } = await import("../src/services/planoDeLembrete");
+  // Quinta, 08/10/2026.
+  const QUI = new Date(2026, 9, 8, 21, 0);
+  const dia = (d: Date | null) => d && `${d.getDate()}/${d.getMonth() + 1}`;
+  it("dias: amanhã, sexta, dia 12, 12/10, hoje", () => {
+    expect(dia(diaDoTexto("tenho prova de física sexta", QUI))).toBe("9/10");
+    expect(dia(diaDoTexto("me lembra amanhã de pagar a luz", QUI))).toBe("9/10");
+    expect(dia(diaDoTexto("consulta quinta", QUI))).toBe("15/10");
+    expect(dia(diaDoTexto("entrega dia 12", QUI))).toBe("12/10");
+    expect(dia(diaDoTexto("entrega dia 3", QUI))).toBe("3/11");
+    expect(dia(diaDoTexto("show 25/12", QUI))).toBe("25/12");
+    expect(dia(diaDoTexto("depois de amanhã tem jogo", QUI))).toBe("10/10");
+    expect(diaDoTexto("me lembra de beber água", QUI)).toBeNull();
+  });
+  it("horas: às 15h, 15:30, 3 da tarde, meio-dia, de manhã", () => {
+    expect(horaDoTexto("às 15h")).toEqual({ h: 15, m: 0 });
+    expect(horaDoTexto("prova 15:30")).toEqual({ h: 15, m: 30 });
+    expect(horaDoTexto("às 3 da tarde")).toEqual({ h: 15, m: 0 });
+    expect(horaDoTexto("14h45")).toEqual({ h: 14, m: 45 });
+    expect(horaDoTexto("meio-dia")).toEqual({ h: 12, m: 0 });
+    expect(horaDoTexto("amanhã de manhã")).toEqual({ h: 9, m: 0 });
+    expect(horaDoTexto("prova sexta")).toBeNull();
+  });
+  it("ajuste: o dia da fala vence a conta do modelo; sem hora, 16h; daqui a N fica com o modelo", () => {
+    expect(ajustarPeloTexto("tenho prova de física sexta", "2026-10-13", QUI)).toEqual({ quando: "2026-10-09", semHora: true });
+    expect(ajustarPeloTexto("me lembra amanhã de pagar a luz", "2026-10-09T00:00", QUI)).toEqual({ quando: "2026-10-09", semHora: true });
+    expect(ajustarPeloTexto("consulta sexta às 14h", "2026-10-13T09:00", QUI)).toEqual({ quando: "2026-10-09T14:00", semHora: false });
+    expect(ajustarPeloTexto("me lembra daqui a 20 minutos", "2026-10-08T21:20", QUI)).toBeNull();
+    expect(ajustarPeloTexto("amanhã a luz e sexta a prova", "2026-10-09", QUI)).toBeNull();
+    expect(ajustarPeloTexto("depois de amanhã tem jogo", "2026-10-11", QUI)).toEqual({ quando: "2026-10-10", semHora: true });
   });
 });

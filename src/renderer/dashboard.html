@@ -268,8 +268,16 @@
         <div class="hoje-painel-topo"><h3>Hábitos de hoje</h3><span class="hoje-botoes-mini"><button class="hoje-acao" data-hoje-gerenciar="1" title="Todos os hábitos e metas, inclusive os que não valem hoje e as metas concluídas"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-list"/></svg><span>Todos</span></button><button class="hoje-acao" data-hoje-novo-habito="1"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-plus"/></svg><span>Hábito</span></button></span></div>
         <div id="hoje-habitos"></div>
       </section>
-      <section class="hoje-painel">
-        <div class="hoje-painel-topo"><h3>Agenda</h3></div>
+      <!-- Fase 17: os lembretes como lista de tarefas (concluir com ressalva). -->
+      <section class="hoje-painel hoje-largo">
+        <div class="hoje-painel-topo"><h3>Lembretes e tarefas</h3></div>
+        <form class="hoje-nova-tarefa" id="hoje-nova-tarefa" autocomplete="off">
+          <input type="text" name="texto" placeholder="Nova tarefa ou lembrete — ex.: prova de cálculo" maxlength="200" required>
+          <input type="date" name="dia" title="Dia (opcional — sem hora, avisa às 16h; prova e consulta avisam também na véspera)">
+          <input type="time" name="hora" title="Hora (opcional)">
+          <button type="submit" class="hoje-acao"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-plus"/></svg><span>Adicionar</span></button>
+        </form>
+        <div id="hoje-tarefas"></div>
         <div id="hoje-agenda"></div>
       </section>
       <section class="hoje-painel">

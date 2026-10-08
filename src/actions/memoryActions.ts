@@ -2,7 +2,8 @@ import { addFact, listFacts, removeFactByText } from "../services/memoryStore";
 import {
   cancelReminderByText, createReminder, listPending, Reminder,
 } from "../services/scheduler";
-import { interpretarQuando, planejarLembretes } from "../services/planoDeLembrete";
+import { ajustarPeloTexto, interpretarQuando, planejarLembretes } from "../services/planoDeLembrete";
+import { pedidoAtual } from "../services/contextoComando";
 import { criarTarefa, desvincularLembrete } from "../services/tarefas";
 
 // ── memória ───────────────────────────────────────────────────────────────────
@@ -38,12 +39,18 @@ function parseDueAt(iso: string): number {
   return ms;
 }
 
+/** "hoje às 16h", "amanhã às 8h", "sábado às 10h", "25/12 às 16h" — como se fala (fase 17). */
 function formatWhen(dueAt: number): string {
   const d = new Date(dueAt);
   const hoje = new Date();
-  const mesmoDia = d.toDateString() === hoje.toDateString();
-  const hora = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-  return mesmoDia ? `hoje às ${hora}` : `${d.toLocaleDateString("pt-BR")} às ${hora}`;
+  const base = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate()).getTime();
+  const diaD = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const dias = Math.round((diaD - base) / 86_400_000);
+  const hora = d.getMinutes() ? `${d.getHours()}h${String(d.getMinutes()).padStart(2, "0")}` : `${d.getHours()}h`;
+  if (dias === 0) return `hoje às ${hora}`;
+  if (dias === 1) return `amanhã às ${hora}`;
+  if (dias > 1 && dias < 7) return `${d.toLocaleDateString("pt-BR", { weekday: "long" }).replace("-feira", "")} às ${hora}`;
+  return `${d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" })} às ${hora}`;
 }
 
 /**
@@ -52,6 +59,10 @@ function formatWhen(dueAt: number): string {
  * avisos que faltam. Ver `planoDeLembrete.ts` e `tarefas.ts`.
  */
 export function createReminderAction(text: string, dueAt: string, weekly?: boolean, semHora?: boolean): string {
+  // O dia e a hora que o Zak FALOU valem mais que a conta do modelo (fase 17).
+  const pedido = pedidoAtual();
+  const ajuste = pedido && !weekly ? ajustarPeloTexto(pedido, dueAt ?? "") : null;
+  if (ajuste) { dueAt = ajuste.quando; semHora = ajuste.semHora; }
   const quando = interpretarQuando(dueAt ?? "", semHora);
   if (!quando) return "Não entendi para quando é o lembrete.";
   const avisos = planejarLembretes(text.trim(), quando, Date.now(), weekly);

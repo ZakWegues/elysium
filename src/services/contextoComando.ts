@@ -12,12 +12,20 @@ import type { Canal } from "./estiloResposta";
  */
 export interface Fonte { titulo: string; url: string }
 
-interface Contexto { canal: Canal; fontes: Fonte[] }
+interface Contexto { canal: Canal; fontes: Fonte[]; pedido?: string }
 
 const als = new AsyncLocalStorage<Contexto>();
 
-export function comContexto<T>(canal: Canal, fn: () => Promise<T>): Promise<T> {
-  return als.run({ canal, fontes: [] }, fn);
+export function comContexto<T>(canal: Canal, fn: () => Promise<T>, pedido?: string): Promise<T> {
+  return als.run({ canal, fontes: [], pedido }, fn);
+}
+
+/**
+ * O texto do pedido que está rodando (fase 17): o lembrete tira o dia e a hora da fala em
+ * vez de confiar na conta de calendário do modelo.
+ */
+export function pedidoAtual(): string | undefined {
+  return als.getStore()?.pedido;
 }
 
 export function canalAtual(): Canal {
