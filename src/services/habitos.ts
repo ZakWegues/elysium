@@ -24,6 +24,14 @@ export interface Habito {
   /** Dias feitos, "AAAA-MM-DD" no horário local. */
   marcados: string[];
   criadoEm: number;
+  /**
+   * Fase 18 (08/10): quantas faltas por semana não quebram a sequência (0 a 2; sem o campo,
+   * 1). A pesquisa foi clara: sequência que zera numa falta só gera ansiedade e abandono — o
+   * Loop e o Streak Log perdoam; o Habitica, que pune, é o mais citado por cansar.
+   */
+  folgasPorSemana?: number;
+  /** Dias "congelados" (viagem, doença): não contam como feito nem como falta. */
+  pausas?: string[];
 }
 
 export interface Meta {
@@ -56,6 +64,18 @@ export function valeNoDia(h: Pick<Habito, "dias">, d: Date): boolean {
   return !h.dias.length || h.dias.includes(d.getDay());
 }
 
+/** Vale e não está pausado: é um dia que conta (para sequência, taxa, força). */
+export function contaNoDia(h: Pick<Habito, "dias" | "pausas">, d: Date): boolean {
+  return valeNoDia(h, d) && !(h.pausas ?? []).includes(diaDe(d));
+}
+
+/** A semana de um dia (começa no domingo), como chave — as folgas são por semana. */
+function semanaDe(d: Date): string {
+  return diaDe(new Date(d.getFullYear(), d.getMonth(), d.getDate() - d.getDay()));
+}
+
+const folgas = (h: Pick<Habito, "folgasPorSemana">) => Math.max(0, Math.min(2, h.folgasPorSemana ?? 1));
+
 export function feitoNoDia(h: Pick<Habito, "marcados">, d: Date): boolean {
   return h.marcados.includes(diaDe(d));
 }
@@ -64,39 +84,70 @@ export function feitoNoDia(h: Pick<Habito, "marcados">, d: Date): boolean {
  * Sequência atual: dias VÁLIDOS seguidos feitos, contando para trás. Hoje ainda não feito
  * não quebra (o dia não acabou) — a conta começa de ontem nesse caso.
  */
-export function sequenciaAtual(h: Pick<Habito, "dias" | "marcados">, hoje = new Date()): number {
+export function sequenciaAtual(h: Pick<Habito, "dias" | "marcados" | "folgasPorSemana" | "pausas">, hoje = new Date()): number {
   let n = 0;
+  const usadas = new Map<string, number>();
   for (let i = 0; i < 400; i++) {
     const d = menosDias(hoje, i);
-    if (!valeNoDia(h, d)) continue;
+    if (!contaNoDia(h, d)) continue;
     if (feitoNoDia(h, d)) { n++; continue; }
     if (i === 0) continue;
+    // Falta: gasta uma folga da semana, se houver (e se já houve algum feito para trás —
+    // folga não inventa sequência do nada).
+    const s = semanaDe(d);
+    const ja = usadas.get(s) ?? 0;
+    if (n > 0 && ja < folgas(h)) { usadas.set(s, ja + 1); continue; }
     break;
   }
   return n;
 }
 
+/**
+ * Força do hábito, de 0 a 100 (o "habit strength" do Loop): uma média que sobe devagar a
+ * cada dia feito e desce devagar a cada falta. Uma falta não zera nada — faltar uma vez num
+ * hábito forte é um arranhão, não um recomeço. Meia-vida de ~13 dias contados.
+ */
+export function forca(h: Pick<Habito, "dias" | "marcados" | "pausas" | "criadoEm">, hoje = new Date()): number {
+  const alfa = 1 - Math.pow(0.5, 1 / 13);
+  const inicio = Math.max(h.criadoEm ?? 0, hoje.getTime() - 180 * 86_400_000);
+  let s = 0;
+  for (let i = 180; i >= 0; i--) {
+    const d = menosDias(hoje, i);
+    if (d.getTime() < new Date(new Date(inicio).getFullYear(), new Date(inicio).getMonth(), new Date(inicio).getDate()).getTime()) continue;
+    if (!contaNoDia(h, d)) continue;
+    const feito = feitoNoDia(h, d);
+    if (i === 0 && !feito) continue;
+    s += alfa * ((feito ? 1 : 0) - s);
+  }
+  return Math.round(s * 100);
+}
+
 /** Maior sequência já feita. */
-export function recorde(h: Pick<Habito, "dias" | "marcados">, hoje = new Date()): number {
+export function recorde(h: Pick<Habito, "dias" | "marcados" | "folgasPorSemana" | "pausas">, hoje = new Date()): number {
   if (!h.marcados.length) return 0;
   const primeiro = h.marcados.slice().sort()[0];
   const [a, m, d] = primeiro.split("-").map(Number);
   const inicio = new Date(a, m - 1, d);
   let melhor = 0, atual = 0;
+  const usadas = new Map<string, number>();
   for (let x = new Date(inicio); x <= hoje; x.setDate(x.getDate() + 1)) {
-    if (!valeNoDia(h, x)) continue;
-    if (feitoNoDia(h, x)) { atual++; melhor = Math.max(melhor, atual); }
-    else if (diaDe(x) !== diaDe(hoje)) atual = 0;
+    if (!contaNoDia(h, x)) continue;
+    if (feitoNoDia(h, x)) { atual++; melhor = Math.max(melhor, atual); continue; }
+    if (diaDe(x) === diaDe(hoje)) continue;
+    const s = semanaDe(x);
+    const ja = usadas.get(s) ?? 0;
+    if (atual > 0 && ja < folgas(h)) { usadas.set(s, ja + 1); continue; }
+    atual = 0;
   }
   return melhor;
 }
 
 /** Fração dos dias válidos dos últimos 30 que foram feitos (hoje só conta se já feito). */
-export function taxa30(h: Pick<Habito, "dias" | "marcados">, hoje = new Date()): number {
+export function taxa30(h: Pick<Habito, "dias" | "marcados" | "pausas">, hoje = new Date()): number {
   let validos = 0, feitos = 0;
   for (let i = 0; i < 30; i++) {
     const d = menosDias(hoje, i);
-    if (!valeNoDia(h, d)) continue;
+    if (!contaNoDia(h, d)) continue;
     const feito = feitoNoDia(h, d);
     if (i === 0 && !feito) continue;
     validos++;
@@ -106,11 +157,11 @@ export function taxa30(h: Pick<Habito, "dias" | "marcados">, hoje = new Date()):
 }
 
 /** Os últimos 30 dias, do mais antigo ao de hoje: true feito, false não feito, null não vale. */
-export function mapa30(h: Pick<Habito, "dias" | "marcados">, hoje = new Date()): (boolean | null)[] {
+export function mapa30(h: Pick<Habito, "dias" | "marcados" | "pausas">, hoje = new Date()): (boolean | null)[] {
   const out: (boolean | null)[] = [];
   for (let i = 29; i >= 0; i--) {
     const d = menosDias(hoje, i);
-    out.push(valeNoDia(h, d) ? feitoNoDia(h, d) : null);
+    out.push(contaNoDia(h, d) ? feitoNoDia(h, d) : null);
   }
   return out;
 }
@@ -183,10 +234,16 @@ export interface HabitoResumo extends Habito {
   recorde: number;
   taxa: number;
   mapa: (boolean | null)[];
+  /** Fase 18: força 0–100 e se hoje está pausado. */
+  forca: number;
+  pausadoHoje: boolean;
 }
 
 export function resumirHabito(h: Habito, hoje = new Date()): HabitoResumo {
-  return { ...h, feitoHoje: feitoNoDia(h, hoje), valeHoje: valeNoDia(h, hoje), sequencia: sequenciaAtual(h, hoje), recorde: recorde(h, hoje), taxa: taxa30(h, hoje), mapa: mapa30(h, hoje) };
+  return {
+    ...h, feitoHoje: feitoNoDia(h, hoje), valeHoje: valeNoDia(h, hoje), sequencia: sequenciaAtual(h, hoje), recorde: recorde(h, hoje), taxa: taxa30(h, hoje), mapa: mapa30(h, hoje),
+    forca: forca(h, hoje), pausadoHoje: (h.pausas ?? []).includes(diaDe(hoje)),
+  };
 }
 
 export function salvarHabito(dados: Partial<Habito> & { nome: string }): Habito {
@@ -204,6 +261,8 @@ export function salvarHabito(dados: Partial<Habito> & { nome: string }): Habito 
     horaLembrete: hora,
     marcados: existente?.marcados ?? [],
     criadoEm: existente?.criadoEm ?? Date.now(),
+    folgasPorSemana: Number.isInteger(dados.folgasPorSemana) ? Math.max(0, Math.min(2, dados.folgasPorSemana!)) : existente?.folgasPorSemana,
+    pausas: existente?.pausas,
   };
   store.set("habitos", existente ? todos.map(x => x.id === h.id ? h : x) : [...todos, h]);
   return h;
@@ -224,6 +283,18 @@ export function marcarHabito(habitoId: string, feito = true, dia = diaDe(new Dat
   const marcados = feito ? [...new Set([...h.marcados, dia])].sort() : h.marcados.filter(d => d !== dia);
   // Guarda só o último ano — o mapa e as contas não olham mais longe que isso.
   const novo = { ...h, marcados: marcados.slice(-400) };
+  store.set("habitos", todos.map(x => x.id === h.id ? novo : x));
+  return novo;
+}
+
+/** Congela (ou descongela) um dia: viagem, doença — nem feito nem falta. */
+export function pausarHabito(habitoId: string, pausar = true, dia = diaDe(new Date())): Habito | null {
+  const todos = listarHabitos();
+  const h = todos.find(x => x.id === habitoId);
+  if (!h) return null;
+  const atuais = h.pausas ?? [];
+  const pausas = pausar ? [...new Set([...atuais, dia])].sort().slice(-120) : atuais.filter(d => d !== dia);
+  const novo = { ...h, pausas: pausas.length ? pausas : undefined };
   store.set("habitos", todos.map(x => x.id === h.id ? novo : x));
   return novo;
 }

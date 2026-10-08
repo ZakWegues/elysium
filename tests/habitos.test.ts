@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { acharHabito, diaDe, mapa30, pedidoDeHabito, recorde, sequenciaAtual, somarProgresso, taxa30 } from "../src/services/habitos";
+import { acharHabito, diaDe, forca, mapa30, pedidoDeHabito, recorde, sequenciaAtual, somarProgresso, taxa30 } from "../src/services/habitos";
 import { fraseDeAbertura, saudacaoStark } from "../src/services/hoje";
 
 // 07/10/2026 é uma quarta-feira (3).
@@ -10,7 +10,7 @@ describe("hábitos (fase 16)", () => {
   it("sequência: hoje ainda não feito não quebra; um dia válido sem marcar quebra", () => {
     expect(sequenciaAtual({ dias: [], marcados: dias(1, 2, 3) }, HOJE)).toBe(3);
     expect(sequenciaAtual({ dias: [], marcados: dias(0, 1, 2, 3) }, HOJE)).toBe(4);
-    expect(sequenciaAtual({ dias: [], marcados: dias(0, 2, 3) }, HOJE)).toBe(1);
+    expect(sequenciaAtual({ dias: [], marcados: dias(0, 2, 3), folgasPorSemana: 0 }, HOJE)).toBe(1);
   });
   it("dias da semana: seg/qua/sex não quebram na terça", () => {
     // seg (5/10) e qua (hoje) feitos; terça não vale.
@@ -20,7 +20,7 @@ describe("hábitos (fase 16)", () => {
     expect(mapa30(h, HOJE)[29]).toBe(true);
   });
   it("recorde e taxa", () => {
-    const h = { dias: [], marcados: dias(10, 9, 8, 7, 1) };
+    const h = { dias: [], marcados: dias(10, 9, 8, 7, 1), folgasPorSemana: 0 };
     expect(recorde(h, HOJE)).toBe(4);
     expect(taxa30(h, HOJE)).toBeCloseTo(5 / 29, 5);
   });
@@ -86,5 +86,28 @@ describe("revisão de 07/10", async () => {
     expect(ctx).toContain("pergunta B");
     expect(ctx).not.toContain("pergunta A");
     expect(ctx).not.toContain("resposta A");
+  });
+});
+
+describe("hábitos sem punição (fase 18)", () => {
+  it("uma falta na semana não quebra (folga padrão 1); a segunda quebra", () => {
+    // 07/10 é quarta: ontem (terça) faltou, segunda e domingo feitos — mesma semana.
+    expect(sequenciaAtual({ dias: [], marcados: dias(0, 2, 3) }, HOJE)).toBe(3);
+    expect(sequenciaAtual({ dias: [], marcados: dias(0, 3) }, HOJE)).toBe(1);
+    expect(sequenciaAtual({ dias: [], marcados: dias(0, 3), folgasPorSemana: 2 }, HOJE)).toBe(2);
+  });
+  it("dia pausado não é falta nem feito", () => {
+    const h = { dias: [], marcados: dias(0, 2, 3), pausas: dias(1), folgasPorSemana: 0 };
+    expect(sequenciaAtual(h, HOJE)).toBe(3);
+    expect(mapa30(h, HOJE)[28]).toBeNull();
+  });
+  it("força sobe devagar e uma falta não zera", () => {
+    const todo = { dias: [], marcados: Array.from({ length: 60 }, (_, i) => dias(i)[0]), criadoEm: 0 };
+    const comFalta = { ...todo, marcados: todo.marcados.filter(d => d !== dias(1)[0]) };
+    const f1 = forca(todo, HOJE), f2 = forca(comFalta, HOJE);
+    expect(f1).toBeGreaterThan(90);
+    expect(f2).toBeLessThan(f1);
+    expect(f2).toBeGreaterThan(80);
+    expect(forca({ dias: [], marcados: [], criadoEm: 0 }, HOJE)).toBe(0);
   });
 });

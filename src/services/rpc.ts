@@ -46,7 +46,7 @@ import { resumoDoDia } from "./resumoDoDia";
 import { buscarNasConversas } from "./buscaConversas";
 import { estiloValido, MAX_INSTRUCOES } from "./estiloResposta";
 import { adicionarNaLista, alternarItem, apagarLista, limparFeitos, listarListas, removerItem, separarItens } from "./listas";
-import { apagarHabito, apagarMeta, avancarMeta, listarHabitos, listarMetas, marcarHabito, resumirHabito, salvarHabito, salvarMeta } from "./habitos";
+import { apagarHabito, apagarMeta, avancarMeta, listarHabitos, listarMetas, marcarHabito, pausarHabito, resumirHabito, salvarHabito, salvarMeta } from "./habitos";
 import { fatosDoDia, montarPainelHoje } from "./hoje";
 import { apagarCorrida, apagarTreino, importarTreinos, lerPerfil, marcarTreino, montarPainelCorpo, registrarCorrida, registrarPeso, salvarPerfil, salvarTreino, type PerfilCorpo } from "./corpo";
 import { dicaDoCorpo, ideiaDoDia, marcarTeste } from "./ideiasDoDia";
@@ -1117,13 +1117,22 @@ const METHODS: Record<string, MethodDef> = {
     handler: async (params) => {
       const dias = Array.isArray(params["dias"]) ? (params["dias"] as unknown[]).map(Number) : undefined;
       try {
-        return { habito: resumirHabito(salvarHabito({ id: typeof params["id"] === "string" ? params["id"] : undefined, nome: requireString(params, "nome"), icone: typeof params["icone"] === "string" ? params["icone"] : undefined, dias, horaLembrete: typeof params["horaLembrete"] === "string" ? params["horaLembrete"] : undefined })) };
+        return { habito: resumirHabito(salvarHabito({ id: typeof params["id"] === "string" ? params["id"] : undefined, nome: requireString(params, "nome"), icone: typeof params["icone"] === "string" ? params["icone"] : undefined, dias, horaLembrete: typeof params["horaLembrete"] === "string" ? params["horaLembrete"] : undefined, folgasPorSemana: typeof params["folgasPorSemana"] === "number" ? params["folgasPorSemana"] : undefined })) };
       } catch (e) { throw new RpcError(400, (e as Error).message); }
     },
   },
   "habitos.marcar": {
     handler: async (params) => {
       const h = marcarHabito(requireString(params, "id"), params["feito"] !== false, typeof params["dia"] === "string" && /^\d{4}-\d{2}-\d{2}$/.test(params["dia"]) ? params["dia"] : undefined);
+      if (!h) throw new RpcError(404, "hábito não encontrado");
+      return { habito: resumirHabito(h) };
+    },
+  },
+  // Fase 18: "congelar hoje" (viagem, doença) — o dia não conta como falta.
+  "habitos.pausar": {
+    handler: async (params) => {
+      const dia = typeof params["dia"] === "string" && /^\d{4}-\d{2}-\d{2}$/.test(params["dia"]) ? params["dia"] : undefined;
+      const h = pausarHabito(requireString(params, "id"), params["pausar"] !== false, dia);
       if (!h) throw new RpcError(404, "hábito não encontrado");
       return { habito: resumirHabito(h) };
     },

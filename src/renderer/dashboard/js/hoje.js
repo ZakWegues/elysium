@@ -42,7 +42,7 @@ function desenharHabitos(habitos) {
         <div class="hoje-habito-nome" data-hoje-editar-habito="${escHtml(h.id)}">${escHtml(h.nome)}</div>
         <div class="hoje-mapa">${h.mapa.map(d => `<i class="${d === null ? "nao" : d ? "sim" : ""}"></i>`).join("")}</div>
       </div>
-      <div class="hoje-seq" title="Sequência atual · recorde ${h.recorde}"><b>${h.sequencia}</b><span>dias</span></div>
+      <div class="hoje-seq" title="Sequência atual · recorde ${h.recorde} · força ${h.forca ?? 0}% (cai devagar com faltas)"><b>${h.sequencia}</b><span>dias</span>${h.forca !== undefined ? `<small class="hoje-forca">força ${h.forca}%</small>` : ""}${h.pausadoHoje ? `<small class="hoje-forca">❄ hoje</small>` : ""}</div>
     </div>`).join("");
 }
 
@@ -209,14 +209,22 @@ function formHabito(base = {}) {
         <div class="rot-dias">${DIAS_CURTOS.map((d, i) => `<button type="button" data-dia="${i}" class="${dias.includes(i) ? "on" : ""}" title="${DIAS_LONGOS[i]}">${d}</button>`).join("")}</div></label>
       <label>Lembrar às<small>Só avisa se ainda não estiver marcado naquele dia. Vazio = sem lembrete.</small>
         <input type="time" name="hora" value="${escHtml(base.horaLembrete ?? "")}"></label>
+      <label>Folgas por semana<small>Faltas que não quebram a sequência (a força cai um pouco, mas nada zera).</small>
+        <select name="folgas">${[0, 1, 2].map(n => `<option value="${n}"${(base.folgasPorSemana ?? 1) === n ? " selected" : ""}>${n === 0 ? "Nenhuma" : n === 1 ? "1 por semana" : "2 por semana"}</option>`).join("")}</select></label>
       <div class="home-acoes">
         <button type="submit" class="principal">${ico("check", "ico-sm")}<span>${base.id ? "Salvar" : "Criar hábito"}</span></button>
+        ${base.id ? `<button type="button" data-congelar="1" title="Viagem, doença: hoje não conta como falta">${ico("moon", "ico-sm")}<span>${base.pausadoHoje ? "Descongelar hoje" : "Congelar hoje"}</span></button>` : ""}
         ${base.id ? `<button type="button" data-apagar="1">${ico("trash", "ico-sm")}<span>Apagar</span></button>` : ""}
         <button type="button" data-cancelar="1">${ico("x", "ico-sm")}<span>Cancelar</span></button>
       </div>
     </form>`,
     aoAbrir: (corpo) => {
       const f = corpo.querySelector("form");
+      f.querySelector("[data-congelar]")?.addEventListener("click", async () => {
+        const r = await window.nx.rpc("habitos.pausar", { id: base.id, pausar: !base.pausadoHoje });
+        if (r.error) { showToast(r.error, true); return; }
+        fecharGaveta(); showToast(base.pausadoHoje ? "Hoje volta a contar." : "Hoje congelado — não conta como falta."); carregarHoje();
+      });
       f.querySelectorAll("[data-dia]").forEach(b => b.addEventListener("click", () => b.classList.toggle("on")));
       f.querySelector("[data-cancelar]").addEventListener("click", () => fecharGaveta());
       f.querySelector("[data-apagar]")?.addEventListener("click", async () => {
@@ -227,7 +235,7 @@ function formHabito(base = {}) {
       f.addEventListener("submit", async (e) => {
         e.preventDefault();
         const d = [...f.querySelectorAll("[data-dia].on")].map(b => Number(b.dataset.dia));
-        const r = await window.nx.rpc("habitos.save", { id: base.id, nome: f.nome.value, dias: d, horaLembrete: f.hora.value || undefined });
+        const r = await window.nx.rpc("habitos.save", { id: base.id, nome: f.nome.value, dias: d, horaLembrete: f.hora.value || undefined, folgasPorSemana: Number(f.folgas.value) });
         if (r.error) { showToast(r.error, true); return; }
         fecharGaveta(); showToast(base.id ? "Hábito salvo." : "Hábito criado."); carregarHoje();
       });
