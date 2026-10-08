@@ -1,5 +1,7 @@
 import { cancelReminder } from "./scheduler";
-import { acharTarefa, concluirTarefa, listarTarefas } from "./tarefas";
+import { acharTarefa, concluirTarefa, criarTarefa, editarTarefa, listarTarefas } from "./tarefas";
+import { criarLembreteComTarefa, reagendarTarefa } from "../actions/memoryActions";
+import { adiarPara, interpretarTexto, type Adiamento } from "./planoDeLembrete";
 import { acharHabito, avancarMeta, listarHabitos, listarMetas, marcarHabito, resumirHabito } from "./habitos";
 import { montarPainelHoje } from "./hoje";
 import { marcarTreinoFalado, metaFalada, registrarCorridaFalada, registrarPesoFalado, treinoDeHojeFalado } from "./corpoFalado";
@@ -334,6 +336,60 @@ export const FERRAMENTAS: Ferramenta[] = [
       const r = concluirTarefa(t.id, str(a, "ressalva") || undefined);
       for (const id of r?.lembretes ?? []) cancelReminder(id);
       return `Concluída: ${t.texto}${r?.tarefa.ressalva ? `, com a ressalva "${r.tarefa.ressalva}"` : ""}.`;
+    },
+  },
+  // ── tarefas: mudar, adiar e anotar várias (fase 18) ──
+  {
+    name: "adiar_tarefa",
+    description: "Adia uma tarefa da lista: 'adia a prova para amanhã', 'joga o relatório para semana que vem', 'me lembra disso daqui a uma hora'.",
+    parameters: obj({ tarefa: s("Trecho do texto da tarefa"), para: { type: "string", enum: ["1h", "hoje16", "amanha", "semana"], description: "1h = daqui a uma hora; hoje16 = hoje às 16h; amanha; semana = daqui a 7 dias" } }, ["tarefa", "para"]),
+    executar: async a => {
+      const t = acharTarefa(listarTarefas(), str(a, "tarefa"));
+      if (!t) return "Não achei essa tarefa na lista.";
+      const para = (["1h", "hoje16", "amanha", "semana"].includes(str(a, "para")) ? str(a, "para") : "amanha") as Adiamento;
+      const alvo = adiarPara(t.prazo, !!t.semHora, para);
+      const r = reagendarTarefa(t.id, alvo.quando, alvo.semHora);
+      return r.ok ? `${t.texto}: ${r.mensagem}` : r.mensagem;
+    },
+  },
+  {
+    name: "editar_tarefa",
+    description: "Muda o texto ou a data de uma tarefa que já está na lista ('muda a prova para dia 20', 'a reunião passou para as 15h'). Para criar uma nova, use criar_lembrete.",
+    parameters: obj({ tarefa: s("Trecho do texto da tarefa"), novo_texto: s("Texto novo, se mudou"), quando: s("Data nova: AAAA-MM-DD sem hora, AAAA-MM-DDTHH:MM com hora") }, ["tarefa"]),
+    executar: async a => {
+      const t = acharTarefa(listarTarefas(), str(a, "tarefa"));
+      if (!t) return "Não achei essa tarefa na lista.";
+      const quando = str(a, "quando");
+      const novoTexto = str(a, "novo_texto") || undefined;
+      if (quando) {
+        const r = reagendarTarefa(t.id, quando, /^\d{4}-\d{2}-\d{2}$/.test(quando), novoTexto);
+        return r.ok ? `${r.tarefa?.texto ?? t.texto}: ${r.mensagem}` : r.mensagem;
+      }
+      if (!novoTexto) return "O que muda na tarefa? Diga o texto novo ou a data nova.";
+      // Só o texto: a data e os avisos ficam como estavam.
+      editarTarefa(t.id, { texto: novoTexto });
+      return `Atualizei: ${novoTexto}.`;
+    },
+  },
+  {
+    name: "anotar_varias",
+    description: "Anota VÁRIAS tarefas de uma vez, quando o usuário despeja uma lista: 'anota: comprar pão, ligar pro dentista sexta e prova de física dia 20'. Cada item com a data dita junto, se houver.",
+    parameters: obj({ itens: { type: "array", items: { type: "string" }, description: "Cada tarefa, com o dia/hora falados junto (ex.: 'ligar pro dentista sexta')" } }, ["itens"]),
+    executar: async a => {
+      const itens = arr(a, "itens").slice(0, 15);
+      if (!itens.length) return "Não entendi os itens.";
+      const feitos: string[] = [];
+      const falhas: string[] = [];
+      for (const item of itens) {
+        const i = interpretarTexto(item);
+        if (i.quando) {
+          const r = criarLembreteComTarefa(i.texto, i.quando, false, i.semHora, { usarPedido: false });
+          if (r.ok) feitos.push(`${i.texto} (${r.mensagem.replace(/^Combinado[,:]?\s*/, "").replace(/\s*[—:].*$/, "")})`); else falhas.push(`${i.texto}: ${r.mensagem}`);
+        } else {
+          try { criarTarefa({ texto: i.texto }); feitos.push(i.texto); } catch { falhas.push(i.texto); }
+        }
+      }
+      return `Anotei ${feitos.length}: ${feitos.join("; ")}.${falhas.length ? ` Não deu: ${falhas.join("; ")}.` : ""}`;
     },
   },
   // ── hábitos, metas e o painel do dia (fase 16) ──

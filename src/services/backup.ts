@@ -33,7 +33,8 @@ export interface Backup {
   criadoEm: number;
   app: string;
   memoria: string[];
-  lembretes: Pick<Reminder, "text" | "dueAt" | "kind" | "weekday">[];
+  /** `id` desde a fase 18: as tarefas apontam para ele (backup antigo não tem). */
+  lembretes: (Pick<Reminder, "text" | "dueAt" | "kind" | "weekday"> & { id?: string })[];
   presets: PresetsMap;
   rotinas: Omit<Rotina, "id" | "ultimaExecucao" | "ultimoResultado">[];
   conversas: ChatSession[];
@@ -58,8 +59,12 @@ export interface ResumoImportacao {
   ajustes: number;
   listas: number;
   habitos: number;
+  /** Tarefas restauradas (fase 18 — antes somavam em `habitos`). */
+  tarefas?: number;
   /** Treinos restaurados (fase 18). */
   corpo?: number;
+  /** Itens que não deu para restaurar (inválidos ou que falharam) — antes sumiam calados. */
+  pulados?: number;
 }
 
 /** Ajustes que não viajam: dependem desta máquina e quebrariam em outra. */
@@ -74,7 +79,7 @@ export function montarBackup(): Backup {
     criadoEm: Date.now(),
     app: app.getVersion(),
     memoria: listFacts().map(f => f.text),
-    lembretes: listPending().map(r => ({ text: r.text, dueAt: r.dueAt, kind: r.kind, weekday: r.weekday })),
+    lembretes: listPending().map(r => ({ id: r.id, text: r.text, dueAt: r.dueAt, kind: r.kind, weekday: r.weekday })),
     presets: getAllPresets(),
     rotinas: listarRotinas().map(({ id: _id, ultimaExecucao: _u, ultimoResultado: _r, ...resto }) => resto),
     conversas: listSessions(),
@@ -109,44 +114,63 @@ export function lerBackup(bruto: unknown): Backup {
 }
 
 export function aplicarBackup(b: Backup): ResumoImportacao {
-  const resumo: ResumoImportacao = { memoria: 0, lembretes: 0, presets: 0, rotinas: 0, conversas: 0, ajustes: 0, listas: 0, habitos: 0 };
+  const resumo: ResumoImportacao = { memoria: 0, lembretes: 0, presets: 0, rotinas: 0, conversas: 0, ajustes: 0, listas: 0, habitos: 0, tarefas: 0, pulados: 0 };
+  const pulou = () => { resumo.pulados = (resumo.pulados ?? 0) + 1; };
+  /**
+   * id do lembrete no backup → id aqui (08/10). O agendador dá id novo a cada lembrete
+   * criado; sem este mapa, as tarefas restauradas apontavam para lembretes que não existem —
+   * concluir não cancelava os avisos, e o lembrete aparecia duplicado (agenda + lista).
+   */
+  const mapaLembretes = new Map<string, string>();
+  const pendentes = new Map(listPending().map(r => [`${r.text}|${r.dueAt}`, r.id] as const));
 
   for (const texto of b.memoria) {
-    try { if (addFact(texto).created) resumo.memoria++; } catch { /* fato inválido: pula */ }
+    try { if (addFact(texto).created) resumo.memoria++; } catch { pulou(); }
   }
 
-  const jaTem = new Set(listPending().map(r => `${r.text}|${r.dueAt}`));
   for (const l of b.lembretes) {
-    if (!l || typeof l.text !== "string" || !Number.isFinite(l.dueAt)) continue;
+    if (!l || typeof l.text !== "string" || !Number.isFinite(l.dueAt)) { pulou(); continue; }
     // Lembrete único que já passou não volta: dispararia na hora, fora de contexto.
     if (l.kind !== "weekly" && l.dueAt <= Date.now()) continue;
-    if (jaTem.has(`${l.text}|${l.dueAt}`)) continue;
-    try { createReminder({ text: l.text, dueAt: l.dueAt, kind: l.kind, weekday: l.weekday }); resumo.lembretes++; } catch { /* pula */ }
+    const existente = pendentes.get(`${l.text}|${l.dueAt}`);
+    if (existente) { if (l.id) mapaLembretes.set(l.id, existente); continue; }
+    try {
+      const novo = createReminder({ text: l.text, dueAt: l.dueAt, kind: l.kind, weekday: l.weekday });
+      if (l.id) mapaLembretes.set(l.id, novo.id);
+      resumo.lembretes++;
+    } catch { pulou(); }
   }
 
   const presets = getAllPresets();
   for (const [chave, p] of Object.entries(b.presets)) {
     if (chave in presets || !p || !Array.isArray((p as { actions?: unknown }).actions)) continue;
-    try { savePreset(chave, p as PresetEntry); resumo.presets++; } catch { /* pula */ }
+    try { savePreset(chave, p as PresetEntry); resumo.presets++; } catch { pulou(); }
   }
 
   const rotinas = new Set(listarRotinas().map(r => r.nome.trim().toLowerCase()));
   for (const r of b.rotinas) {
     if (!r || typeof r.nome !== "string" || rotinas.has(r.nome.trim().toLowerCase())) continue;
-    try { salvarRotina({ ...r, id: undefined }); resumo.rotinas++; } catch { /* pula */ }
+    try { salvarRotina({ ...r, id: undefined }); resumo.rotinas++; } catch { pulou(); }
   }
 
   for (const s of b.conversas) {
     if (!s || typeof s.id !== "string" || !Array.isArray(s.messages)) continue;
-    try { if (mergeSession(s)) resumo.conversas++; } catch { /* pula */ }
+    try { if (mergeSession(s)) resumo.conversas++; } catch { pulou(); }
   }
 
   // Itens pendentes somam na lista de mesmo nome; o que já está lá não duplica.
-  try { resumo.listas = importarListas(b.listas ?? []); } catch { /* pula */ }
-  try { resumo.habitos = importarHabitos(b.habitos ?? [], b.metas ?? []); } catch { /* pula */ }
-  try { resumo.habitos += importarTarefas(b.tarefas ?? []); } catch { /* pula */ }
+  try { resumo.listas = importarListas(b.listas ?? []); } catch { pulou(); }
+  try { resumo.habitos = importarHabitos(b.habitos ?? [], b.metas ?? []); } catch { pulou(); }
+  try {
+    // Avisos que não existem mais aqui saem da tarefa; os que vieram ganham o id novo.
+    const tarefas = (b.tarefas ?? []).map(t => {
+      const ids = (t.lembreteIds ?? []).map(id => mapaLembretes.get(id)).filter((x): x is string => !!x);
+      return { ...t, lembreteIds: ids.length ? ids : undefined };
+    });
+    resumo.tarefas = importarTarefas(tarefas);
+  } catch { pulou(); }
   // Corpo: só restaura se aqui ainda não há treino — não sobrescreve o que já está em uso.
-  try { if (b.corpo && !listarTreinos().length) { importarCorpo(b.corpo); resumo.corpo = listarTreinos().length; } } catch { /* pula */ }
+  try { if (b.corpo && !listarTreinos().length) { importarCorpo(b.corpo); resumo.corpo = listarTreinos().length; } } catch { pulou(); }
 
   const ajustes = { ...b.ajustes } as Record<string, unknown>;
   for (const k of AJUSTES_LOCAIS) delete ajustes[k];

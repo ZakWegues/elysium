@@ -13,8 +13,9 @@
  * contra esse, a defesa é o token não vazar e a porta não ser exposta à internet.
  */
 
-import { apagarTarefa, concluirTarefa, criarTarefa, desvincularLembrete, listarTarefas, reabrirTarefa } from "./tarefas";
-import { createReminderAction } from "../actions/memoryActions";
+import { apagarTarefa, concluirTarefa, criarTarefa, desvincularLembrete, editarTarefa, estaAtrasada, listarPorFiltro, listarTarefas, obterTarefa, reabrirTarefa } from "./tarefas";
+import { createReminderAction, criarLembreteComTarefa, proximaDaRepeticao, reagendarTarefa, reavisarTarefa, rotuloDoPrazo } from "../actions/memoryActions";
+import { adiarPara, ehCompromisso, interpretarQuando, interpretarTexto, planejarLembretes, type Adiamento } from "./planoDeLembrete";
 import { app, clipboard } from "electron";
 import { ACOES_VALIDAS } from "./brain";
 import * as path from "node:path";
@@ -747,14 +748,23 @@ const METHODS: Record<string, MethodDef> = {
       if (kind === "once" && dueAt <= Date.now()) {
         throw new RpcError(400, "dueAt já passou");
       }
+      // De uma vez: o mesmo planejador da voz e do Hoje (véspera para compromisso, tarefa na
+      // lista) — antes este caminho criava só o aviso cru (08/10).
+      if (kind === "once") {
+        const d = new Date(dueAt);
+        const p = (n: number) => String(n).padStart(2, "0");
+        const r = criarLembreteComTarefa(text, `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`, false, false, { usarPedido: false });
+        if (!r.ok) throw new RpcError(400, r.mensagem);
+        const ids = r.tarefa?.lembreteIds ?? [];
+        const principal = listAll().find(x => x.id === ids[ids.length - 1]);
+        return { reminder: principal ?? null, mensagem: r.mensagem };
+      }
       const reminder = createReminder({
         text,
         dueAt,
         kind,
         weekday: kind === "weekly" ? new Date(dueAt).getDay() : undefined,
       });
-      // Fase 17: o lembrete de uma vez vira item da lista de tarefas do Hoje.
-      if (kind === "once") { try { criarTarefa({ texto: text, prazo: dueAt, lembreteIds: [reminder.id], origem: "lembrete" }); } catch { /* extra */ } }
       return { reminder };
     },
   },
@@ -976,18 +986,100 @@ const METHODS: Record<string, MethodDef> = {
   "listas.clearDone": { handler: async (params) => ({ removidos: limparFeitos(requireString(params, "lista")) }) },
   "listas.delete": { destructive: true, handler: async (params) => ({ ok: apagarLista(requireString(params, "listaId")) }) },
   // Tarefas (fase 17): os lembretes viram lista de afazeres, com ressalva ao concluir.
-  "tarefas.list": { handler: async () => ({ tarefas: listarTarefas() }) },
+  "tarefas.list": {
+    handler: async (params) => {
+      const f = params["filtro"];
+      // Sem filtro: a lista do Hoje (pendentes + feitas hoje), como sempre.
+      return { tarefas: f === "abertas" || f === "feitas" || f === "todas" ? listarPorFiltro(f) : listarTarefas() };
+    },
+  },
   "tarefas.criar": {
     handler: async (params) => {
-      const texto = requireString(params, "texto");
-      const quando = optionalString(params, "quando");
+      let texto = requireString(params, "texto");
+      let quando = optionalString(params, "quando");
+      let semHora = params["semHora"] === true;
+      const prioridade = params["prioridade"] === "alta" ? "alta" as const : undefined;
+      const repete = params["repete"] === "diaria" || params["repete"] === "semanal" ? params["repete"] : undefined;
+      // Fase 18: sem data escolhida, a data pode estar no próprio texto ("prova sexta 14h").
+      if (!quando && params["interpretar"] !== false) {
+        const i = interpretarTexto(texto);
+        if (i.quando) { texto = i.texto; quando = i.quando; semHora = i.semHora; }
+      }
       // Com data: o mesmo caminho da voz (16h padrão, véspera para prova/consulta).
       if (quando) {
-        const mensagem = createReminderAction(texto, quando, false, params["semHora"] === true);
-        return { tarefas: listarTarefas(), mensagem };
+        const r = criarLembreteComTarefa(texto, quando, false, semHora, { prioridade, repete, usarPedido: false });
+        // Horário que já passou é ERRO (08/10): o app deixa o texto no campo e mostra o motivo.
+        if (!r.ok) throw new RpcError(400, r.mensagem);
+        return { tarefas: listarTarefas(), mensagem: r.mensagem, tarefa: r.tarefa };
       }
-      try { criarTarefa({ texto }); } catch (e) { throw new RpcError(400, (e as Error).message); }
-      return { tarefas: listarTarefas(), mensagem: "Anotado." };
+      try {
+        const tarefa = criarTarefa({ texto, prioridade });
+        return { tarefas: listarTarefas(), mensagem: "Anotado.", tarefa };
+      } catch (e) { throw new RpcError(400, (e as Error).message); }
+    },
+  },
+  // Fase 18: a prévia do quick add — o que a Ely entendeu, antes de gravar. Não grava nada.
+  "tarefas.interpretar": {
+    handler: async (params) => {
+      const i = interpretarTexto(requireString(params, "texto"));
+      if (!i.quando) return { texto: i.texto, quando: null };
+      const q = interpretarQuando(i.quando, i.semHora);
+      if (!q) return { texto: i.texto, quando: null };
+      const avisos = planejarLembretes(i.texto, q, Date.now());
+      const principal = avisos.find(a => !a.vespera) ?? avisos[avisos.length - 1];
+      return {
+        texto: i.texto,
+        quando: i.quando,
+        semHora: i.semHora,
+        passou: !avisos.length,
+        vespera: avisos.some(a => a.vespera),
+        rotulo: principal ? rotuloDoPrazo(principal.em, !q.temHora && ehCompromisso(i.texto)) : null,
+      };
+    },
+  },
+  "tarefas.editar": {
+    handler: async (params) => {
+      const id = requireString(params, "id");
+      const t = obterTarefa(id);
+      if (!t) throw new RpcError(404, "tarefa não encontrada");
+      const texto = optionalString(params, "texto");
+      // `quando`: string = data nova; null = sem data; ausente = a data fica.
+      if (params["quando"] !== undefined) {
+        const r = reagendarTarefa(id, params["quando"] === null ? null : String(params["quando"]), params["semHora"] === true, texto);
+        if (!r.ok) throw new RpcError(400, r.mensagem);
+      } else if (texto !== undefined) {
+        try { editarTarefa(id, { texto }); } catch (e) { throw new RpcError(400, (e as Error).message); }
+      }
+      const extra: Parameters<typeof editarTarefa>[1] = {};
+      if (params["prioridade"] !== undefined) extra.prioridade = params["prioridade"] === "alta" ? "alta" : null;
+      if (params["repete"] !== undefined) extra.repete = params["repete"] === "diaria" || params["repete"] === "semanal" ? params["repete"] : null;
+      if (params["ressalva"] !== undefined) extra.ressalva = typeof params["ressalva"] === "string" ? params["ressalva"] : null;
+      if (Object.keys(extra).length) editarTarefa(id, extra);
+      return { tarefa: obterTarefa(id), tarefas: listarTarefas() };
+    },
+  },
+  "tarefas.adiar": {
+    handler: async (params) => {
+      const id = requireString(params, "id");
+      const para = requireEnum(params, "para", ["1h", "hoje16", "amanha", "semana"] as const) as Adiamento;
+      const t = obterTarefa(id);
+      if (!t) throw new RpcError(404, "tarefa não encontrada");
+      const alvo = adiarPara(t.prazo, !!t.semHora, para);
+      const r = reagendarTarefa(id, alvo.quando, alvo.semHora);
+      if (!r.ok) throw new RpcError(400, r.mensagem);
+      return { tarefa: r.tarefa, tarefas: listarTarefas(), mensagem: r.mensagem };
+    },
+  },
+  // As atrasadas de uma vez (o "Reagendar" do Todoist).
+  "tarefas.reagendarAtrasadas": {
+    handler: async (params) => {
+      const para = requireEnum(params, "para", ["hoje16", "amanha", "semana"] as const) as Adiamento;
+      let n = 0;
+      for (const t of listarPorFiltro("abertas").filter(x => estaAtrasada(x))) {
+        const alvo = adiarPara(t.prazo, !!t.semHora, para);
+        if (reagendarTarefa(t.id, alvo.quando, alvo.semHora).ok) n++;
+      }
+      return { reagendadas: n, tarefas: listarTarefas() };
     },
   },
   "tarefas.concluir": {
@@ -996,14 +1088,18 @@ const METHODS: Record<string, MethodDef> = {
       if (!r) throw new RpcError(404, "tarefa não encontrada");
       // Concluída antes da hora: os avisos que faltam não tocam mais.
       for (const id of r.lembretes) cancelReminder(id);
-      return { tarefa: r.tarefa, tarefas: listarTarefas() };
+      // Repete (fase 18): a próxima entra na lista com o aviso dela.
+      const proxima = proximaDaRepeticao(r.tarefa);
+      return { tarefa: r.tarefa, tarefas: listarTarefas(), ...(proxima ? { proxima } : {}) };
     },
   },
   "tarefas.reabrir": {
     handler: async (params) => {
       const t = reabrirTarefa(requireString(params, "id"));
       if (!t) throw new RpcError(404, "tarefa não encontrada");
-      return { tarefa: t, tarefas: listarTarefas() };
+      // Concluir cancelou os avisos; reabrir com o prazo ainda à frente os traz de volta (08/10).
+      reavisarTarefa(t.id);
+      return { tarefa: obterTarefa(t.id) ?? t, tarefas: listarTarefas() };
     },
   },
   "tarefas.delete": {

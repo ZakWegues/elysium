@@ -1,10 +1,10 @@
 import { addFact, listFacts, removeFactByText } from "../services/memoryStore";
 import {
-  cancelReminderByText, createReminder, listPending, Reminder,
+  cancelReminder, cancelReminderByText, createReminder, listPending, Reminder,
 } from "../services/scheduler";
 import { ajustarPeloTexto, ehCompromisso, HORA_PADRAO, interpretarQuando, planejarLembretes } from "../services/planoDeLembrete";
 import { pedidoAtual } from "../services/contextoComando";
-import { criarTarefa, desvincularLembrete, listarTarefasTodas, marcarMigracao, migracaoFeita } from "../services/tarefas";
+import { criarTarefa, desvincularLembrete, editarTarefa, listarTarefasTodas, marcarMigracao, migracaoFeita, obterTarefa, proximaOcorrencia, type Tarefa } from "../services/tarefas";
 
 // ── memória ───────────────────────────────────────────────────────────────────
 
@@ -59,33 +59,105 @@ function formatWhen(dueAt: number): string {
  * avisos que faltam. Ver `planoDeLembrete.ts` e `tarefas.ts`.
  */
 export function createReminderAction(text: string, dueAt: string, weekly?: boolean, semHora?: boolean): string {
+  return criarLembreteComTarefa(text, dueAt, weekly, semHora).mensagem;
+}
+
+/**
+ * O lembrete com a tarefa junto, dizendo se deu certo (fase 18, 08/10). Antes só voltava a
+ * frase, e o RPC `tarefas.criar` devolvia "Esse horário já passou" como SUCESSO: o app
+ * mostrava "Anotado", apagava o que foi digitado e não criava nada.
+ */
+export function criarLembreteComTarefa(text: string, dueAt: string, weekly?: boolean, semHora?: boolean, extras: { prioridade?: Tarefa["prioridade"]; repete?: Tarefa["repete"]; usarPedido?: boolean } = {}): { ok: boolean; mensagem: string; tarefa?: Tarefa } {
   // O dia e a hora que o Zak FALOU valem mais que a conta do modelo (fase 17).
-  const pedido = pedidoAtual();
+  const pedido = extras.usarPedido === false ? null : pedidoAtual();
   const ajuste = pedido && !weekly ? ajustarPeloTexto(pedido, dueAt ?? "") : null;
   if (ajuste) { dueAt = ajuste.quando; semHora = ajuste.semHora; }
   const quando = interpretarQuando(dueAt ?? "", semHora);
-  if (!quando) return "Não entendi para quando é o lembrete.";
+  if (!quando) return { ok: false, mensagem: "Não entendi para quando é o lembrete." };
   const avisos = planejarLembretes(text.trim(), quando, Date.now(), weekly);
   // Um lembrete no passado quase sempre é erro de cálculo do modelo, não pedido real.
   // Disparar na hora seria pior que avisar que não deu certo.
   if (!avisos.length || (!weekly && avisos.every(a => a.em <= Date.now()))) {
-    return "Esse horário já passou. Pode repetir dizendo quando?";
+    return { ok: false, mensagem: quando.temHora ? "Esse horário já passou. Pode repetir dizendo quando?" : "Esse dia já passou (sem hora, o aviso é às 16h). Pode dizer a hora ou outro dia?" };
   }
-  const criados = avisos.map(a => createReminder({
-    text: a.texto,
-    dueAt: a.em,
-    kind: weekly ? "weekly" : "once",
-    weekday: weekly ? new Date(a.em).getDay() : undefined,
-  }));
-  if (weekly) return `Combinado, toda semana ${formatWhen(criados[0].dueAt)}: ${criados[0].text}.`;
+  // Semanal pela voz continua um lembrete do agendador, que toca toda semana sozinho — não
+  // depende de ninguém concluir nada. A tarefa que se repete (`repete`) é outra coisa: a da
+  // lista, que só avança quando é concluída (como no Todoist).
+  if (weekly) {
+    const r = createReminder({ text: avisos[0].texto, dueAt: avisos[0].em, kind: "weekly", weekday: new Date(avisos[0].em).getDay() });
+    return { ok: true, mensagem: `Combinado, toda semana ${formatWhen(r.dueAt)}: ${r.text}.` };
+  }
+  const criados = avisos.map(a => createReminder({ text: a.texto, dueAt: a.em }));
   const principal = avisos.find(a => !a.vespera) ?? avisos[avisos.length - 1];
+  let tarefa: Tarefa | undefined;
   try {
-    criarTarefa({ texto: text.trim(), prazo: principal.em, lembreteIds: criados.map(r => r.id), origem: "lembrete" });
+    tarefa = criarTarefa({ texto: text.trim(), prazo: principal.em, lembreteIds: criados.map(r => r.id), origem: "lembrete", semHora: !quando.temHora && ehCompromisso(text), prioridade: extras.prioridade, repete: extras.repete });
   } catch { /* a lista é um extra: o aviso já está agendado */ }
   const vespera = avisos.find(a => a.vespera);
-  return vespera
-    ? `Combinado: te lembro na véspera, ${formatWhen(vespera.em)}, e no dia, ${formatWhen(principal.em)} — ${text.trim()}.`
-    : `Combinado, te aviso ${formatWhen(principal.em)}: ${text.trim()}.`;
+  return {
+    ok: true,
+    tarefa,
+    mensagem: vespera
+      ? `Combinado: te lembro na véspera, ${formatWhen(vespera.em)}, e no dia, ${formatWhen(principal.em)} — ${text.trim()}.`
+      : `Combinado, te aviso ${formatWhen(principal.em)}: ${text.trim()}.`,
+  };
+}
+
+/** Tarefa nova com os avisos planejados (sem olhar o pedido falado). */
+function criarTarefaComAvisos(texto: string, quando: { ms: number; temHora: boolean }, repete?: Tarefa["repete"], prioridade?: Tarefa["prioridade"]): Tarefa {
+  const avisos = planejarLembretes(texto, quando, Date.now());
+  const criados = avisos.map(a => createReminder({ text: a.texto, dueAt: a.em }));
+  const principal = avisos.find(a => !a.vespera)?.em ?? quando.ms;
+  return criarTarefa({ texto, prazo: principal, lembreteIds: criados.map(r => r.id), origem: "lembrete", semHora: !quando.temHora && ehCompromisso(texto), repete, prioridade });
+}
+
+/**
+ * Muda a data de uma tarefa (editar, adiar, reabrir — fase 18): cancela os avisos antigos e
+ * planeja os novos com as mesmas regras de sempre (16h sem hora, véspera para compromisso).
+ * `quando` null tira a data. Devolve a mensagem de erro se a data nova não serve.
+ */
+export function reagendarTarefa(id: string, quando: string | null, semHora = false, texto?: string): { ok: boolean; mensagem: string; tarefa?: Tarefa } {
+  const t = obterTarefa(id);
+  if (!t) return { ok: false, mensagem: "Tarefa não encontrada." };
+  const novoTexto = texto?.trim() || t.texto;
+  if (quando === null) {
+    for (const r of t.lembreteIds ?? []) cancelReminder(r);
+    const e = editarTarefa(id, { texto: novoTexto, prazo: null, lembreteIds: null });
+    return { ok: true, mensagem: "Sem data agora.", tarefa: e?.tarefa };
+  }
+  const q = interpretarQuando(quando, semHora);
+  if (!q) return { ok: false, mensagem: "Não entendi a data nova." };
+  const avisos = planejarLembretes(novoTexto, q, Date.now());
+  if (!avisos.length) return { ok: false, mensagem: q.temHora ? "Esse horário já passou." : "Esse dia já passou." };
+  for (const r of t.lembreteIds ?? []) cancelReminder(r);
+  const criados = avisos.map(a => createReminder({ text: a.texto, dueAt: a.em }));
+  const principal = avisos.find(a => !a.vespera) ?? avisos[avisos.length - 1];
+  const semHoraFinal = !q.temHora && ehCompromisso(novoTexto);
+  const e = editarTarefa(id, { texto: novoTexto, prazo: principal.em, semHora: semHoraFinal, lembreteIds: criados.map(r => r.id) });
+  return { ok: true, mensagem: `Combinado, ${rotuloDoPrazo(principal.em, semHoraFinal)}.`, tarefa: e?.tarefa };
+}
+
+/** Recria os avisos de uma tarefa reaberta, se o prazo ainda não passou (fase 18). */
+export function reavisarTarefa(id: string): void {
+  const t = obterTarefa(id);
+  if (!t || t.prazo === undefined || t.prazo <= Date.now()) return;
+  const d = new Date(t.prazo);
+  const p = (n: number) => String(n).padStart(2, "0");
+  const dia = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  reagendarTarefa(id, t.semHora ? dia : `${dia}T${p(d.getHours())}:${p(d.getMinutes())}`, !!t.semHora);
+}
+
+/** Concluiu uma tarefa que repete: a próxima entra na lista, com o aviso dela (fase 18). */
+export function proximaDaRepeticao(t: Tarefa): Tarefa | null {
+  if (!t.repete || t.prazo === undefined) return null;
+  const ms = proximaOcorrencia(t.prazo, t.repete);
+  return criarTarefaComAvisos(t.texto, { ms, temHora: !t.semHora }, t.repete, t.prioridade);
+}
+
+/** "dd/mm" ou "dd/mm HH:MM", curto, para o celular e a prévia do quick add. */
+export function rotuloDoPrazo(ms: number, semHora: boolean): string {
+  const quando = formatWhen(ms);
+  return semHora ? quando.replace(/ às d+h(d{2})?$/, " · dia todo") : quando;
 }
 
 /**

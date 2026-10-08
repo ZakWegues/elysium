@@ -24,6 +24,36 @@ export interface Tarefa {
   ressalva?: string;
   criadaEm: number;
   origem: "manual" | "lembrete";
+  /**
+   * Fase 18: compromisso sem hora dita ("prova sexta"). O prazo guarda o aviso do dia (8h),
+   * mas a lista mostra "dia todo" e só chama de atrasada depois que o dia acaba.
+   */
+  semHora?: boolean;
+  /** Fase 18: estrela — vai para o topo da lista. */
+  prioridade?: "alta";
+  /** Fase 18: repete. Concluir cria a próxima (o lembrete semanal virou isto). */
+  repete?: "diaria" | "semanal";
+}
+
+/** O instante em que a tarefa passa a contar como atrasada. Sem hora = fim daquele dia. Pura. */
+export function fimDoPrazo(t: Pick<Tarefa, "prazo" | "semHora">): number | undefined {
+  if (t.prazo === undefined) return undefined;
+  if (!t.semHora) return t.prazo;
+  const d = new Date(t.prazo);
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999).getTime();
+}
+
+export function estaAtrasada(t: Tarefa, agora = Date.now()): boolean {
+  const fim = fimDoPrazo(t);
+  return !t.feita && fim !== undefined && fim < agora;
+}
+
+/** A próxima ocorrência de uma tarefa que repete (mesma hora). Pura. */
+export function proximaOcorrencia(prazo: number, repete: NonNullable<Tarefa["repete"]>, agora = Date.now()): number {
+  const passo = repete === "diaria" ? 1 : 7;
+  const d = new Date(prazo);
+  do { d.setDate(d.getDate() + passo); } while (d.getTime() <= agora);
+  return d.getTime();
 }
 
 const store = new Store<{ tarefas: Tarefa[]; lembretesMigrados: boolean }>({ name: "tarefas", defaults: { tarefas: [], lembretesMigrados: false } });
@@ -48,7 +78,10 @@ function gravar(ts: Tarefa[]): void {
  */
 export function ordenarTarefas(ts: Tarefa[], agora = Date.now()): Tarefa[] {
   const inicioHoje = new Date(agora); inicioHoje.setHours(0, 0, 0, 0);
-  const pend = ts.filter(t => !t.feita).sort((a, b) => (a.prazo ?? Infinity) - (b.prazo ?? Infinity) || a.criadaEm - b.criadaEm);
+  // Estrela primeiro (fase 18); dentro de cada grupo, por prazo.
+  const pend = ts.filter(t => !t.feita).sort((a, b) =>
+    (a.prioridade === "alta" ? 0 : 1) - (b.prioridade === "alta" ? 0 : 1)
+    || (a.prazo ?? Infinity) - (b.prazo ?? Infinity) || a.criadaEm - b.criadaEm);
   const feitasHoje = ts.filter(t => t.feita && (t.feitaEm ?? 0) >= inicioHoje.getTime()).sort((a, b) => (b.feitaEm ?? 0) - (a.feitaEm ?? 0));
   return [...pend, ...feitasHoje];
 }
@@ -63,10 +96,23 @@ export function acharTarefa(ts: Tarefa[], trecho: string): Tarefa | undefined {
 }
 
 export function listarTarefas(): Tarefa[] { return ordenarTarefas(todas()); }
+
+/**
+ * Lista por filtro (fase 18, tela cheia): "abertas" (pendentes), "feitas" (os últimos 30 dias,
+ * da mais recente) ou "todas" (pendentes + feitas). A do Hoje continua sendo `listarTarefas`.
+ */
+export function listarPorFiltro(filtro: "abertas" | "feitas" | "todas"): Tarefa[] {
+  const ts = todas();
+  const pend = ordenarTarefas(ts.filter(t => !t.feita));
+  const feitas = ts.filter(t => t.feita).sort((a, b) => (b.feitaEm ?? 0) - (a.feitaEm ?? 0));
+  return filtro === "abertas" ? pend : filtro === "feitas" ? feitas : [...pend, ...feitas];
+}
+
+export function obterTarefa(id: string): Tarefa | undefined { return todas().find(t => t.id === id); }
 /** Todas, inclusive as concluídas em outros dias (backup). */
 export function listarTarefasTodas(): Tarefa[] { return todas(); }
 
-export function criarTarefa(dados: { texto: string; prazo?: number; lembreteIds?: string[]; origem?: Tarefa["origem"] }): Tarefa {
+export function criarTarefa(dados: { texto: string; prazo?: number; lembreteIds?: string[]; origem?: Tarefa["origem"]; semHora?: boolean; prioridade?: Tarefa["prioridade"]; repete?: Tarefa["repete"] }): Tarefa {
   const texto = dados.texto.trim().slice(0, 200);
   if (!texto) throw new Error("a tarefa precisa de um texto");
   const t: Tarefa = {
@@ -74,9 +120,34 @@ export function criarTarefa(dados: { texto: string; prazo?: number; lembreteIds?
     prazo: Number.isFinite(dados.prazo) ? dados.prazo : undefined,
     lembreteIds: dados.lembreteIds?.length ? dados.lembreteIds : undefined,
     feita: false, criadaEm: Date.now(), origem: dados.origem ?? "manual",
+    ...(dados.semHora && Number.isFinite(dados.prazo) ? { semHora: true } : {}),
+    ...(dados.prioridade === "alta" ? { prioridade: "alta" as const } : {}),
+    ...(dados.repete && Number.isFinite(dados.prazo) ? { repete: dados.repete } : {}),
   };
   gravar([...todas(), t]);
   return t;
+}
+
+/**
+ * Muda texto, prazo, prioridade, repetição ou ressalva. Devolve a tarefa nova e os lembretes
+ * que ela tinha — quem chama cancela e agenda os novos (ver `reagendarTarefa` no
+ * memoryActions). `prazo: null` tira a data.
+ */
+export function editarTarefa(id: string, m: { texto?: string; prazo?: number | null; semHora?: boolean; lembreteIds?: string[] | null; prioridade?: Tarefa["prioridade"] | null; repete?: Tarefa["repete"] | null; ressalva?: string | null }): { tarefa: Tarefa; antigos: string[] } | null {
+  const ts = todas();
+  const t = ts.find(x => x.id === id);
+  if (!t) return null;
+  const texto = m.texto !== undefined ? m.texto.trim().slice(0, 200) : t.texto;
+  if (!texto) throw new Error("a tarefa precisa de um texto");
+  const nova: Tarefa = { ...t, texto };
+  if (m.prazo === null) { delete nova.prazo; delete nova.semHora; delete nova.repete; }
+  else if (m.prazo !== undefined && Number.isFinite(m.prazo)) { nova.prazo = m.prazo; if (m.semHora) nova.semHora = true; else delete nova.semHora; }
+  if (m.lembreteIds === null) delete nova.lembreteIds; else if (m.lembreteIds) nova.lembreteIds = m.lembreteIds.length ? m.lembreteIds : undefined;
+  if (m.prioridade === null) delete nova.prioridade; else if (m.prioridade === "alta") nova.prioridade = "alta";
+  if (m.repete === null) delete nova.repete; else if (m.repete && nova.prazo !== undefined) nova.repete = m.repete;
+  if (m.ressalva === null) delete nova.ressalva; else if (m.ressalva !== undefined) nova.ressalva = m.ressalva.trim().slice(0, 300) || undefined;
+  gravar(ts.map(x => x.id === id ? nova : x));
+  return { tarefa: nova, antigos: t.lembreteIds ?? [] };
 }
 
 /**
