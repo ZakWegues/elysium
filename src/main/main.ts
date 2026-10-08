@@ -83,6 +83,7 @@ import type { BrainAction } from "../services/brain";
 import { mediaControl } from "../actions/mediaControl";
 import { logAnomaly, getAnomalyHistory, getInsights } from "../services/telemetryLog";
 import { getAllPresets } from "../services/presetsStore";
+import { fraseDeArranque, fraseDeEspera, fraseDeHabito, fraseDeLembrete, fraseDeTimer } from "../services/falasVivas";
 import {
   checkAndMarkUnseenFromMobile, addMessage, listMessagesForDesktop, inferKind, mailboxEvents,
   isKnownAttachmentPath, listMailboxSessions, createMailboxSession, renameMailboxSession,
@@ -486,8 +487,9 @@ ipcMain.on("audio-data", async (_event, buffer: Buffer) => {
 
     // Frase de espera (fase 18, 08/10): pedido que passa de 2,5 s (busca na web, o agente
     // olhando várias coisas) ganha um "Um instante." — silêncio longo na voz parece que caiu.
-    // Fixa, sem modelo, e nunca diz que terminou: a resposta de verdade vem logo atrás na fila.
-    const espera = setTimeout(() => { if (currentToken === meuToken) void speak("Um instante.").catch(() => {}); }, 2500);
+    // Sem modelo, e nunca diz que terminou: a resposta de verdade vem logo atrás na fila.
+    // Fase 19: a frase diz o que ela está fazendo ("Vou pesquisar.") e não repete a última.
+    const espera = setTimeout(() => { if (currentToken === meuToken) void speak(fraseDeEspera(text)).catch(() => {}); }, 2500);
     const { reply: combined } = await executarComando(text, {
       onActions: (actions) => {
         const label = getActionsLabel(actions);
@@ -1088,7 +1090,7 @@ app.on("ready", async () => {
   // com o PC desligado — precisa de tudo de pé para falar e notificar.
   startScheduler((reminder) => {
     notify("ELYSIUM — Lembrete", reminder.text);
-    speak(`Lembrete: ${reminder.text}`).catch(() => { /* best-effort */ });
+    speak(fraseDeLembrete(reminder.text)).catch(() => { /* best-effort */ });
     void sendPush("reminder", "Lembrete", reminder.text, { reminderId: reminder.id });
     // Fila + WS: é o que chega ao celular sem push pela nuvem (bloco 68).
     const entrega = enfileirarEntrega({ tipo: "lembrete", titulo: "Lembrete", corpo: reminder.text, ref: reminder.id });
@@ -1098,7 +1100,7 @@ app.on("ready", async () => {
 
   // Timers com nome (bloco 136): avisam no PC (notificação + fala) e no celular.
   ouvirTimers((t) => {
-    const frase = t.nome ? `Acabou o timer do ${t.nome}.` : "Acabou o timer.";
+    const frase = fraseDeTimer(t.nome);
     notify("ELYSIUM — Timer", frase);
     speak(frase).catch(() => { /* best-effort */ });
     void sendPush("reminder", "Timer", frase, {});
@@ -1113,7 +1115,7 @@ app.on("ready", async () => {
   // feito ensina a ignorar o aviso. Confere a cada 30 s; a marca de "lembrado" impede repetir.
   setInterval(() => {
     for (const h of habitosParaLembrar()) {
-      const frase = `Hora do ${h.nome}. Ainda não está marcado hoje.`;
+      const frase = fraseDeHabito(h.nome);
       notify("ELYSIUM — Hábito", frase);
       // Fase 18: falar e mandar para o celular gastam o orçamento de avisos do dia (e o modo
       // foco segura); fora dele fica só a notificação discreta acima. Ver avisos.ts.
@@ -1168,7 +1170,7 @@ app.on("ready", async () => {
   // Fase 16, a persona FRIDAY: a fala de arranque é um status curto, com o tratamento.
   const tratamento = (getConfig().tratamento ?? "").trim();
   // Em desenvolvimento o app reinicia toda hora: falar a cada arranque só incomoda.
-  if (app.isPackaged) speak(tratamento ? `Sistemas no ar, ${tratamento}.` : "Sistemas no ar.").catch(() => { /* best-effort */ });
+  if (app.isPackaged) speak(fraseDeArranque(tratamento, new Date().getHours())).catch(() => { /* best-effort */ });
 });
 
 app.on("window-all-closed", () => { /* intentional no-op */ });
