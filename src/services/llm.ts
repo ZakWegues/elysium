@@ -87,6 +87,12 @@ export interface ChatPedido {
   json?: boolean;
   timeoutMs?: number;
   /**
+   * Quanto o modelo raciocina antes de responder (só modelos com raciocínio na Groq, como o
+   * gpt-oss). Texto curto e criativo (frase do Hoje, dica, ideia) pede "low": no padrão o
+   * raciocínio comia o teto inteiro e a resposta saía vazia (08/10).
+   */
+  esforco?: "low" | "medium" | "high";
+  /**
    * Recebe cada pedaço de texto conforme o modelo escreve. Presente → a chamada é feita
    * em modo stream (NDJSON no Ollama, SSE na Groq) e o retorno continua sendo o texto
    * inteiro, então quem não liga para pedaços não muda nada.
@@ -171,6 +177,7 @@ async function chamarGroq(p: ChatPedido): Promise<string> {
         max_tokens: p.maxTokens,
         ...(p.json ? { response_format: { type: "json_object" } } : {}),
         ...(p.onToken ? { stream: true } : {}),
+        ...(p.esforco && /gpt-oss/i.test(p.model) ? { reasoning_effort: p.esforco } : {}),
       }),
       signal: conexao.signal,
     });

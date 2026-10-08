@@ -4,6 +4,7 @@ import { acharHabito, listarHabitos, listarMetas, pedidoDeHabito, pedidoDeMeta }
 import { interpretarTimer } from "./timers";
 import { calcular } from "./calculadora";
 import { pedidoDeHora } from "./horaMundo";
+import { listarTreinos, pedidoDeCorrida, pedidoDePeso, pedidoDeTreino } from "./corpo";
 
 /**
  * Roteamento local, sem IA.
@@ -149,6 +150,13 @@ export function fastRoute(text: string): BrainAction[] | null {
   // "fiz o café" não é hábito e segue para o cérebro.
   const habito = pedidoDeHabito(text);
   if (habito && acharHabito(listarHabitos(), habito, true)) return [{ action: "habit_mark", name: habito }];
+  // Treino, corrida e peso (fase 18). "Treinei" só vira atalho com treino cadastrado.
+  const treino = pedidoDeTreino(text);
+  if (treino && listarTreinos().length) return [{ action: "workout_mark", name: treino.nome }];
+  const corrida = pedidoDeCorrida(text);
+  if (corrida) return [{ action: "run_log", minutes: corrida.minutos, km: corrida.km }];
+  const peso = pedidoDePeso(text);
+  if (peso) return [{ action: "weight_log", kg: peso }];
   const meta = pedidoDeMeta(text);
   if (meta && acharHabito(listarMetas().map(m => ({ nome: m.titulo })), meta.meta)) return [{ action: "goal_add", name: meta.meta, delta: meta.delta }];
   const timer = interpretarTimer(text);

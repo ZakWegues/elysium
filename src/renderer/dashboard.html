@@ -280,6 +280,31 @@
         <div id="hoje-tarefas"></div>
         <div id="hoje-agenda"></div>
       </section>
+      <!-- Fase 18 (08/10): treino da vez, meta de calorias com dica, plano de corrida. -->
+      <section class="hoje-painel hoje-largo" id="hoje-sec-treino" hidden>
+        <div class="hoje-painel-topo"><h3>Treino de hoje</h3><span class="hoje-botoes-mini"><button class="hoje-acao" data-treino-todos="1" title="Todos os treinos — editar exercícios, séries e cargas"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-list"/></svg><span>Treinos</span></button><button class="hoje-acao" data-corpo-perfil="1" title="Peso, altura, idade e objetivo — a base da meta de calorias"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-user"/></svg><span>Perfil</span></button></span></div>
+        <div id="hoje-treino"></div>
+      </section>
+      <section class="hoje-painel" id="hoje-sec-nutricao" hidden>
+        <div class="hoje-painel-topo"><h3>Nutrição</h3><button class="hoje-acao" data-corpo-peso="1" title="Anotar o peso de hoje"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-activity"/></svg><span>Peso</span></button></div>
+        <div id="hoje-nutricao"></div>
+      </section>
+      <section class="hoje-painel" id="hoje-sec-corrida" hidden>
+        <div class="hoje-painel-topo"><h3>Corrida</h3></div>
+        <div id="hoje-corrida"></div>
+      </section>
+      <section class="hoje-painel">
+        <div class="hoje-painel-topo"><h3>Rotinas de hoje</h3></div>
+        <div id="hoje-rotinas"></div>
+      </section>
+      <section class="hoje-painel">
+        <div class="hoje-painel-topo"><h3>Ideia para hoje</h3><button class="hoje-acao" data-hoje-ideia="1" title="Outra ideia"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-sparkles"/></svg><span>Outra</span></button></div>
+        <div id="hoje-ideia" class="hoje-ideia"></div>
+      </section>
+      <section class="hoje-painel hoje-largo">
+        <div class="hoje-painel-topo"><h3>ELYSIUM</h3><span id="hoje-versao" class="hoje-cont"></span></div>
+        <div id="hoje-elysium"></div>
+      </section>
       <section class="hoje-painel">
         <div class="hoje-painel-topo"><h3>Metas</h3><button class="hoje-acao" data-hoje-nova-meta="1"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-plus"/></svg><span>Meta</span></button></div>
         <div id="hoje-metas"></div>
@@ -600,6 +625,7 @@
 <script src="dashboard/js/pc.js"></script>
 <script src="dashboard/js/rotinas.js"></script>
 <script src="dashboard/js/hoje.js"></script>
+<script src="dashboard/js/treino.js"></script>
 <script src="dashboard/js/inicio.js"></script>
 <script src="dashboard/js/paleta.js"></script>
 <script src="dashboard/js/boot.js"></script>

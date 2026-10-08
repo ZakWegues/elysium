@@ -28,6 +28,7 @@ import { resumoDoDia } from "../services/resumoDoDia";
 import { adicionarNaLista, listaFalada, listarListas, obterLista } from "../services/listas";
 import { inputHost } from "../services/inputHost";
 import { acharHabito, avancarMeta, listarHabitos, listarMetas, marcarHabito, resumirHabito } from "../services/habitos";
+import { marcarTreinoFalado, registrarCorridaFalada, registrarPesoFalado } from "../services/corpoFalado";
 import { cancelarTimer, criarTimer, duracaoFalada, timersFalados } from "../services/timers";
 import { calcular, formatarNumero } from "../services/calculadora";
 import { horaEm } from "../services/horaMundo";
@@ -69,6 +70,9 @@ export async function routeAction(action: BrainAction): Promise<string> {
       if (!m) return "Não consegui atualizar a meta.";
       return m.concluidaEm ? `Meta ${m.titulo} concluída: ${m.progresso} de ${m.alvo}.` : `Meta ${m.titulo}: ${m.progresso} de ${m.alvo}${m.unidade ? " " + m.unidade : ""}.`;
     }
+    case "workout_mark":      return marcarTreinoFalado(action.name);
+    case "run_log":           return registrarCorridaFalada(action.minutes, action.km);
+    case "weight_log":        return registrarPesoFalado(action.kg);
     case "type_text":
       // Ditado (02/10): digita na janela em foco, como o celular faz pelo `input.type`.
       await inputHost.type(action.text);

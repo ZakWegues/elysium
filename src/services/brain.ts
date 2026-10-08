@@ -45,6 +45,10 @@ export type BrainAction =
   | { action: "type_text";         text: string }
   | { action: "habit_mark";        name: string }
   | { action: "goal_add";          name: string; delta: number }
+  // Treino e corrida (fase 18): o fastRoute e as ferramentas produzem.
+  | { action: "workout_mark";      name?: string }
+  | { action: "run_log";           minutes: number; km?: number }
+  | { action: "weight_log";        kg: number }
   | { action: "list_show";         list?: string }
   | { action: "timer_start";       ms: number; name?: string }
   | { action: "timer_list" }
@@ -179,6 +183,9 @@ function actionSummary(action: BrainAction): string {
     case "type_text":         return "Digitando…";
     case "habit_mark":        return `Hábito ${action.name}`;
     case "goal_add":          return `Meta ${action.name}`;
+    case "workout_mark":      return `Treino${action.name ? ` ${action.name}` : ""}`;
+    case "run_log":           return `Corrida de ${action.minutes} min`;
+    case "weight_log":        return `Peso ${action.kg} kg`;
     case "list_show":         return `Lista ${action.list ?? ""}`.trim();
     case "timer_start":       return `Timer${action.name ? ` do ${action.name}` : ""}`;
     case "timer_list":        return "Timers";
@@ -212,7 +219,7 @@ const ACOES_VALIDAS = new Set<string>([
   "send_to_mobile", "power_control", "remember", "forget", "list_memory",
   "create_reminder", "list_reminders", "cancel_reminder", "web_search",
   "look_at_screen", "chat", "unknown", "weather", "focus", "daily_summary",
-  "list_add", "type_text", "habit_mark", "goal_add", "list_show", "timer_start", "timer_list", "timer_cancel", "calculate", "world_time",
+  "list_add", "type_text", "habit_mark", "goal_add", "workout_mark", "run_log", "weight_log", "list_show", "timer_start", "timer_list", "timer_cancel", "calculate", "world_time",
 ]);
 
 /**

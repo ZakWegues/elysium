@@ -1,4 +1,5 @@
 import { importarTarefas, listarTarefasTodas, Tarefa } from "./tarefas";
+import { exportarCorpo, importarCorpo, listarTreinos } from "./corpo";
 import { app } from "electron";
 import { AppConfig, getOverrides, setOverride } from "../main/config";
 import { addFact, listFacts } from "./memoryStore";
@@ -44,6 +45,8 @@ export interface Backup {
   metas?: Meta[];
   /** Fase 17. */
   tarefas?: Tarefa[];
+  /** Fase 18: treinos, perfil corporal, pesos e corridas. */
+  corpo?: ReturnType<typeof exportarCorpo>;
 }
 
 export interface ResumoImportacao {
@@ -55,6 +58,8 @@ export interface ResumoImportacao {
   ajustes: number;
   listas: number;
   habitos: number;
+  /** Treinos restaurados (fase 18). */
+  corpo?: number;
 }
 
 /** Ajustes que não viajam: dependem desta máquina e quebrariam em outra. */
@@ -78,6 +83,7 @@ export function montarBackup(): Backup {
     habitos: listarHabitos(),
     metas: listarMetas(),
     tarefas: listarTarefasTodas(),
+    corpo: exportarCorpo(),
   };
 }
 
@@ -98,6 +104,7 @@ export function lerBackup(bruto: unknown): Backup {
     habitos: Array.isArray(b.habitos) ? b.habitos : [],
     metas: Array.isArray(b.metas) ? b.metas : [],
     tarefas: Array.isArray(b.tarefas) ? b.tarefas : [],
+    corpo: b.corpo && typeof b.corpo === "object" ? b.corpo : undefined,
   };
 }
 
@@ -138,6 +145,8 @@ export function aplicarBackup(b: Backup): ResumoImportacao {
   try { resumo.listas = importarListas(b.listas ?? []); } catch { /* pula */ }
   try { resumo.habitos = importarHabitos(b.habitos ?? [], b.metas ?? []); } catch { /* pula */ }
   try { resumo.habitos += importarTarefas(b.tarefas ?? []); } catch { /* pula */ }
+  // Corpo: só restaura se aqui ainda não há treino — não sobrescreve o que já está em uso.
+  try { if (b.corpo && !listarTreinos().length) { importarCorpo(b.corpo); resumo.corpo = listarTreinos().length; } } catch { /* pula */ }
 
   const ajustes = { ...b.ajustes } as Record<string, unknown>;
   for (const k of AJUSTES_LOCAIS) delete ajustes[k];

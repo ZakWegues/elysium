@@ -2,6 +2,7 @@ import { cancelReminder } from "./scheduler";
 import { acharTarefa, concluirTarefa, listarTarefas } from "./tarefas";
 import { acharHabito, avancarMeta, listarHabitos, listarMetas, marcarHabito, resumirHabito } from "./habitos";
 import { montarPainelHoje } from "./hoje";
+import { marcarTreinoFalado, metaFalada, registrarCorridaFalada, registrarPesoFalado, treinoDeHojeFalado } from "./corpoFalado";
 import { clipboard } from "electron";
 import { limparFeitos, marcarItem, normalizarNomeLista } from "./listas";
 import { calcular, formatarNumero } from "./calculadora";
@@ -380,6 +381,47 @@ export const FERRAMENTAS: Ferramenta[] = [
       if (!m) return "Não consegui atualizar a meta.";
       return m.concluidaEm ? `Meta ${m.titulo} concluída: ${m.progresso} de ${m.alvo}.` : `Meta ${m.titulo}: ${m.progresso} de ${m.alvo}${m.unidade ? " " + m.unidade : ""}.`;
     },
+  },
+  {
+    name: "treino_de_hoje",
+    description: "O treino da academia de hoje (rotação A/B/C) com os exercícios, séries e cargas. Use para 'qual é o treino hoje', 'o que eu treino hoje', 'quais exercícios do treino B'.",
+    parameters: obj({}),
+    executar: async () => treinoDeHojeFalado(),
+  },
+  {
+    name: "ver_meta_calorias",
+    description: "A meta de calorias e macros de hoje (proteína, gordura, carboidrato), já somando a corrida. Use para 'quantas calorias eu como hoje', 'quanto de proteína', 'minha meta'.",
+    parameters: obj({}),
+    executar: async () => metaFalada(),
+  },
+  {
+    name: "marcar_treino",
+    description: "Marca o treino da academia de hoje como feito (o da vez na rotação, ou o citado). Use para 'treinei', 'fiz o treino B', 'terminei a academia'.",
+    parameters: obj({ treino: s("Nome do treino, se citado (ex.: 'Treino B')") }),
+    executar: async a => marcarTreinoFalado(str(a, "treino") || undefined),
+    acao: a => ({ action: "workout_mark", name: str(a, "treino") || undefined }),
+  },
+  {
+    name: "registrar_corrida",
+    description: "Anota uma corrida/esteira feita hoje (minutos e, se dito, km) e avança o plano de corrida. Use para 'corri 20 minutos', 'fiz 3 km na esteira em 25 min'.",
+    parameters: obj({ minutos: { type: "number", description: "Duração em minutos" }, km: { type: "number", description: "Distância em km, se dita" } }, ["minutos"]),
+    executar: async a => {
+      const minutos = num(a, "minutos") ?? Number(String(a["minutos"] ?? "").replace(",", "."));
+      if (!Number.isFinite(minutos) || minutos <= 0) return "Preciso dos minutos da corrida.";
+      const km = num(a, "km") ?? (a["km"] !== undefined ? Number(String(a["km"]).replace(",", ".")) : undefined);
+      return registrarCorridaFalada(minutos, km && Number.isFinite(km) ? km : undefined);
+    },
+    acao: a => ({ action: "run_log", minutes: Number(a["minutos"]) || 0 }),
+  },
+  {
+    name: "registrar_peso",
+    description: "Anota o peso de hoje em kg (a meta de calorias se ajusta). Use para 'pesei 58 quilos', 'estou com 58,5 kg'.",
+    parameters: obj({ kg: { type: "number", description: "Peso em kg" } }, ["kg"]),
+    executar: async a => {
+      const kg = num(a, "kg") ?? Number(String(a["kg"] ?? "").replace(",", "."));
+      return Number.isFinite(kg) ? registrarPesoFalado(kg) : "Preciso do peso em quilos.";
+    },
+    acao: a => ({ action: "weight_log", kg: Number(a["kg"]) || 0 }),
   },
   {
     name: "painel_do_dia",

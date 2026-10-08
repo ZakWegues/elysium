@@ -147,9 +147,39 @@ function desenharHoje() {
   el.querySelector("#hoje-listas").innerHTML = p.listas.length
     ? p.listas.map(l => `<div class="hoje-lista"><b>${escHtml(l.nome)}</b> <span class="hoje-cont">${l.pendentes}</span><div>${l.itens.map(escHtml).join(" · ")}</div></div>`).join("")
     : `<div class="hoje-vazio">Nada pendente nas listas.</div>`;
+  // Fase 18: rotinas do dia, ideia, card ELYSIUM e o corpo (treino.js).
+  el.querySelector("#hoje-rotinas").innerHTML = desenharRotinasHoje(p.rotinasHoje ?? [], p.rotinasRodaram ?? []);
+  el.querySelector("#hoje-ideia").innerHTML = p.ideia ? `<p>${escHtml(p.ideia)}</p>` : `<div class="hoje-vazio">Sem ideia agora — toque em Outra.</div>`;
+  desenharElysiumHoje(p.elysium);
+  if (typeof desenharCorpoHoje === "function") desenharCorpoHoje(p.corpo ?? null, p.dica ?? null);
   const alertas = el.querySelector("#hoje-alertas");
   alertas.innerHTML = p.alertas.map(a => `<div class="hoje-alerta ${a.nivel}">${ico("alert", "ico-sm")}<span><b>${escHtml(a.titulo)}</b> — ${escHtml(a.detalhe)}</span></div>`).join("");
   alertas.hidden = !p.alertas.length;
+}
+
+/** Rotinas que ainda rodam hoje e as que já rodaram, com ✓/✗ (fase 18). */
+function desenharRotinasHoje(proximas, rodaram) {
+  if (!proximas.length && !rodaram.length) return `<div class="hoje-vazio">Nenhuma rotina hoje.</div>`;
+  const linhas = proximas.map(x => `<div class="hoje-linha">${ico("clock", "ico-sm")}<span>${escHtml(x.nome)}</span><b>${horaCurta(x.em)}</b></div>`);
+  for (const x of rodaram) {
+    linhas.push(`<div class="hoje-linha hoje-rodou ${x.ok ? "ok" : "falhou"}" title="${escHtml(x.resultado)}">${ico(x.ok ? "check" : "alert", "ico-sm")}<span>${escHtml(x.nome)}</span><b>${horaCurta(x.em)}</b></div>`);
+  }
+  return linhas.join("");
+}
+
+/** Card ELYSIUM: o que veio na versão e o checklist "Para testar" (marcável, por versão). */
+function desenharElysiumHoje(e) {
+  const caixa = document.getElementById("hoje-elysium");
+  if (!caixa || !e) return;
+  document.getElementById("hoje-versao").textContent = `v${e.versao}`;
+  const pronta = e.atualizacaoPronta ? `<div class="hoje-alerta aviso">${ico("download", "ico-sm")}<span>A versão <b>${escHtml(e.atualizacaoPronta)}</b> está pronta para instalar.</span></div>` : "";
+  const novidades = e.novidades.length
+    ? `<h4 class="hoje-sub">O que veio nesta versão</h4><ul class="hoje-novidades">${e.novidades.slice(0, 6).map(n => `<li>${escHtml(n)}</li>`).join("")}</ul>`
+    : `<div class="hoje-vazio">Sem notas desta versão.</div>`;
+  const testar = e.paraTestar.length
+    ? `<h4 class="hoje-sub">Para testar ${e.paraTestar.filter(t => t.feito).length}/${e.paraTestar.length}</h4>${e.paraTestar.map(t => `<label class="hoje-testar${t.feito ? " feito" : ""}"><input type="checkbox" data-hoje-testar="${escHtml(t.item)}"${t.feito ? " checked" : ""}><span>${escHtml(t.item)}</span></label>`).join("")}`
+    : "";
+  caixa.innerHTML = pronta + novidades + testar;
 }
 
 async function carregarHoje() {
@@ -313,6 +343,18 @@ hojeEl()?.addEventListener("click", async (e) => {
   if (em) { formMeta(painelHoje?.metas.find(m => m.id === em.dataset.hojeEditarMeta) ?? {}); return; }
   if (alvo("#hoje-ler")) { window.nx.chatSend("me dá o resumo do dia"); showToast("Lendo o briefing…"); return; }
   if (alvo("#hoje-recarregar")) { carregarHoje(); return; }
+  const ideia = alvo("[data-hoje-ideia]");
+  if (ideia) {
+    ideia.disabled = true;
+    document.getElementById("hoje-ideia").classList.add("trocando");
+    const r = await window.nx.rpc("hoje.ideia");
+    ideia.disabled = false;
+    document.getElementById("hoje-ideia").classList.remove("trocando");
+    if (r.error) { showToast(r.error, true); return; }
+    if (painelHoje) painelHoje.ideia = r.result.ideia;
+    document.getElementById("hoje-ideia").innerHTML = `<p>${escHtml(r.result.ideia)}</p>`;
+    return;
+  }
   const mc = alvo("#hoje-btn-manchetes");
   if (mc) { buscarManchetes(mc); return; }
 });
@@ -331,4 +373,17 @@ document.getElementById("hoje-nova-tarefa")?.addEventListener("submit", async (e
   f.reset();
   showToast(r.result?.mensagem ?? "Anotado.");
   carregarHoje();
+});
+
+// "Para testar": marcar é um checkbox — o estado fica no PC, por versão.
+hojeEl()?.addEventListener("change", async (e) => {
+  const c = e.target.closest?.("[data-hoje-testar]");
+  if (!c) return;
+  const r = await window.nx.rpc("hoje.testar", { item: c.dataset.hojeTestar, feito: c.checked });
+  if (r.error) { showToast(r.error, true); c.checked = !c.checked; return; }
+  c.closest(".hoje-testar")?.classList.toggle("feito", c.checked);
+  if (painelHoje?.elysium) {
+    painelHoje.elysium.paraTestar = painelHoje.elysium.paraTestar.map(t => ({ ...t, feito: r.result.feitos.includes(t.item) }));
+    desenharElysiumHoje(painelHoje.elysium);
+  }
 });

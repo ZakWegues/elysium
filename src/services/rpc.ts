@@ -15,7 +15,7 @@
 
 import { apagarTarefa, concluirTarefa, criarTarefa, desvincularLembrete, listarTarefas, reabrirTarefa } from "./tarefas";
 import { createReminderAction } from "../actions/memoryActions";
-import { clipboard } from "electron";
+import { app, clipboard } from "electron";
 import * as path from "node:path";
 import * as fs from "node:fs";
 import * as os from "node:os";
@@ -45,7 +45,9 @@ import { buscarNasConversas } from "./buscaConversas";
 import { estiloValido, MAX_INSTRUCOES } from "./estiloResposta";
 import { adicionarNaLista, alternarItem, apagarLista, limparFeitos, listarListas, removerItem, separarItens } from "./listas";
 import { apagarHabito, apagarMeta, avancarMeta, listarHabitos, listarMetas, marcarHabito, resumirHabito, salvarHabito, salvarMeta } from "./habitos";
-import { montarPainelHoje } from "./hoje";
+import { fatosDoDia, montarPainelHoje } from "./hoje";
+import { apagarCorrida, apagarTreino, importarTreinos, lerPerfil, marcarTreino, montarPainelCorpo, registrarCorrida, registrarPeso, salvarPerfil, salvarTreino, type PerfilCorpo } from "./corpo";
+import { dicaDoCorpo, ideiaDoDia, marcarTeste } from "./ideiasDoDia";
 import { cancelarTimer, criarTimer, listarTimers } from "./timers";
 import { apagarComando, listarComandos, rodarComando, salvarComando } from "./comandosIa";
 import { resumirLink } from "./leitorDeLink";
@@ -1009,6 +1011,61 @@ const METHODS: Record<string, MethodDef> = {
   "metas.delete": { destructive: true, handler: async (params) => ({ ok: apagarMeta(requireString(params, "id")) }) },
   // Central "Hoje" (fase 16): o briefing inteiro numa chamada.
   "hoje.painel": { handler: async () => montarPainelHoje() },
+  // Fase 18: "outra ideia" e o checklist "Para testar" do card ELYSIUM.
+  "hoje.ideia": {
+    handler: async () => {
+      const p = await montarPainelHoje();
+      return { ideia: await ideiaDoDia(fatosDoDia(p), true) };
+    },
+  },
+  "hoje.testar": {
+    handler: async (params) => {
+      const item = requireString(params, "item").slice(0, 300);
+      return { feitos: marcarTeste(app.getVersion(), item, params["feito"] !== false) };
+    },
+  },
+  // Treino, nutrição e corrida (fase 18). Dados pessoais: só no corpo.json do userData.
+  "corpo.painel": { handler: async () => montarPainelCorpo() },
+  "corpo.dica": { handler: async (params) => ({ dica: await dicaDoCorpo(params["nova"] === true) }) },
+  "corpo.perfil": {
+    handler: async (params) => ({ perfil: Object.keys(params).length ? salvarPerfil(params as Partial<PerfilCorpo>) : lerPerfil() }),
+  },
+  "corpo.peso": {
+    handler: async (params) => {
+      try { return { perfil: registrarPeso(requireNumber(params, "kg")) }; } catch (e) { throw new RpcError(400, (e as Error).message); }
+    },
+  },
+  "treinos.save": {
+    handler: async (params) => {
+      if (!Array.isArray(params["exercicios"])) throw new RpcError(400, 'param "exercicios" deve ser uma lista');
+      try {
+        return { treino: salvarTreino({ id: optionalString(params, "id"), nome: requireString(params, "nome"), exercicios: params["exercicios"] as unknown[], ordem: optionalInt(params, "ordem") }) };
+      } catch (e) { throw new RpcError(400, (e as Error).message); }
+    },
+  },
+  "treinos.importar": {
+    destructive: true,
+    handler: async (params) => {
+      try { return { treinos: importarTreinos(params["treinos"] as { nome: string; exercicios: unknown[] }[]) }; } catch (e) { throw new RpcError(400, (e as Error).message); }
+    },
+  },
+  "treinos.delete": { destructive: true, handler: async (params) => ({ ok: apagarTreino(requireString(params, "id")) }) },
+  "treinos.marcar": {
+    handler: async (params) => {
+      const t = marcarTreino(params["feito"] !== false, optionalString(params, "id"));
+      if (!t) throw new RpcError(404, "nenhum treino cadastrado");
+      return { treino: t, painel: montarPainelCorpo() };
+    },
+  },
+  "corrida.marcar": {
+    handler: async (params) => {
+      const km = typeof params["km"] === "number" ? params["km"] : undefined;
+      try {
+        return { corrida: registrarCorrida(requireNumber(params, "minutos"), km, params["doPlano"] !== false), painel: montarPainelCorpo() };
+      } catch (e) { throw new RpcError(400, (e as Error).message); }
+    },
+  },
+  "corrida.delete": { handler: async (params) => ({ ok: apagarCorrida(requireString(params, "id")), painel: montarPainelCorpo() }) },
   // Timers com nome (bloco 136).
   "timers.list": { handler: async () => ({ timers: listarTimers(), agora: Date.now() }) },
   "timers.start": {

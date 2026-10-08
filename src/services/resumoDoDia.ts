@@ -7,6 +7,10 @@ import { listMessages } from "./mailboxStore";
 import { verificarSaude } from "./saude";
 import { estadoAtualizacao } from "./atualizacao";
 import { eventosDoDia } from "./agenda";
+import { montarPainelCorpo } from "./corpo";
+import { dicaDoCorpo, ideiaDoDia } from "./ideiasDoDia";
+import { listarTarefas } from "./tarefas";
+import { notasDaVersaoAtual, secoesDasNotas } from "./atualizacao";
 
 /**
  * Resumo do dia falado (fase 13, bloco 117) — "bom dia".
@@ -32,6 +36,15 @@ export interface FatosResumo {
   agenda?: { titulo: string; em: number }[];
   /** Fase 16: hábitos que valem hoje e ainda não foram feitos, com a sequência em jogo. */
   habitosFaltando?: { nome: string; sequencia: number }[];
+  /** Fase 18 (08/10): o resumo do Hoje completo — o Zak pediu "tudo que já tá e mais um pouco". */
+  tarefasAtrasadas?: string[];
+  treino?: { nome: string; exercicios: string[]; feito: boolean } | null;
+  meta?: { kcal: number; proteinaG: number } | null;
+  dica?: string | null;
+  corrida?: { semana: number; texto: string; feitaHoje: boolean } | null;
+  /** Uma frase sobre a última atualização do ELYSIUM e quantos itens há para testar. */
+  elysium?: { versao: string; novidade: string | null; paraTestar: number } | null;
+  ideia?: string | null;
 }
 
 function hhmm(ms: number): string {
@@ -70,6 +83,18 @@ export function montarResumo(f: FatosResumo): string {
   // embaralhava os dois (bloco 126, lido no card Hoje).
   // Fase 16: hábito pendente com sequência em jogo é o lembrete que mais vale ("não quebra
   // os 12 dias da leitura").
+  if (f.tarefasAtrasadas?.length) partes.push(`${f.tarefasAtrasadas.length === 1 ? "Uma tarefa atrasada" : `${f.tarefasAtrasadas.length} tarefas atrasadas`}: ${lista(f.tarefasAtrasadas.slice(0, 3))}.`);
+
+  // Corpo (fase 18): treino da vez, meta do dia e a dica — na ordem em que se usa.
+  if (f.treino) {
+    partes.push(f.treino.feito
+      ? `O ${f.treino.nome} de hoje já está feito.`
+      : `Hoje é dia de ${f.treino.nome}${f.treino.exercicios.length ? `, começando por ${lista(f.treino.exercicios.slice(0, 3))}` : ""}.`);
+  }
+  if (f.meta) partes.push(`Meta de hoje: ${f.meta.kcal} calorias, com ${f.meta.proteinaG} gramas de proteína.`);
+  if (f.dica) partes.push(`Dica: ${f.dica.replace(/[.!]?$/, ".")}`);
+  if (f.corrida && !f.corrida.feitaHoje) partes.push(`Na corrida, semana ${f.corrida.semana} do plano: ${f.corrida.texto.replace(/ · /g, ", ")}.`);
+
   const hab = f.habitosFaltando ?? [];
   if (hab.length) {
     const emRisco = hab.filter(h => h.sequencia >= 3).sort((a, b) => b.sequencia - a.sequencia)[0];
@@ -77,6 +102,8 @@ export function montarResumo(f: FatosResumo): string {
   }
   if (f.alertas.length) partes.push(`Atenção: ${f.alertas.slice(0, 3).join("; ")}.`);
   if (f.versaoNova) partes.push(`A versão ${f.versaoNova} do ELYSIUM está pronta para instalar.`);
+  else if (f.elysium?.novidade) partes.push(`No ELYSIUM ${f.elysium.versao}: ${f.elysium.novidade.replace(/[.!]?$/, ".")}${f.elysium.paraTestar ? ` Tem ${f.elysium.paraTestar === 1 ? "um item" : `${f.elysium.paraTestar} itens`} para testar no Hoje.` : ""}`);
+  if (f.ideia) partes.push(`Uma ideia para hoje: ${f.ideia.replace(/[.!?]?$/, ".")}`);
 
   if (partes.length === 1 || (partes.length === 2 && f.clima)) partes.push("Nada marcado para hoje.");
   return partes.join(" ");
@@ -118,6 +145,39 @@ export async function resumoDoDia(agenda?: FatosResumo["agenda"]): Promise<strin
     alertas,
     versaoNova: e.desktop?.pronto ? e.desktop.versao : null,
     habitosFaltando: listarHabitos().map(h => resumirHabito(h, agora)).filter(h => h.valeHoje && !h.feitoHoje).map(h => ({ nome: h.nome, sequencia: h.sequencia })),
+    ...(await extrasFase18(agora)),
     agenda: agenda ?? (eventos ?? []).filter(e => !e.diaInteiro && e.inicio > agora.getTime()).map(e => ({ titulo: e.titulo, em: e.inicio })),
   });
+}
+
+/** Promessa com prazo: o resumo é falado, não pode esperar o modelo por 9 s. */
+function ate<T>(ms: number, p: Promise<T>): Promise<T | null> {
+  return Promise.race([p.catch(() => null), new Promise<null>(r => setTimeout(() => r(null), ms))]);
+}
+
+/**
+ * O que a fase 18 somou ao resumo. A dica e a ideia normalmente já estão no cache (o Hoje as
+ * gerou); se não, esperam no máximo 4 s e o resumo segue sem elas.
+ */
+async function extrasFase18(agora: Date): Promise<Partial<FatosResumo>> {
+  const corpo = (() => { try { return montarPainelCorpo(agora); } catch { return null; } })();
+  const temCorpo = !!corpo && (corpo.treinos.length > 0 || !corpo.faltaPerfil.length);
+  const th = temCorpo ? corpo!.treinoHoje : null;
+  let atrasadas: string[] = [];
+  try { atrasadas = listarTarefas().filter(t => !t.feita && t.prazo && t.prazo < agora.getTime()).map(t => t.texto); } catch { /* segue */ }
+  const [dica, ideia, notas] = await Promise.all([
+    temCorpo ? ate(4000, dicaDoCorpo(false, agora)) : Promise.resolve(null),
+    ate(4000, ideiaDoDia([], false, agora)),
+    ate(4000, notasDaVersaoAtual()),
+  ]);
+  const secoes = notas ? secoesDasNotas(notas.texto) : null;
+  return {
+    tarefasAtrasadas: atrasadas,
+    treino: th ? { nome: th.treino.nome, exercicios: th.treino.exercicios.map(e => e.nome), feito: th.feitoHoje } : null,
+    meta: temCorpo && corpo!.meta ? { kcal: corpo!.meta.kcal, proteinaG: corpo!.meta.proteinaG } : null,
+    dica: dica?.texto ?? null,
+    corrida: temCorpo ? { semana: corpo!.corrida.semana, texto: corpo!.corrida.texto, feitaHoje: corpo!.corrida.feitaHoje } : null,
+    elysium: notas && secoes?.novidades.length ? { versao: notas.versao, novidade: secoes.novidades[0], paraTestar: secoes.paraTestar.length } : null,
+    ideia,
+  };
 }

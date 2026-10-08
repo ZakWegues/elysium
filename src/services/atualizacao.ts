@@ -524,6 +524,48 @@ export function marcarNovidadesVistas(): void {
   gravarNovidades({ ...lerNovidades(), vista: app.getVersion() });
 }
 
+/**
+ * As seções das notas da release (08/10): "## Novidades" e "## Para testar" viram o card
+ * ELYSIUM do Hoje — o que veio e o que conferir. Notas antigas (sem seções) viram só
+ * novidades: cada linha de lista (ou cada parágrafo) é um item. Pura, para teste.
+ */
+export function secoesDasNotas(texto: string): { novidades: string[]; paraTestar: string[] } {
+  const itensDe = (bloco: string) => bloco
+    .split("\n")
+    .map(l => l.replace(/^\s*(?:[-*•]|\d+[.)])\s+/, "").replace(/^\s*\[[ xX]\]\s*/, "").trim())
+    .filter(l => l && !/^#/.test(l) && !/^versionCode \d+$/.test(l));
+  const secao = (nome: RegExp) => {
+    const m = new RegExp(`^#{1,3}\\s*${nome.source}[^\\n]*\\n([\\s\\S]*?)(?=^#{1,3}\\s|$(?![\\s\\S]))`, "im").exec(texto);
+    return m ? itensDe(m[1]) : null;
+  };
+  const novidades = secao(/novidades/);
+  const paraTestar = secao(/para testar/) ?? [];
+  return { novidades: (novidades ?? itensDe(texto)).slice(0, 12), paraTestar: paraTestar.slice(0, 12) };
+}
+
+let cacheNotasAtuais: { versao: string; texto: string } | null = null;
+/** As notas da versão que está rodando: as guardadas na instalação, senão as da release. */
+export async function notasDaVersaoAtual(): Promise<{ versao: string; texto: string }> {
+  const atual = app.getVersion();
+  if (cacheNotasAtuais?.versao === atual) return cacheNotasAtuais;
+  const r = lerNovidades();
+  if (r.notas?.versao === atual && r.notas.texto.trim()) return (cacheNotasAtuais = { versao: atual, texto: r.notas.texto });
+  try {
+    const tk = await token();
+    if (tk) {
+      const resp = await fetch(`https://api.github.com/repos/${DONO}/${REPO_DESKTOP}/releases/tags/v${atual}`, {
+        headers: { Authorization: `Bearer ${tk}`, Accept: "application/vnd.github+json", "User-Agent": "ELYSIUM" },
+        signal: AbortSignal.timeout(10000),
+      });
+      if (resp.ok) {
+        const texto = String(((await resp.json()) as ReleaseGitHub).body ?? "").trim();
+        if (texto) return (cacheNotasAtuais = { versao: atual, texto });
+      }
+    }
+  } catch { /* sem rede: sem novidades no card */ }
+  return { versao: atual, texto: "" };
+}
+
 // ── De madrugada ─────────────────────────────────────────────────────────────
 //
 // O botão "instalar" quase nunca é clicado: o app vive na bandeja e a versão nova ficava
