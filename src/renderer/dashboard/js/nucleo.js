@@ -65,7 +65,8 @@ function movimentoLigado() {
 }
 
 function escHtml(s) {
-  return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  // String(): número ou undefined chegavam aqui e quebravam o .replace (08/10).
+  return String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
 }
 
 /**
@@ -93,10 +94,18 @@ function renderMarkdown(raw) {
   const lines = raw.split("\n");
   let html = "";
   let inCode = false, codeLang = "", codeLines = [];
-  let inList = false;
+  // "ul" | "ol" | "" — qual lista está aberta (08/10: a numerada fechava com </ul>, e uma
+  // lista com "-" logo depois de uma "1." continuava dentro do <ol>).
+  let inList = "";
 
   function flushList() {
-    if (inList) { html += "</ul>"; inList = false; }
+    if (inList) { html += `</${inList}>`; inList = ""; }
+  }
+  function abrirLista(tag) {
+    if (inList === tag) return;
+    flushList();
+    html += `<${tag}>`;
+    inList = tag;
   }
 
   for (let i = 0; i < lines.length; i++) {
@@ -122,11 +131,22 @@ function renderMarkdown(raw) {
     if (titulo) { flushList(); html += `<p class="md-titulo md-t${titulo[1].length}">${inlineRender(titulo[2])}</p>`; continue; }
     if (/^>\s?/.test(trimmed)) { flushList(); html += `<blockquote>${inlineRender(trimmed.replace(/^>\s?/, ""))}</blockquote>`; continue; }
     if (/^(-{3,}|\*{3,}|_{3,})$/.test(trimmed)) { flushList(); html += "<hr>"; continue; }
+    // Tabela (08/10, como no celular desde a fase 15): cabeçalho + "|---|" + linhas.
+    if (trimmed.startsWith("|") && i + 1 < lines.length && mdEhSeparador(lines[i + 1])) {
+      flushList();
+      const cab = mdCelulas(trimmed);
+      i += 2;
+      const linhas = [];
+      while (i < lines.length && lines[i].trim().startsWith("|")) { linhas.push(mdCelulas(lines[i])); i++; }
+      i--;
+      html += `<div class="md-tabela"><table><thead><tr>${cab.map(c => `<th>${inlineRender(c)}</th>`).join("")}</tr></thead><tbody>${linhas.map(l => `<tr>${cab.map((_, k) => `<td>${inlineRender(l[k] ?? "")}</td>`).join("")}</tr>`).join("")}</tbody></table></div>`;
+      continue;
+    }
     if (/^[-*] /.test(trimmed)) {
-      if (!inList) { html += "<ul>"; inList = true; }
+      abrirLista("ul");
       html += `<li>${inlineRender(trimmed.slice(2))}</li>`;
     } else if (/^\d+\. /.test(trimmed)) {
-      if (!inList) { html += "<ol>"; inList = true; }
+      abrirLista("ol");
       html += `<li>${inlineRender(trimmed.replace(/^\d+\. /, ""))}</li>`;
     } else {
       flushList();
@@ -136,6 +156,27 @@ function renderMarkdown(raw) {
   if (inCode) html += blocoDeCodigo(codeLines.join("\n"), codeLang);
   flushList();
   return html || `<p>${escHtml(raw)}</p>`;
+}
+
+/** Células de uma linha de tabela: "\|" é barra literal; barra dentro de `código` não divide. */
+function mdCelulas(linha) {
+  const t = linha.trim().replace(/^\|/, "").replace(/(?<!\\)\|$/, "");
+  const out = [];
+  let atual = "", emCodigo = false;
+  for (let i = 0; i < t.length; i++) {
+    const ch = t[i];
+    if (ch === "\\" && t[i + 1] === "|") { atual += "|"; i++; continue; }
+    if (ch === "`") emCodigo = !emCodigo;
+    if (ch === "|" && !emCodigo) { out.push(atual.trim()); atual = ""; continue; }
+    atual += ch;
+  }
+  out.push(atual.trim());
+  return out;
+}
+
+/** A linha "|---|:---:|" que separa o cabeçalho. Exige ao menos uma barra. */
+function mdEhSeparador(linha) {
+  return linha.includes("|") && /^\s*\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?\s*$/.test(linha);
 }
 
 /** Bloco de código com o botão de copiar — o clique é tratado em chat-extra.js. */

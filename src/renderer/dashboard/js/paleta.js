@@ -137,6 +137,12 @@ async function montarIndicePaleta() {
     // Fase 16: a aba Hoje e os atalhos de hábito/meta.
     { grupo: "nav", icone: "sun", texto: "Hoje", chaves: ["briefing", "hábitos", "metas", "resumo do dia"], executar: () => switchView("hoje") },
     { grupo: "acao", icone: "check", texto: "Novo hábito", chaves: ["hábito", "streak", "sequência"], executar: () => { switchView("hoje"); formHabito(); } },
+    // Fase 18: tarefas e a revisão da semana pela paleta.
+    { grupo: "acao", icone: "layers", texto: "Tarefas em tela cheia", chaves: ["tarefas", "todo", "lista", "afazeres"], executar: () => { switchView("hoje"); abrirTarefasCheia(); } },
+    { grupo: "acao", icone: "plus", texto: "Nova tarefa", chaves: ["tarefa", "lembrete", "anotar"], executar: () => { switchView("hoje"); formTarefaCheia(null); } },
+    { grupo: "acao", icone: "calendar", texto: "Reagendar tarefas atrasadas", chaves: ["atrasadas", "adiar"], executar: async () => { const r = await window.nx.rpc("tarefas.reagendarAtrasadas", { para: "amanha" }); if (r.error) showToast(r.error, true); else showToast(`${r.result.reagendadas} para amanhã.`); } },
+    { grupo: "acao", icone: "calendar", texto: "Revisão da semana", chaves: ["semana", "revisão", "review"], executar: () => { switchView("hoje"); abrirRevisaoSemana(); } },
+    { grupo: "acao", icone: "activity", texto: "Marcar treino de hoje", chaves: ["academia", "treino", "treinei"], executar: rpcToast("treinos.marcar", { feito: true }, "Treino marcado.") },
     { grupo: "acao", icone: "star", texto: "Nova meta", chaves: ["meta", "objetivo"], executar: () => { switchView("hoje"); formMeta(); } },
     { grupo: "nav", icone: "plus", texto: "Nova rotina", executar: () => { switchView("rotinas"); setTimeout(() => abrirFormRotina(), 80); } },
     { grupo: "nav", icone: "settings", texto: "Ajustes", executar: () => switchView("ajustes") },

@@ -174,7 +174,11 @@ let secaoAberta = null;      // { def, movidos: [{ no, pai, proximo }] }
 // `aoFechar` existe para quem precisa desligar um temporizador de atualização.
 let gavetaAtual = null;      // { movidos, aoFechar }
 
+/** Quem tinha o foco antes da gaveta abrir — volta para ele ao fechar (08/10). */
+let focoAntesDaGaveta = null;
+
 function abrirGaveta({ titulo, icone = "grid", nos = [], html = "", aoAbrir, aoFechar, classe = "" }) {
+  if (!gavetaAtual) focoAntesDaGaveta = document.activeElement;
   if (gavetaAtual) fecharGaveta(true);
   const corpo = document.getElementById("gaveta-corpo");
   corpo.innerHTML = html;
@@ -208,6 +212,10 @@ function fecharGaveta(silencioso = false) {
   g.aoFechar?.();
   if (!silencioso) {
     document.getElementById("gaveta-veu").classList.remove("aberto");
+    // O foco volta para quem abriu: sem isto quem usa teclado caía no começo da página.
+    const voltar = focoAntesDaGaveta;
+    focoAntesDaGaveta = null;
+    if (voltar && document.contains(voltar)) voltar.focus?.({ preventScroll: true });
     // O HTML desenhado some só depois da saída animada, senão a gaveta fecha vazia.
     setTimeout(() => { if (!gavetaAtual) document.getElementById("gaveta-corpo").innerHTML = ""; }, 260);
   }
@@ -217,6 +225,16 @@ document.getElementById("gaveta-fechar")?.addEventListener("click", () => fechar
 document.getElementById("gaveta-veu")?.addEventListener("click", (e) => { if (e.target.id === "gaveta-veu") fecharGaveta(); });
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && gavetaAtual) { e.stopPropagation(); fecharGaveta(); }
+  // Tab não sai da gaveta aberta (fase 18): ela é modal; o foco dá a volta dentro dela.
+  if (e.key === "Tab" && gavetaAtual) {
+    const veu = document.getElementById("gaveta-veu");
+    const focaveis = [...veu.querySelectorAll("button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])")].filter(x => !x.disabled && x.offsetParent !== null);
+    if (!focaveis.length) return;
+    const primeiro = focaveis[0], ultimo = focaveis[focaveis.length - 1];
+    if (e.shiftKey && document.activeElement === primeiro) { e.preventDefault(); ultimo.focus(); }
+    else if (!e.shiftKey && document.activeElement === ultimo) { e.preventDefault(); primeiro.focus(); }
+    else if (!veu.contains(document.activeElement)) { e.preventDefault(); primeiro.focus(); }
+  }
 }, true);
 
 function desenharHub() {

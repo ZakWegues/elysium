@@ -11,11 +11,11 @@ let tiqueHoje = null;
 
 const hojeEl = () => document.getElementById("view-hoje");
 
-function horaCurta(ms) {
+function hojeHoraCurta(ms) {
   return new Date(ms).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 }
 
-function restante(ms) {
+function hojeRestante(ms) {
   const s = Math.max(0, Math.round((ms - Date.now()) / 1000));
   const m = Math.floor(s / 60), ss = s % 60;
   return m >= 60 ? `${Math.floor(m / 60)}h${String(m % 60).padStart(2, "0")}` : `${m}:${String(ss).padStart(2, "0")}`;
@@ -39,7 +39,7 @@ function desenharHabitos(habitos) {
     <div class="hoje-habito${h.feitoHoje ? " feito" : ""}">
       <button class="hoje-check" data-hoje-marcar="${escHtml(h.id)}" data-feito="${h.feitoHoje ? "1" : ""}" title="${h.feitoHoje ? "Desmarcar" : "Marcar como feito"}" aria-pressed="${h.feitoHoje}">${ico("check", "ico-sm")}</button>
       <div class="hoje-habito-meio">
-        <div class="hoje-habito-nome" data-hoje-editar-habito="${escHtml(h.id)}">${escHtml(h.nome)}</div>
+        <button type="button" class="hoje-habito-nome" data-hoje-editar-habito="${escHtml(h.id)}" title="Editar o hábito">${escHtml(h.nome)}</button>
         <div class="hoje-mapa">${h.mapa.map(d => `<i class="${d === null ? "nao" : d ? "sim" : ""}"></i>`).join("")}</div>
       </div>
       <div class="hoje-seq" title="Sequência atual · recorde ${h.recorde} · força ${h.forca ?? 0}% (cai devagar com faltas)"><b>${h.sequencia}</b><span>dias</span>${h.forca !== undefined ? `<small class="hoje-forca">força ${h.forca}%</small>` : ""}${h.pausadoHoje ? `<small class="hoje-forca">❄ hoje</small>` : ""}</div>
@@ -51,7 +51,7 @@ function desenharMetas(metas) {
   return metas.map(m => {
     const f = m.alvo ? Math.min(1, m.progresso / m.alvo) : 0;
     return `<div class="hoje-meta">
-      <div class="hoje-meta-topo"><span data-hoje-editar-meta="${escHtml(m.id)}">${escHtml(m.titulo)}</span><b>${m.progresso}/${m.alvo}${m.unidade ? ` ${escHtml(m.unidade)}` : ""}</b></div>
+      <div class="hoje-meta-topo"><button type="button" class="hoje-meta-nome" data-hoje-editar-meta="${escHtml(m.id)}" title="Editar a meta">${escHtml(m.titulo)}</button><b>${m.progresso}/${m.alvo}${m.unidade ? ` ${escHtml(m.unidade)}` : ""}</b></div>
       <div class="hoje-barra"><i style="width:${Math.round(f * 100)}%"></i></div>
       <div class="hoje-meta-acoes">
         <button data-hoje-meta="${escHtml(m.id)}" data-delta="-1" title="Tirar 1">−1</button>
@@ -120,10 +120,10 @@ function concluirTarefaComRessalva(t, depois) {
 
 function desenharAgendaHoje(p) {
   const itens = [
-    ...p.lembretes.map(l => ({ em: l.em, html: `<span class="hoje-hora">${horaCurta(l.em)}</span>${ico("bell", "ico-sm")}<span>${escHtml(l.texto)}</span>` })),
-    ...(p.proximaRotina ? [{ em: p.proximaRotina.em, html: `<span class="hoje-hora">${horaCurta(p.proximaRotina.em)}</span>${ico("zap", "ico-sm")}<span>Rotina ${escHtml(p.proximaRotina.nome)}</span>` }] : []),
+    ...p.lembretes.map(l => ({ em: l.em, html: `<span class="hoje-hora">${hojeHoraCurta(l.em)}</span>${ico("bell", "ico-sm")}<span>${escHtml(l.texto)}</span>` })),
+    ...(p.proximaRotina ? [{ em: p.proximaRotina.em, html: `<span class="hoje-hora">${hojeHoraCurta(p.proximaRotina.em)}</span>${ico("zap", "ico-sm")}<span>Rotina ${escHtml(p.proximaRotina.nome)}</span>` }] : []),
   ].sort((a, b) => a.em - b.em);
-  const timers = p.timers.map(t => `<div class="hoje-linha hoje-timer">${ico("clock", "ico-sm")}<span>${escHtml(t.nome || "Timer")}</span><b data-fim="${t.fimEm}">${restante(t.fimEm)}</b></div>`).join("");
+  const timers = p.timers.map(t => `<div class="hoje-linha hoje-timer">${ico("clock", "ico-sm")}<span>${escHtml(t.nome || "Timer")}</span><b data-fim="${t.fimEm}">${hojeRestante(t.fimEm)}</b></div>`).join("");
   if (!itens.length && !timers) return "";
   return timers + itens.map(i => `<div class="hoje-linha">${i.html}</div>`).join("");
 }
@@ -205,7 +205,7 @@ function desenharAmanhaHoje(a) {
   }
   const clima = a.clima ? `<div class="hoje-linha">${ico(a.clima.icone || "sun", "ico-sm")}<span>${Math.round(a.clima.min)}°–${Math.round(a.clima.max)}°</span></div>` : "";
   const tarefas = a.tarefas.length
-    ? a.tarefas.map(t => `<div class="hoje-linha">${ico("check", "ico-sm")}<span>${escHtml(t.texto)}</span><b>${t.semHora ? "dia todo" : horaCurta(t.prazo)}</b></div>`).join("")
+    ? a.tarefas.map(t => `<div class="hoje-linha">${ico("check", "ico-sm")}<span>${escHtml(t.texto)}</span><b>${t.semHora ? "dia todo" : hojeHoraCurta(t.prazo)}</b></div>`).join("")
     : `<div class="hoje-vazio">Nada marcado para amanhã. Bom momento para escolher a prioridade do dia.</div>`;
   sec.querySelector("#hoje-amanha").innerHTML = clima + tarefas;
 }
@@ -232,9 +232,9 @@ async function abrirRevisaoSemana() {
 /** Rotinas que ainda rodam hoje e as que já rodaram, com ✓/✗ (fase 18). */
 function desenharRotinasHoje(proximas, rodaram) {
   if (!proximas.length && !rodaram.length) return `<div class="hoje-vazio">Nenhuma rotina hoje.</div>`;
-  const linhas = proximas.map(x => `<div class="hoje-linha">${ico("clock", "ico-sm")}<span>${escHtml(x.nome)}</span><b>${horaCurta(x.em)}</b></div>`);
+  const linhas = proximas.map(x => `<div class="hoje-linha">${ico("clock", "ico-sm")}<span>${escHtml(x.nome)}</span><b>${hojeHoraCurta(x.em)}</b></div>`);
   for (const x of rodaram) {
-    linhas.push(`<div class="hoje-linha hoje-rodou ${x.ok ? "ok" : "falhou"}" title="${escHtml(x.resultado)}">${ico(x.ok ? "check" : "alert", "ico-sm")}<span>${escHtml(x.nome)}</span><b>${horaCurta(x.em)}</b></div>`);
+    linhas.push(`<div class="hoje-linha hoje-rodou ${x.ok ? "ok" : "falhou"}" title="${escHtml(x.resultado)}">${ico(x.ok ? "check" : "alert", "ico-sm")}<span>${escHtml(x.nome)}</span><b>${hojeHoraCurta(x.em)}</b></div>`);
   }
   return linhas.join("");
 }
@@ -267,7 +267,7 @@ async function carregarHoje() {
   clearInterval(tiqueHoje);
   tiqueHoje = setInterval(() => {
     if (document.getElementById("layout")?.dataset.view !== "hoje") { clearInterval(tiqueHoje); return; }
-    hojeEl()?.querySelectorAll("[data-fim]").forEach(b => { b.textContent = restante(Number(b.dataset.fim)); });
+    hojeEl()?.querySelectorAll("[data-fim]").forEach(b => { b.textContent = hojeRestante(Number(b.dataset.fim)); });
   }, 1000);
 }
 
@@ -355,7 +355,7 @@ function formMeta(base = {}) {
 async function gerenciarHabitos() {
   const r = await window.nx.rpc("habitos.list");
   const hs = r.result?.habitos ?? [], ms = r.result?.metas ?? [];
-  todosHabitos = hs; todasMetas = ms;
+  hojeTodosHabitos = hs; hojeTodasMetas = ms;
   abrirGaveta({
     titulo: "Hábitos e metas", icone: "list", classe: "gaveta-pc",
     html: `<div class="hoje-gerenciar">
@@ -364,13 +364,13 @@ async function gerenciarHabitos() {
     </div>`,
     aoAbrir: (corpo) => corpo.addEventListener("click", (e) => {
       const bh = e.target.closest("[data-g-habito]");
-      if (bh) { formHabito(todosHabitos.find(x => x.id === bh.dataset.gHabito) ?? {}); return; }
+      if (bh) { formHabito(hojeTodosHabitos.find(x => x.id === bh.dataset.gHabito) ?? {}); return; }
       const bm = e.target.closest("[data-g-meta]");
-      if (bm) formMeta(todasMetas.find(x => x.id === bm.dataset.gMeta) ?? {});
+      if (bm) formMeta(hojeTodasMetas.find(x => x.id === bm.dataset.gMeta) ?? {});
     }),
   });
 }
-let todosHabitos = [], todasMetas = [];
+let hojeTodosHabitos = [], hojeTodasMetas = [];
 
 async function buscarManchetes(botao) {
   const caixa = document.getElementById("hoje-manchetes");

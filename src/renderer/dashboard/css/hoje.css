@@ -254,3 +254,7 @@
 .hoje-ocultar:hover { opacity: 1; background: rgba(var(--purple-rgb), 0.12); }
 .hoje-ocultos { display: flex; justify-content: center; margin-top: 14px; }
 .hoje-revisao p { margin: 0 0 8px; line-height: 1.55; font-size: 13.5px; }
+
+/* Fase 18: nome do hábito e da meta viraram botões (dá para editar pelo teclado). */
+button.hoje-habito-nome, button.hoje-meta-nome { background: transparent; border: 0; padding: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+button.hoje-habito-nome:hover, button.hoje-meta-nome:hover { text-decoration: underline; text-decoration-color: rgba(var(--purple-rgb), 0.5); }

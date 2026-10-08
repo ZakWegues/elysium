@@ -347,3 +347,9 @@
 
 /* Fase 18: a resposta veio do cérebro local porque a nuvem falhou. */
 .chat-local { display: inline-block; margin: 2px 0 4px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; }
+
+/* Fase 18: tabelas no chat do PC (o celular já desenhava). Rola na horizontal se não couber. */
+.md-tabela { overflow-x: auto; margin: 6px 0; }
+.md-tabela table { border-collapse: collapse; font-size: 12.5px; min-width: 60%; }
+.md-tabela th, .md-tabela td { border: 1px solid var(--border); padding: 5px 9px; text-align: left; vertical-align: top; }
+.md-tabela th { background: rgba(var(--purple-rgb), 0.12); font-weight: 600; }

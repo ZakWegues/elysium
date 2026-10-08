@@ -126,3 +126,11 @@ body.tabs .top-btn.drawer-toggle { display: none; }
    campos simples — senão só eles esticariam. */
 #layout[data-view="ajustes"] #theme-swatches,
 #layout[data-view="ajustes"] #widget-order-list { max-width: 340px; }
+
+/* Fase 18 (08/10): foco visível para quem navega por teclado. Vários "outline: none" antigos
+   apagavam o anel; :focus-visible só aparece no teclado, não no clique. */
+button:focus-visible, [role="tab"]:focus-visible, a:focus-visible, summary:focus-visible,
+select:focus-visible, input[type="checkbox"]:focus-visible, [tabindex]:focus-visible {
+  outline: 2px solid rgba(var(--purple-rgb), 0.85) !important;
+  outline-offset: 2px;
+}

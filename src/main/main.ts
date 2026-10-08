@@ -122,7 +122,8 @@ function openDashboard(): void {
   dashWin = new BrowserWindow({
     width:     1024,
     height:    720,
-    minWidth:  800,
+    // 640 (08/10): com 800 as regras de layout estreito do CSS (760, 720, 620 px) nunca valiam.
+    minWidth:  640,
     minHeight: 560,
     resizable: true,
     show:      false,

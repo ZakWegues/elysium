@@ -53,6 +53,8 @@ function switchView(view) {
     const ativa = b.dataset.view === view;
     b.classList.toggle("active", ativa);
     b.setAttribute("aria-selected", ativa ? "true" : "false");
+    // Tab só para na aba ativa; entre as abas, as setas (08/10).
+    b.tabIndex = ativa ? 0 : -1;
     if (ativa) b.classList.remove("has-news");
   });
   moverPolegar();
@@ -72,6 +74,38 @@ function switchView(view) {
 }
 
 vtabs.forEach(b => b.addEventListener("click", () => switchView(b.dataset.view)));
+
+// Acessibilidade das abas (fase 18): cada aba aponta para o seu painel (aria-controls ↔
+// tabpanel), tem nome mesmo quando a janela estreita esconde o rótulo, e as setas ← → (e
+// Home/End) andam entre elas, como manda o padrão de abas do WAI-ARIA.
+const PAINEL_DA_ABA = { inicio: "view-inicio", chat: "center", hoje: "view-hoje", pc: "view-pc", rotinas: "view-rotinas", ajustes: "drawer-right" };
+vtabs.forEach(b => {
+  const nome = b.querySelector(".vtab-label")?.textContent?.trim() || b.dataset.view;
+  const painel = document.getElementById(PAINEL_DA_ABA[b.dataset.view] ?? "");
+  b.id = b.id || `aba-${b.dataset.view}`;
+  b.setAttribute("aria-label", nome);
+  b.title = b.title || nome;
+  b.tabIndex = b.classList.contains("active") ? 0 : -1;
+  if (painel) {
+    b.setAttribute("aria-controls", painel.id);
+    painel.setAttribute("role", "tabpanel");
+    painel.setAttribute("aria-labelledby", b.id);
+  }
+});
+document.getElementById("viewtabs")?.addEventListener("keydown", (e) => {
+  const lista = [...vtabs];
+  const i = lista.indexOf(document.activeElement);
+  if (i < 0) return;
+  let j = null;
+  if (e.key === "ArrowRight") j = (i + 1) % lista.length;
+  else if (e.key === "ArrowLeft") j = (i - 1 + lista.length) % lista.length;
+  else if (e.key === "Home") j = 0;
+  else if (e.key === "End") j = lista.length - 1;
+  if (j === null) return;
+  e.preventDefault();
+  lista[j].focus();
+  switchView(lista[j].dataset.view);
+});
 
 // Ctrl+1..6 percorre os destinos, como no navegador. Fica fora do input de comando para
 // não roubar a digitação.
