@@ -6183,23 +6183,16 @@ bloco abaixo para um arquivo, sem as cercas:
 5. Copiar este arquivo para a pasta-mãe `ELYSIUM/`.
 
 ### Publicação da fase 19 (09/10/2026, máquina do Zak)
-- Branch da nuvem →  (fast-forward, sem conflito) nos dois repos; branch remota apagada
+- Branch da nuvem → `main` (fast-forward, sem conflito) nos dois repos; branch remota apagada
   (o nome levava a marca da ferramenta). Commits conferidos: autor ZakWegues, sem rastro.
-- Unknown command: "install"
-
-
-Did you mean one of these?
-  npm install # Install a package
-  npm uninstall # Remove a package
-To see a list of supported npm commands, run:
-  npm help (axios/fast-uri novos), check verde nos dois (284 e 84).
+- `npm install` (axios/fast-uri novos), check verde nos dois (284 e 84).
 - **Bancada qwen2.5:7b: 34/37 (92%), 13 pelo atalho**, p50 1,2 s. Falhas (casos novos da fase 19):
-  "fecha tudo menos o VS Code" (o 7B chama  um a um, inventando a lista, em vez de
-  ), "o que eu tinha te falado sobre a prova?" (não chama ) e
-  "em que janela eu estou?" (não chama ). **Próximo passo:** atalho no
-   para os três (frases bem marcadas) — é o mesmo remédio que levou a bancada de 85%
-  a 97% na fase 18.
+  "fecha tudo menos o VS Code" (o 7B chama `fechar_programa` um a um, inventando a lista, em vez
+  de `fechar_tudo_menos`), "o que eu tinha te falado sobre a prova?" (não chama
+  `lembrar_conversa`) e "em que janela eu estou?" (não chama `janela_em_foco`). **Próximo
+  passo:** atalho no `fastRoute` para os três (frases bem marcadas) — o mesmo remédio que levou a
+  bancada de 85% a 97% na fase 18.
 - Desktop **2.6.0** publicado (notas do bloco acima, linhas desembrulhadas) e instalado aqui
-  (). Celular: OTA no runtime  (APK 2.1.0) — tudo JS, sem APK.
+  (`"pc":"2.6.0"`). Celular: OTA no runtime `e2443894…` (APK 2.1.0) — tudo JS, sem APK.
 - Não ouvido ainda (o Zak confere): fala antecipada, prosódia, tom pelo humor. Lembrete: a saída
   de som do Windows estava no Steam Streaming Speakers (§37) — se a voz sumir, é lá.
