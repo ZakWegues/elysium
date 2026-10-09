@@ -28,7 +28,7 @@ import { limparCacheClima } from "../services/clima";
 import { getLocalIPv4, getAllLocalIPv4 } from "./network";
 import { inputHost } from "../services/inputHost";
 import { startScheduler, stopScheduler } from "../services/scheduler";
-import { sendPush } from "../services/push";
+import { sendPush, type PushCategory } from "../services/push";
 import { lerSaidaDeSom, problemaDeSom } from "../services/saidaDeSom";
 import { aoMudarEstadoApp, definirSom, iniciarEstadoApp, janelaMudou, registrarEncerramento, telaBloqueada, voltouDaSuspensao, type Janela, type MotivoEncerramento } from "../services/estadoApp";
 import {
@@ -44,6 +44,7 @@ import {
   setShuffle as spotifySetShuffle, setRepeat as spotifySetRepeat,
 } from "../services/spotify";
 import { state } from "./state";
+import { aCada, esperarOcioso, pararIntervalos } from "./proativo";
 import { notify } from "./notify";
 import { createTray, refreshTray, updateLastCommand, buildIcon as iconePadrao, aoInterromperFala, marcarFalaNaBandeja } from "./tray";
 import { transcribe } from "../services/stt";
@@ -55,13 +56,14 @@ import { Confianca, desligarPalavraDeAtivacao, ligarPalavraDeAtivacao, podeInter
 iniciarLogEmArquivo();
 import { getTopHistory } from "../services/history";
 import { registrarPergunta, bolhasDoChat } from "../services/perguntas";
-import { synthesize, cancelSpeak, dividirEmFrases, preSintetizar, ehNoite } from "../services/tts";
+import { ehNoite } from "../services/tts";
+import { aoMudarFala, estaFalando, falaAtual, falar as speak, interromperTudo as interruptAll, novoTurno, turnoAtual } from "./fala";
 import { habitosParaLembrar } from "../services/habitos";
 import { podeAvisarAlto } from "../services/avisos";
 import { ElysiumError } from "../services/errors";
 import { processCommand, processCommandStream, executarComando } from "../services/command";
 import { startServer, setActiveToken, broadcastMailboxEvent, broadcastNotify, broadcastEstadoPc } from "../services/server";
-import { iniciarRotinas, pararRotinas, enfileirarEntrega } from "../services/rotinas";
+import { iniciarRotinas, pararRotinas, enfileirarEntrega, type Entrega } from "../services/rotinas";
 import { avaliarCondicao } from "../services/agente";
 import { emitirEvento, MARCOS_OCIOSO } from "../services/eventos";
 import { getRunningApps } from "../actions/systemInfo";
@@ -100,6 +102,30 @@ import {
 let recorderWin: BrowserWindow | null = null;
 let configWin:   BrowserWindow | null = null;
 let dashWin:     BrowserWindow | null = null;
+
+/**
+ * Manda um evento ao dashboard sem quebrar se a janela já foi destruída (fase 20). O
+ * `dashWin?.webContents.send` lançava "Object has been destroyed" no fechamento, e ~40 lugares
+ * chamavam direto — inclusive dentro da fila de fala.
+ */
+/**
+ * O caminho de um aviso até o celular, que estava copiado em oito lugares (fase 20): fila de
+ * entregas + WS (chega sem push pela nuvem, bloco 68) e, quando pedido, o push. Best-effort.
+ */
+function mandarAoCelular(
+  tipo: Entrega["tipo"], titulo: string, corpo: string,
+  opcoes: { push?: PushCategory; ref?: string; dados?: Record<string, unknown> } = {},
+): void {
+  try { broadcastNotify(enfileirarEntrega({ tipo, titulo, corpo, ...(opcoes.ref ? { ref: opcoes.ref } : {}) })); }
+  catch (e) { console.warn("[celular] aviso não entrou na fila:", e); }
+  if (opcoes.push) void sendPush(opcoes.push, titulo, corpo, opcoes.dados ?? {}).catch(() => { /* best-effort */ });
+}
+
+function enviarAoDash(canal: string, ...args: unknown[]): void {
+  const w = dashWin;
+  if (!w || w.isDestroyed()) return;
+  try { w.webContents.send(canal, ...args); } catch { /* fechando */ }
+}
 
 function createRecorderWindow(): BrowserWindow {
   const win = new BrowserWindow({
@@ -155,7 +181,7 @@ function openDashboard(): void {
   dashWin.webContents.once("did-finish-load", async () => {
     try {
       const t = await getDashboardTelemetry();
-      dashWin?.webContents.send("dash:telemetry", t);
+      enviarAoDash("dash:telemetry", t);
     } catch { /* best-effort */ }
   });
 
@@ -226,66 +252,17 @@ function openConfigWindow(): void {
 
 let appQuitting = false;
 
-// ── speak queue ───────────────────────────────────────────────────────────────
-
-type SpeakItem = { text: string; resolve: () => void; inteira?: string; humor?: Humor };
-const speakQueue: SpeakItem[] = [];
-let isSpeaking = false;
-let currentToken = 0;
-
-function interruptAll(): void {
-  currentToken++;
-  cancelSpeak();
-  // Resolve quem esperava pelos pedaços que não vão mais tocar: com a fala dividida em
-  // frases (02/10), a promessa do `speak` mora no ÚLTIMO pedaço, e descartá-lo sem resolver
-  // deixava o `await speak(...)` pendurado para sempre.
-  for (const item of speakQueue.splice(0)) item.resolve();
-  falandoAgora = "";
-  isSpeaking = false;
-  avisarFala(false);
-}
+// ── fala (fase 20: a fila mora em main/fala.ts) ──────────────────────────────
 
 /**
  * Avisa dashboard e bandeja se há fala saindo (02/10). O botão "Interromper voz" só aparecia
  * no estado "speaking", que é o da resposta à voz — lembrete, timer, rotina e resumo do dia
  * falavam sem botão nenhum para parar.
  */
-function avisarFala(f: boolean): void {
+aoMudarFala((f) => {
   marcarFalaNaBandeja(f);
-  dashWin?.webContents.send("tts:falando", f);
-}
-
-function speak(text: string, humor?: Humor): Promise<void> {
-  // Fala longa sai em pedaços (02/10): o primeiro toca enquanto o seguinte sintetiza. A
-  // promessa resolve no ÚLTIMO pedaço — quem espera a fala acabar continua esperando a fala
-  // inteira. Interromper esvazia a fila e resolve (interruptAll + resolve abaixo).
-  const pedacos = dividirEmFrases(text);
-  if (!pedacos.length) return Promise.resolve();
-  return new Promise((resolve) => {
-    pedacos.forEach((p, i) => speakQueue.push({ text: p, inteira: text, humor, resolve: i === pedacos.length - 1 ? resolve : () => {} }));
-    if (!isSpeaking) drainSpeak();
-  });
-}
-
-/**
- * O que está saindo na caixa de som — o barge-in confere se tem "Ely". É a fala INTEIRA, não
- * só a frase do pedaço (07/10): o reconhecimento chega ~0,5 s depois, quando a frase com o
- * nome já acabou e a seguinte começou, e ela se interrompia ao dizer o próprio nome. Só
- * esvazia quando a fila acaba, sem buraco entre os pedaços.
- */
-let falandoAgora = "";
-
-async function drainSpeak(): Promise<void> {
-  if (speakQueue.length === 0) { isSpeaking = false; falandoAgora = ""; avisarFala(false); return; }
-  isSpeaking = true;
-  avisarFala(true);
-  const item = speakQueue.shift()!;
-  falandoAgora = item.inteira ?? item.text;
-  if (speakQueue[0]) preSintetizar(speakQueue[0].text, speakQueue[0].humor);
-  try { await synthesize(item.text, item.humor); } catch { /* best-effort */ }
-  item.resolve();
-  drainSpeak();
-}
+  enviarAoDash("tts:falando", f);
+});
 
 // ── action label helper ───────────────────────────────────────────────────────
 
@@ -388,13 +365,13 @@ function startTelemetryLoop(): void {
       dashWin.webContents.send("dash:telemetry", t);
     } catch { /* best-effort */ }
   };
-  setInterval(() => { tick().catch(() => {}); }, 3_000);
+  aCada(3_000, "telemetria", () => tick());
 
   // Janelas que abrem e fecham (bloco 79): a cada 15 s compara a lista de programas com
   // janela. Só nomes de processo; o título vai junto para o filtro ("o Chrome") casar
   // também com apps da loja hospedados no ApplicationFrameHost.
   let _janelas: Map<string, string> | null = null;
-  setInterval(async () => {
+  aCada(15_000, "janelas", async () => {
     try {
       const agora = new Map<string, string>();
       for (const a of await getRunningApps()) {
@@ -407,20 +384,20 @@ function startTelemetryLoop(): void {
       }
       _janelas = agora;
     } catch { /* best-effort */ }
-  }, 15_000);
+  });
 
   // Ociosidade (bloco 79): sem mouse/teclado. Dispara nos marcos de 5, 15, 30, 60 e 120
   // minutos, uma vez cada; a rotina escolhe o seu (`gatilho.minutos`). Volta a zero com
   // atividade.
   let _marcoOcioso = 0;
-  setInterval(() => {
+  aCada(60_000, "ociosidade", () => {
     try {
       const min = Math.floor(powerMonitor.getSystemIdleTime() / 60);
       // Voltou depois de 1 h ou mais parado: de manhã, é a deixa do resumo do dia (bloco 117).
       if (min < 1) { if (_marcoOcioso >= 60) { void resumoDaManha(); void perguntarComoFoi(); } _marcoOcioso = 0; return; }
       for (const m of MARCOS_OCIOSO) if (min >= m && _marcoOcioso < m) { _marcoOcioso = m; emitirEvento("pc.ocioso", { minutos: m }); }
     } catch { /* powerMonitor indisponível */ }
-  }, 60_000);
+  });
   powerMonitor.on("resume", () => { voltouDaSuspensao(); emitirEvento("pc.voltou", { de: "suspensão" }); void resumoDaManha(); void perguntarComoFoi(); });
   powerMonitor.on("unlock-screen", () => { telaBloqueada(false); emitirEvento("pc.voltou", { de: "tela bloqueada" }); void resumoDaManha(); void perguntarComoFoi(); });
   powerMonitor.on("lock-screen", () => telaBloqueada(true));
@@ -441,14 +418,13 @@ async function resumoDaManha(): Promise<void> {
     resumoStore.set("ultimoDia", dia);
     // Espera a tela destravar direito e o app ficar livre (até 1 min).
     await new Promise(r => setTimeout(r, 4000));
-    const t0 = Date.now();
-    while (!state.is("idle") && Date.now() - t0 < 60_000) await new Promise(r => setTimeout(r, 1000));
+    await esperarOcioso();
     // Fase 19: ocupado depois de 1 min (ouvindo, pensando) — falar agora entraria no microfone.
     if (!state.is("idle")) return;
     const texto = await resumoDoDia();
     notify("Resumo do dia", texto);
     speak(texto).catch(() => { /* best-effort */ });
-    broadcastNotify(enfileirarEntrega({ tipo: "aviso", titulo: "Resumo do dia", corpo: texto }));
+    mandarAoCelular("aviso", "Resumo do dia", texto);
   } catch (e) { console.warn("[resumo] falhou:", e); }
 }
 
@@ -468,8 +444,7 @@ async function perguntarComoFoi(): Promise<void> {
     if (!primeira) return;
     // Depois do resumo da manhã, se houver, e com o app livre (até 1 min).
     await new Promise(r => setTimeout(r, 15_000));
-    const t0 = Date.now();
-    while (!state.is("idle") && Date.now() - t0 < 60_000) await new Promise(r => setTimeout(r, 1000));
+    await esperarOcioso();
     // Ainda ocupado (ouvindo, pensando, falando): falar agora entraria no microfone ou no
     // meio do turno dele. Fica para a próxima volta — o dia só é marcado quando pergunta.
     if (!state.is("idle")) return;
@@ -499,12 +474,12 @@ async function startListening(): Promise<void> {
 }
 
 ipcMain.on("audio-data", async (_event, buffer: Buffer) => {
-  const meuToken = ++currentToken;
+  const meuToken = novoTurno();
   state.set("processing");
   try {
     const audio = new Uint8Array(buffer);
     const text  = await transcribe(audio);
-    if (currentToken !== meuToken) return;
+    if (turnoAtual() !== meuToken) return;
 
     // Calibragem da palavra de ativação (bloco 116): acordou pela voz e ninguém pediu nada
     // é um disparo falso. Uma linha no log por caso; somando dá para ajustar a confiança
@@ -520,7 +495,7 @@ ipcMain.on("audio-data", async (_event, buffer: Buffer) => {
       return;
     }
 
-    dashWin?.webContents.send("voice:transcript", text);
+    enviarAoDash("voice:transcript", text);
 
     // Frase de espera (fase 18, 08/10): pedido que passa de 2,5 s (busca na web, o agente
     // olhando várias coisas) ganha um "Um instante." — silêncio longo na voz parece que caiu.
@@ -536,9 +511,9 @@ ipcMain.on("audio-data", async (_event, buffer: Buffer) => {
     // As promessas das frases já enfileiradas: o turno só termina (estado ocioso) quando a
     // ÚLTIMA delas acabar de tocar — senão o ícone voltava a "ocioso" com ela ainda falando.
     const falas: Promise<void>[] = [];
-    const espera = setTimeout(() => { if (currentToken === meuToken && !falas.length) void speak(fraseDeEspera(text)).catch(() => {}); }, 2500);
+    const espera = setTimeout(() => { if (turnoAtual() === meuToken && !falas.length) void speak(fraseDeEspera(text)).catch(() => {}); }, 2500);
     const falarFrase = (frase: string) => {
-      if (currentToken !== meuToken || !frase) return;
+      if (turnoAtual() !== meuToken || !frase) return;
       clearTimeout(espera);
       jaFalado += ` ${frase}`;
       // O estado continua "processing" até o pedido terminar: "speaking" é interrompível pelo
@@ -549,20 +524,20 @@ ipcMain.on("audio-data", async (_event, buffer: Buffer) => {
     const { reply: combined } = await executarComando(text, {
       onActions: (actions) => {
         const label = getActionsLabel(actions);
-        dashWin?.webContents.send("voice:action-label", label);
-        dashWin?.webContents.send("dash:action-log", { icon: "settings", text: label, ok: true });
+        enviarAoDash("voice:action-label", label);
+        enviarAoDash("dash:action-log", { icon: "settings", text: label, ok: true });
       },
       onToken: (token) => {
-        if (currentToken !== meuToken) return;
-        dashWin?.webContents.send("chat:chunk", token);
+        if (turnoAtual() !== meuToken) return;
+        enviarAoDash("chat:chunk", token);
         if (antecipar) for (const frase of fatiador.push(token)) falarFrase(frase);
       },
     }).finally(() => clearTimeout(espera));
-    if (currentToken !== meuToken) return;
+    if (turnoAtual() !== meuToken) return;
     updateLastCommand(text);
     notify("ELYSIUM", combined);
 
-    dashWin?.webContents.send("voice:reply", combined);
+    enviarAoDash("voice:reply", combined);
     state.set("speaking");
     // O que ainda não foi dito: o fim da resposta (ou ela inteira, sem fala antecipada).
     // O `speak` entra na mesma fila, depois das frases já enfileiradas.
@@ -570,20 +545,20 @@ ipcMain.on("audio-data", async (_event, buffer: Buffer) => {
     falas.push(speak(restoParaFalar(combined, jaFalado), humor));
     await Promise.all(falas);
   } catch (err) {
-    if (currentToken !== meuToken) return;
+    if (turnoAtual() !== meuToken) return;
     const msg = err instanceof ElysiumError ? err.spoken : "Tive um problema, mas já voltei ao normal.";
     if (err instanceof ElysiumError) notify("ELYSIUM — Erro", err.message);
-    dashWin?.webContents.send("voice:error", msg);
+    enviarAoDash("voice:error", msg);
     state.set("speaking");
     try { await speak(msg); } catch { /* ignore */ }
   } finally {
-    if (currentToken === meuToken) state.set("idle");
+    if (turnoAtual() === meuToken) state.set("idle");
   }
 });
 
 ipcMain.on("recorder-error", (_event, msg: string) => {
   notify("ELYSIUM — Microfone", msg);
-  dashWin?.webContents.send("voice:error", "Microfone indisponível. Verifique se está conectado.");
+  enviarAoDash("voice:error", "Microfone indisponível. Verifique se está conectado.");
   state.set("speaking");
   speak("Não consegui acessar o microfone.")
     .catch(() => {})
@@ -591,14 +566,14 @@ ipcMain.on("recorder-error", (_event, msg: string) => {
 });
 
 ipcMain.on("audio-level", (_event, level: number) => {
-  dashWin?.webContents.send("voice:audio-level", level);
+  enviarAoDash("voice:audio-level", level);
 });
 
 // ── voice IPC ─────────────────────────────────────────────────────────────────
 
 ipcMain.on("voice:start", () => {
   if (!state.is("idle")) interruptAll();
-  startListening();
+  startListening().catch((e) => console.error("[voz] não consegui começar a ouvir:", e));
 });
 
 // ── chat IPC ──────────────────────────────────────────────────────────────────
@@ -608,16 +583,16 @@ ipcMain.on("chat:send", async (_event, text: string, opcoes?: { refazer?: boolea
   // esperar o TTS terminar um parágrafo para mandar a pergunta seguinte. Só gravação e
   // processamento continuam bloqueando — aí há um pedido em andamento de verdade.
   if (state.is("speaking")) interruptAll();
-  else if (!state.is("idle")) { dashWin?.webContents.send("chat:busy"); return; }
+  else if (!state.is("idle")) { enviarAoDash("chat:busy"); return; }
   if (!hasApiKey()) {
-    dashWin?.webContents.send("chat:error", "API key não configurada.");
+    enviarAoDash("chat:error", "API key não configurada.");
     openConfigWindow();
     return;
   }
   // O token é o que impede o handler interrompido de devolver o estado a "ocioso" no
   // meio do pedido novo: `interruptAll` avança o contador, e só o dono do valor atual
   // encerra o ciclo.
-  const meuToken = ++currentToken;
+  const meuToken = novoTurno();
   state.set("processing");
   try {
     // "Refazer" e "editar a última pergunta" (bloco 84): o turno anterior sai do histórico
@@ -628,37 +603,37 @@ ipcMain.on("chat:send", async (_event, text: string, opcoes?: { refazer?: boolea
       canal: "texto",
       onActions: (actions) => {
         const label = getActionsLabel(actions);
-        dashWin?.webContents.send("voice:action-label", label);
-        dashWin?.webContents.send("dash:action-log", { icon: "settings", text: label, ok: true });
+        enviarAoDash("voice:action-label", label);
+        enviarAoDash("dash:action-log", { icon: "settings", text: label, ok: true });
       },
       // A voz espera a resposta fechar (§19, bloco 21); só a tela recebe os pedaços.
-      onToken: (token) => { if (currentToken === meuToken) dashWin?.webContents.send("chat:chunk", token); },
+      onToken: (token) => { if (turnoAtual() === meuToken) enviarAoDash("chat:chunk", token); },
     });
-    if (currentToken !== meuToken) return;
+    if (turnoAtual() !== meuToken) return;
     updateLastCommand(text);
     // Notificação nativa só quando a janela não está à vista: quem digitou no dashboard e
     // está olhando para ele não precisa de um balão do Windows repetindo a resposta.
     if (!dashWin?.isVisible() || !dashWin.isFocused()) notify("ELYSIUM", combined);
-    dashWin?.webContents.send("chat:reply", combined);
+    enviarAoDash("chat:reply", combined);
     // Blocos 131 e 132: fontes da busca já; sugestões de continuação quando chegarem.
-    if (fontes.length) dashWin?.webContents.send("chat:extras", { fontes });
+    if (fontes.length) enviarAoDash("chat:extras", { fontes });
     // Fase 18: a nuvem falhou e o local respondeu — o selo "modo local" na bolha.
-    if (local) dashWin?.webContents.send("chat:extras", { local: true });
+    if (local) enviarAoDash("chat:extras", { local: true });
     if (deveSugerir(actions, "texto")) {
       sugerirContinuacoes(text, combined).then((sugestoes) => {
-        if (sugestoes.length && currentToken === meuToken) dashWin?.webContents.send("chat:extras", { sugestoes });
+        if (sugestoes.length && turnoAtual() === meuToken) enviarAoDash("chat:extras", { sugestoes });
       }).catch(() => { /* sem chips */ });
     }
     state.set("speaking");
     // Bloco 130: a resposta escrita pode ser longa; a caixa de som fala só o começo.
     await speak(paraFala(combined), lerHumor(text));
   } catch (err) {
-    if (currentToken !== meuToken) return;
+    if (turnoAtual() !== meuToken) return;
     const msg = err instanceof ElysiumError ? err.spoken : "Tive um problema, mas já voltei ao normal.";
     if (err instanceof ElysiumError) notify("ELYSIUM — Erro", err.message);
-    dashWin?.webContents.send("chat:error", msg);
+    enviarAoDash("chat:error", msg);
   } finally {
-    if (currentToken === meuToken) state.set("idle");
+    if (turnoAtual() === meuToken) state.set("idle");
   }
 });
 
@@ -684,7 +659,7 @@ ipcMain.on("tts:stop", () => {
 ipcMain.on("media:direct", async (_event, op: string) => {
   try {
     const reply = await mediaControl(op as Parameters<typeof mediaControl>[0]);
-    dashWin?.webContents.send("dash:action-log", { icon: "music", text: reply, ok: true });
+    enviarAoDash("dash:action-log", { icon: "music", text: reply, ok: true });
   } catch { /* ignore */ }
 });
 
@@ -890,7 +865,7 @@ ipcMain.handle("atualizacao:token", async (_e, token: unknown) => {
 });
 let versaoAvisada = "";
 aoMudarAtualizacao((e) => {
-  dashWin?.webContents.send("atualizacao:mudou", estadoParaTela());
+  enviarAoDash("atualizacao:mudou", estadoParaTela());
   // Um balão por versão, quando o instalador termina de baixar — não a cada verificação.
   if (e.desktop?.pronto && e.desktop.versao !== versaoAvisada) {
     versaoAvisada = e.desktop.versao;
@@ -1007,7 +982,7 @@ function acordarPorVoz(confianca: Confianca): void {
   acordadoPorVozEm = Date.now();
   // Barge-in (fase 12): "Elysium" no meio da fala corta a fala e já começa a ouvir.
   if (state.is("speaking")) {
-    if (!podeInterromper(confianca, falandoAgora)) return;
+    if (!podeInterromper(confianca, falaAtual())) return;
     console.log("[palavra] interrompendo a fala.");
     interruptAll();
     state.set("idle");
@@ -1028,7 +1003,7 @@ function handleShortcut(): void {
   openDashboard();
   if (!dashWin!.isVisible()) dashWin!.show();
   dashWin!.focus();
-  const trigger = () => startListening();
+  const trigger = () => { startListening().catch((e) => console.error("[atalho] não consegui começar a ouvir:", e)); };
   if (dashWin!.webContents.isLoading()) {
     dashWin!.webContents.once("did-finish-load", trigger);
   } else {
@@ -1075,6 +1050,7 @@ app.on("ready", async () => {
     // e fica pendurado segurando o stdin.
     inputHost.stop();
     stopScheduler();
+    pararIntervalos();
   pararRotinas();
     void aviso.finally(() => app.exit(0));
   };
@@ -1095,7 +1071,7 @@ app.on("ready", async () => {
     avisoDeSom = p;
   };
   setTimeout(() => { void conferirSom(); }, 8_000);
-  setInterval(() => { void conferirSom(); }, 180_000);
+  aCada(180_000, "som", () => conferirSom());
   app.on("browser-window-created", (_e, w) => {
     w.on("session-end", () => { if (!appQuitting) { appQuitting = true; void avisarEncerramento("desligando"); } });
   });
@@ -1108,13 +1084,13 @@ app.on("ready", async () => {
     quit,
     openConfigWindow,
     openDashboard,
-    () => { openDashboard(); startListening(); },
+    () => { openDashboard(); startListening().catch((e) => console.error("[bandeja] não consegui começar a ouvir:", e)); },
     (text) => { openDashboard(); ipcMain.emit("chat:send", null, text); },
   );
 
   state.on("change", (s) => {
     refreshTray(s);
-    dashWin?.webContents.send("voice:state", s);
+    enviarAoDash("voice:state", s);
   });
 
   recorderWin = createRecorderWindow();
@@ -1130,8 +1106,8 @@ app.on("ready", async () => {
   iniciarFoco({
     avisar: (titulo, corpo) => {
       notify(titulo, corpo);
-      if (/^Foco /.test(titulo)) broadcastNotify(enfileirarEntrega({ tipo: "aviso", titulo, corpo }));
-      dashWin?.webContents.send("foco:mudou");
+      if (/^Foco /.test(titulo)) mandarAoCelular("aviso", titulo, corpo);
+      enviarAoDash("foco:mudou");
     },
     fecharApp: (nome) => closeApp(nome),
     abertosAgora: () => getRunningApps(),
@@ -1139,14 +1115,12 @@ app.on("ready", async () => {
   // Google Agenda (bloco 120): 10 min antes de cada compromisso, no PC e no celular.
   vigiarAgenda((titulo, corpo) => {
     notify(titulo, corpo);
-    broadcastNotify(enfileirarEntrega({ tipo: "lembrete", titulo, corpo }));
-    void sendPush("reminder", titulo, corpo, {});
+    mandarAoCelular("lembrete", titulo, corpo, { push: "reminder" });
   });
   // Disco quase cheio (fase 12): no máximo um aviso por dia, no PC e no celular.
   vigiarDisco((titulo, corpo) => {
     notify(titulo, corpo);
-    broadcastNotify(enfileirarEntrega({ tipo: "aviso", titulo, corpo }));
-    void sendPush("anomaly", titulo, corpo, {});
+    mandarAoCelular("aviso", titulo, corpo, { push: "anomaly" });
   });
 
   const unseenFromMobile = checkAndMarkUnseenFromMobile();
@@ -1158,7 +1132,7 @@ app.on("ready", async () => {
   }
 
   mailboxEvents.on("new-message", (msg) => {
-    dashWin?.webContents.send("mailbox:new-message", msg);
+    enviarAoDash("mailbox:new-message", msg);
   });
 
   startMonitor(notify);
@@ -1169,11 +1143,8 @@ app.on("ready", async () => {
   startScheduler((reminder) => {
     notify("ELYSIUM — Lembrete", reminder.text);
     speak(fraseDeLembrete(reminder.text)).catch(() => { /* best-effort */ });
-    void sendPush("reminder", "Lembrete", reminder.text, { reminderId: reminder.id });
-    // Fila + WS: é o que chega ao celular sem push pela nuvem (bloco 68).
-    const entrega = enfileirarEntrega({ tipo: "lembrete", titulo: "Lembrete", corpo: reminder.text, ref: reminder.id });
-    broadcastNotify(entrega);
-    dashWin?.webContents.send("reminder:fired", reminder);
+    mandarAoCelular("lembrete", "Lembrete", reminder.text, { push: "reminder", ref: reminder.id, dados: { reminderId: reminder.id } });
+    enviarAoDash("reminder:fired", reminder);
   });
 
   // Timers com nome (bloco 136): avisam no PC (notificação + fala) e no celular.
@@ -1181,9 +1152,8 @@ app.on("ready", async () => {
     const frase = fraseDeTimer(t.nome);
     notify("ELYSIUM — Timer", frase);
     speak(frase).catch(() => { /* best-effort */ });
-    void sendPush("reminder", "Timer", frase, {});
-    broadcastNotify(enfileirarEntrega({ tipo: "aviso", titulo: "Timer", corpo: frase }));
-    dashWin?.webContents.send("timer:acabou", t);
+    mandarAoCelular("aviso", "Timer", frase, { push: "reminder" });
+    enviarAoDash("timer:acabou", t);
   });
   retomarTimers();
   // Fase 17: os lembretes que já existiam viram tarefas (uma vez só).
@@ -1191,7 +1161,7 @@ app.on("ready", async () => {
 
   // Hábitos (fase 16): no horário, SÓ se ainda não foi feito hoje — avisar de algo já
   // feito ensina a ignorar o aviso. Confere a cada 30 s; a marca de "lembrado" impede repetir.
-  setInterval(() => {
+  aCada(30_000, "habitos", () => {
     for (const h of habitosParaLembrar()) {
       const frase = fraseDeHabito(h.nome);
       notify("ELYSIUM — Hábito", frase);
@@ -1199,17 +1169,15 @@ app.on("ready", async () => {
       // foco segura); fora dele fica só a notificação discreta acima. Ver avisos.ts.
       if (!podeAvisarAlto()) continue;
       if (!ehNoite()) speak(frase).catch(() => { /* best-effort */ });
-      void sendPush("reminder", "Hábito", frase, {});
-      broadcastNotify(enfileirarEntrega({ tipo: "lembrete", titulo: "Hábito", corpo: frase, ref: h.id }));
+      mandarAoCelular("lembrete", "Hábito", frase, { push: "reminder", ref: h.id });
     }
-  }, 30_000);
+  });
 
   // Rotinas: o texto passa pelo mesmo pipeline do chat e da voz. O comando não pode
   // atropelar uma gravação em andamento, então espera o app ficar ocioso (até 60 s).
   iniciarRotinas(
     async (rotina) => {
-      const t0 = Date.now();
-      while (!state.is("idle") && Date.now() - t0 < 60_000) await new Promise(r => setTimeout(r, 1000));
+      await esperarOcioso();
       const { reply } = await executarComando(rotina.texto);
       return reply;
     },
@@ -1219,29 +1187,29 @@ app.on("ready", async () => {
         if (rotina.falar) speak(resultado).catch(() => { /* best-effort */ });
       }
       if (rotina.entregar.includes("celular")) {
-        const entrega = enfileirarEntrega({ tipo: "rotina", titulo: rotina.nome, corpo: resultado, ref: rotina.id });
-        broadcastNotify(entrega);
-        void sendPush("reminder", rotina.nome, resultado, { rotinaId: rotina.id });
+        mandarAoCelular("rotina", rotina.nome, resultado, { push: "reminder", ref: rotina.id, dados: { rotinaId: rotina.id } });
       }
-      dashWin?.webContents.send("rotina:executada", { id: rotina.id, nome: rotina.nome, resultado });
+      enviarAoDash("rotina:executada", { id: rotina.id, nome: rotina.nome, resultado });
     },
     // A condição em português ("se o Spotify estiver aberto") é o cérebro com ferramentas
     // de leitura respondendo SIM ou NÃO (bloco 79).
     avaliarCondicao,
   );
 
-  // Antes de registrar o nome novo: senão sobram duas entradas em HKCU\...\Run, e a
-  // antiga aponta para o caminho da instalação NEUROAXIS.
-  await removerEntradaLegada();
-  await sincronizarInicioAutomatico(cfg.autoLaunch);
-
-  if (!hasApiKey()) openConfigWindow();
-
+  // Atalho e palavra ANTES das esperas do Registro (fase 20): cada `reg.exe` pode levar
+  // segundos num PC carregado logo depois do login, e o atalho não respondia nesse meio-tempo.
   const ok = globalShortcut.register(cfg.shortcut, handleShortcut);
   if (cfg.palavraDeAtivacao) ligarPalavraDeAtivacao(acordarPorVoz);
   // O PowerShell da escuta é filho do app; sem isto ele ficaria órfão escutando depois
   // de "Sair" na bandeja.
   app.on("before-quit", () => desligarPalavraDeAtivacao());
+
+  // Antes de registrar o nome novo: senão sobram duas entradas em HKCU\...\Run, e a
+  // antiga aponta para o caminho da instalação NEUROAXIS.
+  await removerEntradaLegada().catch((e) => console.warn("[inicio] entrada antiga:", e));
+  await sincronizarInicioAutomatico(cfg.autoLaunch).catch((e) => console.warn("[inicio] início automático:", e));
+
+  if (!hasApiKey()) openConfigWindow();
   if (!ok) notify("ELYSIUM — Aviso", `Atalho ${cfg.shortcut} não pôde ser registrado. Tente via bandeja.`);
 
   notify("ELYSIUM", "Sistemas no ar. Ctrl+Shift+J para falar.");
