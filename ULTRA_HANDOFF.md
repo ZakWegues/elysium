@@ -6181,3 +6181,179 @@ bloco abaixo para um arquivo, sem as cercas:
 3. Ouvir: fala antecipada, prosódia, ThalitaMultilingual (se ela estiver salva na config).
 4. Bump + release do desktop (2.6.0) e OTA do celular (tudo é JS; não precisa de APK).
 5. Copiar este arquivo para a pasta-mãe `ELYSIUM/`.
+
+## 39. Fase 20 — blindagem, arquitetura, modos da Ely e estudo (blocos 198–212, 09/10/2026, sessão na nuvem)
+
+**Pedido do Zak:** "modos" ("modo matemática", "modo português" e pelo menos mais 3) e mais
+coisas úteis; depois do primeiro plano, "bota mais coisa, melhora a arquitetura, segurança e
+td mais". Duas auditorias (segurança e arquitetura) mudaram a ordem: **a segurança veio
+primeiro**, porque havia caminho real de o modelo, enganado por uma página ou um título de
+janela, rodar comando no PC. Código e testes prontos, **nada publicado** (sem bump, sem
+release, sem APK, sem OTA).
+
+### Segurança (198–201)
+- **Nenhum valor externo entra no texto de um script PowerShell** (`actions/ps.ts`): nome de
+  programa, caminho do print, texto da voz offline, caminho do instalador vão por variável de
+  ambiente `$env:NX_*`; o script só LÊ. O gerenciador de janelas não escapava nada, o print
+  escapava com `\'` (que não existe no PowerShell) e **as aspas curvas ‘ ’ ‚ ‛ furavam o
+  escape de todos**. `tests/ps.test.ts` varre `src/` atrás de recaída.
+- O que a Ely cria e abre: `criar_arquivo` só grava `.txt .md .csv .json` (outra extensão vira
+  `.txt`); `abrir_programa` aceita só nome (do `apps.json` ou do Menu Iniciar), nunca caminho,
+  `file:` ou `search-ms:`; anexo da Caixa que executa só aparece na pasta, e o nome perde os
+  caracteres de inversão (RLO).
+- Electron: nenhuma janela navega para fora nem abre janela nova (link http/https vai para o
+  navegador); o RPC por IPC só atende as telas do próprio app (`origemDoApp`); CSP no config e
+  no gravador.
+- Servidor: token novo derruba os WebSockets abertos; o upgrade do WS passa pelo limite; 20
+  tokens errados em 10 min bloqueiam o IP por 10 min (`proximaRecusa`).
+- Política do agente: convite da agenda, título de aba, música tocando e conversas lembradas
+  contam como conteúdo de fora; depois de ler conteúdo de fora, `resumir_link`, `abrir_site` e
+  `abrir_programa` só acessam endereço **escrito no pedido** (vazamento por URL).
+- Exclusões do dashboard (conversa, Caixa) passam pela confirmação do RPC; as pontes IPC que
+  apagavam e matavam processo sem perguntar saíram.
+- Celular: `elysium://falar` só liga o microfone vindo do widget (chave de 32 hex que só o app
+  conhece); compartilhar para o PC pergunta antes; link de fonte só http(s).
+- **Desenhado, não feito às cegas** (mexem no pareamento e só dá para testar com o celular na
+  mão): (1) **TLS com o certificado no QR** — o PC gera um certificado autoassinado na primeira
+  execução, o QR leva o SHA-256 dele, o celular fixa esse hash (pinning) e recusa outro; HTTP
+  segue aceito por uma versão para não quebrar pareamentos. (2) **Token por aparelho** — o
+  pareamento troca o token global por um token do aparelho (guardado com nome e data), Ajustes
+  → Celular lista e revoga um por um; o token global vira só o do QR, de vida curta.
+
+### Arquitetura (202–204) — com bug de verdade no meio
+- `services/operacoes.ts`: concluir/adiar tarefa, marcar hábito e avançar meta num lugar só
+  para RPC, agente e voz. **Concluir pela voz uma tarefa que repete não criava a próxima** (o
+  celular criava). `texto.ts` e `hora.ts` no lugar de ~20 cópias de tirar acento e de data local.
+- `main.ts` em módulos: `main/fala.ts` (fila de fala com geração — interromper no meio de uma
+  síntese abria um segundo laço que tocava a fala nova por cima), `main/proativo.ts`
+  (`esperarOcioso`, `aCada`: intervalos com nome, try em cada volta e parados no "Sair"),
+  `mandarAoCelular` (eram oito cópias), `enviarAoDash` seguro com janela destruída, chat da
+  bandeja sem evento IPC falso. Atalho e palavra de ativação registrados **antes** das esperas
+  do Registro.
+- **Contrato RPC em arquivo**: `contracts/rpc-methods.json` (método + destrutivo) gerado do
+  `rpc.ts` com teste que falha se envelhecer (`ATUALIZAR_CONTRATO=1 npx vitest run
+  tests/contrato.test.ts` regera). O celular copia o arquivo, tira dele o `DESTRUCTIVE_METHODS`
+  (a lista à mão estava sem `episodios.delete`, `listas.delete`, `comandos.delete`) e testa os
+  tipos contra ele. `corrida.delete` passou a pedir confirmação. **Mudou método? Regere e copie
+  para `elysium-m/contracts/`.**
+
+### Modos da Ely (205–207)
+- `services/modos.ts`: **Matemática, Português, Inglês, Ciências, Humanas, Estudo (quiz),
+  Programação, Simples**, e os criados por ele (até 12, 1500 caracteres; "cria um modo
+  entrevistador que…" ou Ajustes → Modos). Sai sozinho com 6 h sem uso.
+- Voz/chat: "modo matemática", "entra no modo inglês", "sai do modo", "modo normal", "qual modo
+  tá ligado", "quais modos tem". "Modo foco", "modo anônimo" e um **preset de mesmo nome**
+  continuam ganhando.
+- Onde entra: bloco do modo depois da persona na conversa; uma linha no agente; no híbrido o
+  modo vai para a nuvem (o local erra conta); bolhas do chat viram as do modo; o **inglês fala
+  com a ThalitaMultilingual**; câmera do celular, "o que tem na tela" e "explica isso" seguem o
+  modo; "corrige isso" no modo português ensina as regras e deixa só o texto na área de
+  transferência.
+- Conta falada (`falaParaOuvido.ts`): x², √, π, ≠ em qualquer conversa; nos modos de conta
+  também ^, fração (sem estragar "3/4 às 14h"), vezes, igual, sen/cos e o LaTeX do modelo.
+- Tela: chip "∑ Modo Matemática ✕" acima do campo, botão de modos ao lado do clipe, grupo no
+  Ctrl+K, Ajustes → Modos. Celular: chip no Chat, modos no "/", bolha "Modos…", câmera mostra
+  o modo, Ajustes → Modos; o frame WS `modo` mantém os dois iguais.
+
+### Estudo (208–211)
+- **Pomodoro** (`pomodoro.ts`): 25+5 ×4 com pausa longa de 15; "pomodoro de 50 e 10",
+  "3 ciclos", "pula a pausa", "quanto falta", "para o pomodoro". Liga o modo foco nos blocos de
+  foco (sem o aviso duplicado de "Foco concluído"), fala e manda ao celular na troca, retoma
+  depois de reiniciar pulando as fases que passaram.
+- **Cartões de revisão** (`cartoes.ts`, Leitner 1/3/7/14/30 dias): o quiz guarda sozinho as
+  perguntas erradas (marca `[[REVISAR: … || …]]` que sai antes da tela, inclusive no streaming);
+  "guarda pra revisar: mitocôndria é a organela que produz energia"; "Ely, revisão" pergunta os
+  do dia, julga sem modelo e aceita "acertei" depois de um "não". Entram no backup.
+- **Plano de estudo** (`planoEstudo.ts`): "monta um plano de estudo pra prova de física" acha a
+  prova nas tarefas (ou usa o dia dito), divide os assuntos (dele ou do modelo) até a
+  antevéspera, véspera = revisão geral. Prévia + "Confirma? Diga sim."; grava pelo despejo.
+- **"Quanto preciso tirar?"** (`notas.ts`): média simples e ponderada, uma ou mais provas,
+  arredondada para cima; "já fechou", "precisa de X" ou "não dá mais pela média".
+- Telas: painel **Estudo** no Hoje (pomodoro com relógio, revisão que vira o cartão com
+  atalhos 1/2/espaço, novo cartão, plano) e o card Estudo no Hoje do celular.
+- Agente: `plano_de_estudo` (pede confirmação), `pomodoro`, `guardar_cartao`, `nota_necessaria`.
+
+### Revisão (três agentes revisores: segurança, funções novas, celular) — tudo corrigido
+- **Segurança:** o filtro de URL para pedido contaminado era regex e deixava passar
+  `http:evil.com?d=…`, `https:\\evil.com` e `https:/evil.com` (o `new URL` aceita os três).
+  Agora o destino é lido pelo próprio `new URL` (`destinosDoTexto`). A marca do quiz só vira
+  cartão no modo estudo (fora dele, uma página podia plantar cartão lido em voz alta por 30
+  dias); `guardar_cartao`, `pomodoro`, `plano_de_estudo` entraram na tabela de intenção.
+  `npm audit` do desktop: 0.
+- **Funções novas:** "pula" na revisão por voz pulava a música e encerrava a revisão;
+  "acertei" no último cartão não contava; "quanto preciso guardar pra ficar com 5000" virava
+  média escolar; "na 2ª" virava nota; pular fase anunciava duas vezes; "pausa longa de 20"
+  mudava a pausa curta; hífen de lista e itálico viravam "menos"/"vezes" na fala do modo
+  matemática; "volta ao normal" sem modo respondia sobre modo; clique duplo respondia o mesmo
+  cartão duas vezes.
+- **Celular:** as gavetas de Revisão e Plano abriam DENTRO do card (o `GlassModal` é camada do
+  pai, e o card corta) — moram na raiz do Hoje; o relógio do pomodoro parava em 0:00 sem WS e
+  "Pular" pulava a fase errada (agora pergunta ao PC ao zerar); toque duplo em Acertei;
+  "15/13" aceito como data; **widget Falar antigo perderia o microfone numa atualização só de
+  JS** (agora o app redesenha os widgets ao abrir, e a chave não é gerada duas vezes);
+  chip do modo e lista do "/" desatualizados; o compartilhamento perguntava de novo quando o
+  pareamento trocava de IP.
+- `npm audit` do celular: 1 crítica e 29 altas, **todas no ferramental de build** (Metro,
+  Expo CLI, `shell-quote`, `xmldom`, `node-forge` do CLI) — nada no JS que vai para o
+  aparelho. Não mexi no lockfile daqui (sem como gerar o APK para conferir): `npm audit fix`
+  numa sessão local, com build e teste do APK em seguida.
+
+### Testes
+- Desktop **357** (era 284), celular **93** (era 84); `npm run check` verde em todo commit. A
+  tela (modos, painel Estudo, revisão, plano) foi exercitada num Chromium sem cabeça com o
+  `window.nx` simulado — sem erro de console; o Electron em si não roda aqui.
+- Bancada: casos novos em `scripts/bench-agente-casos.json` (plano de estudo, pomodoro,
+  cartão, nota necessária, "me explica derivada" = CHAT). **Não rodou** (precisa do Ollama).
+- ⚠️ Duas armadilhas desta sessão: (1) captura de tela com caminho relativo cai na raiz do repo
+  e entra no `git add -A` — aconteceu uma vez, foi tirada, e agora `/*.png` está no
+  `.gitignore`; (2) `pedidoDeNota` já existia (listas) — o da média escolar é
+  `pedidoDeMediaEscolar`.
+
+### Notas da release prontas
+Copiar o bloco abaixo para um arquivo, sem as cercas:
+
+```markdown
+## Novidades
+- Modos da Ely: "modo matemática" (passo a passo e confere), "modo português" (corrige
+  explicando a regra, redação estilo ENEM), "modo inglês" (conversa e corrige, com a voz
+  Thalita), ciências, humanas, estudo (quiz), programação e simples — e os seus ("cria um
+  modo… que…"). "Sai do modo" volta ao normal. Chip no chat do PC e do celular.
+- Foto de exercício no modo matemática = resolução passo a passo; a Ely lê conta em voz alta
+  direito (x², raiz, fração).
+- Pomodoro: "Ely, pomodoro" (25 + 5, quatro ciclos), liga o modo foco e avisa a troca.
+- Cartões de revisão: o quiz guarda o que você errou e "Ely, revisão" pergunta no dia certo
+  (1, 3, 7, 14 e 30 dias). "Guarda pra revisar: X é Y."
+- "Monta um plano de estudo pra prova de física": sessões até a véspera, com aviso.
+- "Tirei 6 e 7, a média é 6, quanto preciso na terceira?"
+- Painel Estudo no Hoje (PC e celular).
+- Mais segurança: o que a Ely lê não consegue rodar comando no PC nem mandar dado para fora;
+  arquivo criado por ela é sempre texto; link de site não liga mais o microfone do celular.
+
+## Para testar
+- "Modo matemática" → "resolve 2x + 5 = 17" (ouvir a conta falada) → "sai do modo".
+- "Modo inglês" e conversar (a voz muda para a Thalita).
+- "Modo estudo" → "me testa sobre a Revolução Francesa" → errar uma → no dia seguinte,
+  "Ely, revisão".
+- "Pomodoro de 25" → esperar a troca (fala + aviso no celular) → "pula a pausa" → "para o
+  pomodoro".
+- Criar a tarefa "prova de física" daqui a uma semana → "monta um plano de estudo pra prova de
+  física" → ouvir a prévia → "sim".
+- Celular: Hoje → Estudo (relógio do pomodoro, Revisar, Plano de estudo); widget Falar
+  (ainda liga o microfone).
+```
+
+### Para a próxima sessão local (Windows) — o que só o Zak confere
+1. `git pull` dos dois repos na `claude/nifty-ramanujan-bktb1h` (ou merge na `main`).
+2. **Injeção de PowerShell, de verdade:** com o app aberto, pedir pelo chat coisas como
+   "abre o programa `calc'; Start-Process notepad; '`", "minimiza a janela do `x’;calc;’`" e
+   "tira um print chamado `a';calc;'`" — nada pode abrir além do pedido.
+3. Ouvir: conta falada no modo matemática, a Thalita no modo inglês, o anúncio de troca do
+   pomodoro.
+4. Bancada (`scripts/bench-agente.mjs`) com o Ollama — as 4 ferramentas novas aumentaram o
+   prompt; a taxa era 33/34.
+5. `npm audit fix` no celular, build do APK e teste (só ferramental de build).
+6. **Próximo passo de segurança (desenhado acima, não feito):** TLS com o certificado no QR e
+   token por aparelho — precisa do celular na mão para testar o pareamento.
+7. Bump + release do desktop e OTA do celular (tudo do celular é JS). O widget Falar se
+   redesenha sozinho ao abrir o app.
+8. Copiar este arquivo para a pasta-mãe `ELYSIUM/`.
