@@ -1,5 +1,6 @@
 import Store from "electron-store";
 import * as crypto from "node:crypto";
+import { semAcento } from "./texto";
 
 /**
  * Hábitos e metas (fase 16, 07/10). O que mais se elogia em apps de hábito (Streaks,
@@ -166,13 +167,13 @@ export function mapa30(h: Pick<Habito, "dias" | "marcados" | "pausas">, hoje = n
   return out;
 }
 
-const semAcento = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+const semAcentoLocal = (s: string) => semAcento(s).trim();
 
 /** "academia", "a academia", "Academia 💪" → o hábito certo. Pura. */
 export function acharHabito<T extends Pick<Habito, "nome">>(habitos: T[], nome: string, exato = false): T | undefined {
-  const n = semAcento(nome).replace(/^(o|a|os|as|meu|minha)\s+/, "").replace(/[^\p{L}\p{N} ]/gu, "").trim();
+  const n = semAcentoLocal(nome).replace(/^(o|a|os|as|meu|minha)\s+/, "").replace(/[^\p{L}\p{N} ]/gu, "").trim();
   if (!n) return undefined;
-  const limpo = (h: T) => semAcento(h.nome).replace(/[^\p{L}\p{N} ]/gu, "").trim();
+  const limpo = (h: T) => semAcentoLocal(h.nome).replace(/[^\p{L}\p{N} ]/gu, "").trim();
   // Nome só de emoji vira "" e casaria com qualquer frase — fica de fora.
   const validos = habitos.filter(h => limpo(h).length > 0);
   const igual = validos.find(h => limpo(h) === n);

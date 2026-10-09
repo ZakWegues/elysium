@@ -1,3 +1,4 @@
+import { semAcento } from "./texto";
 /**
  * Como ele parece estar, pelo jeito que escreveu ou falou (fase 19, bloco 187). Puro.
  *
@@ -20,7 +21,7 @@
 export type Humor = "neutro" | "frustrado" | "triste" | "cansado" | "apressado" | "animado";
 
 function sem(texto: string): string {
-  return texto.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  return semAcento(texto);
 }
 
 const FRUSTRADO = /\b(aff+|af{2,}|pqp|porra|caralho|merda|que saco|que droga|que odio|odeio isso|nao funciona|nao ta funcionando|nao esta funcionando|nao deu certo|parou de funcionar|tu e burra|voce e burra|que burra|inutil|ta errado|esta errado|de novo isso|outra vez isso|que raiva|irritad[oa]|estressad[oa]|pelo amor de deus)\b/;

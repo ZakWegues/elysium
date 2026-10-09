@@ -1,3 +1,4 @@
+import { semAcento } from "./texto";
 /**
  * Pedidos condicionais resolvidos sem modelo (fase 18, 08/10).
  *
@@ -13,7 +14,7 @@
  * Puras — testadas em tests/condicionais.test.ts.
  */
 
-const sem = (t: string) => t.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[.!?]+$/, "").trim();
+const sem = (t: string) => semAcento(t).replace(/[.!?]+$/, "").trim();
 
 /** "se o chrome estiver aberto, fecha ele" → "chrome". */
 export function pedidoFecharSeAberto(texto: string): string | null {

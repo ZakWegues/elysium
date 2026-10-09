@@ -7,6 +7,7 @@ import { pedidoDeHora } from "./horaMundo";
 import { listarTreinos, pedidoDeCorrida, pedidoDePeso, pedidoDeTreino } from "./corpo";
 import { pedidoFecharSeAberto, pedidoLembreteDaquiA, pedidoPausarSeTocando } from "./condicionais";
 import { pedidoComIsso } from "./isso";
+import { isoLocal } from "./hora";
 
 /**
  * Roteamento local, sem IA.
@@ -175,9 +176,7 @@ export function fastRoute(text: string): BrainAction[] | null {
   if (isso && !(isso === "explicar" && /\b(isso|isto)\s*\??$/i.test(text.trim()) && respondeuHaPouco())) return [{ action: "about_this", comando: isso }];
   const daquiA = pedidoLembreteDaquiA(text);
   if (daquiA) {
-    const d = new Date(Date.now() + daquiA.minutos * 60_000);
-    const p = (n: number) => String(n).padStart(2, "0");
-    return [{ action: "create_reminder", text: daquiA.texto, due_at: `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}` }];
+    return [{ action: "create_reminder", text: daquiA.texto, due_at: isoLocal(new Date(Date.now() + daquiA.minutos * 60_000)) }];
   }
   // Treino, corrida e peso (fase 18). "Treinei" só vira atalho com treino cadastrado.
   const treino = pedidoDeTreino(text);

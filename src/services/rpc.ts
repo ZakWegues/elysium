@@ -82,6 +82,7 @@ import { runPreset } from "../actions/runPreset";
 import * as spotify from "./spotify";
 import { apagarEpisodio, apagarTodosEpisodios, definirAnonimo, listarEpisodios, modoAnonimo } from "./episodios";
 import { marcarAcompanhado, pendentesDeAcompanhamento } from "./acompanhamento";
+import { adiarTarefaPor, concluirTarefaCompleta } from "./operacoes";
 import { registrarFalaDaEly } from "./brain";
 import { aplicarDespejo, interpretarFala, validarItens } from "./despejo";
 import {
@@ -1082,10 +1083,8 @@ const METHODS: Record<string, MethodDef> = {
     handler: async (params) => {
       const id = requireString(params, "id");
       const para = requireEnum(params, "para", ["1h", "hoje16", "amanha", "semana"] as const) as Adiamento;
-      const t = obterTarefa(id);
-      if (!t) throw new RpcError(404, "tarefa não encontrada");
-      const alvo = adiarPara(t.prazo, !!t.semHora, para);
-      const r = reagendarTarefa(id, alvo.quando, alvo.semHora);
+      if (!obterTarefa(id)) throw new RpcError(404, "tarefa não encontrada");
+      const r = adiarTarefaPor(id, para);
       if (!r.ok) throw new RpcError(400, r.mensagem);
       return { tarefa: r.tarefa, tarefas: listarTarefas(), mensagem: r.mensagem };
     },
@@ -1104,14 +1103,11 @@ const METHODS: Record<string, MethodDef> = {
   },
   "tarefas.concluir": {
     handler: async (params) => {
-      const r = concluirTarefa(requireString(params, "id"), optionalString(params, "ressalva"));
+      // Fase 20: a mesma regra da voz e do agente (`operacoes.ts`) — avisos cancelados e a
+      // próxima repetição criada uma vez só.
+      const r = concluirTarefaCompleta(requireString(params, "id"), optionalString(params, "ressalva"));
       if (!r) throw new RpcError(404, "tarefa não encontrada");
-      // Concluída antes da hora: os avisos que faltam não tocam mais.
-      for (const id of r.lembretes) cancelReminder(id);
-      // Repete (fase 18): a próxima entra na lista com o aviso dela — uma vez só.
-      const proxima = r.jaEstava ? null : proximaDaRepeticao(r.tarefa);
-      if (proxima) editarTarefaProxima(r.tarefa.id, proxima.id);
-      return { tarefa: r.tarefa, tarefas: listarTarefas(), ...(proxima ? { proxima } : {}) };
+      return { tarefa: r.tarefa, tarefas: listarTarefas(), ...(r.proxima ? { proxima: r.proxima } : {}) };
     },
   },
   "tarefas.reabrir": {

@@ -28,11 +28,13 @@ import { comecarFoco, focoFalado, pararFoco } from "./foco";
 import { resumoDoDia } from "./resumoDoDia";
 import { agendaFalada } from "./agenda";
 import { escolherEpisodios, linhaDoEpisodio, listarEpisodios } from "./episodios";
+import { adiarTarefaPor, avancarMetaPorNome, concluirTarefaCompleta, falaDaConclusao, falaDaMeta, falaDoHabito, marcarHabitoPorNome } from "./operacoes";
 import { controlarJanela, listarJanelas } from "../actions/janelas";
 import { janelaDaFrente } from "./isso";
 import { deriveProcessNames } from "../actions/closeApp";
 import { buscarNasConversas } from "./buscaConversas";
 import { listSessions } from "./chatSessionsStore";
+import { semAcento } from "./texto";
 
 /**
  * As ferramentas do cérebro (bloco 78).
@@ -396,9 +398,9 @@ export const FERRAMENTAS: Ferramenta[] = [
     executar: async a => {
       const t = acharTarefa(listarTarefas(), str(a, "tarefa"));
       if (!t) return "Não achei essa tarefa na lista.";
-      const r = concluirTarefa(t.id, str(a, "ressalva") || undefined);
-      for (const id of r?.lembretes ?? []) cancelReminder(id);
-      return `Concluída: ${t.texto}${r?.tarefa.ressalva ? `, com a ressalva "${r.tarefa.ressalva}"` : ""}.`;
+      // Fase 20: a regra única — pela voz, a tarefa que repete agora cria a próxima também.
+      const r = concluirTarefaCompleta(t.id, str(a, "ressalva") || undefined);
+      return r ? falaDaConclusao(r) : "Não achei essa tarefa na lista.";
     },
   },
   // ── tarefas: mudar, adiar e anotar várias (fase 18) ──
@@ -410,8 +412,7 @@ export const FERRAMENTAS: Ferramenta[] = [
       const t = acharTarefa(listarTarefas(), str(a, "tarefa"));
       if (!t) return "Não achei essa tarefa na lista.";
       const para = (["1h", "hoje16", "amanha", "semana"].includes(str(a, "para")) ? str(a, "para") : "amanha") as Adiamento;
-      const alvo = adiarPara(t.prazo, !!t.semHora, para);
-      const r = reagendarTarefa(t.id, alvo.quando, alvo.semHora);
+      const r = adiarTarefaPor(t.id, para);
       return r.ok ? `${t.texto}: ${r.mensagem}` : r.mensagem;
     },
   },
@@ -474,15 +475,7 @@ export const FERRAMENTAS: Ferramenta[] = [
     description: "Marca um hábito como feito hoje (ou desmarca). Use para 'marquei academia', 'fiz a leitura', 'já meditei hoje'.",
     parameters: obj({ habito: s("Nome do hábito"), feito: { type: "boolean", description: "true = feito (padrão)" } }, ["habito"]),
     executar: async a => {
-      const h = acharHabito(listarHabitos(), str(a, "habito"));
-      if (!h) {
-        const nomes = listarHabitos().map(x => x.nome);
-        return nomes.length ? `Não achei esse hábito. Os cadastrados: ${nomes.join(", ")}.` : "Ainda não há hábitos cadastrados — dá para criar na página Hoje.";
-      }
-      const novo = marcarHabito(h.id, a["feito"] !== false);
-      if (!novo) return "Não consegui marcar.";
-      const r = resumirHabito(novo);
-      return a["feito"] === false ? `Desmarquei ${h.nome} de hoje.` : `${h.nome} marcado. Sequência de ${r.sequencia} dia${r.sequencia === 1 ? "" : "s"}.`;
+      return falaDoHabito(marcarHabitoPorNome(str(a, "habito"), a["feito"] !== false), str(a, "habito"));
     },
     acao: a => ({ action: "habit_mark", name: str(a, "habito") }),
   },
@@ -491,14 +484,9 @@ export const FERRAMENTAS: Ferramenta[] = [
     description: "Soma progresso a uma meta ('li mais um livro', 'guardei 200 na meta da viagem'). Número negativo desconta.",
     parameters: obj({ meta: s("Título da meta"), quanto: { type: "number", description: "Quanto somar (padrão 1)" } }, ["meta"]),
     executar: async a => {
-      const metas = listarMetas();
-      const achada = acharHabito(metas.map(m => ({ ...m, nome: m.titulo })), str(a, "meta"));
-      if (!achada) return metas.length ? `Não achei essa meta. As cadastradas: ${metas.map(m => m.titulo).join(", ")}.` : "Ainda não há metas cadastradas.";
       // O 7B às vezes manda número como texto ("200"); sem isto virava +1.
       const bruto = num(a, "quanto") ?? Number(String(a["quanto"] ?? "").replace(",", "."));
-      const m = avancarMeta(achada.id, Number.isFinite(bruto) && bruto !== 0 ? bruto : 1);
-      if (!m) return "Não consegui atualizar a meta.";
-      return m.concluidaEm ? `Meta ${m.titulo} concluída: ${m.progresso} de ${m.alvo}.` : `Meta ${m.titulo}: ${m.progresso} de ${m.alvo}${m.unidade ? " " + m.unidade : ""}.`;
+      return falaDaMeta(avancarMetaPorNome(str(a, "meta"), bruto), str(a, "meta"));
     },
   },
   {
@@ -795,7 +783,7 @@ export const FERRAMENTAS: Ferramenta[] = [
  */
 const NUNCA_FECHAR = new Set(["explorer", "electron", "elysium", "applicationframehost", "systemsettings", "textinputhost", "shellexperiencehost", "startmenuexperiencehost", "searchhost", "searchapp", "lockapp", "widgets", "gamebar", "nvidia overlay", "rtkuwp"]);
 export function programasParaFechar(abertos: { processo: string; titulo?: string; hwnd: string }[], manter: string[]): { processo: string; rotulo: string; hwnds: string[] }[] {
-  const semAc = (x: string) => x.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, "");
+  const semAc = (x: string) => semAcento(x).replace(/\s+/g, "");
   const alvosManter = manter.flatMap(m => [semAc(m), ...deriveProcessNames(m).map(semAc)]).filter(Boolean);
   const porProcesso = new Map<string, { processo: string; rotulo: string; hwnds: string[] }>();
   for (const a of abertos) {
@@ -811,10 +799,10 @@ export function programasParaFechar(abertos: { processo: string; titulo?: string
 }
 
 function acharRotina(nome: string) {
-  const alvo = nome.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  const alvo = semAcento(nome);
   if (!alvo) return undefined;
   const todas = listarRotinas();
-  const norm = (x: string) => x.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  const norm = (x: string) => semAcento(x);
   return todas.find(r => norm(r.nome) === alvo) ?? todas.find(r => norm(r.nome).includes(alvo));
 }
 

@@ -1,5 +1,6 @@
 import Store from "electron-store";
 import * as crypto from "node:crypto";
+import { radicais, semAcento } from "./texto";
 
 /**
  * Memória de longo prazo do assistente.
@@ -122,11 +123,8 @@ export function clearFacts(): void {
  */
 // ── Relevância (bloco 118) ────────────────────────────────────────────────────
 
-/** Radicais de 4 letras sem acento: "chamo", "chama" e "chamado" viram todos "cham". */
-export function radicais(texto: string): Set<string> {
-  const limpo = texto.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9 ]/g, " ");
-  return new Set(limpo.split(/\s+/).filter(p => p.length >= 4).map(p => p.slice(0, 4)));
-}
+// `radicais` mora em texto.ts (fase 20); fica reexportado para quem já importava daqui.
+export { radicais };
 
 /**
  * Os fatos que vão no prompt: todos, se couberem; senão os que mais dividem palavras (pelo
@@ -162,7 +160,7 @@ const MAX_SUGESTOES = 10;
 const MAX_RECUSADAS = 100;
 
 function chave(texto: string): string {
-  return texto.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+  return semAcento(texto).replace(/[^a-z0-9]/g, "");
 }
 
 /**

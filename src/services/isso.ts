@@ -2,6 +2,7 @@ import { clipboard } from "electron";
 import { rodarComando } from "./comandosIa";
 import { askAboutScreen } from "./vision";
 import { listarJanelas, type Janela } from "../actions/janelas";
+import { semAcento } from "./texto";
 
 /**
  * "Resume isso", "traduz isso", "explica isso", "corrige isso" (fase 19, bloco 193).
@@ -18,7 +19,7 @@ import { listarJanelas, type Janela } from "../actions/janelas";
 export type ComandoIsso = "resumir" | "ingles" | "portugues" | "explicar" | "corrigir";
 
 function sem(t: string): string {
-  return t.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^\w\s]/g, " ").replace(/\s+/g, " ").trim();
+  return semAcento(t).replace(/[^\w\s]/g, " ").replace(/\s+/g, " ").trim();
 }
 
 /** "resume isso", "traduz isso pro inglês"… → o comando. Frase inteira. Pura. */

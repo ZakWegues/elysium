@@ -1,3 +1,4 @@
+import { semAcento } from "./texto";
 /**
  * Busca DENTRO das conversas salvas (bloco 133). Pura, para teste.
  *
@@ -11,7 +12,6 @@ export interface MensagemBuscavel { from: string; text: string; ts: number }
 export interface SessaoBuscavel { id: string; title: string; updatedAt: number; messages: MensagemBuscavel[] }
 export interface AchadoConversa { sessaoId: string; titulo: string; trecho: string; em: number; deQuem: "eu" | "elysium" }
 
-const semAcento = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
 export function buscarNasConversas(sessoes: SessaoBuscavel[], consulta: string, maximo = 12): AchadoConversa[] {
   const termos = semAcento(consulta).split(/\s+/).filter(t => t.length >= 2);

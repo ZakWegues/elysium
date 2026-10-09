@@ -1,5 +1,6 @@
 import Store from "electron-store";
 import * as crypto from "node:crypto";
+import { semAcento } from "./texto";
 
 /**
  * Tarefas (fase 17, 08/10): a lista de afazeres da Ely — o "protocolo do dia" do Jarvis.
@@ -90,7 +91,7 @@ export function ordenarTarefas(ts: Tarefa[], agora = Date.now()): Tarefa[] {
 
 /** Acha pela parte do texto, sem acento — "concluí a prova" acha "Prova de cálculo". Pura. */
 export function acharTarefa(ts: Tarefa[], trecho: string): Tarefa | undefined {
-  const sem = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+  const sem = (s: string) => semAcento(s).trim();
   const n = sem(trecho).replace(/^(a|o|as|os|minha|meu)\s+/, "");
   if (n.length < 3) return undefined;
   const pend = ts.filter(t => !t.feita);

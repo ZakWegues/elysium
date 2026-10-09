@@ -35,14 +35,13 @@ import { cancelarTimer, criarTimer, duracaoFalada, timersFalados } from "../serv
 import { calcular, formatarNumero } from "../services/calculadora";
 import { horaEm } from "../services/horaMundo";
 import { definirAnonimo } from "../services/episodios";
+import { avancarMetaPorNome, falaDaMeta, falaDoHabito, marcarHabitoPorNome } from "../services/operacoes";
 import { fazerComIsso } from "../services/isso";
 import { aplicarDespejo, descreverDespejo, interpretarFala } from "../services/despejo";
 import { pedirConfirmacao } from "../services/confirmacao";
 
-/** "a, b e c" — para a voz não ler a lista como enumeração de vírgulas. */
-function emFrase(itens: string[]): string {
-  return itens.length <= 1 ? (itens[0] ?? "") : `${itens.slice(0, -1).join(", ")} e ${itens[itens.length - 1]}`;
-}
+// "a, b e c" — para a voz não ler a lista como enumeração de vírgulas (texto.ts, fase 20).
+import { emFrase } from "../services/texto";
 
 export async function routeAction(action: BrainAction): Promise<string> {
   switch (action.action) {
@@ -62,19 +61,10 @@ export async function routeAction(action: BrainAction): Promise<string> {
     case "daily_summary":     return resumoDoDia();
     case "habit_mark": {
       // "marquei academia" (fase 16): marca hoje e devolve a sequência.
-      const h = acharHabito(listarHabitos(), action.name);
-      if (!h) return `Não achei o hábito ${action.name}.`;
-      const novo = marcarHabito(h.id, true);
-      const seq = novo ? resumirHabito(novo).sequencia : 0;
-      return `${h.nome} marcado. Sequência de ${seq} dia${seq === 1 ? "" : "s"}.`;
+      return falaDoHabito(marcarHabitoPorNome(action.name, true), action.name);
     }
     case "goal_add": {
-      const metas = listarMetas();
-      const achada = acharHabito(metas.map(m => ({ ...m, nome: m.titulo })), action.name);
-      if (!achada) return `Não achei a meta ${action.name}.`;
-      const m = avancarMeta(achada.id, action.delta);
-      if (!m) return "Não consegui atualizar a meta.";
-      return m.concluidaEm ? `Meta ${m.titulo} concluída: ${m.progresso} de ${m.alvo}.` : `Meta ${m.titulo}: ${m.progresso} de ${m.alvo}${m.unidade ? " " + m.unidade : ""}.`;
+      return falaDaMeta(avancarMetaPorNome(action.name, action.delta), action.name);
     }
     case "close_if_open":     return closeAppIfOpen(action.app_name, await getRunningApps());
     case "pause_if_playing": {

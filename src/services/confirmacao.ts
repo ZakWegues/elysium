@@ -1,3 +1,4 @@
+import { semAcento } from "./texto";
 /**
  * "Confirma? Diga sim." (fase 19, bloco 192).
  *
@@ -20,7 +21,7 @@ export const VALIDADE_MS = 30_000;
 let pendente: ConfirmacaoPendente | null = null;
 
 function sem(t: string): string {
-  return t.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^\w\s]/g, " ").replace(/\s+/g, " ").trim();
+  return semAcento(t).replace(/[^\w\s]/g, " ").replace(/\s+/g, " ").trim();
 }
 
 /** "sim", "pode", "confirma"… (frase inteira, com ou sem "Ely"). Pura. */

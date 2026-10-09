@@ -1,3 +1,5 @@
+import { hhmm } from "./hora";
+
 /**
  * O "momento" da conversa (fase 19, bloco 186). Puro, para teste.
  *
@@ -35,7 +37,7 @@ export function ausenciaEmPalavras(ms: number): string {
 
 export function contextoDoMomento(agora: Date, opcoes: OpcoesMomento = {}): string {
   const data = agora.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
-  const hora = `${String(agora.getHours()).padStart(2, "0")}:${String(agora.getMinutes()).padStart(2, "0")}`;
+  const hora = hhmm(agora);
   const periodo = periodoDoDia(agora.getHours());
   const linhas = [`[MOMENTO] Agora é ${data}, ${hora} (${periodo}).`];
 

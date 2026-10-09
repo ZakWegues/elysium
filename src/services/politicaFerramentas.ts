@@ -1,3 +1,4 @@
+import { semAcento } from "./texto";
 /**
  * O que o agente pode fazer depois de ler conteúdo de fora (fase 19, bloco 192). Puro.
  *
@@ -77,7 +78,7 @@ function semBarra(u: string): string {
 }
 
 function sem(t: string): string {
-  return t.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  return semAcento(t);
 }
 
 export type Decisao = { tipo: "executar" } | { tipo: "bloquear"; mensagem: string };
