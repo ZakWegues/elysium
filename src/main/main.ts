@@ -47,7 +47,7 @@ import { state } from "./state";
 import { notify } from "./notify";
 import { createTray, refreshTray, updateLastCommand, buildIcon as iconePadrao, aoInterromperFala, marcarFalaNaBandeja } from "./tray";
 import { transcribe } from "../services/stt";
-import { clearHistory, desfazerUltimoTurno } from "../services/brain";
+import { clearHistory, desfazerUltimoTurno, registrarFalaDaEly } from "../services/brain";
 import { modelosDaGroq } from "../services/catalogoGroq";
 import { Confianca, desligarPalavraDeAtivacao, ligarPalavraDeAtivacao, podeInterromper } from "../services/palavraAtivacao";
 
@@ -85,6 +85,7 @@ import { logAnomaly, getAnomalyHistory, getInsights } from "../services/telemetr
 import { getAllPresets } from "../services/presetsStore";
 import { fraseDeArranque, fraseDeEspera, fraseDeHabito, fraseDeLembrete, fraseDeTimer } from "../services/falasVivas";
 import { criarFatiador, restoParaFalar } from "../services/fatiadorDeFrases";
+import { marcarAcompanhado, pendentesDeAcompanhamento } from "../services/acompanhamento";
 import { lerHumor, type Humor } from "../services/humor";
 import {
   checkAndMarkUnseenFromMobile, addMessage, listMessagesForDesktop, inferKind, mailboxEvents,
@@ -415,12 +416,12 @@ function startTelemetryLoop(): void {
     try {
       const min = Math.floor(powerMonitor.getSystemIdleTime() / 60);
       // Voltou depois de 1 h ou mais parado: de manhã, é a deixa do resumo do dia (bloco 117).
-      if (min < 1) { if (_marcoOcioso >= 60) void resumoDaManha(); _marcoOcioso = 0; return; }
+      if (min < 1) { if (_marcoOcioso >= 60) { void resumoDaManha(); void perguntarComoFoi(); } _marcoOcioso = 0; return; }
       for (const m of MARCOS_OCIOSO) if (min >= m && _marcoOcioso < m) { _marcoOcioso = m; emitirEvento("pc.ocioso", { minutos: m }); }
     } catch { /* powerMonitor indisponível */ }
   }, 60_000);
-  powerMonitor.on("resume", () => { voltouDaSuspensao(); emitirEvento("pc.voltou", { de: "suspensão" }); void resumoDaManha(); });
-  powerMonitor.on("unlock-screen", () => { telaBloqueada(false); emitirEvento("pc.voltou", { de: "tela bloqueada" }); void resumoDaManha(); });
+  powerMonitor.on("resume", () => { voltouDaSuspensao(); emitirEvento("pc.voltou", { de: "suspensão" }); void resumoDaManha(); void perguntarComoFoi(); });
+  powerMonitor.on("unlock-screen", () => { telaBloqueada(false); emitirEvento("pc.voltou", { de: "tela bloqueada" }); void resumoDaManha(); void perguntarComoFoi(); });
   powerMonitor.on("lock-screen", () => telaBloqueada(true));
   powerMonitor.on("suspend", () => { void avisarEncerramento("suspenso"); });
 }
@@ -446,6 +447,33 @@ async function resumoDaManha(): Promise<void> {
     speak(texto).catch(() => { /* best-effort */ });
     broadcastNotify(enfileirarEntrega({ tipo: "aviso", titulo: "Resumo do dia", corpo: texto }));
   } catch (e) { console.warn("[resumo] falhou:", e); }
+}
+
+// ── "como foi a prova?" (fase 19, bloco 191) ─────────────────────────────────────
+// Na volta ao PC, uma vez por dia, entre 9 e 22 h: a pergunta mais recente que valer
+// (compromisso que passou, pendência de conversa). Passa pelo orçamento de avisos — no foco
+// ou com o orçamento gasto, fica só o card do Hoje. A pergunta entra no histórico como fala
+// da Ely: "foi bem, tirei 8" logo depois tem contexto.
+const comoFoiStore = new Store<{ ultimoDia: string }>({ name: "como-foi", defaults: { ultimoDia: "" } });
+async function perguntarComoFoi(): Promise<void> {
+  try {
+    const agora = new Date();
+    if (agora.getHours() < 9 || agora.getHours() >= 22) return;
+    const dia = agora.toDateString();
+    if (comoFoiStore.get("ultimoDia") === dia) return;
+    const [primeira] = pendentesDeAcompanhamento(agora.getTime());
+    if (!primeira) return;
+    comoFoiStore.set("ultimoDia", dia);
+    // Depois do resumo da manhã, se houver, e com o app livre (até 1 min).
+    await new Promise(r => setTimeout(r, 15_000));
+    const t0 = Date.now();
+    while (!state.is("idle") && Date.now() - t0 < 60_000) await new Promise(r => setTimeout(r, 1000));
+    if (!podeAvisarAlto()) return;
+    marcarAcompanhado(primeira.id);
+    registrarFalaDaEly(primeira.pergunta);
+    notify("ELYSIUM", primeira.pergunta);
+    speak(primeira.pergunta).catch(() => { /* best-effort */ });
+  } catch (e) { console.warn("[como-foi] falhou:", e); }
 }
 
 // ── recording flow ────────────────────────────────────────────────────────────

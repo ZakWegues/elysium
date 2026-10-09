@@ -156,6 +156,17 @@ function desenharHoje() {
   const alertas = el.querySelector("#hoje-alertas");
   alertas.innerHTML = p.alertas.map(a => `<div class="hoje-alerta ${a.nivel}">${ico("alert", "ico-sm")}<span><b>${escHtml(a.titulo)}</b> — ${escHtml(a.detalhe)}</span></div>`).join("");
   alertas.hidden = !p.alertas.length;
+  desenharComoFoi(p.acompanhamentos ?? []);
+}
+
+/** Bloco 191: "A Ely quer saber" — responder abre o chat com a pergunta; dispensar some. */
+function desenharComoFoi(lista) {
+  const box = hojeEl()?.querySelector("#hoje-comofoi");
+  if (!box) return;
+  box.innerHTML = lista.map(a => `<div class="hoje-alerta comofoi">${ico("message-circle", "ico-sm")}<span><b>A Ely quer saber</b> — ${escHtml(a.pergunta)}</span>
+    <button class="hoje-acao" data-comofoi-abrir="${escHtml(a.id)}">Responder</button>
+    <button class="hoje-acao" data-comofoi-dispensar="${escHtml(a.id)}" title="Não perguntar mais" aria-label="Dispensar a pergunta">${ico("x", "ico-sm")}</button></div>`).join("");
+  box.hidden = !lista.length;
 }
 
 // ── Fase 18: seções ocultáveis, "Meu amanhã" e revisão da semana ──────────────
@@ -423,6 +434,22 @@ hojeEl()?.addEventListener("click", async (e) => {
   if (em) { formMeta(painelHoje?.metas.find(m => m.id === em.dataset.hojeEditarMeta) ?? {}); return; }
   if (alvo("#hoje-ler")) { window.nx.chatSend("me dá o resumo do dia"); showToast("Lendo o briefing…"); return; }
   if (alvo("#hoje-recarregar")) { carregarHoje(); return; }
+  const cfAbrir = alvo("[data-comofoi-abrir]");
+  const cfDisp = alvo("[data-comofoi-dispensar]");
+  if (cfAbrir || cfDisp) {
+    const id = (cfAbrir ?? cfDisp).dataset[cfAbrir ? "comofoiAbrir" : "comofoiDispensar"];
+    const r = await window.nx.rpc(cfAbrir ? "acompanhamento.abrir" : "acompanhamento.dispensar", { id });
+    if (painelHoje) painelHoje.acompanhamentos = (painelHoje.acompanhamentos ?? []).filter(a => a.id !== id);
+    desenharComoFoi(painelHoje?.acompanhamentos ?? []);
+    if (r.error) { showToast(r.error, true); return; }
+    if (cfAbrir) {
+      // A pergunta vira a fala da Ely no chat; a resposta dele vai com esse contexto.
+      switchView("chat"); switchChatMode("ai");
+      addBubble("reply", r.result.pergunta);
+      document.getElementById("cmd-input")?.focus();
+    }
+    return;
+  }
   if (alvo("#hoje-revisao")) { abrirRevisaoSemana(); return; }
   const oc = alvo("[data-hoje-ocultar]");
   if (oc) {

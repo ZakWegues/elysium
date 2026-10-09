@@ -290,6 +290,19 @@ export function recordAssistantReply(text: string): void {
 }
 
 /**
+ * Uma fala que a Ely começou sozinha (bloco 191: "como foi a prova?"). Entra no histórico
+ * como dela, com o relógio da conversa reiniciado — a resposta dele, logo depois, precisa
+ * desse contexto, e o histórico velho (de horas atrás) não serve mais.
+ */
+export function registrarFalaDaEly(texto: string): void {
+  const agora = Date.now();
+  if (agora - lastActivity > getConfig().chatIdleResetMs) { history = []; limparResumo(); }
+  lastActivity = agora;
+  history.push({ role: "assistant", content: texto });
+  podarHistorico();
+}
+
+/**
  * Tira do histórico o último turno (a resposta e a pergunta que a gerou) — é o "refazer" e o
  * "editar a última pergunta" do chat (bloco 84). Sem isto o modelo veria a pergunta duas
  * vezes seguidas, com a resposta rejeitada no meio, e tenderia a repeti-la.

@@ -222,3 +222,8 @@
 /* Fase 18: nome do hábito e da meta viraram botões (dá para editar pelo teclado). */
 button.hoje-habito-nome, button.hoje-meta-nome { background: transparent; border: 0; padding: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 button.hoje-habito-nome:hover, button.hoje-meta-nome:hover { text-decoration: underline; text-decoration-color: rgba(var(--purple-rgb), 0.5); }
+
+/* Fase 19 (bloco 191): "A Ely quer saber" — no tom da cor de destaque, não do alerta amarelo. */
+.hoje-alerta.comofoi { border-color: rgba(var(--purple-rgb), 0.4); background: rgba(var(--purple-rgb), 0.08); }
+.hoje-alerta.comofoi .ico { color: var(--purple-bright); }
+.hoje-alerta.comofoi > span { flex: 1; }

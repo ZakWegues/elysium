@@ -81,6 +81,8 @@ import {
 import { runPreset } from "../actions/runPreset";
 import * as spotify from "./spotify";
 import { apagarEpisodio, apagarTodosEpisodios, definirAnonimo, listarEpisodios, modoAnonimo } from "./episodios";
+import { marcarAcompanhado, pendentesDeAcompanhamento } from "./acompanhamento";
+import { registrarFalaDaEly } from "./brain";
 import {
   listSessions as listChatSessions, getSession as getChatSession,
   mergeSession as mergeChatSession, toggleFavorite as toggleChatFavorite,
@@ -1179,6 +1181,21 @@ const METHODS: Record<string, MethodDef> = {
   "metas.delete": { destructive: true, handler: async (params) => ({ ok: apagarMeta(requireString(params, "id")) }) },
   // Central "Hoje" (fase 16): o briefing inteiro numa chamada.
   "hoje.painel": { handler: async () => montarPainelHoje() },
+  // Bloco 191: "A Ely quer saber". Abrir = a pergunta entra na conversa como fala dela (a
+  // resposta dele chega com contexto); dispensar = não pergunta mais.
+  "acompanhamento.abrir": {
+    handler: async (params) => {
+      const id = requireString(params, "id");
+      const a = pendentesDeAcompanhamento().find(x => x.id === id);
+      if (!a) throw new RpcError(404, "essa pergunta não vale mais");
+      marcarAcompanhado(id);
+      registrarFalaDaEly(a.pergunta);
+      return { pergunta: a.pergunta };
+    },
+  },
+  "acompanhamento.dispensar": {
+    handler: async (params) => { marcarAcompanhado(requireString(params, "id")); return { ok: true }; },
+  },
   // Fase 18: "outra ideia" e o checklist "Para testar" do card ELYSIUM.
   "hoje.ideia": {
     handler: async () => {
