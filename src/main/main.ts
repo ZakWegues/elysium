@@ -1053,6 +1053,23 @@ if (!app.requestSingleInstanceLock()) {
   });
 }
 
+// Fase 20 (bloco 200): nenhuma janela do app navega para fora nem abre janela nova. Link
+// clicado (inclusive com o botão do meio, que antes abria uma janela do Electron com a página
+// remota) vai para o navegador padrão — e só http(s).
+app.on("web-contents-created", (_e, wc) => {
+  wc.setWindowOpenHandler(({ url }) => {
+    if (/^https?:\/\//i.test(url)) void shell.openExternal(url).catch(() => {});
+    return { action: "deny" };
+  });
+  wc.on("will-navigate", (ev, url) => {
+    if (!url.startsWith("file://")) {
+      ev.preventDefault();
+      if (/^https?:\/\//i.test(url)) void shell.openExternal(url).catch(() => {});
+    }
+  });
+  wc.on("will-attach-webview", (ev) => ev.preventDefault());
+});
+
 app.on("ready", async () => {
   if (process.platform === "win32") app.setAppUserModelId("com.zak.elysium");
 

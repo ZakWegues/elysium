@@ -233,7 +233,7 @@ export function versionCodeDasNotas(notas: string): number | undefined {
 }
 
 function pacoteDe(rel: ReleaseGitHub, asset: AssetGitHub): Pacote {
-  const arquivo = path.join(pasta(), asset.name);
+  const arquivo = path.join(pasta(), path.basename(asset.name));
   const pronto = fs.existsSync(arquivo) && fs.statSync(arquivo).size === asset.size;
   return {
     versionCode: /\.apk$/i.test(asset.name) ? versionCodeDasNotas(rel.body ?? "") : undefined,
