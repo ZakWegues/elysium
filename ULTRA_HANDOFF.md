@@ -192,7 +192,7 @@ pedir de novo.**
 
 | Repo | HEAD (08/10/2026) | Estado |
 |---|---|---|
-| `elysium` | fase 19 (§38) na branch `claude/nifty-ramanujan-bktb1h` — **não publicado**; publicado: **2.5.0** (§37) | check verde (280 testes) |
+| `elysium` | fase 19 (§38) na branch `claude/nifty-ramanujan-bktb1h` — **não publicado**; publicado: **2.5.0** (§37) | check verde (284 testes) |
 | `elysium-m` | fase 19 (§38) na mesma branch — **sem OTA ainda**; publicado: APK 2.1.0 + OTA da §37 | check verde (84 testes) |
 
 > Atualizado em 09/10/2026 (fase 19, §38 — feita na nuvem, falta publicar). Antes: 08/10 (fase 18). O texto abaixo da tabela é histórico — as versões
@@ -6107,8 +6107,34 @@ Pulse (o Hoje já é cheio), tema novo, vozes estrangeiras, 👍/👎, escuta co
   ANTES de a gravação começar e o gravador ficava ligado sozinho — agora `soltouRef` + mínimo de
   400 ms, com toast "Segure o microfone enquanto fala.". Textos de erro em português.
 
+### Revisão (agente revisor sobre o diff inteiro dos dois repos) — tudo corrigido
+- 🔴 **Gaveta acumulava ouvintes**: `#gaveta-corpo` é o mesmo elemento a cada abertura; o
+  Despejar (e mais três gavetas antigas: revisão da semana, hábitos/metas, reagendar) salvava
+  em dobro na 2ª abertura. `abrirGaveta` agora passa um `AbortSignal` ao `aoAbrir`; quem pendura
+  ouvinte no corpo usa `{ signal }`. **Gaveta nova: use o signal.**
+- Modo anônimo: ao DESLIGAR, as falas anônimas ainda estavam no histórico e viravam fato e
+  episódio. Ligar ou desligar agora zera a conversa (`aoMudarAnonimo` no `brain.ts`). A frase
+  falada também ficou honesta: o chat continua salvo na lista de conversas; o que para é a
+  lembrança e o fato.
+- "anota tudo isso" sequestrava "organiza as janelas", "anota tudo que eu falar na reunião",
+  "despejo do lixo é amanhã": só gatilho explícito e o resto com cara de lista.
+- Duas ações com confirmação no mesmo pedido: o "sim" valia só para a última. O agente agora
+  para no primeiro "Confirma?".
+- A fala antecipada punha o estado em "speaking" com o pedido ainda rodando — o chat e a
+  palavra "Ely" interrompiam e começavam outro pedido por cima. Fica "processing" até o fim.
+- "Como foi" e o resumo da manhã falavam por cima de uma gravação se depois de 1 min ainda não
+  estivesse ocioso: agora desistem.
+- Leitor de links: descompressão com `maxOutputLength` (gzip bomba) e prazo TOTAL de 15 s (o
+  `timeout` do request é de ociosidade).
+- Política: lembretes, tarefas, listas, rotinas, hábitos, metas, foco e abrir programa também.
+- Humor: "não consegui", "mais rápido", "desligou sozinho", "fui correndo", "não acredito que
+  ganhou" não viram mais humor.
+- "Explica isso" logo depois de uma resposta dela fica com a conversa (`respondeuHaPouco`).
+- Celular: "Parar" e erro calam a fala antecipada na hora (`abortar`, `acordarFonte`); a
+  pergunta do "A Ely quer saber" espera a conversa carregar (sumia ao remontar o Chat).
+
 ### Testes
-- Desktop **280** (era 227), celular **84** (era 74); `npm run check` verde nos dois em todo
+- Desktop **284** (era 227), celular **84** (era 74); `npm run check` verde nos dois em todo
   commit, com o código de saída conferido. Bancada: casos novos em
   `scripts/bench-agente-casos.json` ("fecha tudo menos" agora espera `fechar_tudo_menos`,
   `lembrar_conversa`, `janela_em_foco`, apagar rotina) — **a bancada não rodou** (precisa do
