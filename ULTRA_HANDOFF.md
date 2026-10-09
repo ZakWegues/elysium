@@ -192,10 +192,10 @@ pedir de novo.**
 
 | Repo | HEAD (08/10/2026) | Estado |
 |---|---|---|
-| `elysium` | fase 19 (§38) na `main` — **2.6.0 publicado e instalado** (09/10) | check verde (284 testes); bancada 34/37 (92%) |
-| `elysium-m` | fase 19 (§38) na `main` — APK 2.1.0 + **OTA da fase 19** (runtime `e2443894…`, 09/10) | check verde (84 testes) |
+| `elysium` | fase 20 (§39) na `main` — **2.7.0 publicado e instalado** (09/10) | check verde (357 testes); bancada 38/42 (90%) |
+| `elysium-m` | fase 20 (§39) na `main` — APK 2.1.0 + **OTA da fase 20** (runtime `e2443894…`, 09/10) | check verde (93 testes) |
 
-> Atualizado em 09/10/2026 (fase 19, §38 — feita na nuvem, publicada na máquina do Zak). Antes: 08/10 (fase 18). O texto abaixo da tabela é histórico — as versões
+> Atualizado em 09/10/2026 (fase 20, §39 — feita na nuvem, publicada na máquina do Zak; fase 19 em §38). Antes: 08/10 (fase 18). O texto abaixo da tabela é histórico — as versões
 > de verdade estão na tabela e no `git log`.
 
 > **Desde 29/09/2026 as versões saem como releases do GitHub e se atualizam sozinhas**
@@ -6358,7 +6358,7 @@ Copiar o bloco abaixo para um arquivo, sem as cercas:
 ```
 
 ### Para a próxima sessão local (Windows) — o que só o Zak confere
-1. `git pull` dos dois repos na `claude/nifty-ramanujan-bktb1h` (ou merge na `main`).
+1. ✅ (09/10) Entrou na `main` nos dois repos e a branch remota foi apagada (ver "Publicação da fase 20" abaixo).
 2. **Injeção de PowerShell, de verdade:** com o app aberto, pedir pelo chat coisas como
    "abre o programa `calc'; Start-Process notepad; '`", "minimiza a janela do `x’;calc;’`" e
    "tira um print chamado `a';calc;'`" — nada pode abrir além do pedido.
@@ -6372,3 +6372,27 @@ Copiar o bloco abaixo para um arquivo, sem as cercas:
 7. Bump + release do desktop e OTA do celular (tudo do celular é JS). O widget Falar se
    redesenha sozinho ao abrir o app.
 8. Copiar este arquivo para a pasta-mãe `ELYSIUM/`.
+
+### Publicação da fase 20 (09/10/2026, máquina do Zak)
+- Celular: fast-forward na `main`. Desktop: a branch saiu da `main` antes do commit da 2.6.0 e
+  das notas da §38, então foi merge (`Fase 20 na main…`); só o fim deste arquivo conflitou (as
+  duas seções anexadas — ficaram as duas). Branch remota apagada nos dois repos. Autor de todos
+  os commits: ZakWegues, sem rastro.
+- **Armadilha do Windows achada aqui:** os testes do contrato RPC (bloco 204) comparavam o
+  arquivo byte a byte, e o checkout no Windows troca LF por CRLF (`core.autocrlf=true`) — no
+  desktop o JSON não batia e no celular o `indexOf("';\n")` não achava o fim do tipo, e todo
+  método aparecia "sem tipo". Os dois testes agora normalizam `\r\n`. Quem escrever teste que lê
+  arquivo do repo: normalize as quebras de linha.
+- Check verde nos dois (357 e 93). **Bancada qwen2.5:7b: 38/42 (90%), 13 pelo atalho.** As três
+  falhas da fase 19 passaram; as quatro de agora são casos novos de estudo — o 7B não chama
+  `plano_de_estudo` ("me ajuda a estudar pra prova de física que é dia 20"), troca `pomodoro` por
+  `modo_foco` ("focar 50 minutos com pausa de 10"), troca `guardar_cartao` por `anotar_varias`
+  ("quero revisar isso depois: …") e não chama `nota_necessaria` ("qual nota eu preciso na
+  recuperação…"). **Próximo passo:** atalho no `fastRoute` para os quatro (frases bem marcadas).
+- Desktop **2.7.0** publicado (notas acima, linhas desembrulhadas) e instalado (`"pc":"2.7.0"`).
+  Celular: OTA no runtime `e2443894…` (APK 2.1.0).
+- **Não feito aqui (fica com o Zak):** o teste de injeção de PowerShell ao vivo (abre programas
+  no PC), ouvir conta falada / Thalita / pomodoro, `npm audit fix` + APK novo do celular, e o
+  TLS com certificado no QR (precisa do celular na mão).
+- O aviso de som da §37 está funcionando: o log de 09/10 mostra `[som]` — a saída do Windows
+  continua no Steam Streaming Speakers; enquanto o Zak não trocar, a Ely do PC não é ouvida.
