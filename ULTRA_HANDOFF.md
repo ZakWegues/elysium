@@ -192,10 +192,10 @@ pedir de novo.**
 
 | Repo | HEAD (08/10/2026) | Estado |
 |---|---|---|
-| `elysium` | fase 19 (§38) na branch `claude/nifty-ramanujan-bktb1h` — **não publicado**; publicado: **2.5.0** (§37) | check verde (284 testes) |
-| `elysium-m` | fase 19 (§38) na mesma branch — **sem OTA ainda**; publicado: APK 2.1.0 + OTA da §37 | check verde (84 testes) |
+| `elysium` | fase 19 (§38) na `main` — **2.6.0 publicado e instalado** (09/10) | check verde (284 testes); bancada 34/37 (92%) |
+| `elysium-m` | fase 19 (§38) na `main` — APK 2.1.0 + **OTA da fase 19** (runtime `e2443894…`, 09/10) | check verde (84 testes) |
 
-> Atualizado em 09/10/2026 (fase 19, §38 — feita na nuvem, falta publicar). Antes: 08/10 (fase 18). O texto abaixo da tabela é histórico — as versões
+> Atualizado em 09/10/2026 (fase 19, §38 — feita na nuvem, publicada na máquina do Zak). Antes: 08/10 (fase 18). O texto abaixo da tabela é histórico — as versões
 > de verdade estão na tabela e no `git log`.
 
 > **Desde 29/09/2026 as versões saem como releases do GitHub e se atualizam sozinhas**
@@ -6175,9 +6175,31 @@ bloco abaixo para um arquivo, sem as cercas:
 ```
 
 ### Para a próxima sessão local (Windows)
-1. `git pull` dos dois repos na branch `claude/nifty-ramanujan-bktb1h` (ou merge na `main`).
+1. ✅ (09/10) A branch da nuvem entrou na `main` por fast-forward nos dois repos e foi apagada do GitHub.
 2. Rodar a bancada (`scripts/bench-agente.mjs`) com o Ollama — confirmar que a linha de
    tratamento e o envelope de conteúdo externo não derrubaram a taxa (era 33/34).
 3. Ouvir: fala antecipada, prosódia, ThalitaMultilingual (se ela estiver salva na config).
 4. Bump + release do desktop (2.6.0) e OTA do celular (tudo é JS; não precisa de APK).
 5. Copiar este arquivo para a pasta-mãe `ELYSIUM/`.
+
+### Publicação da fase 19 (09/10/2026, máquina do Zak)
+- Branch da nuvem →  (fast-forward, sem conflito) nos dois repos; branch remota apagada
+  (o nome levava a marca da ferramenta). Commits conferidos: autor ZakWegues, sem rastro.
+- Unknown command: "install"
+
+
+Did you mean one of these?
+  npm install # Install a package
+  npm uninstall # Remove a package
+To see a list of supported npm commands, run:
+  npm help (axios/fast-uri novos), check verde nos dois (284 e 84).
+- **Bancada qwen2.5:7b: 34/37 (92%), 13 pelo atalho**, p50 1,2 s. Falhas (casos novos da fase 19):
+  "fecha tudo menos o VS Code" (o 7B chama  um a um, inventando a lista, em vez de
+  ), "o que eu tinha te falado sobre a prova?" (não chama ) e
+  "em que janela eu estou?" (não chama ). **Próximo passo:** atalho no
+   para os três (frases bem marcadas) — é o mesmo remédio que levou a bancada de 85%
+  a 97% na fase 18.
+- Desktop **2.6.0** publicado (notas do bloco acima, linhas desembrulhadas) e instalado aqui
+  (). Celular: OTA no runtime  (APK 2.1.0) — tudo JS, sem APK.
+- Não ouvido ainda (o Zak confere): fala antecipada, prosódia, tom pelo humor. Lembrete: a saída
+  de som do Windows estava no Steam Streaming Speakers (§37) — se a voz sumir, é lá.
