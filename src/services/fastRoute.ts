@@ -41,6 +41,12 @@ interface Rule {
 }
 
 const RULES: Rule[] = [
+  // — modo anônimo (bloco 190) —
+  { pattern: /^(?:ely )?(?:(?:liga|ativa|entra no|entrar no|ligar o|ativar o|liga o|ativa o) )?modo anonimo$/,
+    build: () => [{ action: "anon_mode", ligar: true }] },
+  { pattern: /^(?:ely )?(?:desliga|desativa|sai do|sair do|desligar o|desativar o|desliga o|desativa o) modo anonimo$/,
+    build: () => [{ action: "anon_mode", ligar: false }] },
+
   // — mídia —
   { pattern: /^(pausa|pausar|pause|para a musica|parar a musica)$/,
     build: () => [{ action: "media_control", operation: "pause" }] },

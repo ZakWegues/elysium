@@ -80,6 +80,7 @@ import {
 } from "./presetsStore";
 import { runPreset } from "../actions/runPreset";
 import * as spotify from "./spotify";
+import { apagarEpisodio, apagarTodosEpisodios, definirAnonimo, listarEpisodios, modoAnonimo } from "./episodios";
 import {
   listSessions as listChatSessions, getSession as getChatSession,
   mergeSession as mergeChatSession, toggleFavorite as toggleChatFavorite,
@@ -1321,6 +1322,27 @@ const METHODS: Record<string, MethodDef> = {
   },
   "memory.recusar": {
     handler: async (params) => ({ recusada: recusarSugestao(requireString(params, "id")) }),
+  },
+  // Conversas que a Ely lembra (bloco 190): ver, apagar uma, apagar todas, e o modo anônimo.
+  "episodios.list": {
+    handler: async () => ({ episodios: listarEpisodios() }),
+  },
+  "episodios.delete": {
+    destructive: true,
+    handler: async (params) => ({ removed: apagarEpisodio(requireString(params, "id")) }),
+  },
+  "episodios.clear": {
+    destructive: true,
+    handler: async () => ({ removidos: apagarTodosEpisodios() }),
+  },
+  "memoria.anonimo.get": {
+    handler: async () => ({ anonimo: modoAnonimo() }),
+  },
+  "memoria.anonimo.set": {
+    handler: async (params) => {
+      if (typeof params.ligar !== "boolean") throw new RpcError(400, "\"ligar\" precisa ser true ou false");
+      return { anonimo: definirAnonimo(params.ligar) };
+    },
   },
   // O celular conta como algo se comportou (bloco 116: o pedido por voz, para calibrar os
   // limiares). Cai no log do PC — o único log que existe; o celular não tem onde guardar.

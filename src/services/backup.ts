@@ -9,6 +9,7 @@ import { listarRotinas, Rotina, salvarRotina } from "./rotinas";
 import { ChatSession, listSessions, mergeSession } from "./chatSessionsStore";
 import { importarListas, Lista, listarListas } from "./listas";
 import { Habito, importarHabitos, listarHabitos, listarMetas, Meta } from "./habitos";
+import { Episodio, importarEpisodios, listarEpisodios } from "./episodios";
 
 /**
  * Exportar e importar tudo o que é do Zak (bloco 96) — o seguro contra formatar o PC.
@@ -48,6 +49,8 @@ export interface Backup {
   tarefas?: Tarefa[];
   /** Fase 18: treinos, perfil corporal, pesos e corridas. */
   corpo?: ReturnType<typeof exportarCorpo>;
+  /** Fase 19: as conversas que a Ely lembra. */
+  episodios?: Episodio[];
 }
 
 export interface ResumoImportacao {
@@ -63,6 +66,8 @@ export interface ResumoImportacao {
   tarefas?: number;
   /** Treinos restaurados (fase 18). */
   corpo?: number;
+  /** Conversas lembradas restauradas (fase 19). */
+  episodios?: number;
   /** Itens que não deu para restaurar (inválidos ou que falharam) — antes sumiam calados. */
   pulados?: number;
 }
@@ -89,6 +94,7 @@ export function montarBackup(): Backup {
     metas: listarMetas(),
     tarefas: listarTarefasTodas(),
     corpo: exportarCorpo(),
+    episodios: listarEpisodios(),
   };
 }
 
@@ -110,6 +116,7 @@ export function lerBackup(bruto: unknown): Backup {
     metas: Array.isArray(b.metas) ? b.metas : [],
     tarefas: Array.isArray(b.tarefas) ? b.tarefas : [],
     corpo: b.corpo && typeof b.corpo === "object" ? b.corpo : undefined,
+    episodios: Array.isArray(b.episodios) ? b.episodios : [],
   };
 }
 
@@ -169,6 +176,7 @@ export function aplicarBackup(b: Backup): ResumoImportacao {
     });
     resumo.tarefas = importarTarefas(tarefas);
   } catch { pulou(); }
+  try { resumo.episodios = importarEpisodios(b.episodios ?? []); } catch { pulou(); }
   // Corpo: só restaura se aqui ainda não há treino — não sobrescreve o que já está em uso.
   try { if (b.corpo && !listarTreinos().length) { importarCorpo(b.corpo); resumo.corpo = listarTreinos().length; } } catch { pulou(); }
 

@@ -123,7 +123,7 @@ export function clearFacts(): void {
 // ── Relevância (bloco 118) ────────────────────────────────────────────────────
 
 /** Radicais de 4 letras sem acento: "chamo", "chama" e "chamado" viram todos "cham". */
-function radicais(texto: string): Set<string> {
+export function radicais(texto: string): Set<string> {
   const limpo = texto.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9 ]/g, " ");
   return new Set(limpo.split(/\s+/).filter(p => p.length >= 4).map(p => p.slice(0, 4)));
 }

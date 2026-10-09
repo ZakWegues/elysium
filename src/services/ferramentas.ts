@@ -27,6 +27,9 @@ import { estadoAtualizacao } from "./atualizacao";
 import { comecarFoco, focoFalado, pararFoco } from "./foco";
 import { resumoDoDia } from "./resumoDoDia";
 import { agendaFalada } from "./agenda";
+import { escolherEpisodios, linhaDoEpisodio, listarEpisodios } from "./episodios";
+import { buscarNasConversas } from "./buscaConversas";
+import { listSessions } from "./chatSessionsStore";
 
 /**
  * As ferramentas do cérebro (bloco 78).
@@ -187,6 +190,21 @@ export const FERRAMENTAS: Ferramenta[] = [
       return f.length ? f.map(x => x.text).join("; ") + "." : "Nada guardado ainda.";
     },
     acao: () => ({ action: "list_memory" }),
+  },
+  {
+    // Bloco 190: "do que a gente falou sobre a prova?", "o que eu tinha dito do SSD?".
+    name: "lembrar_conversa",
+    description: "Procura nas conversas ANTERIORES com o usuário (dias ou semanas atrás) o que foi dito sobre um assunto. Use quando ele perguntar 'do que a gente falou', 'o que eu te disse sobre', 'lembra quando'.",
+    parameters: obj({ assunto: s("O assunto, em poucas palavras") }, ["assunto"]),
+    executar: async (a) => {
+      const assunto = str(a, "assunto");
+      const agora = Date.now();
+      const eps = escolherEpisodios(listarEpisodios(), assunto, agora, 3, 1).map(e => linhaDoEpisodio(e, agora));
+      const sessoes = listSessions().map(x => ({ id: x.id, title: x.title, updatedAt: x.updatedAt, messages: x.messages }));
+      const achados = buscarNasConversas(sessoes, assunto, 3).map(c => `- no chat "${c.titulo}" (${c.deQuem === "eu" ? "ele disse" : "você disse"}): ${c.trecho}`);
+      const tudo = [...eps, ...achados];
+      return tudo.length ? `Conversas anteriores sobre "${assunto}":\n${tudo.join("\n")}` : `Não achei conversa anterior sobre "${assunto}".`;
+    },
   },
   {
     name: "rotinas",

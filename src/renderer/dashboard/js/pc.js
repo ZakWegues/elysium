@@ -402,6 +402,10 @@ const PAINEIS_PC = {
     async render() {
       let fatos = [];
       try { fatos = (await window.nx.rpc("memory.list")).result?.facts ?? []; } catch { /* segue */ }
+      // Fase 19 (bloco 190): as conversas que ela lembra e o modo anônimo.
+      let eps = [], anonimo = false;
+      try { eps = (await window.nx.rpc("episodios.list")).result?.episodios ?? []; } catch { /* PC antigo */ }
+      try { anonimo = !!(await window.nx.rpc("memoria.anonimo.get")).result?.anonimo; } catch { /* PC antigo */ }
       // Fase 18: busca, data de quando aprendeu e editar (o painel de memória que a pesquisa pediu).
       const quando = (ms) => new Date(ms).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
       return `
@@ -418,9 +422,38 @@ const PAINEIS_PC = {
             <button type="submit">${ico("plus", "ico-sm")}Guardar</button>
           </form>
           <p class="gp-nota">Entra no prompt de toda conversa. É a mesma lista que o celular mostra.</p>
+        </div>
+        <div class="gp-secao"><h4>Conversas que a Ely lembra <small>${eps.length}</small></h4>
+          <div class="gp-lista">${eps.slice(0, 40).map(ep => `
+            <div class="gp-linha">${ico("bookmark", "ico-sm")}<span class="gp-nome" style="white-space:normal">${escHtml(ep.resumo)}${ep.pendencias?.length ? `<small class="gp-quando">ficou de: ${escHtml(ep.pendencias.join("; "))}</small>` : ""}<small class="gp-quando">${quando(ep.em)}</small></span>
+              <button data-esquecer-ep="${escHtml(ep.id)}" title="Apagar" aria-label="Apagar esta conversa da memória">${ico("x", "ico-sm")}</button></div>`).join("") || `<div class="home-empty">Nenhuma ainda. Quando uma conversa termina, ela guarda um resumo curto aqui.</div>`}</div>
+          <div class="gp-form">
+            <button type="button" data-anonimo="${anonimo ? "0" : "1"}">${anonimo ? "Desligar o modo anônimo" : "Modo anônimo"}</button>
+            ${eps.length ? `<button type="button" data-esquecer-eps="1">Apagar todas</button>` : ""}
+          </div>
+          <p class="gp-nota">${anonimo
+            ? "Modo anônimo ligado: nada das conversas vira lembrança nem fato até você desligar (ou reiniciar o ELYSIUM)."
+            : "Fica só neste PC. Diga “modo anônimo” quando não quiser que uma conversa seja lembrada."}</p>
         </div>`;
     },
     async clique(e) {
+      const anon = e.target.closest("[data-anonimo]");
+      if (anon) {
+        const r = await window.nx.rpc("memoria.anonimo.set", { ligar: anon.dataset.anonimo === "1" });
+        if (r.error) showToast(r.error, true); else showToast(r.result?.anonimo ? "Modo anônimo ligado." : "Modo anônimo desligado.");
+        redesenharPainel();
+        return;
+      }
+      const umEp = e.target.closest("[data-esquecer-ep]");
+      if (umEp || e.target.closest("[data-esquecer-eps]")) {
+        try {
+          const r = umEp ? await window.nx.rpc("episodios.delete", { id: umEp.dataset.esquecerEp }) : await window.nx.rpc("episodios.clear");
+          if (r.cancelado) return;
+          if (r.error) showToast(r.error, true); else showToast("Apagado.");
+          redesenharPainel();
+        } catch { showToast("Não consegui apagar.", true); }
+        return;
+      }
       const ed = e.target.closest("[data-editar-fato]");
       if (ed) {
         const linha = ed.closest(".gp-linha");

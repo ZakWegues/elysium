@@ -8,6 +8,7 @@ import { quemOcupaGpu } from "./gpuGuard";
 import { contextoDoMomento } from "./persona";
 import { lerHumor, linhaDoHumor } from "./humor";
 import { estadoFoco } from "./foco";
+import { blocoDasConversasAnteriores, modoAnonimo, registrarEpisodio } from "./episodios";
 import type { MediaOperation } from "../actions/mediaControl";
 import type { WinOperation }   from "../actions/windowManagement";
 import type { PowerOperation } from "../actions/powerControl";
@@ -62,6 +63,8 @@ export type BrainAction =
   | { action: "timer_cancel";      name?: string }
   // Conta exata (bloco 138): "quanto é 15% de 230" não passa pelo modelo.
   | { action: "calculate";         expression: string }
+  // Bloco 190: "modo anônimo" — nada da conversa vira fato nem episódio até desligar.
+  | { action: "anon_mode";         ligar: boolean }
   | { action: "world_time";        city: string }
   | { action: "create_reminder";   text: string; due_at: string; weekly?: boolean; sem_hora?: boolean }
   | { action: "list_reminders" }
@@ -158,8 +161,12 @@ function agendarAprendizado(): void {
   if (timerAprendizado) clearTimeout(timerAprendizado);
   timerAprendizado = setTimeout(() => {
     timerAprendizado = null;
+    // Modo anônimo (bloco 190): nada desta conversa vira fato nem episódio.
+    if (modoAnonimo()) return;
     const falas = history.filter(m => m.role === "user").map(m => m.content);
     if (falas.length) void aprenderDaConversa(falas);
+    // O episódio da conversa (bloco 190): o que se conversou e o que ficou pendente.
+    if (falas.length) void registrarEpisodio(history.map(m => ({ ...m })), blocoDoResumo());
   }, getConfig().chatIdleResetMs + 5_000);
   // Não segura o processo vivo só por isto (testes e saída do app).
   timerAprendizado.unref?.();
@@ -209,6 +216,7 @@ function actionSummary(action: BrainAction): string {
     case "timer_list":        return "Timers";
     case "timer_cancel":      return "Cancelou timer";
     case "calculate":         return "Conta";
+    case "anon_mode":         return action.ligar ? "Modo anônimo ligado" : "Modo anônimo desligado";
     case "world_time":        return `Hora em ${action.city}`;
     case "run_preset":        return `Preset ativado: ${action.preset_name}`;
     case "list_presets":      return "Listou presets";
@@ -445,7 +453,7 @@ export async function composeChatReply(
   const recent = history.slice(-cfg.chatHistoryTurns * 2);
   const ultimo = recent[recent.length - 1];
   const messages: ChatMessage[] = [
-    { role: "system", content: CHAT_SYSTEM_PROMPT(canal) + blocoDoMomento(userText) + blocoDeInstrucoes(cfg.instrucoesPessoais) + buildMemoryBlock(userText) + (blocoDoResumo() ? `\n\n[O QUE VEIO ANTES NESTA CONVERSA]\n${blocoDoResumo()}` : "") },
+    { role: "system", content: CHAT_SYSTEM_PROMPT(canal) + blocoDoMomento(userText) + blocoDeInstrucoes(cfg.instrucoesPessoais) + buildMemoryBlock(userText) + blocoDasConversasAnteriores(userText) + (blocoDoResumo() ? `\n\n[O QUE VEIO ANTES NESTA CONVERSA]\n${blocoDoResumo()}` : "") },
     ...recent.map(m => ({ role: m.role, content: m.content })),
     // Rede de segurança: se alguém chamar a composição sem passar pelo roteador, o
     // pedido não estaria no histórico e o modelo responderia ao turno anterior.

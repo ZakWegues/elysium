@@ -34,6 +34,7 @@ import { marcarTreinoFalado, registrarCorridaFalada, registrarPesoFalado } from 
 import { cancelarTimer, criarTimer, duracaoFalada, timersFalados } from "../services/timers";
 import { calcular, formatarNumero } from "../services/calculadora";
 import { horaEm } from "../services/horaMundo";
+import { definirAnonimo } from "../services/episodios";
 
 /** "a, b e c" — para a voz não ler a lista como enumeração de vírgulas. */
 function emFrase(itens: string[]): string {
@@ -120,6 +121,11 @@ export async function routeAction(action: BrainAction): Promise<string> {
       const f = await comecarFoco({ minutos: action.minutes ?? 25 });
       return `Modo foco por ${f.minutos} minutos.`;
     }
+    case "anon_mode":
+      definirAnonimo(action.ligar);
+      return action.ligar
+        ? "Modo anônimo ligado. Não vou guardar nada desta conversa até você desligar."
+        : "Modo anônimo desligado. Volto a lembrar das conversas.";
     case "run_preset":        return runPreset(action.preset_name);
     case "list_presets":      return listPresetsReply();
     case "delete_preset":     return deletePreset(action.preset_name);
