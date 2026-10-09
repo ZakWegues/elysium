@@ -47,7 +47,7 @@ const { promptDoAgente, chamadasEmTexto } = require(path.join(raiz, "dist/servic
 const { fastRoute } = require(path.join(raiz, "dist/services/fastRoute.js"));
 
 const OLLAMA = "http://127.0.0.1:11434/api/chat";
-const LEITURA = new Set(["programas_abertos", "estado_do_pc", "processos_pesados", "clima", "lembretes", "memoria", "rotinas", "presets", "tocando_agora", "area_de_transferencia", "espaco_em_disco", "versao_do_elysium", "resumo_do_dia", "agenda", "ver_lista", "ver_timers", "calcular", "resumir_link", "hora_em", "ver_habitos", "painel_do_dia", "ver_tarefas", "treino_de_hoje", "ver_meta_calorias", "revisao_da_semana"]);
+const LEITURA = new Set(["programas_abertos", "estado_do_pc", "processos_pesados", "clima", "lembretes", "memoria", "rotinas", "presets", "tocando_agora", "area_de_transferencia", "espaco_em_disco", "versao_do_elysium", "resumo_do_dia", "agenda", "ver_lista", "ver_timers", "calcular", "resumir_link", "hora_em", "ver_habitos", "painel_do_dia", "ver_tarefas", "treino_de_hoje", "ver_meta_calorias", "revisao_da_semana", "lembrar_conversa", "janela_em_foco"]);
 
 /** O PC de mentira: o que cada leitura devolve quando o caso não diz outra coisa. */
 const CENARIO_PADRAO = {
@@ -61,6 +61,9 @@ const CENARIO_PADRAO = {
   presets: "Presets: trabalho, jogo.",
   tocando_agora: "Nada tocando no Spotify agora.",
   area_de_transferencia: "Área de transferência: https://github.com/ZakWegues/elysium",
+  // Fase 19.
+  lembrar_conversa: "Conversas anteriores sobre \"prova\":\n- há 3 dias: Conversaram sobre a prova de física de sexta (ele ficou de: revisar ótica)",
+  janela_em_foco: "Na frente agora: \"elysium - Visual Studio Code\" (Code).",
 };
 const acaoOk = (nome, args) => {
   const a = JSON.stringify(args ?? {});
@@ -73,6 +76,7 @@ const acaoOk = (nome, args) => {
     case "criar_lembrete": return "Lembrete criado.";
     case "criar_rotina": return "Rotina criada.";
     case "apagar_rotina": return "Rotina apagada.";
+    case "fechar_tudo_menos": return "Vou fechar chrome e Spotify. Confirma? Diga sim.";
     case "lembrar_fato": return "Guardado.";
     case "tirar_print": return "Print salvo na Área de Trabalho.";
     case "mandar_para_o_celular": return "Mandei pro celular.";

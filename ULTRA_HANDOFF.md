@@ -41,6 +41,7 @@
 | 29 | [Fase 11 — fora de casa e para sempre](#29-fase-11--fora-de-casa-e-para-sempre-blocos-94) |
 | 30 | [Fase 12 — atualização automática e o que veio depois](#30-fase-12--atualização-automática-e-o-que-veio-depois-blocos-95-100) |
 | 31 | [Fase 13 — blindar, mais inteligente, mais alcance](#31-fase-13--blindar-mais-inteligente-mais-alcance-blocos-113125) |
+| 38 | [Fase 19 — Ely mais humana e mais útil](#38-fase-19--ely-mais-humana-e-mais-útil-blocos-186197-0809102026-sessão-na-nuvem) |
 
 ---
 
@@ -191,10 +192,10 @@ pedir de novo.**
 
 | Repo | HEAD (08/10/2026) | Estado |
 |---|---|---|
-| `elysium` | fase 18 (§36) — desktop **2.4.0**, instalado aqui | limpo, pusheado, CI verde, releases assinadas |
-| `elysium-m` | fase 18 (§36) — celular **2.1.0** (`versionCode` 21) + OTA | limpo, pusheado, releases com versão e certificado conferidos |
+| `elysium` | fase 19 (§38) na branch `claude/nifty-ramanujan-bktb1h` — **não publicado**; publicado: **2.5.0** (§37) | check verde (280 testes) |
+| `elysium-m` | fase 19 (§38) na mesma branch — **sem OTA ainda**; publicado: APK 2.1.0 + OTA da §37 | check verde (84 testes) |
 
-> Atualizado em 08/10/2026 (fase 18). O texto abaixo da tabela é histórico — as versões
+> Atualizado em 09/10/2026 (fase 19, §38 — feita na nuvem, falta publicar). Antes: 08/10 (fase 18). O texto abaixo da tabela é histórico — as versões
 > de verdade estão na tabela e no `git log`.
 
 > **Desde 29/09/2026 as versões saem como releases do GitHub e se atualizam sozinhas**
@@ -6013,3 +6014,144 @@ próxima sessão local copia para a pasta-mãe.
 **Pendências só do Zak:** trocar a saída de som para SAMSUNG; idade e sexo no Perfil (treino,
 só se quiser); nome do 3º exercício do Treino C; conferir as animações e o estado do PC no
 celular; §15 (backup da chave, `powercfg`).
+
+## 38. Fase 19 — Ely mais humana e mais útil (blocos 186–197, 08–09/10/2026, sessão na nuvem)
+
+**Pedido do Zak:** pesquisa aprofundada do que ChatGPT, Claude, Gemini, Meta AI, Grok, Alexa+ e
+Pi fazem para parecer gente, e adicionar ao ELYSIUM **só o que for útil de verdade para ele**
+("não precisa colocar muita baianice filler que eu não vou usar") — principalmente a parte
+"Jarvis", mas também segurança e o que mais coubesse; tudo testado. Feito na nuvem, com ele
+dormindo: código e testes prontos, **nada publicado** (sem bump, sem release, sem APK, sem OTA).
+
+**Cortado de propósito (não retomar sem ele pedir):** modo reunião, intérprete, projetos,
+presets de personalidade (estilo + instruções pessoais já cobrem), cartões da manhã estilo
+Pulse (o Hoje já é cheio), tema novo, vozes estrangeiras, 👍/👎, escuta contínua depois da fala
+(ele tirou a mão livre na fase 15).
+
+### O que mudou
+- **186 — a hora e o momento** (`persona.ts`): o prompt de CONVERSA não tinha nem a data.
+  Agora: data, hora, período, madrugada ("pode notar com leveza que ele está acordado tarde"),
+  fim de semana, "vocês não conversavam havia 2 dias" (≥ 6 h, `ultimoPedidoEm` no `brain.ts` —
+  nulo até o 1º pedido depois de abrir), modo foco. O agente ganhou só o tratamento, numa linha.
+- **187 — o tom** (`humor.ts`, puro, sem modelo): frustrado / triste / cansado / com pressa /
+  animado por léxico PT-BR, caixa alta e "!!!". Vira uma linha `[TOM]` no prompt e ajusta a
+  prosódia. **Nunca vai para a memória.** "toca de novo", "boa noite", "passei mal", "saco de
+  lixo", "horas de sono" ficam neutros (testado).
+- **188 — falas vivas** (`falasVivas.ts`): a espera de 2,5 s diz o que ela está fazendo ("Vou
+  pesquisar.", "Deixa eu olhar.", "Lendo aqui.", "Deixa comigo."); lembrete, timer, hábito e
+  arranque ganham variações; nenhum grupo repete a última. O texto dos executores não muda.
+- **189 — a voz começa antes** (`fatiadorDeFrases.ts`): no caminho de voz do PC, cada frase
+  que fecha no streaming vai para o `speak` enquanto o resto chega; no fim, `restoParaFalar`
+  fala só o que faltou (ou tudo, se a resposta final não contiver o que foi dito). O turno só
+  volta a "ocioso" quando a ÚLTIMA frase toca (`Promise.all` das falas). Interruptor
+  `falaAntecipada` (Ajustes → Voz). No celular, `abrirFalaAntecipada` em `falar.ts` (fonte de
+  partes em fluxo; a lista pronta virou `fonteDeLista`), interruptor próprio em Ajustes → Voz.
+  Prosódia do momento (`prosodiaDoMomento`): velocidade do dono (−10 a +10, Ajustes → Voz),
+  noite −3%, pressa +6%, cansado −5%, triste −5% e tom −2%. **O Edge gratuito só aceita
+  prosódia** (sem `express-as`/`break` — confirmado na pesquisa). Vozes: a lista do Edge tem
+  **só 3 pt-BR** (Francisca, ThalitaMultilingual, Antonio); `vozEfetiva` troca
+  `pt-BR-ThalitaNeural` → `ThalitaMultilingualNeural` e Macerio (só Azure pago) → Antonio — com
+  o nome errado a síntese caía calada no SAPI. Achado de passagem: a faixa de Ajustes fazia
+  `Number(v) || min` e transformava o 0 no mínimo.
+- **190 — ela lembra das conversas** (`episodios.ts`, `episodios.json`, backup): quando a
+  conversa esfria (o gancho do aprendizado), o provedor de fundo escreve 1–3 frases, assuntos e
+  pendências DELE. Até 200 / 90 dias. Os 2 mais parecidos (radicais do `memoryStore`, ≥ 2 em
+  comum, nunca o de hoje) entram no prompt da conversa e do agente com "há 3 dias". Ferramenta
+  `lembrar_conversa` (episódios + `buscaConversas`). **Modo anônimo** ("Ely, modo anônimo" /
+  "sai do modo anônimo", painel Memória nos dois apps): sem episódio e sem fato até desligar
+  ou reiniciar — só na memória do processo, de propósito. RPC `episodios.list|delete|clear`
+  (os dois últimos destrutivos), `memoria.anonimo.get|set`.
+- **191 — "E aí, como foi a prova?"** (`acompanhamento.ts`): compromisso (`ehCompromisso`)
+  que passou há até 3 dias, ou pendência de episódio de 1–7 dias, vira pergunta UMA vez. Em
+  voz na volta ao PC (unlock, resume, ≥ 60 min parado), 9–22 h, 1×/dia, pelo `podeAvisarAlto`;
+  a pergunta entra no histórico como fala dela (`registrarFalaDaEly`) para a resposta ter
+  contexto. Card "A Ely quer saber" no Hoje (desktop e celular): Responder abre o chat com a
+  bolha dela; ✕ dispensa. RPC `acompanhamento.abrir|dispensar`, `hoje.painel.acompanhamentos`.
+- **192 — segurança do agente** (`politicaFerramentas.ts`, `confirmacao.ts`):
+  - resultado de `buscar_na_web`, `resumir_link`, `olhar_a_tela`, `area_de_transferencia`,
+    `comando_de_ia`, `janela_em_foco` vai ao modelo dentro de `[CONTEÚDO EXTERNO …]`;
+  - depois disso, no mesmo pedido, ações sensíveis (celular, escrever, arquivo, fato, rotina,
+    energia, abrir site, lembrete, fechar) **só se o texto do pedido pediu** (regex de intenção);
+  - `apagar_rotina`, `esquecer_fato` e o novo `fechar_tudo_menos` perguntam "Confirma? Diga
+    sim." (30 s; "sim" executa, "não" desiste, outra coisa descarta e segue normal). Energia
+    ficou de fora: já tem 30 s para cancelar;
+  - `fechar_tudo_menos`: a lista vem do `listarJanelas` (a real), agrupada por programa, e fecha
+    **janela por janela com WM_CLOSE** (o X — quem tem algo sem salvar pergunta). Nunca fecha
+    Explorer, ELYSIUM, ApplicationFrameHost etc. Era o caso que a bancada sempre errava;
+  - `leitorDeLink.ts`: `http/https.request` com `lookupSeguro` — o IP conferido é o IP
+    conectado (DNS rebinding da §36 fechado). Conferido que o Node chama o lookup com `all: true`;
+  - `npm audit`: axios (msedge-tts) 1.18→1.20 e fast-uri (ajv) 3.1.2→3.1.8 no desktop, só essas
+    duas entradas no lockfile (o npm 10 daqui queria apagar os campos `libc` — restaurados). As
+    do celular são todas de ferramenta de build do Expo: não mexi (exige `expo install`).
+  - ⚠️ O roteador clássico (`decideBrain` → `routeAction`), que só roda quando o agente falha,
+    não passa pela confirmação. O RPC já exige o cabeçalho de destrutivo.
+- **193 — "resume isso"** (`isso.ts`): "resume / traduz (pro inglês|português) / explica /
+  corrige isso" no fastRoute → texto copiado (≥ 4 palavras) ou, sem ele, a tela com a janela da
+  frente como pista; sempre diz o que usou ("o texto que você copiou ('Lorem ipsum…')").
+  Traduzir/corrigir deixa o resultado na área de transferência. Ferramenta `janela_em_foco`.
+- **194 — despejo** (`despejo.ts`): "anota tudo isso: …" (antes da regra de nota) ou o botão
+  **Despejar** (Hoje no desktop; ícone de camadas na tela de Tarefas do celular). O modelo
+  separa tarefas / itens de lista / notas; **as datas vêm do `interpretarTexto`, não do
+  modelo**. Na voz, "Entendi 2 tarefas (…), 1 item em Compras e 1 nota. Confirma? Diga sim.";
+  na tela, prévia marcável e "Salvar". RPC `despejo.interpretar` (não grava) e
+  `despejo.aplicar` (revalida tudo: `validarItens`, `dataValida`). **Bug achado no caminho:**
+  `listas.ts` dava id só pelo relógio; "Compras" e "Notas" criadas no mesmo milissegundo
+  ficavam com o mesmo id e uma apagava a outra.
+- **195 — som e sessões**: o card Saúde ganhou o item **Som** (aviso + "Abrir o som do
+  Windows" → `ms-settings:sound` quando virtual/mudo/≤3%). `estado-app.json` guarda
+  `iniciadoEm` e `sessoes` (7 dias, 30 no máximo; `juntarSessao` pura); `pc.estado.sessoes`
+  aparece nos detalhes do estado do PC no celular ("hoje 08:10–12:00 · fechado").
+- **196 — celular**: `saveSession` regravava o AsyncStorage inteiro a CADA pedaço do streaming
+  (e as escritas se atropelavam) → `lib/adiador.ts` (800 ms; conversa diferente descarrega a
+  anterior; app indo para o fundo grava na hora). Segurar o microfone: um toque rápido soltava
+  ANTES de a gravação começar e o gravador ficava ligado sozinho — agora `soltouRef` + mínimo de
+  400 ms, com toast "Segure o microfone enquanto fala.". Textos de erro em português.
+
+### Testes
+- Desktop **280** (era 227), celular **84** (era 74); `npm run check` verde nos dois em todo
+  commit, com o código de saída conferido. Bancada: casos novos em
+  `scripts/bench-agente-casos.json` ("fecha tudo menos" agora espera `fechar_tudo_menos`,
+  `lembrar_conversa`, `janela_em_foco`, apagar rotina) — **a bancada não rodou** (precisa do
+  Ollama, só na máquina do Zak).
+- ⚠️ Armadilha desta sessão: a ferramenta de escrever arquivo daqui **transforma `̀` em
+  caractere literal** dentro de regex. Funciona igual no JS, mas foi trocado de volta pelo escape
+  em todo arquivo novo. Quem escrever regex de acento por ferramenta: confira os bytes.
+
+### Notas da release prontas
+Para `npm run release -- --notas-arquivo notas.md` (o script exige as duas seções). Copiar o
+bloco abaixo para um arquivo, sem as cercas:
+
+```markdown
+## Novidades
+- A Ely sabe que dia e hora é na conversa, percebe quando você está irritado, com pressa,
+  cansado ou animado e ajusta o jeito (e a voz).
+- A voz começa a falar na primeira frase pronta, sem esperar a resposta inteira (PC e celular).
+- Ela lembra do que vocês conversaram nos últimos dias, e pergunta como foi a prova (ou a
+  consulta) que passou. "Modo anônimo" para uma conversa não ser lembrada.
+- "Resume isso", "traduz isso", "explica isso", "corrige isso" — sobre o que você copiou ou
+  sobre a tela.
+- Despejar: fale ou escreva várias coisas de uma vez e ela separa em tarefas, listas e notas.
+- "Fecha tudo menos o VS Code" (com confirmação), e confirmação antes de apagar rotina ou
+  esquecer um fato.
+- Card Saúde avisa quando o som do PC está num alto-falante virtual ou no mudo; o celular
+  mostra as últimas sessões do PC.
+- Mais segurança: o que ela lê na web não manda nela.
+
+## Para testar
+- Ouvir a fala antecipada numa explicação longa por voz (se picotar: Ajustes → Voz).
+- Dizer algo irritado ("aff, não funciona") e algo animado e reparar no tom.
+- Conversar sobre uma prova, esperar 5 min, e no dia seguinte perguntar "o que eu tinha te
+  falado da prova?"; depois da data, ver o card "A Ely quer saber".
+- "Anota tudo isso: comprar pão e leite, estudar física sexta às 14h, ligar pra vó" → "sim".
+- Copiar um parágrafo e dizer "resume isso"; sem nada copiado, com um erro na tela, "explica isso".
+- "Fecha tudo menos o VS Code" → ouvir a lista → "não".
+- Celular: segurar o microfone e soltar rápido (deve avisar, sem mandar nada).
+```
+
+### Para a próxima sessão local (Windows)
+1. `git pull` dos dois repos na branch `claude/nifty-ramanujan-bktb1h` (ou merge na `main`).
+2. Rodar a bancada (`scripts/bench-agente.mjs`) com o Ollama — confirmar que a linha de
+   tratamento e o envelope de conteúdo externo não derrubaram a taxa (era 33/34).
+3. Ouvir: fala antecipada, prosódia, ThalitaMultilingual (se ela estiver salva na config).
+4. Bump + release do desktop (2.6.0) e OTA do celular (tudo é JS; não precisa de APK).
+5. Copiar este arquivo para a pasta-mãe `ELYSIUM/`.
