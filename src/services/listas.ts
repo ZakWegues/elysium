@@ -120,7 +120,9 @@ export function obterLista(nome: string, criar = false): Lista | undefined {
   const n = normalizarNomeLista(nome);
   const achada = store.get("listas", []).find(l => semAcento(l.nome) === semAcento(n));
   if (achada || !criar) return achada;
-  const nova: Lista = { id: `l-${Date.now().toString(36)}`, nome: n, itens: [], atualizadaEm: Date.now() };
+  // Sufixo aleatório (fase 19): o despejo cria "Compras" e "Notas" no mesmo milissegundo, e
+  // com o id só do relógio as duas nasciam iguais — gravar uma sobrescrevia a outra.
+  const nova: Lista = { id: `l-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`, nome: n, itens: [], atualizadaEm: Date.now() };
   gravar([...store.get("listas", []), nova]);
   return nova;
 }

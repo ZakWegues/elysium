@@ -220,6 +220,61 @@ function desenharAmanhaHoje(a) {
   sec.querySelector("#hoje-amanha").innerHTML = clima + tarefas;
 }
 
+/**
+ * Despejo (bloco 194): várias coisas de uma vez → a Ely separa → ele marca o que fica → salva.
+ * Nada é gravado antes do "Salvar". Ditado do Windows (Win+H) funciona no campo.
+ */
+function abrirDespejo() {
+  let itens = [];
+  const tipoRotulo = { tarefa: "Tarefa", lista: "Lista", nota: "Nota" };
+  const desenharPrevia = (corpo) => {
+    const box = corpo.querySelector("#despejo-previa");
+    box.innerHTML = itens.length
+      ? itens.map(it => `<label class="hoje-linha despejo-item"><input type="checkbox" data-despejo-id="${escHtml(it.id)}" checked>
+          <span><small class="hoje-cont">${tipoRotulo[it.tipo] ?? it.tipo}${it.tipo === "lista" ? ` · ${escHtml(it.lista)}` : ""}</small> ${escHtml(it.texto)}</span>
+          ${it.rotulo ? `<b>${escHtml(it.rotulo)}</b>` : ""}</label>`).join("")
+        + `<div class="home-acoes"><button class="principal" data-despejo-salvar="1">${ico("check", "ico-sm")}<span>Salvar marcados</span></button></div>`
+      : "";
+  };
+  abrirGaveta({
+    titulo: "Despejar", icone: "layers", classe: "gaveta-pc",
+    html: `<div class="hoje-despejo">
+      <p class="gp-nota">Escreva (ou dite com Win+H) tudo de uma vez — "comprar pão e leite, estudar física sexta às 14h, ligar pra vó". A Ely separa; você confere.</p>
+      <textarea id="despejo-texto" rows="6" maxlength="4000" placeholder="O que está na sua cabeça…"></textarea>
+      <div class="home-acoes"><button class="principal" data-despejo-organizar="1">${ico("sparkles", "ico-sm")}<span>Organizar</span></button></div>
+      <div id="despejo-previa"></div>
+    </div>`,
+    aoAbrir: (corpo) => {
+      corpo.querySelector("#despejo-texto")?.focus();
+      corpo.addEventListener("click", async (e) => {
+        const org = e.target.closest("[data-despejo-organizar]");
+        if (org) {
+          const texto = corpo.querySelector("#despejo-texto").value.trim();
+          if (texto.length < 10) { showToast("Escreva um pouco mais."); return; }
+          org.disabled = true;
+          const r = await window.nx.rpc("despejo.interpretar", { texto });
+          org.disabled = false;
+          if (r.error) { showToast(r.error, true); return; }
+          itens = r.result.itens ?? [];
+          if (!itens.length) showToast("Não consegui separar nada — tente uma coisa por frase.");
+          desenharPrevia(corpo);
+          return;
+        }
+        if (e.target.closest("[data-despejo-salvar]")) {
+          const marcados = new Set([...corpo.querySelectorAll("[data-despejo-id]:checked")].map(c => c.dataset.despejoId));
+          const escolhidos = itens.filter(it => marcados.has(it.id));
+          if (!escolhidos.length) { showToast("Nada marcado."); return; }
+          const r = await window.nx.rpc("despejo.aplicar", { itens: escolhidos });
+          if (r.error) { showToast(r.error, true); return; }
+          showToast(r.result.mensagem);
+          fecharGaveta();
+          carregarHoje();
+        }
+      });
+    },
+  });
+}
+
 async function abrirRevisaoSemana() {
   const r = await window.nx.rpc("hoje.revisao");
   if (r.error) { showToast(r.error, true); return; }
@@ -451,6 +506,7 @@ hojeEl()?.addEventListener("click", async (e) => {
     return;
   }
   if (alvo("#hoje-revisao")) { abrirRevisaoSemana(); return; }
+  if (alvo("#hoje-despejo")) { abrirDespejo(); return; }
   const oc = alvo("[data-hoje-ocultar]");
   if (oc) {
     const r = await window.nx.rpc("hoje.ocultar", { secao: oc.dataset.hojeOcultar, ocultar: true });

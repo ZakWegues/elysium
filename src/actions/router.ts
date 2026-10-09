@@ -36,6 +36,8 @@ import { calcular, formatarNumero } from "../services/calculadora";
 import { horaEm } from "../services/horaMundo";
 import { definirAnonimo } from "../services/episodios";
 import { fazerComIsso } from "../services/isso";
+import { aplicarDespejo, descreverDespejo, interpretarFala } from "../services/despejo";
+import { pedirConfirmacao } from "../services/confirmacao";
 
 /** "a, b e c" — para a voz não ler a lista como enumeração de vírgulas. */
 function emFrase(itens: string[]): string {
@@ -123,6 +125,12 @@ export async function routeAction(action: BrainAction): Promise<string> {
       return `Modo foco por ${f.minutos} minutos.`;
     }
     case "about_this":        return fazerComIsso(action.comando);
+    case "brain_dump": {
+      // Nada é gravado antes do "sim": a separação vira pergunta (confirmacao.ts).
+      const itens = await interpretarFala(action.texto);
+      if (!itens.length) return "Não consegui separar nada nisso. Pode falar de novo, uma coisa de cada vez?";
+      return pedirConfirmacao(`Entendi ${descreverDespejo(itens)}.`, async () => aplicarDespejo(itens).mensagem);
+    }
     case "anon_mode":
       definirAnonimo(action.ligar);
       return action.ligar

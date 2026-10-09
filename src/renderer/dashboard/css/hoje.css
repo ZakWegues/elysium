@@ -227,3 +227,9 @@ button.hoje-habito-nome:hover, button.hoje-meta-nome:hover { text-decoration: un
 .hoje-alerta.comofoi { border-color: rgba(var(--purple-rgb), 0.4); background: rgba(var(--purple-rgb), 0.08); }
 .hoje-alerta.comofoi .ico { color: var(--purple-bright); }
 .hoje-alerta.comofoi > span { flex: 1; }
+
+/* Fase 19 (bloco 194): o despejo — campo grande e a prévia marcável. */
+.hoje-despejo textarea { width: 100%; box-sizing: border-box; resize: vertical; min-height: 120px; padding: 10px 12px; border-radius: var(--radius-10); border: 1px solid var(--border); background: transparent; color: var(--text); font: inherit; }
+.hoje-despejo .despejo-item { cursor: pointer; align-items: flex-start; }
+.hoje-despejo .despejo-item input { margin-top: 3px; }
+.hoje-despejo .despejo-item > span { flex: 1; }

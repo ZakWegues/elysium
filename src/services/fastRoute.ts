@@ -146,6 +146,10 @@ export function fastRoute(text: string): BrainAction[] | null {
   const normalized = normalize(text);
   if (!normalized) return null;
 
+  // Antes da lista e da nota: "anota tudo isso: …" não é UMA nota.
+  // "Anota tudo isso: …" (bloco 194): o texto ORIGINAL vai inteiro para a separação.
+  const despejo = /^\s*(?:ely[,!]?\s+)?(?:despejo|anota tudo(?: isso)?|anota a[íi] tudo|organiza (?:isso|tudo isso|pra mim)|anota essas coisas)\s*[:,.-]?\s+(.{15,})$/is.exec(text);
+  if (despejo) return [{ action: "brain_dump", texto: despejo[1].trim() }];
   // Listas e timers (blocos 135/136): o item e o nome precisam do texto ORIGINAL (com
   // acento: "café", "pão de queijo"), então vêm antes das regras sobre o normalizado.
   const lista = pedidoDeLista(text);

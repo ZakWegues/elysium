@@ -68,6 +68,8 @@ export type BrainAction =
   | { action: "anon_mode";         ligar: boolean }
   // Bloco 193: "resume isso", "traduz isso" — o copiado, ou a tela.
   | { action: "about_this";        comando: ComandoIsso }
+  // Bloco 194: "anota tudo isso: …" — separa em tarefas, listas e notas, e pergunta antes.
+  | { action: "brain_dump";        texto: string }
   | { action: "world_time";        city: string }
   | { action: "create_reminder";   text: string; due_at: string; weekly?: boolean; sem_hora?: boolean }
   | { action: "list_reminders" }
@@ -221,6 +223,7 @@ function actionSummary(action: BrainAction): string {
     case "calculate":         return "Conta";
     case "anon_mode":         return action.ligar ? "Modo anônimo ligado" : "Modo anônimo desligado";
     case "about_this":        return `Isso: ${action.comando}`;
+    case "brain_dump":        return "Despejo para organizar";
     case "world_time":        return `Hora em ${action.city}`;
     case "run_preset":        return `Preset ativado: ${action.preset_name}`;
     case "list_presets":      return "Listou presets";

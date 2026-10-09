@@ -83,6 +83,7 @@ import * as spotify from "./spotify";
 import { apagarEpisodio, apagarTodosEpisodios, definirAnonimo, listarEpisodios, modoAnonimo } from "./episodios";
 import { marcarAcompanhado, pendentesDeAcompanhamento } from "./acompanhamento";
 import { registrarFalaDaEly } from "./brain";
+import { aplicarDespejo, interpretarFala, validarItens } from "./despejo";
 import {
   listSessions as listChatSessions, getSession as getChatSession,
   mergeSession as mergeChatSession, toggleFavorite as toggleChatFavorite,
@@ -1191,6 +1192,21 @@ const METHODS: Record<string, MethodDef> = {
       marcarAcompanhado(id);
       registrarFalaDaEly(a.pergunta);
       return { pergunta: a.pergunta };
+    },
+  },
+  // Bloco 194: despejo — a prévia (não grava) e a gravação do que ele marcou.
+  "despejo.interpretar": {
+    handler: async (params) => {
+      const texto = requireString(params, "texto");
+      if (texto.length > 4000) throw new RpcError(400, "texto longo demais (máx 4000)");
+      return { itens: await interpretarFala(texto) };
+    },
+  },
+  "despejo.aplicar": {
+    handler: async (params) => {
+      const itens = validarItens(params.itens);
+      if (!itens.length) throw new RpcError(400, "nenhum item válido para anotar");
+      return aplicarDespejo(itens);
     },
   },
   "acompanhamento.dispensar": {
