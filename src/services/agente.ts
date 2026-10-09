@@ -142,7 +142,7 @@ function textoConfiavel(content: string, leituras: { resultado: string }[]): boo
 }
 
 /** Ferramentas que só OLHAM. Chamá-las não conta como "ter feito" alguma coisa. */
-const LEITURA = new Set(["programas_abertos", "estado_do_pc", "processos_pesados", "clima", "lembretes", "memoria", "rotinas", "presets", "tocando_agora", "area_de_transferencia", "espaco_em_disco", "versao_do_elysium", "resumo_do_dia", "agenda", "ver_lista", "ver_timers", "calcular", "resumir_link", "hora_em", "ver_habitos", "painel_do_dia", "ver_tarefas", "treino_de_hoje", "ver_meta_calorias", "revisao_da_semana", "lembrar_conversa"]);
+const LEITURA = new Set(["programas_abertos", "estado_do_pc", "processos_pesados", "clima", "lembretes", "memoria", "rotinas", "presets", "tocando_agora", "area_de_transferencia", "espaco_em_disco", "versao_do_elysium", "resumo_do_dia", "agenda", "ver_lista", "ver_timers", "calcular", "resumir_link", "hora_em", "ver_habitos", "painel_do_dia", "ver_tarefas", "treino_de_hoje", "ver_meta_calorias", "revisao_da_semana", "lembrar_conversa", "janela_em_foco"]);
 
 export async function agir(
   texto: string,

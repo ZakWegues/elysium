@@ -6,6 +6,7 @@ import { calcular } from "./calculadora";
 import { pedidoDeHora } from "./horaMundo";
 import { listarTreinos, pedidoDeCorrida, pedidoDePeso, pedidoDeTreino } from "./corpo";
 import { pedidoFecharSeAberto, pedidoLembreteDaquiA, pedidoPausarSeTocando } from "./condicionais";
+import { pedidoComIsso } from "./isso";
 
 /**
  * Roteamento local, sem IA.
@@ -161,6 +162,9 @@ export function fastRoute(text: string): BrainAction[] | null {
   const fecharSe = pedidoFecharSeAberto(text);
   if (fecharSe) return [{ action: "close_if_open", app_name: fecharSe }];
   if (pedidoPausarSeTocando(text)) return [{ action: "pause_if_playing" }];
+  // "Resume isso", "traduz isso pro inglês" (bloco 193): o copiado ou a tela.
+  const isso = pedidoComIsso(text);
+  if (isso) return [{ action: "about_this", comando: isso }];
   const daquiA = pedidoLembreteDaquiA(text);
   if (daquiA) {
     const d = new Date(Date.now() + daquiA.minutos * 60_000);

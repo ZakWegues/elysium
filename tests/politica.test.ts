@@ -62,17 +62,22 @@ describe("confirmação falada (bloco 192)", () => {
 });
 
 describe("'fecha tudo menos X' (bloco 192)", () => {
+  const j = (processo: string, titulo: string, hwnd: string) => ({ processo, titulo, hwnd });
   const abertos = [
-    { name: "Code", title: "projeto - Visual Studio Code" },
-    { name: "chrome", title: "YouTube" },
-    { name: "chrome", title: "Gmail" },
-    { name: "Discord", title: "Discord" },
-    { name: "explorer", title: "Downloads" },
-    { name: "ELYSIUM", title: "ELYSIUM" },
-    { name: "Spotify", title: "Spotify Premium" },
+    j("Code", "projeto - Visual Studio Code", "1"),
+    j("chrome", "YouTube", "2"),
+    j("chrome", "Gmail", "3"),
+    j("Discord", "Discord", "4"),
+    j("explorer", "Downloads", "5"),
+    j("ELYSIUM", "ELYSIUM", "6"),
+    j("Spotify", "Spotify Premium", "7"),
   ];
-  it("fecha o resto, um por processo, sem tocar no Windows nem no ELYSIUM", () => {
-    expect(programasParaFechar(abertos, ["VS Code"]).map(p => p.processo)).toEqual(["chrome", "Discord", "Spotify"]);
+  it("fecha o resto, agrupado por programa, sem tocar no Windows nem no ELYSIUM", () => {
+    expect(programasParaFechar(abertos, ["VS Code"])).toEqual([
+      { processo: "chrome", rotulo: "chrome", hwnds: ["2", "3"] },
+      { processo: "Discord", rotulo: "Discord", hwnds: ["4"] },
+      { processo: "Spotify", rotulo: "Spotify", hwnds: ["7"] },
+    ]);
     expect(programasParaFechar(abertos, ["vs code", "spotify"]).map(p => p.processo)).toEqual(["chrome", "Discord"]);
   });
 });

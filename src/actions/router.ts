@@ -35,6 +35,7 @@ import { cancelarTimer, criarTimer, duracaoFalada, timersFalados } from "../serv
 import { calcular, formatarNumero } from "../services/calculadora";
 import { horaEm } from "../services/horaMundo";
 import { definirAnonimo } from "../services/episodios";
+import { fazerComIsso } from "../services/isso";
 
 /** "a, b e c" — para a voz não ler a lista como enumeração de vírgulas. */
 function emFrase(itens: string[]): string {
@@ -121,6 +122,7 @@ export async function routeAction(action: BrainAction): Promise<string> {
       const f = await comecarFoco({ minutos: action.minutes ?? 25 });
       return `Modo foco por ${f.minutos} minutos.`;
     }
+    case "about_this":        return fazerComIsso(action.comando);
     case "anon_mode":
       definirAnonimo(action.ligar);
       return action.ligar

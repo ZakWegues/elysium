@@ -28,7 +28,8 @@ import { comecarFoco, focoFalado, pararFoco } from "./foco";
 import { resumoDoDia } from "./resumoDoDia";
 import { agendaFalada } from "./agenda";
 import { escolherEpisodios, linhaDoEpisodio, listarEpisodios } from "./episodios";
-import { windowManagement } from "../actions/windowManagement";
+import { controlarJanela, listarJanelas } from "../actions/janelas";
+import { janelaDaFrente } from "./isso";
 import { deriveProcessNames } from "../actions/closeApp";
 import { buscarNasConversas } from "./buscaConversas";
 import { listSessions } from "./chatSessionsStore";
@@ -81,6 +82,16 @@ async function acao(a: BrainAction): Promise<string> {
 
 export const FERRAMENTAS: Ferramenta[] = [
   // ── leitura ──
+  {
+    // Bloco 193: "o que é isso aqui?", "em que programa eu estou?".
+    name: "janela_em_foco",
+    description: "A janela que o usuário está olhando agora (a da frente): título e programa. Use para 'isso aqui', 'essa janela', 'o que estou fazendo'.",
+    parameters: obj({}),
+    executar: async () => {
+      const j = janelaDaFrente(await listarJanelas());
+      return j ? `Na frente agora: "${j.titulo}" (${j.processo}).` : "Não achei nenhuma janela na frente.";
+    },
+  },
   {
     name: "programas_abertos",
     description: "Lista os programas com janela aberta agora no PC. Use antes de fechar, focar ou decidir algo que dependa do que está aberto.",
@@ -277,18 +288,19 @@ export const FERRAMENTAS: Ferramenta[] = [
     description: "Fecha TODOS os programas abertos, menos os que o usuário quer manter ('fecha tudo menos o VS Code', 'fecha tudo exceto o Spotify'). Pergunta antes, dizendo o que vai fechar.",
     parameters: obj({ manter: { type: "array", items: s("Programa que fica aberto"), description: "Os programas que NÃO devem ser fechados" } }, ["manter"]),
     // Só chega aqui sem confirmação quando não há nada para fechar (o `confirmar` devolveu null).
-    executar: async (a) => (programasParaFechar(await getRunningApps(), arr(a, "manter")).length
+    executar: async (a) => (programasParaFechar(await listarJanelas(), arr(a, "manter")).length
       ? "Isso precisa de confirmação: peça de novo."
       : "Não tem nada aberto além do que você quer manter."),
     confirmar: async (a) => {
-      const fechar = programasParaFechar(await getRunningApps(), arr(a, "manter"));
+      const fechar = programasParaFechar(await listarJanelas(), arr(a, "manter"));
       if (!fechar.length) return null;
       return {
         descricao: `Vou fechar ${fechar.length === 1 ? fechar[0].rotulo : `${fechar.slice(0, -1).map(f => f.rotulo).join(", ")} e ${fechar[fechar.length - 1].rotulo}`}.`,
         executar: async () => {
-          const r = await Promise.all(fechar.map(f => windowManagement(f.processo, "close")));
-          const falhas = r.filter(x => !/^Ok/.test(x)).length;
-          return falhas ? `Fechei ${fechar.length - falhas} de ${fechar.length}; o resto pode estar pedindo para salvar.` : "Pronto, fechei tudo menos o que você pediu.";
+          // WM_CLOSE em cada janela (o X): quem tiver algo sem salvar pergunta, nada é morto.
+          const r = await Promise.all(fechar.flatMap(f => f.hwnds.map(h => controlarJanela(h, "fechar").then(() => true, () => false))));
+          const falhas = r.filter(ok => !ok).length;
+          return falhas ? `Pedi para fechar; ${falhas} janela(s) não responderam — podem estar pedindo para salvar.` : "Pronto, pedi para fechar tudo menos o que você quer. Quem tiver algo sem salvar vai perguntar.";
         },
       };
     },
@@ -782,20 +794,20 @@ export const FERRAMENTAS: Ferramenta[] = [
  * Um item por processo. Pura, para teste.
  */
 const NUNCA_FECHAR = new Set(["explorer", "electron", "elysium", "applicationframehost", "systemsettings", "textinputhost", "shellexperiencehost", "startmenuexperiencehost", "searchhost", "searchapp", "lockapp", "widgets", "gamebar", "nvidia overlay", "rtkuwp"]);
-export function programasParaFechar(abertos: { name: string; title?: string }[], manter: string[]): { processo: string; rotulo: string }[] {
+export function programasParaFechar(abertos: { processo: string; titulo?: string; hwnd: string }[], manter: string[]): { processo: string; rotulo: string; hwnds: string[] }[] {
   const semAc = (x: string) => x.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, "");
   const alvosManter = manter.flatMap(m => [semAc(m), ...deriveProcessNames(m).map(semAc)]).filter(Boolean);
-  const vistos = new Set<string>();
-  const saida: { processo: string; rotulo: string }[] = [];
+  const porProcesso = new Map<string, { processo: string; rotulo: string; hwnds: string[] }>();
   for (const a of abertos) {
-    const proc = semAc(a.name);
-    if (!proc || NUNCA_FECHAR.has(a.name.toLowerCase()) || vistos.has(proc)) continue;
-    const titulo = semAc(a.title ?? "");
+    const proc = semAc(a.processo);
+    if (!proc || NUNCA_FECHAR.has(a.processo.toLowerCase())) continue;
+    const titulo = semAc(a.titulo ?? "");
     if (alvosManter.some(m => proc === m || proc.includes(m) || m.includes(proc) || (m.length >= 4 && titulo.includes(m)))) continue;
-    vistos.add(proc);
-    saida.push({ processo: a.name, rotulo: a.name });
+    const item = porProcesso.get(proc);
+    if (item) item.hwnds.push(a.hwnd);
+    else porProcesso.set(proc, { processo: a.processo, rotulo: a.processo, hwnds: [a.hwnd] });
   }
-  return saida;
+  return [...porProcesso.values()];
 }
 
 function acharRotina(nome: string) {

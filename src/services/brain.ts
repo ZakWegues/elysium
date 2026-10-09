@@ -12,6 +12,7 @@ import { blocoDasConversasAnteriores, modoAnonimo, registrarEpisodio } from "./e
 import type { MediaOperation } from "../actions/mediaControl";
 import type { WinOperation }   from "../actions/windowManagement";
 import type { PowerOperation } from "../actions/powerControl";
+import type { ComandoIsso } from "./isso";
 import { buildMemoryBlock } from "./memoryStore";
 import { aprenderDaConversa } from "./aprendizado";
 import { buildRouterPromptBase } from "./routerPrompt";
@@ -65,6 +66,8 @@ export type BrainAction =
   | { action: "calculate";         expression: string }
   // Bloco 190: "modo anônimo" — nada da conversa vira fato nem episódio até desligar.
   | { action: "anon_mode";         ligar: boolean }
+  // Bloco 193: "resume isso", "traduz isso" — o copiado, ou a tela.
+  | { action: "about_this";        comando: ComandoIsso }
   | { action: "world_time";        city: string }
   | { action: "create_reminder";   text: string; due_at: string; weekly?: boolean; sem_hora?: boolean }
   | { action: "list_reminders" }
@@ -217,6 +220,7 @@ function actionSummary(action: BrainAction): string {
     case "timer_cancel":      return "Cancelou timer";
     case "calculate":         return "Conta";
     case "anon_mode":         return action.ligar ? "Modo anônimo ligado" : "Modo anônimo desligado";
+    case "about_this":        return `Isso: ${action.comando}`;
     case "world_time":        return `Hora em ${action.city}`;
     case "run_preset":        return `Preset ativado: ${action.preset_name}`;
     case "list_presets":      return "Listou presets";
