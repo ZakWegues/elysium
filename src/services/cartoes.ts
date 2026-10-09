@@ -164,9 +164,19 @@ export function filtroDeMarcas(repassar: (pedaco: string) => void): (pedaco: str
   };
 }
 
-/** Guarda os cartões do quiz que vieram na resposta e devolve o texto limpo. */
-export function guardarRevisoesDoTexto(texto: string): string {
+/** Só tira as marcas, sem guardar nada. */
+export function semMarcas(texto: string): string {
+  return extrairRevisoes(texto).limpo;
+}
+
+/**
+ * Guarda os cartões do quiz que vieram na resposta e devolve o texto limpo. Só no modo estudo
+ * (`noQuiz`): fora dele a marca só pode ter vindo de uma página ou texto lido que o modelo
+ * repetiu — sai da tela do mesmo jeito, mas não vira cartão lido em voz alta por 30 dias.
+ */
+export function guardarRevisoesDoTexto(texto: string, noQuiz: boolean): string {
   const { limpo, cartoes } = extrairRevisoes(texto);
+  if (!noQuiz) return limpo;
   for (const c of cartoes) { try { criarCartao(c.frente, c.verso, "quiz"); } catch (e) { console.warn("[cartoes] não guardei:", e); } }
   return limpo;
 }

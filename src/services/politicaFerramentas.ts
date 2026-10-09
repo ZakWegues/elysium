@@ -61,20 +61,41 @@ const INTENCAO: Record<string, RegExp> = {
   avancar_meta: /\b(meta|soma|avanc|adicion|mais)/,
   modo_foco: /\b(foco|concentr)/,
   janela: /\b(janela|minimiz|maximiz|foc|fech|traz|tras|mostra)/,
+  // Fase 20 (revisão): o que a Ely leu não guarda cartão nem liga pomodoro/plano sozinho.
+  guardar_cartao: /\b(cart|revis|guard|lembr)/,
+  pomodoro: /\b(pomodoro|foc|concentr|estud)/,
+  plano_de_estudo: /\b(plano|estud|prova|cronograma)/,
 };
 
-/** Os endereços que aparecem nos argumentos de uma chamada. Pura. */
-export function urlsDosArgs(args: Record<string, unknown> | undefined): string[] {
-  const urls: string[] = [];
-  for (const v of Object.values(args ?? {})) {
-    if (typeof v !== "string") continue;
-    for (const m of v.matchAll(/\b(?:https?:\/\/|www\.)[^\s"'<>]+|\b[a-z0-9-]+(?:\.[a-z0-9-]+)+\/[^\s"'<>]*/gi)) urls.push(m[0]);
+/**
+ * Para onde cada pedaço de texto aponta: o host ("evil.com"), ou o endereço inteiro quando não
+ * há host ("ms-settings:…"). Pela MESMA leitura que quem acessa faz (`new URL`), não por
+ * regex: a revisão da fase 20 achou `http:evil.com?d=…` e `https:\\evil.com` passando pela
+ * regex antiga, que só via `http://`, `www.` e `host.tld/`. Pura.
+ */
+export function destinosDoTexto(texto: string): string[] {
+  const destinos: string[] = [];
+  for (const bruto of texto.split(/[\s"'<>]+/)) {
+    const t = bruto.replace(/^[(\[]+|[)\],.;!?]+$/g, "");
+    if (!t) continue;
+    let u: URL | null = null;
+    try {
+      if (/^[a-z][a-z0-9+.-]*:/i.test(t) && !/^\d+:\d/.test(t)) u = new URL(t);
+      else if (/^(?:www\.)?[a-z0-9-]+(?:\.[a-z0-9-]+)+(?:[/?#:]|$)/i.test(t)) u = new URL(`http://${t}`);
+    } catch { u = null; }
+    if (u) destinos.push(u.hostname ? u.hostname.toLowerCase().replace(/^www\./, "") : u.href.toLowerCase());
   }
-  return urls;
+  return destinos;
 }
 
-function semBarra(u: string): string {
-  return u.toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/[/?#.,;)]+$/, "");
+/** Os destinos de todos os argumentos de texto (e listas de texto) de uma chamada. Pura. */
+export function destinosDosArgs(args: Record<string, unknown> | undefined): string[] {
+  const textos: string[] = [];
+  for (const v of Object.values(args ?? {})) {
+    if (typeof v === "string") textos.push(v);
+    else if (Array.isArray(v)) for (const x of v) if (typeof x === "string") textos.push(x);
+  }
+  return textos.flatMap(destinosDoTexto);
 }
 
 function sem(t: string): string {
@@ -91,8 +112,8 @@ export function decidirChamada(nome: string, contaminado: boolean, pedido: strin
   // Bloco 201: depois de ler conteúdo de fora, o PC só acessa endereço que ESTÁ no pedido.
   // "resume esse link" + uma página que manda abrir "https://evil/?d=<memória>" = barrado.
   if (contaminado && SAEM_PARA_URL.has(nome)) {
-    const doPedido = semBarra(pedido);
-    const estranha = urlsDosArgs(args).find(u => !doPedido.includes(semBarra(u)));
+    const doPedido = new Set(destinosDoTexto(pedido));
+    const estranha = destinosDosArgs(args).find(d => !doPedido.has(d));
     if (estranha) return { tipo: "bloquear", mensagem: "Não abri esse endereço: ele veio do conteúdo que eu li, não do seu pedido. Se quiser, mande o link você mesmo." };
   }
   const intencao = INTENCAO[nome];

@@ -8,7 +8,7 @@ import { getConfig } from "../main/config";
 import type { Canal } from "./estiloResposta";
 import { comContexto, Fonte, fontesDoPedido, usouReserva } from "./contextoComando";
 import { responderConfirmacao } from "./confirmacao";
-import { guardarRevisoesDoTexto, responderRevisao } from "./cartoes";
+import { responderRevisao, semMarcas } from "./cartoes";
 
 export type ResultadoComando = {
   actions: BrainAction[];
@@ -95,8 +95,9 @@ async function executarNoContexto(
     });
     if (r?.modo === "ferramentas") {
       actions = r.acoes.length ? r.acoes : [{ action: "chat" }];
-      // A marca do quiz também pode vir do agente: sai antes da tela (fase 20).
-      replyPronta = r.reply ? guardarRevisoesDoTexto(r.reply) : r.reply;
+      // A marca do quiz no agente só sai da tela: o agente lê páginas e telas, e o quiz de
+      // verdade passa pela conversa (fase 20, revisão).
+      replyPronta = r.reply ? semMarcas(r.reply) : r.reply;
       // A resposta chega inteira; o dashboard e o celular esperam pedaços — um pedaço só.
       if (replyPronta) ganchos.onToken?.(replyPronta);
     } else if (r?.modo === "chat") {

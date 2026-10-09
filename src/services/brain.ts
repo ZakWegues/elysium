@@ -499,7 +499,7 @@ export async function composeChatReply(
 ): Promise<string | null> {
   // Fase 20: a marca [[REVISAR: …]] do quiz vira cartão e nunca chega à tela nem à voz.
   const r = await comporResposta(userText, onToken ? filtroDeMarcas(onToken) : undefined, canal);
-  return r ? guardarRevisoesDoTexto(r) || null : r;
+  return r ? guardarRevisoesDoTexto(r, modoAtivo()?.id === "estudo") || null : r;
 }
 
 async function comporResposta(userText: string, onToken: ((token: string) => void) | undefined, canal: Canal): Promise<string | null> {
