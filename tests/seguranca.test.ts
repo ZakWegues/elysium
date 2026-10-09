@@ -53,3 +53,27 @@ describe("segurança (08/10)", () => {
     await expect(handleRpc("tarefas.delete", { id: "x" }, { confirmed: false })).rejects.toMatchObject({ status: 403 });
   });
 });
+
+describe("fase 20, bloco 200", async () => {
+  const { origemDoApp } = await import("../src/main/rpcBridge");
+  const { proximaRecusa } = await import("../src/services/server");
+  const { mascarar } = await import("../src/main/logArquivo");
+  it("só as telas do app chamam o RPC pelo IPC", () => {
+    expect(origemDoApp("file:///C:/Users/Zak/AppData/Local/Programs/ELYSIUM/resources/app.asar/dist/renderer/dashboard.html")).toBe(true);
+    expect(origemDoApp("file:///C:/x/dist/renderer/config.html#a")).toBe(true);
+    expect(origemDoApp("https://evil.com/renderer/dashboard.html")).toBe(false);
+    expect(origemDoApp("file:///C:/Users/Zak/Downloads/x.html")).toBe(false);
+    expect(origemDoApp(undefined)).toBe(false);
+  });
+  it("20 recusas em 10 min bloqueiam por 10 min", () => {
+    let r: ReturnType<typeof proximaRecusa> | undefined;
+    for (let i = 0; i < 19; i++) r = proximaRecusa(r, 1000 + i);
+    expect(r!.bloqueadoAte).toBe(0);
+    r = proximaRecusa(r, 2000);
+    expect(r.bloqueadoAte).toBeGreaterThan(2000);
+    expect(proximaRecusa(r, 2000 + 11 * 60_000).n).toBe(1);
+  });
+  it("segredo do Google não vai para o log", () => {
+    expect(mascarar("client GOCSPX-abcdefghijklmnop123")).toBe("client GOCSPX-[oculto]");
+  });
+});

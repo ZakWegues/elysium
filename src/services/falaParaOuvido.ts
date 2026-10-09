@@ -19,8 +19,95 @@ function hora(h: number, m: number): string {
   return m ? `${h} e ${String(m).padStart(2, "0").replace(/^0/, "")}` : horas;
 }
 
-export function paraOuvido(texto: string): string {
+// ── matemática (fase 20, bloco 206) ────────────────────────────────────────────────
+
+const SOBRESCRITO: Record<string, string> = { "⁰": "0", "¹": "1", "²": "2", "³": "3", "⁴": "4", "⁵": "5", "⁶": "6", "⁷": "7", "⁸": "8", "⁹": "9" };
+const ORDINAL_DA_FRACAO: Record<number, [string, string]> = {
+  2: ["meio", "meios"], 3: ["terço", "terços"], 4: ["quarto", "quartos"], 5: ["quinto", "quintos"],
+  6: ["sexto", "sextos"], 7: ["sétimo", "sétimos"], 8: ["oitavo", "oitavos"], 9: ["nono", "nonos"], 10: ["décimo", "décimos"],
+};
+
+const FUNCAO: Record<string, string> = { sen: "seno", sin: "seno", cos: "cosseno", tg: "tangente", tan: "tangente", ln: "logaritmo natural", log: "log" };
+
+function potencia(n: string): string {
+  if (n === "2") return " ao quadrado";
+  if (n === "3") return " ao cubo";
+  return ` elevado a ${n}`;
+}
+
+function fracao(a: string, b: string): string {
+  const den = Number(b);
+  const nome = ORDINAL_DA_FRACAO[den];
+  return nome ? `${a} ${Number(a) === 1 ? nome[0] : nome[1]}` : `${a} sobre ${b}`;
+}
+
+/**
+ * Símbolos que a voz nunca lê direito, em qualquer conversa: "x²" saía "x dois", "√9"
+ * sumia, "≠" ficava mudo. Seguros sempre — nenhum deles aparece em texto comum. Pura.
+ */
+export function simbolosParaOuvido(texto: string): string {
   return texto
+    .replace(/([⁰¹²³⁴⁵⁶⁷⁸⁹]+)/g, (_m, s: string) => potencia([...s].map(c => SOBRESCRITO[c]).join("")))
+    .replace(/√\s*\(([^)]{1,40})\)/g, " raiz quadrada de $1")
+    .replace(/√\s*(\w+)/g, " raiz quadrada de $1")
+    .replace(/∛\s*(\w+)/g, " raiz cúbica de $1")
+    .replace(/π/g, " pi ")
+    .replace(/≠/g, " diferente de ")
+    .replace(/≥/g, " maior ou igual a ")
+    .replace(/≤/g, " menor ou igual a ")
+    .replace(/≈/g, " aproximadamente ")
+    .replace(/±/g, " mais ou menos ")
+    .replace(/∞/g, " infinito ")
+    .replace(/Δ/g, " delta ")
+    .replace(/÷/g, " dividido por ");
+}
+
+/**
+ * Conta escrita → conta falada, só no modo matemática/ciências/estudo: lá "3/4" é fração
+ * e "2*3" é vezes; fora dele, "3/4" é data e "3×10" é série de treino. Vem ANTES da
+ * limpeza do markdown (que comia o "*" da multiplicação) e das regras de data. Pura.
+ */
+export function matematicaParaOuvido(texto: string): string {
+  return simbolosParaOuvido(texto
+    // LaTeX que o modelo às vezes manda: \frac{a}{b}, \sqrt{x}, x^{2}, \cdot, $…$.
+    .replace(/\\[()[\]]/g, " ")
+    .replace(/(?<!R)\$/g, " ")
+    .replace(/\\d?frac\{([^{}]{1,30})\}\{([^{}]{1,30})\}/g, (_m, a: string, b: string) => /^\d+$/.test(a) && /^\d+$/.test(b) ? fracao(a, b) : `${a} sobre ${b}`)
+    .replace(/\\sqrt\{([^{}]{1,40})\}/g, " raiz quadrada de $1")
+    .replace(/\\(cdot|times)/g, " vezes ")
+    .replace(/\\div/g, " dividido por ")
+    .replace(/\\(pi)\b/g, " pi ")
+    .replace(/\\(leq?|le)\b/g, " menor ou igual a ")
+    .replace(/\\(geq?|ge)\b/g, " maior ou igual a ")
+    .replace(/\\(neq?|ne)\b/g, " diferente de ")
+    .replace(/\\(left|right)\b/g, "")
+    .replace(/\^\{([^{}]{1,10})\}/g, (_m, n: string) => potencia(n.trim()))
+    .replace(/\^\s*\(?(-?\w+)\)?/g, (_m, n: string) => potencia(n))
+    // Funções: "sen(x)", "cos x", "log 100".
+    // Só com parêntese ou com um argumento curto: "sentido" e "costa" não são função.
+    .replace(/\b(sen|sin|cos|tg|tan|ln|log)\s*\(([^()]{1,30})\)/g, (_m, f: string, x: string) => `${FUNCAO[f]} de ${x}`)
+    .replace(/\b(sen|sin|cos|tg|tan)\s+(x|y|θ|α|β|\d+°?)(?!\w)/g, (_m, f: string, x: string) => `${FUNCAO[f]} de ${x}`)
+    // Fração simples "3/4" — mas não data: "3/4 às 14h", "dia 3/4", "3/4/2026".
+    .replace(/(^|[^\w/])(\d{1,2})\/(\d{1,2})(?![\w/])(?!\s*(?:às|as|de 20\d\d)\b)/g, (m, antes: string, a: string, b: string, i: number, todo: string) =>
+      /\bdia\s*$/i.test(todo.slice(0, i + antes.length)) || Number(b) === 0 ? m : `${antes}${fracao(a, b)}`)
+    // Operadores.
+    // Itálico de markdown ("o *x* é") antes do "vezes": sem isto virava "o vezes x* é".
+    .replace(/(^|[^\w*])\*([^*\s][^*\n]*?)\*(?!\*)/g, "$1$2")
+    .replace(/(\d|\))\s*[*×·]\s*(?=[\w(])|([a-z])\s*[×·]\s*(?=[\w(])/gi, (_m, a?: string, b?: string) => `${a ?? b} vezes `)
+    .replace(/\s+\/\s+/g, " dividido por ")
+    .replace(/\s*=\s*/g, " igual a ")
+    .replace(/\s+\+\s+|(?<=\d)\+(?=\d)/g, " mais ")
+    // Menos só ENTRE operandos: "- isole x" de uma lista e o travessão da prosa ficam.
+    // Operando = número, ")", potência ou variável de UMA letra ("2x - 4", "x - 3"); "x - divida"
+    // tem palavra do outro lado e fica como está.
+    .replace(/(?<=(?:\d|\)|[²³]|(?<![a-zà-ú])[a-z]|ao quadrado|ao cubo))\s+[−-]\s+(?=(?:\d|\(|√|[a-z](?![a-zà-ú])))|(?<=\d)[−](?=\d)/gi, " menos ")
+    .replace(/(^|[\s(=])[−-](?=\d)/g, "$1menos ")
+    .replace(/[()]/g, " ")
+    .replace(/\s{2,}/g, " "));
+}
+
+export function paraOuvido(texto: string): string {
+  return simbolosParaOuvido(texto)
     // Dinheiro: "R$ 1.234,50" → "1234 reais e 50 centavos".
     // Milhar com ponto primeiro; senão o número inteiro (sem isso "R$ 12345" virava "123 reais45").
     .replace(/R\$\s?(\d{1,3}(?:\.\d{3})+|\d+)(?:,(\d{2}))?/g, (_m, inteiro: string, cent?: string) => {

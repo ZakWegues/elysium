@@ -233,3 +233,20 @@ button.hoje-habito-nome:hover, button.hoje-meta-nome:hover { text-decoration: un
 .hoje-despejo .despejo-item { cursor: pointer; align-items: flex-start; }
 .hoje-despejo .despejo-item input { margin-top: 3px; }
 .hoje-despejo .despejo-item > span { flex: 1; }
+
+/* ── Estudo (fase 20): pomodoro, cartões e plano ─────────────────────────── */
+#hoje-estudo { display: flex; flex-direction: column; gap: 12px; }
+.est-pomo { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding: 10px 14px; border-radius: var(--radius-12); border: 1px solid var(--border); background: rgba(var(--cyan-rgb), 0.07); }
+.est-pomo.est-pausa, .est-pomo.est-longa { background: rgba(var(--purple-rgb), 0.08); }
+.est-pomo-fase { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.est-pomo-tempo { font-family: var(--mono); font-size: 26px; font-weight: 700; color: var(--text); min-width: 88px; }
+.est-pomo .home-acoes { margin-left: auto; }
+.est-linha { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+.est-linha > span:first-child { display: inline-flex; align-items: center; gap: 8px; }
+.est-linha b { color: var(--text); }
+.est-progresso { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px; }
+.est-cartao { padding: 22px 18px; border-radius: var(--radius-12); border: 1px solid var(--border2); background: rgba(var(--purple-rgb), 0.06); text-align: center; min-height: 120px; display: flex; flex-direction: column; justify-content: center; gap: 14px; }
+.est-frente { font-size: 17px; font-weight: 600; color: var(--text); margin: 0; }
+.est-verso { font-size: 15px; color: var(--cyan); margin: 0; padding-top: 12px; border-top: 1px dashed var(--border2); }
+.est-botoes { justify-content: center; margin-top: 12px; }
+.est-fim b { font-size: 28px; color: var(--text); }

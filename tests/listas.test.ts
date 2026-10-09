@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("electron-store", () => ({ default: class { get(_k: string, d: unknown) { return d; } set() { /* */ } } }));
+// Com os `defaults`: quem importa o presetsStore (o fastRoute, pelos modos) lê na carga.
+vi.mock("electron-store", () => ({ default: class { d: Record<string, unknown>; constructor(o?: { defaults?: Record<string, unknown> }) { this.d = o?.defaults ?? {}; } get(k: string, d: unknown) { return this.d[k] ?? d; } set() { /* */ } } }));
 
 describe("listas (bloco 135)", async () => {
   const { normalizarNomeLista, separarItens, juntarItens, acharItem, pedidoDeLista, listaFalada } = await import("../src/services/listas");

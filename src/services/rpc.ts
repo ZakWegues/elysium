@@ -74,6 +74,10 @@ import { askAboutImage, askAboutScreen } from "./vision";
 import { searchWeb } from "./webSearch";
 import { listarSugestoes } from "./sugestoes";
 import { bolhasDoChat } from "./perguntas";
+import { montarPlano } from "./planoEstudo";
+import { comecarPomodoro, pararPomodoro, pomodoroParaCliente, pularFase } from "./pomodoro";
+import { apagarCartao, cartoesVencidos, criarCartao, listarCartoes, responderCartao } from "./cartoes";
+import { apagarModoMeu, definirModo, listarModos, modoAtivo, modoParaCliente, salvarModoMeu, type ErroModo } from "./modos";
 import { climaAgora, motivoDaFalha } from "./clima";
 import {
   getAllPresets, getPreset, findPresetKey, savePreset, deletePresetByKey,
@@ -82,8 +86,9 @@ import { runPreset } from "../actions/runPreset";
 import * as spotify from "./spotify";
 import { apagarEpisodio, apagarTodosEpisodios, definirAnonimo, listarEpisodios, modoAnonimo } from "./episodios";
 import { marcarAcompanhado, pendentesDeAcompanhamento } from "./acompanhamento";
+import { adiarTarefaPor, concluirTarefaCompleta } from "./operacoes";
 import { registrarFalaDaEly } from "./brain";
-import { aplicarDespejo, interpretarFala, validarItens } from "./despejo";
+import { aplicarDespejo, dataValida, interpretarFala, validarItens } from "./despejo";
 import {
   listSessions as listChatSessions, getSession as getChatSession,
   mergeSession as mergeChatSession, toggleFavorite as toggleChatFavorite,
@@ -247,6 +252,14 @@ function listApps(): AppEntry[] {
 }
 
 // ── tabela de métodos ─────────────────────────────────────────────────────────
+
+const ERROS_DO_MODO: Record<ErroModo, string> = {
+  nome: "o nome precisa de pelo menos 2 letras",
+  instrucao: "descreva o que o modo faz (pelo menos 10 caracteres)",
+  reservado: "esse nome já é de outra coisa (foco, anônimo ou um preset)",
+  existe: "já existe um modo com esse nome",
+  cheio: "limite de 12 modos criados",
+};
 
 const METHODS: Record<string, MethodDef> = {
   // — sistema —
@@ -1082,10 +1095,8 @@ const METHODS: Record<string, MethodDef> = {
     handler: async (params) => {
       const id = requireString(params, "id");
       const para = requireEnum(params, "para", ["1h", "hoje16", "amanha", "semana"] as const) as Adiamento;
-      const t = obterTarefa(id);
-      if (!t) throw new RpcError(404, "tarefa não encontrada");
-      const alvo = adiarPara(t.prazo, !!t.semHora, para);
-      const r = reagendarTarefa(id, alvo.quando, alvo.semHora);
+      if (!obterTarefa(id)) throw new RpcError(404, "tarefa não encontrada");
+      const r = adiarTarefaPor(id, para);
       if (!r.ok) throw new RpcError(400, r.mensagem);
       return { tarefa: r.tarefa, tarefas: listarTarefas(), mensagem: r.mensagem };
     },
@@ -1104,14 +1115,11 @@ const METHODS: Record<string, MethodDef> = {
   },
   "tarefas.concluir": {
     handler: async (params) => {
-      const r = concluirTarefa(requireString(params, "id"), optionalString(params, "ressalva"));
+      // Fase 20: a mesma regra da voz e do agente (`operacoes.ts`) — avisos cancelados e a
+      // próxima repetição criada uma vez só.
+      const r = concluirTarefaCompleta(requireString(params, "id"), optionalString(params, "ressalva"));
       if (!r) throw new RpcError(404, "tarefa não encontrada");
-      // Concluída antes da hora: os avisos que faltam não tocam mais.
-      for (const id of r.lembretes) cancelReminder(id);
-      // Repete (fase 18): a próxima entra na lista com o aviso dela — uma vez só.
-      const proxima = r.jaEstava ? null : proximaDaRepeticao(r.tarefa);
-      if (proxima) editarTarefaProxima(r.tarefa.id, proxima.id);
-      return { tarefa: r.tarefa, tarefas: listarTarefas(), ...(proxima ? { proxima } : {}) };
+      return { tarefa: r.tarefa, tarefas: listarTarefas(), ...(r.proxima ? { proxima: r.proxima } : {}) };
     },
   },
   "tarefas.reabrir": {
@@ -1278,7 +1286,7 @@ const METHODS: Record<string, MethodDef> = {
       } catch (e) { throw new RpcError(400, (e as Error).message); }
     },
   },
-  "corrida.delete": { handler: async (params) => ({ ok: apagarCorrida(requireString(params, "id")), painel: montarPainelCorpo() }) },
+  "corrida.delete": { destructive: true, handler: async (params) => ({ ok: apagarCorrida(requireString(params, "id")), painel: montarPainelCorpo() }) },
   // Timers com nome (bloco 136).
   "timers.list": { handler: async () => ({ timers: listarTimers(), agora: Date.now() }) },
   "timers.start": {
@@ -1368,6 +1376,69 @@ const METHODS: Record<string, MethodDef> = {
     destructive: true,
     handler: async () => ({ removidos: apagarTodosEpisodios() }),
   },
+  // Plano de estudo (fase 20): só a PRÉVIA; gravar é o `despejo.aplicar` com os escolhidos.
+  "estudo.planejar": {
+    handler: async (params) => {
+      const dia = optionalString(params, "dia");
+      const hora = optionalString(params, "hora");
+      if (dia && !dataValida(dia)) throw new RpcError(400, "dia no formato AAAA-MM-DD");
+      if (hora && !/^([01]\d|2[0-3]):[0-5]\d$/.test(hora)) throw new RpcError(400, "hora no formato HH:MM");
+      const assuntos = Array.isArray(params["assuntos"]) ? (params["assuntos"] as unknown[]).filter((x): x is string => typeof x === "string").map(s => s.trim().slice(0, 60)).filter(Boolean).slice(0, 14) : [];
+      return montarPlano({ materia: requireString(params, "materia").slice(0, 60), assuntos, dia, hora });
+    },
+  },
+  // Pomodoro (fase 20). O card mostra a fase e o tempo; `fimEm` + `agora` acertam o relógio.
+  "pomodoro.get": { handler: async () => pomodoroParaCliente() },
+  "pomodoro.start": {
+    handler: async (params) => {
+      const n = (k: string) => (typeof params[k] === "number" ? params[k] as number : undefined);
+      await comecarPomodoro({ foco: n("foco"), pausa: n("pausa"), longa: n("longa"), ciclos: n("ciclos") });
+      return pomodoroParaCliente();
+    },
+  },
+  "pomodoro.stop": { handler: async () => { pararPomodoro(); return pomodoroParaCliente(); } },
+  "pomodoro.skip": { handler: async () => { await pularFase(); return pomodoroParaCliente(); } },
+  // Cartões de revisão (fase 20): a tela vira o cartão e marca "acertei"/"errei".
+  "cartoes.list": {
+    handler: async () => ({ cartoes: listarCartoes(), vencidos: cartoesVencidos().map(c => c.id) }),
+  },
+  "cartoes.responder": {
+    handler: async (params) => {
+      if (typeof params["acertou"] !== "boolean") throw new RpcError(400, "\"acertou\" precisa ser true ou false");
+      const c = responderCartao(requireString(params, "id"), params["acertou"]);
+      if (!c) throw new RpcError(404, "cartão não encontrado");
+      return { cartao: c, restantes: cartoesVencidos().length };
+    },
+  },
+  "cartoes.criar": {
+    handler: async (params) => {
+      const c = criarCartao(requireString(params, "frente"), requireString(params, "verso"), "manual");
+      if (!c) throw new RpcError(400, "frente e verso são obrigatórios");
+      return { cartao: c };
+    },
+  },
+  "cartoes.delete": { destructive: true, handler: async (params) => ({ ok: apagarCartao(requireString(params, "id")) }) },
+  // Modos da Ely (fase 20). `modos.set` com id null sai do modo.
+  "modos.list": {
+    handler: async () => ({ modos: listarModos().map(m => ({ id: m.id, nome: m.nome, icone: m.icone, resumo: m.resumo, meu: !!m.meu, ...(m.meu ? { instrucao: m.instrucao } : {}) })), ativo: modoParaCliente(modoAtivo()) }),
+  },
+  "modos.get": { handler: async () => ({ ativo: modoParaCliente(modoAtivo()) }) },
+  "modos.set": {
+    handler: async (params) => {
+      const id = params["id"];
+      if (id !== null && typeof id !== "string") throw new RpcError(400, "\"id\" precisa ser o id do modo ou null");
+      if (typeof id === "string" && !listarModos().some(m => m.id === id)) throw new RpcError(404, "modo não encontrado");
+      return { ativo: modoParaCliente(definirModo(id)) };
+    },
+  },
+  "modos.save": {
+    handler: async (params) => {
+      const r = salvarModoMeu({ id: optionalString(params, "id"), nome: requireString(params, "nome"), instrucao: requireString(params, "instrucao"), icone: optionalString(params, "icone") });
+      if (typeof r === "string") throw new RpcError(400, ERROS_DO_MODO[r]);
+      return { modo: { id: r.id, nome: r.nome, icone: r.icone, resumo: r.resumo, meu: true, instrucao: r.instrucao } };
+    },
+  },
+  "modos.delete": { destructive: true, handler: async (params) => ({ ok: apagarModoMeu(requireString(params, "id")) }) },
   "memoria.anonimo.get": {
     handler: async () => ({ anonimo: modoAnonimo() }),
   },

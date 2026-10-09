@@ -320,6 +320,9 @@ function desenharElysiumHoje(e) {
 }
 
 async function carregarHoje() {
+  // Fase 20: o painel Estudo (js/estudo.js, que carrega depois deste arquivo) vem primeiro e
+  // por conta própria — um erro desenhando o resto do Hoje não o leva junto.
+  if (typeof carregarEstudo === "function") carregarEstudo();
   // Volta à aba (08/10): o último painel aparece na hora e o novo chega por trás — a mesma
   // regra das abas vivas do celular. Sem isto os timers ficavam parados até o RPC voltar.
   if (painelHoje) desenharHoje();

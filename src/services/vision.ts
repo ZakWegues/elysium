@@ -1,4 +1,5 @@
 import { getApiKey, getConfig, marcarModeloMorto } from "../main/config";
+import { blocoDoModoNaImagem, modoAtivo } from "./modos";
 import { candidatosDeVisao, modelosDaGroq } from "./catalogoGroq";
 import { apiKeyError, networkError } from "./errors";
 import { captureScreen } from "./screenCapture";
@@ -66,6 +67,10 @@ export async function askAboutImage(imageBase64: string, question: string): Prom
 
 class ModeloSumiu extends Error {}
 
+function modoNaImagem(): string {
+  try { return blocoDoModoNaImagem(modoAtivo()); } catch { return ""; }
+}
+
 async function perguntarAoModelo(apiKey: string, modelo: string, imageBase64: string, question: string): Promise<string> {
   const prompt = question.trim() || "O que aparece nesta imagem?";
 
@@ -77,7 +82,7 @@ async function perguntarAoModelo(apiKey: string, modelo: string, imageBase64: st
       body: JSON.stringify({
         model: modelo,
         messages: [
-          { role: "system", content: VISION_SYSTEM_PROMPT },
+          { role: "system", content: VISION_SYSTEM_PROMPT + modoNaImagem() },
           {
             role: "user",
             content: [

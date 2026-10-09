@@ -70,8 +70,8 @@ function realcar(texto, consulta) {
   return saida;
 }
 
-const GRUPOS = { ia: "Comandos de IA (texto copiado)", nav: "Ir para", acao: "Ações", app: "Abrir programa", preset: "Presets", lembrete: "Lembretes", memoria: "Memória", conversa: "Conversas", trecho: "Dentro das conversas", recado: "Recados da Caixa", chat: "Perguntar" };
-const ORDEM_GRUPOS = ["nav", "acao", "ia", "preset", "app", "lembrete", "memoria", "conversa", "trecho", "recado", "chat"];
+const GRUPOS = { modo: "Modos da Ely", ia: "Comandos de IA (texto copiado)", nav: "Ir para", acao: "Ações", app: "Abrir programa", preset: "Presets", lembrete: "Lembretes", memoria: "Memória", conversa: "Conversas", trecho: "Dentro das conversas", recado: "Recados da Caixa", chat: "Perguntar" };
+const ORDEM_GRUPOS = ["nav", "acao", "modo", "ia", "preset", "app", "lembrete", "memoria", "conversa", "trecho", "recado", "chat"];
 
 /**
  * Busca no TEXTO das conversas (bloco 133). Vem do PC (`chat.search`) com um respiro
@@ -171,6 +171,14 @@ async function montarIndicePaleta() {
   ];
 
   const fontes = [
+    async () => {
+      // Fase 20: "mat" acha "Modo Matemática"; com um modo ligado, "Sair do modo" também.
+      const r = await window.nx.rpc("modos.list");
+      for (const m of r.result?.modos ?? []) {
+        itens.push({ grupo: "modo", icone: "layers", texto: `Modo ${m.nome}`, sub: m.resumo, chaves: ["modo", m.id], executar: () => trocarModo(m.id) });
+      }
+      if (r.result?.ativo) itens.push({ grupo: "modo", icone: "x", texto: "Sair do modo", sub: r.result.ativo.nome, chaves: ["modo normal"], executar: () => trocarModo(null) });
+    },
     async () => {
       const r = await window.nx.rpc("comandos.list");
       for (const c of r.result?.comandos ?? []) {

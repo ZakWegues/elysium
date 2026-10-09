@@ -2,7 +2,9 @@ import { getApiKey, getConfig, nomeDoUsuario } from "../main/config";
 import { blocoDasConversasAnteriores } from "./episodios";
 import { decidirChamada, envelopeExterno, FONTES_EXTERNAS } from "./politicaFerramentas";
 import { pedirConfirmacao } from "./confirmacao";
+import { isoLocal } from "./hora";
 import { blocoDeInstrucoes, Canal, regraDoAgente } from "./estiloResposta";
+import { linhaDoAgente, modoAtivo } from "./modos";
 import { buildMemoryBlock } from "./memoryStore";
 import { callChatComFerramentas, ChatMessage, ChamadaDeFerramenta, Provider } from "./llm";
 import { definicoesDeFerramentas, executarFerramenta, ferramenta, normalizarArgs } from "./ferramentas";
@@ -67,7 +69,7 @@ export function promptDoAgente(pedido = "", canal: Canal = "voz"): string {
   const agora = new Date();
   const data = agora.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
   const hora = agora.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-  const iso = `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, "0")}-${String(agora.getDate()).padStart(2, "0")}T${String(agora.getHours()).padStart(2, "0")}:${String(agora.getMinutes()).padStart(2, "0")}`;
+  const iso = isoLocal(agora);
   return `Você é a Ely, a assistente do ${nomeDoUsuario()} que controla o PC dele (Windows) e fala português do Brasil. O app se chama ELYSIUM; seu nome é Ely, e você fala de si no feminino ("a Ely", "a sua assistente", "pronta", "obrigada").
 Tom: confiante e eficiente; ao concluir uma ação, confirme curto ("Pronto, volume em 40.").${linhaDoTratamento()}
 Agora é ${data}, ${hora} (ISO local ${iso}).
@@ -81,7 +83,7 @@ Como agir
 - Não mencione "ferramenta", "função" ou "busca": fale em primeira pessoa, como se você mesmo tivesse olhado e feito.
 - Fale COM o usuário, na segunda pessoa ("seu PC", "você"), nunca sobre ele em terceira pessoa ("o PC do usuário").
 - Em programas_abertos cada item é "processo (título da janela)": "CalculatorApp (Calculadora)" ou "ApplicationFrameHost (Calculadora)" quer dizer que a calculadora está aberta.
-- Datas para lembretes: calcule a data absoluta a partir de agora.${blocoDeInstrucoes(getConfig().instrucoesPessoais)}${buildMemoryBlock(pedido)}${blocoDasConversasAnteriores(pedido)}`;
+- Datas para lembretes: calcule a data absoluta a partir de agora.${linhaDoAgente(modoAtivo())}${blocoDeInstrucoes(getConfig().instrucoesPessoais)}${buildMemoryBlock(pedido)}${blocoDasConversasAnteriores(pedido)}`;
 }
 
 /**
@@ -142,7 +144,7 @@ function textoConfiavel(content: string, leituras: { resultado: string }[]): boo
 }
 
 /** Ferramentas que só OLHAM. Chamá-las não conta como "ter feito" alguma coisa. */
-const LEITURA = new Set(["programas_abertos", "estado_do_pc", "processos_pesados", "clima", "lembretes", "memoria", "rotinas", "presets", "tocando_agora", "area_de_transferencia", "espaco_em_disco", "versao_do_elysium", "resumo_do_dia", "agenda", "ver_lista", "ver_timers", "calcular", "resumir_link", "hora_em", "ver_habitos", "painel_do_dia", "ver_tarefas", "treino_de_hoje", "ver_meta_calorias", "revisao_da_semana", "lembrar_conversa", "janela_em_foco"]);
+const LEITURA = new Set(["programas_abertos", "estado_do_pc", "processos_pesados", "clima", "lembretes", "memoria", "rotinas", "presets", "tocando_agora", "area_de_transferencia", "espaco_em_disco", "versao_do_elysium", "resumo_do_dia", "agenda", "ver_lista", "ver_timers", "calcular", "nota_necessaria", "resumir_link", "hora_em", "ver_habitos", "painel_do_dia", "ver_tarefas", "treino_de_hoje", "ver_meta_calorias", "revisao_da_semana", "lembrar_conversa", "janela_em_foco"]);
 
 export async function agir(
   texto: string,
@@ -310,7 +312,7 @@ export async function agir(
  * sim.") e só roda no "sim" do próximo pedido (`confirmacao.ts`).
  */
 async function executarComPolitica(nome: string, args: Record<string, unknown>, contaminado: boolean, pedido: string): Promise<{ resultado: string; pergunta?: boolean }> {
-  const decisao = decidirChamada(nome, contaminado, pedido);
+  const decisao = decidirChamada(nome, contaminado, pedido, args);
   if (decisao.tipo === "bloquear") {
     console.warn(`[agente] ${nome} barrada: veio depois de ler conteúdo de fora e o pedido não pedia isso.`);
     return { resultado: decisao.mensagem };

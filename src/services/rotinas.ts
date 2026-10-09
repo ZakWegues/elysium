@@ -1,6 +1,7 @@
 import Store from "electron-store";
 import * as crypto from "node:crypto";
 import { EventoPc, MARCOS_OCIOSO, NomeEvento, ouvirEventos, ROTULO_EVENTO } from "./eventos";
+import { semAcento } from "./texto";
 
 /**
  * Rotinas — automações agendadas — e a fila de entregas para o celular.
@@ -289,7 +290,7 @@ export async function executarRotina(id: string, opcoes: { forcar?: boolean; con
 }
 
 /** Nome de app como o `apps.running` devolve, sem caixa, sufixo nem acento. */
-const normalizarApp = (x: unknown) => String(x ?? "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/#\d+$/, "").replace(/\.exe$/, "").replace(/[^a-z0-9]/g, "");
+const normalizarApp = (x: unknown) => semAcento(String(x ?? "")).replace(/#\d+$/, "").replace(/\.exe$/, "").replace(/[^a-z0-9]/g, "");
 
 /** Um evento chegou: dispara as rotinas que o escutam, respeitando filtro e o `cada`. */
 async function aoEvento(e: EventoPc): Promise<void> {

@@ -1,4 +1,5 @@
 import Store from "electron-store";
+import { semAcento } from "./texto";
 
 /**
  * Listas que o PC e o celular dividem — compras, tarefas e o que mais o Zak criar (bloco
@@ -14,7 +15,7 @@ import Store from "electron-store";
 export interface ItemLista { id: string; texto: string; feito: boolean; em: number }
 export interface Lista { id: string; nome: string; itens: ItemLista[]; atualizadaEm: number }
 
-const semAcento = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+const semAcentoLocal = (s: string) => semAcento(s).trim();
 
 const SINONIMOS: [RegExp, string][] = [
   [/^(compras?|mercado|supermercado|feira|lista de compras?|do mercado)$/, "Compras"],
@@ -24,7 +25,7 @@ const SINONIMOS: [RegExp, string][] = [
 
 /** "lista do mercado" → "Compras"; "lista de presentes" → "Presentes". Pura. */
 export function normalizarNomeLista(nome: string | undefined): string {
-  const limpo = semAcento(nome ?? "")
+  const limpo = semAcentoLocal(nome ?? "")
     .replace(/^(a |na |da |minha |)lista\s*(de |do |da |dos |das |pra |para |)/, "")
     .replace(/^(de |do |da )/, "")
     .trim();
@@ -49,8 +50,8 @@ export function juntarItens(lista: Lista, novos: string[], agora = Date.now()): 
   const adicionados: string[] = [];
   const repetidos: string[] = [];
   for (const texto of novos) {
-    const chave = semAcento(texto);
-    const existente = itens.find(i => semAcento(i.texto) === chave);
+    const chave = semAcentoLocal(texto);
+    const existente = itens.find(i => semAcentoLocal(i.texto) === chave);
     if (existente && !existente.feito) { repetidos.push(texto); continue; }
     if (existente) { existente.feito = false; existente.em = agora; adicionados.push(texto); continue; }
     itens.push({ id: `i-${agora.toString(36)}-${Math.random().toString(36).slice(2, 7)}`, texto, feito: false, em: agora });
@@ -61,8 +62,8 @@ export function juntarItens(lista: Lista, novos: string[], agora = Date.now()): 
 
 /** O item que o usuário quis dizer ("o leite" → "leite integral"). Pura. */
 export function acharItem(lista: Lista, texto: string): ItemLista | undefined {
-  const q = semAcento(texto).replace(/^(o|a|os|as)\s+/, "");
-  return lista.itens.find(i => semAcento(i.texto) === q) ?? lista.itens.find(i => semAcento(i.texto).includes(q) || q.includes(semAcento(i.texto)));
+  const q = semAcentoLocal(texto).replace(/^(o|a|os|as)\s+/, "");
+  return lista.itens.find(i => semAcentoLocal(i.texto) === q) ?? lista.itens.find(i => semAcentoLocal(i.texto).includes(q) || q.includes(semAcentoLocal(i.texto)));
 }
 
 /**
@@ -118,7 +119,7 @@ function gravar(listas: Lista[]) { store.set("listas", listas); }
 
 export function obterLista(nome: string, criar = false): Lista | undefined {
   const n = normalizarNomeLista(nome);
-  const achada = store.get("listas", []).find(l => semAcento(l.nome) === semAcento(n));
+  const achada = store.get("listas", []).find(l => semAcentoLocal(l.nome) === semAcentoLocal(n));
   if (achada || !criar) return achada;
   // Sufixo aleatório (fase 19): o despejo cria "Compras" e "Notas" no mesmo milissegundo, e
   // com o id só do relógio as duas nasciam iguais — gravar uma sobrescrevia a outra.

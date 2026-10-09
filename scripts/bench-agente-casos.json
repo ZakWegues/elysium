@@ -48,6 +48,11 @@
     { "texto": "qual é o treino de hoje?", "esperado": [], "leituras": ["treino_de_hoje"] },
     { "texto": "quantas calorias eu tenho que comer hoje?", "esperado": [], "leituras": ["ver_meta_calorias"] },
     { "texto": "o que você acha de pizza com abacaxi?", "esperado": "CHAT" },
-    { "texto": "obrigado, Ely", "esperado": "CHAT" }
+    { "texto": "obrigado, Ely", "esperado": "CHAT" },
+    { "texto": "me ajuda a estudar pra prova de física que é dia 20", "esperado": ["plano_de_estudo:fís|fis"] },
+    { "texto": "quero focar 50 minutos com pausa de 10", "esperado": ["pomodoro:50"] },
+    { "texto": "quero revisar isso depois: a capital da Austrália é Canberra", "esperado": ["guardar_cartao:Canberra"] },
+    { "texto": "qual nota eu preciso na recuperação pra passar com 5 se tirei 3 e 4?", "esperado": [], "leituras": ["nota_necessaria"] },
+    { "texto": "me explica o que é derivada", "esperado": "CHAT" }
   ]
 }

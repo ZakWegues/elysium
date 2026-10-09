@@ -2,6 +2,8 @@ import { clipboard } from "electron";
 import { rodarComando } from "./comandosIa";
 import { askAboutScreen } from "./vision";
 import { listarJanelas, type Janela } from "../actions/janelas";
+import { semAcento } from "./texto";
+import { modoAtivo, type Modo } from "./modos";
 
 /**
  * "Resume isso", "traduz isso", "explica isso", "corrige isso" (fase 19, bloco 193).
@@ -18,7 +20,7 @@ import { listarJanelas, type Janela } from "../actions/janelas";
 export type ComandoIsso = "resumir" | "ingles" | "portugues" | "explicar" | "corrigir";
 
 function sem(t: string): string {
-  return t.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^\w\s]/g, " ").replace(/\s+/g, " ").trim();
+  return semAcento(t).replace(/[^\w\s]/g, " ").replace(/\s+/g, " ").trim();
 }
 
 /** "resume isso", "traduz isso pro inglês"… → o comando. Frase inteira. Pura. */
@@ -53,11 +55,34 @@ const PERGUNTA_DA_TELA: Record<ComandoIsso, string> = {
   corrigir: "Aponte os erros de português do texto principal desta tela e mostre a versão corrigida.",
 };
 
+export const SEPARADOR_REGRAS = "---REGRAS---";
+
+/** Separa o texto corrigido das regras (modo português). Sem o separador, tudo é texto. Pura. */
+export function separarRegras(resultado: string): { texto: string; regras: string } {
+  const i = resultado.indexOf(SEPARADOR_REGRAS);
+  if (i < 0) return { texto: resultado.trim(), regras: "" };
+  return { texto: resultado.slice(0, i).trim(), regras: resultado.slice(i + SEPARADOR_REGRAS.length).trim() };
+}
+
+function modoAgora(): Modo | null {
+  try { return modoAtivo(); } catch { return null; }
+}
+
 export async function fazerComIsso(comando: ComandoIsso): Promise<string> {
   const copiado = clipboard.readText().trim();
   // Uma palavra solta copiada (um nome, um número) não é "isso": vai para a tela.
   if (copiado.length >= 20 && copiado.split(/\s+/).length >= 4) {
-    const { resultado } = await rodarComando(comando, copiado);
+    const modo = modoAgora();
+    // Fase 20: "corrige isso" no modo português corrige E ensina; a área de transferência
+    // continua recebendo só o texto corrigido (é o que ele vai colar).
+    if (comando === "corrigir" && modo?.id === "portugues") {
+      const { resultado } = await rodarComando(comando, copiado, `Depois do texto corrigido, escreva uma linha só com ${SEPARADOR_REGRAS} e, abaixo, cada correção com a regra em uma linha.`);
+      const { texto, regras } = separarRegras(resultado);
+      clipboard.writeText(texto);
+      return `Corrigi o texto que você copiou ("${comecoDe(copiado)}") e deixei na área de transferência.${regras ? `\n\n${regras}` : ""}\n\n${texto}`;
+    }
+    const acrescimo = comando === "explicar" && modo && modo.id !== "estudo" ? `Modo ${modo.nome} ligado: ${modo.instrucao}` : "";
+    const { resultado } = await rodarComando(comando, copiado, acrescimo);
     const origem = `o texto que você copiou ("${comecoDe(copiado)}")`;
     if (comando === "corrigir" || comando === "ingles" || comando === "portugues") {
       clipboard.writeText(resultado);

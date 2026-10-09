@@ -1,6 +1,7 @@
 import Store from "electron-store";
 import { getApiKey, getConfig } from "../main/config";
 import { callChat, ChatMessage, Provider } from "./llm";
+import { semAcento } from "./texto";
 
 /**
  * Comandos de IA sobre um texto (bloco 137) — o que mais se elogia no Raycast: copiar um
@@ -44,9 +45,9 @@ export function limparResultado(bruto: string): string {
 
 /** Acha o comando pelo id ou pelo nome falado ("corrige", "traduz pro inglês"). Pura. */
 export function acharComando(lista: ComandoIa[], alvo: string): ComandoIa | undefined {
-  const q = alvo.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+  const q = semAcento(alvo).trim();
   if (!q) return undefined;
-  const exato = lista.find(c => c.id === q || c.nome.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase() === q);
+  const exato = lista.find(c => c.id === q || semAcento(c.nome) === q);
   if (exato) return exato;
   if (/ingl/.test(q)) return lista.find(c => c.id === "ingles");
   if (/portug|traduz/.test(q) && !/corrig/.test(q)) return lista.find(c => c.id === "portugues");
@@ -55,7 +56,7 @@ export function acharComando(lista: ComandoIa[], alvo: string): ComandoIa | unde
   if (/formal/.test(q)) return lista.find(c => c.id === "formal");
   if (/curt|encurt|reduz/.test(q)) return lista.find(c => c.id === "curto");
   if (/explic/.test(q)) return lista.find(c => c.id === "explicar");
-  return lista.find(c => c.nome.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().includes(q));
+  return lista.find(c => semAcento(c.nome).includes(q));
 }
 
 // ── store ────────────────────────────────────────────────────────────────────
@@ -82,12 +83,13 @@ export function apagarComando(id: string): boolean {
   return meus.length !== store.get("meus", []).length;
 }
 
-export async function rodarComando(idOuNome: string, texto: string): Promise<{ comando: ComandoIa; resultado: string }> {
+export async function rodarComando(idOuNome: string, texto: string, acrescimo = ""): Promise<{ comando: ComandoIa; resultado: string }> {
   const cmd = acharComando(listarComandos(), idOuNome);
   if (!cmd) throw new Error(`Não conheço o comando "${idOuNome}".`);
   if (!texto.trim()) throw new Error("Não há texto para transformar.");
   const cfg = getConfig();
-  const messages = mensagensDoComando(cmd, texto);
+  // Fase 20: o modo ligado pode acrescentar à instrução ("explica isso" no modo matemática).
+  const messages = mensagensDoComando(acrescimo ? { instrucao: `${cmd.instrucao.trim()}\n${acrescimo}` } : cmd, texto);
   const tentar = (provider: Provider) => callChat({
     provider, model: provider === "ollama" ? cfg.ollamaChatModel : cfg.brainModel,
     messages, temperature: 0.2, maxTokens: 2000, timeoutMs: 90_000,

@@ -1,3 +1,4 @@
+import { semAcento } from "./texto";
 /**
  * Como a Ely transforma "me lembra da prova sexta" em avisos (fase 17, 08/10).
  *
@@ -69,7 +70,7 @@ export function planejarLembretes(texto: string, quando: { ms: number; temHora: 
 // "amanhã de pagar a luz" virou meia-noite. O 7B erra conta de calendário; o texto do
 // pedido diz o dia e a hora sem ambiguidade, então eles vêm daqui quando estão lá.
 
-const sem = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+const sem = (s: string) => semAcento(s);
 const NOMES_DIAS = ["domingo", "segunda", "terca", "quarta", "quinta", "sexta", "sabado"];
 
 /**

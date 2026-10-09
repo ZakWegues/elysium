@@ -9,6 +9,19 @@ import { marcarTreinoFalado, metaFalada, registrarCorridaFalada, registrarPesoFa
 import { clipboard } from "electron";
 import { limparFeitos, marcarItem, normalizarNomeLista } from "./listas";
 import { calcular, formatarNumero } from "./calculadora";
+import { falaDaNota, notaNecessaria } from "./notas";
+import { montarPlano, type PedidoPlano } from "./planoEstudo";
+import { aplicarDespejo, dataValida } from "./despejo";
+import { comecarPomodoro, estadoPomodoro, falaDaFase, falaDoEstado, pararPomodoro, pularFase } from "./pomodoro";
+import { criarCartao } from "./cartoes";
+
+/** Os argumentos do modelo para o plano, conferidos (data e hora só no formato certo). */
+function argsDoPlano(a: Record<string, unknown>): PedidoPlano {
+  const dia = typeof a["dia"] === "string" && dataValida(a["dia"]) ? a["dia"] : undefined;
+  const hora = typeof a["hora"] === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(a["hora"]) ? a["hora"] : undefined;
+  const assuntos = Array.isArray(a["assuntos"]) ? (a["assuntos"] as unknown[]).filter((x): x is string => typeof x === "string").map(x => x.trim().slice(0, 60)).filter(Boolean).slice(0, 14) : [];
+  return { materia: String(a["materia"] ?? "").trim().slice(0, 60), assuntos, ...(dia ? { dia } : {}), ...(hora ? { hora } : {}) };
+}
 import { horaEm } from "./horaMundo";
 import { rodarComando } from "./comandosIa";
 import { resumirLink } from "./leitorDeLink";
@@ -28,11 +41,13 @@ import { comecarFoco, focoFalado, pararFoco } from "./foco";
 import { resumoDoDia } from "./resumoDoDia";
 import { agendaFalada } from "./agenda";
 import { escolherEpisodios, linhaDoEpisodio, listarEpisodios } from "./episodios";
+import { adiarTarefaPor, avancarMetaPorNome, concluirTarefaCompleta, falaDaConclusao, falaDaMeta, falaDoHabito, marcarHabitoPorNome } from "./operacoes";
 import { controlarJanela, listarJanelas } from "../actions/janelas";
 import { janelaDaFrente } from "./isso";
 import { deriveProcessNames } from "../actions/closeApp";
 import { buscarNasConversas } from "./buscaConversas";
 import { listSessions } from "./chatSessionsStore";
+import { semAcento } from "./texto";
 
 /**
  * As ferramentas do cérebro (bloco 78).
@@ -396,9 +411,9 @@ export const FERRAMENTAS: Ferramenta[] = [
     executar: async a => {
       const t = acharTarefa(listarTarefas(), str(a, "tarefa"));
       if (!t) return "Não achei essa tarefa na lista.";
-      const r = concluirTarefa(t.id, str(a, "ressalva") || undefined);
-      for (const id of r?.lembretes ?? []) cancelReminder(id);
-      return `Concluída: ${t.texto}${r?.tarefa.ressalva ? `, com a ressalva "${r.tarefa.ressalva}"` : ""}.`;
+      // Fase 20: a regra única — pela voz, a tarefa que repete agora cria a próxima também.
+      const r = concluirTarefaCompleta(t.id, str(a, "ressalva") || undefined);
+      return r ? falaDaConclusao(r) : "Não achei essa tarefa na lista.";
     },
   },
   // ── tarefas: mudar, adiar e anotar várias (fase 18) ──
@@ -410,8 +425,7 @@ export const FERRAMENTAS: Ferramenta[] = [
       const t = acharTarefa(listarTarefas(), str(a, "tarefa"));
       if (!t) return "Não achei essa tarefa na lista.";
       const para = (["1h", "hoje16", "amanha", "semana"].includes(str(a, "para")) ? str(a, "para") : "amanha") as Adiamento;
-      const alvo = adiarPara(t.prazo, !!t.semHora, para);
-      const r = reagendarTarefa(t.id, alvo.quando, alvo.semHora);
+      const r = adiarTarefaPor(t.id, para);
       return r.ok ? `${t.texto}: ${r.mensagem}` : r.mensagem;
     },
   },
@@ -474,15 +488,7 @@ export const FERRAMENTAS: Ferramenta[] = [
     description: "Marca um hábito como feito hoje (ou desmarca). Use para 'marquei academia', 'fiz a leitura', 'já meditei hoje'.",
     parameters: obj({ habito: s("Nome do hábito"), feito: { type: "boolean", description: "true = feito (padrão)" } }, ["habito"]),
     executar: async a => {
-      const h = acharHabito(listarHabitos(), str(a, "habito"));
-      if (!h) {
-        const nomes = listarHabitos().map(x => x.nome);
-        return nomes.length ? `Não achei esse hábito. Os cadastrados: ${nomes.join(", ")}.` : "Ainda não há hábitos cadastrados — dá para criar na página Hoje.";
-      }
-      const novo = marcarHabito(h.id, a["feito"] !== false);
-      if (!novo) return "Não consegui marcar.";
-      const r = resumirHabito(novo);
-      return a["feito"] === false ? `Desmarquei ${h.nome} de hoje.` : `${h.nome} marcado. Sequência de ${r.sequencia} dia${r.sequencia === 1 ? "" : "s"}.`;
+      return falaDoHabito(marcarHabitoPorNome(str(a, "habito"), a["feito"] !== false), str(a, "habito"));
     },
     acao: a => ({ action: "habit_mark", name: str(a, "habito") }),
   },
@@ -491,14 +497,9 @@ export const FERRAMENTAS: Ferramenta[] = [
     description: "Soma progresso a uma meta ('li mais um livro', 'guardei 200 na meta da viagem'). Número negativo desconta.",
     parameters: obj({ meta: s("Título da meta"), quanto: { type: "number", description: "Quanto somar (padrão 1)" } }, ["meta"]),
     executar: async a => {
-      const metas = listarMetas();
-      const achada = acharHabito(metas.map(m => ({ ...m, nome: m.titulo })), str(a, "meta"));
-      if (!achada) return metas.length ? `Não achei essa meta. As cadastradas: ${metas.map(m => m.titulo).join(", ")}.` : "Ainda não há metas cadastradas.";
       // O 7B às vezes manda número como texto ("200"); sem isto virava +1.
       const bruto = num(a, "quanto") ?? Number(String(a["quanto"] ?? "").replace(",", "."));
-      const m = avancarMeta(achada.id, Number.isFinite(bruto) && bruto !== 0 ? bruto : 1);
-      if (!m) return "Não consegui atualizar a meta.";
-      return m.concluidaEm ? `Meta ${m.titulo} concluída: ${m.progresso} de ${m.alvo}.` : `Meta ${m.titulo}: ${m.progresso} de ${m.alvo}${m.unidade ? " " + m.unidade : ""}.`;
+      return falaDaMeta(avancarMetaPorNome(str(a, "meta"), bruto), str(a, "meta"));
     },
   },
   {
@@ -587,6 +588,65 @@ export const FERRAMENTAS: Ferramenta[] = [
       const e = str(a, "expressao");
       const v = calcular(e);
       return v === null ? "Essa expressão não é uma conta que eu consiga fazer." : `${e} = ${formatarNumero(v)}`;
+    },
+  },
+  // Estudo (fase 20): o fastRoute pega as frases fechadas; estas cobrem o resto.
+  {
+    name: "plano_de_estudo",
+    description: "Monta um plano de estudo para uma prova: divide os assuntos em sessões até a véspera (revisão na véspera) e cria as tarefas com aviso. Use para 'me ajuda a estudar pra prova de X', 'organiza meu estudo de X até sexta'. Pede confirmação antes de gravar.",
+    parameters: obj({
+      materia: s("A matéria da prova, ex.: 'física'"),
+      dia: s("Dia da prova em AAAA-MM-DD, se ele disse; vazio = procura nas tarefas"),
+      hora: s("Horário das sessões em HH:MM (padrão 19:00)"),
+      assuntos: { type: "array", items: { type: "string" }, description: "Os assuntos, se ele disse" },
+    }, ["materia"]),
+    executar: async a => (await montarPlano(argsDoPlano(a))).resumo,
+    confirmar: async (a) => {
+      const p = await montarPlano(argsDoPlano(a));
+      if (!p.itens.length) return null;
+      return { descricao: `Vou criar ${p.resumo.charAt(0).toLowerCase()}${p.resumo.slice(1)}`, executar: async () => aplicarDespejo(p.itens).mensagem };
+    },
+  },
+  {
+    name: "pomodoro",
+    description: "Pomodoro: blocos de foco com pausa (padrão 25+5, 4 ciclos), com o modo foco ligado nos blocos. Use para 'quero focar 50 minutos com pausa de 10', 'começa um pomodoro', 'para o pomodoro', 'quanto falta do pomodoro', 'pula a pausa'.",
+    parameters: obj({
+      operacao: s("start, stop, status ou skip", { enum: ["start", "stop", "status", "skip"] }),
+      foco: { type: "integer", description: "Minutos de foco por bloco" },
+      pausa: { type: "integer", description: "Minutos de pausa" },
+      ciclos: { type: "integer", description: "Quantos blocos de foco" },
+    }, ["operacao"]),
+    executar: async a => {
+      const op = str(a, "operacao");
+      if (op === "stop") { const e = estadoPomodoro(); pararPomodoro(); return e.ativo ? "Pomodoro encerrado." : "Nenhum pomodoro rodando."; }
+      if (op === "status") return falaDoEstado(estadoPomodoro());
+      if (op === "skip") { if (!estadoPomodoro().ativo) return "Nenhum pomodoro rodando."; const e = await pularFase(); return e.ativo ? falaDaFase(e) : "Era a última fase: pomodoro concluído."; }
+      const e = await comecarPomodoro({ foco: num(a, "foco"), pausa: num(a, "pausa"), ciclos: num(a, "ciclos") });
+      return `Pomodoro: ${e.config.ciclos} ciclos de ${e.config.foco} minutos com ${e.config.pausa} de pausa, começando agora.`;
+    },
+  },
+  {
+    name: "guardar_cartao",
+    description: "Guarda um cartão de revisão (pergunta e resposta) para a repetição espaçada — volta amanhã e depois em 3, 7, 14 e 30 dias. Use para 'quero revisar isso depois', 'cria um cartão sobre X'.",
+    parameters: obj({ frente: s("A pergunta"), verso: s("A resposta") }, ["frente", "verso"]),
+    executar: async a => { const c = criarCartao(str(a, "frente"), str(a, "verso"), "manual"); return c ? `Guardei o cartão: ${c.frente}. Volta amanhã na revisão.` : "Faltou a pergunta ou a resposta."; },
+  },
+  {
+    name: "nota_necessaria",
+    description: "Quanto ele precisa tirar na(s) próxima(s) prova(s) para fechar a média escolar, com pesos. Use para 'quanto preciso tirar', 'que nota preciso pra passar'. Conta exata — nunca de cabeça.",
+    parameters: obj({
+      notas: { type: "array", items: { type: "number" }, description: "As notas que ele já tirou" },
+      pesos: { type: "array", items: { type: "number" }, description: "O peso de cada nota, na mesma ordem (vazio = todos 1)" },
+      media: { type: "number", description: "A média para passar" },
+      peso_faltante: { type: "number", description: "O peso da prova que falta (padrão 1)" },
+      faltam: { type: "integer", description: "Quantas provas faltam (padrão 1)" },
+    }, ["notas", "media"]),
+    executar: async a => {
+      const nums = (k: string) => (Array.isArray(a[k]) ? (a[k] as unknown[]).map(Number).filter(Number.isFinite) : []);
+      const e = { notas: nums("notas"), pesos: nums("pesos"), media: Number(a["media"]), pesoFaltante: Number(a["peso_faltante"]) || undefined, faltam: Number(a["faltam"]) || undefined };
+      if (!e.notas.length) return "Faltaram as notas que ele já tirou.";
+      const r = notaNecessaria(e);
+      return r ? falaDaNota(r, e) : "Faltou a média para passar.";
     },
   },
   {
@@ -795,7 +855,7 @@ export const FERRAMENTAS: Ferramenta[] = [
  */
 const NUNCA_FECHAR = new Set(["explorer", "electron", "elysium", "applicationframehost", "systemsettings", "textinputhost", "shellexperiencehost", "startmenuexperiencehost", "searchhost", "searchapp", "lockapp", "widgets", "gamebar", "nvidia overlay", "rtkuwp"]);
 export function programasParaFechar(abertos: { processo: string; titulo?: string; hwnd: string }[], manter: string[]): { processo: string; rotulo: string; hwnds: string[] }[] {
-  const semAc = (x: string) => x.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, "");
+  const semAc = (x: string) => semAcento(x).replace(/\s+/g, "");
   const alvosManter = manter.flatMap(m => [semAc(m), ...deriveProcessNames(m).map(semAc)]).filter(Boolean);
   const porProcesso = new Map<string, { processo: string; rotulo: string; hwnds: string[] }>();
   for (const a of abertos) {
@@ -811,10 +871,10 @@ export function programasParaFechar(abertos: { processo: string; titulo?: string
 }
 
 function acharRotina(nome: string) {
-  const alvo = nome.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  const alvo = semAcento(nome);
   if (!alvo) return undefined;
   const todas = listarRotinas();
-  const norm = (x: string) => x.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  const norm = (x: string) => semAcento(x);
   return todas.find(r => norm(r.nome) === alvo) ?? todas.find(r => norm(r.nome).includes(alvo));
 }
 

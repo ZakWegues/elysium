@@ -1,3 +1,4 @@
+import { semAcento } from "./texto";
 /**
  * As falas fixas da Ely, com variação (fase 19, bloco 188).
  *
@@ -33,7 +34,7 @@ export function esquecerUltimas(): void {
 }
 
 function sem(t: string): string {
-  return t.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  return semAcento(t);
 }
 
 /** O tipo de espera, pelo pedido. Puro. */

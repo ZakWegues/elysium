@@ -1,10 +1,16 @@
-import { paraOuvido } from "./falaParaOuvido";
+import { modoAtivo, modoDeConta } from "./modos";
+
+function ehModoDeConta(): boolean {
+  try { return modoDeConta(); } catch { return false; }
+}
+import { matematicaParaOuvido, paraOuvido } from "./falaParaOuvido";
 import { MsEdgeTTS, OUTPUT_FORMAT, ProsodyOptions } from "msedge-tts";
 import * as os from "node:os";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { spawn, ChildProcess } from "node:child_process";
 import { getConfig } from "../main/config";
+import { spawnPs } from "../actions/ps";
 import type { Humor } from "./humor";
 
 const VOICE = "pt-BR-FranciscaNeural";
@@ -42,6 +48,16 @@ export function vozEfetiva(voz: string | undefined): string {
   if (v === "pt-BR-ThalitaNeural") return "pt-BR-ThalitaMultilingualNeural";
   if (/^pt-BR-Macerio/.test(v)) return "pt-BR-AntonioNeural";
   return v;
+}
+
+/**
+ * A voz agora: a escolhida em Ajustes, ou a do modo ligado (fase 20 — o modo inglês fala com
+ * a Thalita multilíngue, que pronuncia inglês de verdade; a Francisca lê "weekend" em português).
+ */
+export function vozDoMomento(): string {
+  let doModo: string | undefined;
+  try { doModo = modoAtivo()?.voz; } catch { /* sem modo */ }
+  return doModo ?? vozEfetiva(getConfig().voice);
 }
 
 function pct(n: number): string {
@@ -96,7 +112,10 @@ export function cancelSpeak(): void {
  * Strip URLs, file paths, code blocks, emojis, and markdown syntax
  * from text before TTS. Display side (chat) always receives the raw text.
  */
-export function cleanTextForSpeech(raw: string): string {
+export function cleanTextForSpeech(raw: string, conta = ehModoDeConta()): string {
+  // Fase 20: no modo matemática a conta vira fala ANTES da limpeza do markdown, que comia o
+  // "*" da multiplicação e lia "3/4" como data.
+  if (conta) raw = matematicaParaOuvido(raw);
   // Fase 18: depois de limpar o markdown, números, datas e unidades viram fala (falaParaOuvido.ts).
   return paraOuvido(raw
     .replace(/```[\s\S]*?```/g, "trecho de código")
@@ -131,7 +150,7 @@ const cacheMp3 = new Map<string, Buffer>();
 export async function sintetizarMp3(texto: string, humor?: Humor): Promise<Buffer> {
   const limpo = cleanTextForSpeech(texto);
   if (!limpo) throw new Error("nada para falar");
-  const voz = vozEfetiva(getConfig().voice);
+  const voz = vozDoMomento();
   const prosodia = prosodiaAgora(voz, humor);
   const chave = chaveMp3(voz, limpo, prosodia);
   const guardado = cacheMp3.get(chave);
@@ -220,7 +239,8 @@ export async function synthesize(text: string, humor?: Humor): Promise<void> {
     // deixa o app completamente mudo.
     function speakOffline() {
       if (settled) return;
-      const safe = clean.replace(/'/g, "''");
+      // O texto vai em $env:NX_TEXTO (bloco 198): a fala vem do modelo e do /api/tts, e o
+      // escape antigo (`''`) deixava as aspas curvas ‘ ’ fecharem a string.
       const psScript = [
         "Add-Type -AssemblyName System.Speech",
         "$s = New-Object System.Speech.Synthesis.SpeechSynthesizer",
@@ -230,13 +250,9 @@ export async function synthesize(text: string, humor?: Humor): Promise<void> {
         "  if (-not $v) { $v = $voices | Select-Object -First 1 }",
         "  if ($v) { $s.SelectVoice($v.VoiceInfo.Name) }",
         "} catch {}",
-        `$s.Speak('${safe}')`,
+        "$s.Speak($env:NX_TEXTO)",
       ].join("\n");
-      const encoded = Buffer.from(psScript, "utf16le").toString("base64");
-
-      ps = spawn("powershell.exe", [
-        "-ExecutionPolicy", "Bypass", "-NonInteractive", "-WindowStyle", "Hidden", "-EncodedCommand", encoded,
-      ], { stdio: "pipe" });
+      ps = spawnPs(psScript, { NX_TEXTO: clean });
 
       let stderr = "";
       ps.stderr?.on("data", (d: Buffer) => { stderr += d.toString(); });
@@ -259,7 +275,7 @@ export async function synthesize(text: string, humor?: Humor): Promise<void> {
         // handshake; a 2.x acompanha. Na 2.x o `toStream` devolve { audioStream,
         // metadataStream } em vez do stream direto.
         // Pendência 10 da §15: a chave `voice` existia no config e nunca era lida.
-        const voz = vozEfetiva(getConfig().voice);
+        const voz = vozDoMomento();
         const prosodia = prosodiaAgora(voz, humor);
         const jaPronto = cacheMp3.get(chaveMp3(voz, clean, prosodia));
         // O `{}` é obrigatório: a 2.0.7 declara o terceiro parâmetro como opcional e lê
@@ -294,8 +310,8 @@ export async function synthesize(text: string, humor?: Humor): Promise<void> {
 
         // MCI (winmm.dll): "play alias wait" blocks until playback completes.
         // Works on Win10/11 for MP3 without any external codec.
-        // PS single-quoted string: only ' needs escaping (as ''); backslashes are literal.
-        const safePath = tmpFile.replace(/'/g, "''");
+        // O caminho vai em $env:NX_ARQUIVO (bloco 198): a pasta temporária é do usuário, e um
+        // nome de usuário com aspas curvas fecharia a string do script antigo.
         const psScript = [
           "Add-Type @\"",
           "using System;using System.Text;using System.Runtime.InteropServices;",
@@ -304,19 +320,14 @@ export async function synthesize(text: string, humor?: Humor): Promise<void> {
           "    public static extern int mciSendString(string cmd,StringBuilder sb,int sz,IntPtr h);",
           "}",
           "\"@",
-          `$f='${safePath}'`,
+          "$f = $env:NX_ARQUIVO",
           "[NxMci]::mciSendString('open \"'+$f+'\" alias nx_s',$null,0,[IntPtr]::Zero)|Out-Null",
           "[NxMci]::mciSendString('play nx_s wait',$null,0,[IntPtr]::Zero)|Out-Null",
           "[NxMci]::mciSendString('close nx_s',$null,0,[IntPtr]::Zero)|Out-Null",
           "Remove-Item $f -Force -EA 0",
         ].join("\n");
 
-        const encoded = Buffer.from(psScript, "utf16le").toString("base64");
-
-        ps = spawn("powershell.exe", [
-          "-ExecutionPolicy", "Bypass", "-NonInteractive",
-          "-WindowStyle", "Hidden", "-EncodedCommand", encoded,
-        ], { stdio: "pipe" });
+        ps = spawnPs(psScript, { NX_ARQUIVO: tmpFile });
 
         let stderr = "";
         ps.stderr?.on("data", (d: Buffer) => { stderr += d.toString(); });

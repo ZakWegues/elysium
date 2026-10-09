@@ -1,3 +1,4 @@
+import { rodarPs } from "../actions/ps";
 import { app, powerMonitor } from "electron";
 import { execFile, spawn } from "node:child_process";
 import * as crypto from "node:crypto";
@@ -232,7 +233,7 @@ export function versionCodeDasNotas(notas: string): number | undefined {
 }
 
 function pacoteDe(rel: ReleaseGitHub, asset: AssetGitHub): Pacote {
-  const arquivo = path.join(pasta(), asset.name);
+  const arquivo = path.join(pasta(), path.basename(asset.name));
   const pronto = fs.existsSync(arquivo) && fs.statSync(arquivo).size === asset.size;
   return {
     versionCode: /\.apk$/i.test(asset.name) ? versionCodeDasNotas(rel.body ?? "") : undefined,
@@ -388,14 +389,12 @@ export function assinaturaConfere(status: string, impressao: string, aceitas: st
 }
 
 function lerAssinatura(arquivo: string): Promise<{ status: string; impressao: string }> {
-  const script = `$s = Get-AuthenticodeSignature -LiteralPath '${arquivo.replace(/'/g, "''")}'; "$($s.Status)|$($s.SignerCertificate.Thumbprint)"`;
-  const encoded = Buffer.from(script, "utf16le").toString("base64");
-  return new Promise((resolve) => {
-    execFile("powershell.exe", ["-NoProfile", "-NonInteractive", "-EncodedCommand", encoded], { timeout: 30000, windowsHide: true }, (err, out) => {
-      if (err) { resolve({ status: "erro", impressao: "" }); return; }
-      const [status = "", impressao = ""] = String(out).trim().split("|");
-      resolve({ status, impressao });
-    });
+  // O caminho vai em $env:NX_ARQUIVO (bloco 198), nunca no texto do script.
+  const script = `$s = Get-AuthenticodeSignature -LiteralPath $env:NX_ARQUIVO; "$($s.Status)|$($s.SignerCertificate.Thumbprint)"`;
+  return rodarPs(script, { NX_ARQUIVO: arquivo }, { timeoutMs: 30_000 }).then((r) => {
+    if (r.codigo !== 0) return { status: "erro", impressao: "" };
+    const [status = "", impressao = ""] = r.saida.trim().split("|");
+    return { status, impressao };
   });
 }
 

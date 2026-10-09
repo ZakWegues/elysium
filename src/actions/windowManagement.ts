@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { nomeDeProcessoValido, rodarPs } from "./ps";
 
 export type WinOperation = "maximize" | "minimize" | "focus" | "close";
 
@@ -39,9 +39,17 @@ const SW_MINIMIZE  = 6;
 const SW_MAXIMIZE  = 3;
 const SW_RESTORE   = 9;
 
-function buildScript(targetApp: string, operation: WinOperation): string {
+/** O nome do processo que o filtro usa. Pura. */
+export function processoAlvo(targetApp: string): string {
   const lower = targetApp.toLowerCase().trim();
-  const procName = PROCESS_MAP[lower] ?? lower.replace(/\s+/g, "");
+  return PROCESS_MAP[lower] ?? lower.replace(/\s+/g, "");
+}
+
+/**
+ * O script NÃO leva o nome: ele vem em `$env:NX_PROC` (bloco 198). Antes o nome entrava cru no
+ * `-like '*…*'` — sem escape nenhum —, e um nome com aspas vindo do modelo virava comando.
+ */
+export function buildScript(operation: WinOperation): string {
 
   const type_defs = `
 Add-Type -TypeDefinition @"
@@ -59,7 +67,7 @@ public class NxWindow {
   switch (operation) {
     case "maximize":
       return `${type_defs}
-$procs = Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.ProcessName -like '*${procName}*' -and $_.MainWindowHandle -ne 0 }
+$procs = Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.ProcessName -like ('*' + $env:NX_PROC + '*') -and $_.MainWindowHandle -ne 0 }
 $proc = $procs | Select-Object -First 1
 if ($proc) {
     [NxWindow]::ShowWindowAsync($proc.MainWindowHandle, ${SW_MAXIMIZE}) | Out-Null
@@ -70,7 +78,7 @@ if ($proc) {
 
     case "minimize":
       return `${type_defs}
-$procs = Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.ProcessName -like '*${procName}*' -and $_.MainWindowHandle -ne 0 }
+$procs = Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.ProcessName -like ('*' + $env:NX_PROC + '*') -and $_.MainWindowHandle -ne 0 }
 $proc = $procs | Select-Object -First 1
 if ($proc) {
     [NxWindow]::ShowWindowAsync($proc.MainWindowHandle, ${SW_MINIMIZE}) | Out-Null
@@ -80,7 +88,7 @@ if ($proc) {
 
     case "focus":
       return `${type_defs}
-$procs = Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.ProcessName -like '*${procName}*' -and $_.MainWindowHandle -ne 0 }
+$procs = Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.ProcessName -like ('*' + $env:NX_PROC + '*') -and $_.MainWindowHandle -ne 0 }
 $proc = $procs | Select-Object -First 1
 if ($proc) {
     [NxWindow]::ShowWindowAsync($proc.MainWindowHandle, ${SW_RESTORE}) | Out-Null
@@ -91,7 +99,7 @@ if ($proc) {
 
     case "close":
       return `${type_defs}
-$procs = Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.ProcessName -like '*${procName}*' -and $_.MainWindowHandle -ne 0 }
+$procs = Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.ProcessName -like ('*' + $env:NX_PROC + '*') -and $_.MainWindowHandle -ne 0 }
 $proc = $procs | Select-Object -First 1
 if ($proc) {
     [NxWindow]::PostMessage($proc.MainWindowHandle, [NxWindow]::WM_CLOSE, [IntPtr]::Zero, [IntPtr]::Zero) | Out-Null
@@ -101,25 +109,9 @@ if ($proc) {
   }
 }
 
-function runScript(script: string): Promise<string> {
-  // O Node lê este stdout como UTF-8 e o PowerShell escreve em ANSI; sem forçar, todo
-  // acento na resposta volta corrompido.
-  const encoded = Buffer.from(
-    "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8\n" + script,
-    "utf16le",
-  ).toString("base64");
-  return new Promise<string>((resolve) => {
-    const ps = spawn("powershell.exe", [
-      "-ExecutionPolicy", "Bypass",
-      "-WindowStyle", "Hidden",
-      "-NonInteractive",
-      "-EncodedCommand", encoded,
-    ], { stdio: "pipe" });
-    let out = "";
-    ps.stdout?.on("data", (d: Buffer) => { out += d.toString(); });
-    ps.on("close", () => resolve(out.trim()));
-    ps.on("error", () => resolve("error"));
-  });
+async function runScript(script: string, procName: string): Promise<string> {
+  const r = await rodarPs(script, { NX_PROC: procName }, { timeoutMs: 15_000 });
+  return r.codigo === 0 ? r.saida : "error";
 }
 
 const OP_LABELS: Record<WinOperation, [string, string]> = {
@@ -130,8 +122,9 @@ const OP_LABELS: Record<WinOperation, [string, string]> = {
 };
 
 export async function windowManagement(targetApp: string, operation: WinOperation): Promise<string> {
-  const script = buildScript(targetApp, operation);
-  const result = await runScript(script);
+  const procName = processoAlvo(targetApp);
+  if (!nomeDeProcessoValido(procName)) return `Não reconheci "${targetApp}" como programa.`;
+  const result = await runScript(buildScript(operation), procName);
 
   if (result === "ok") {
     const [verb] = OP_LABELS[operation];

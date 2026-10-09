@@ -1,3 +1,4 @@
+import { semAcento } from "./texto";
 /**
  * Que horas são em outra cidade (fase 14). Pura — o fuso vem do `Intl` do próprio Node.
  *
@@ -5,7 +6,7 @@
  * Tóquio (o 7B pegava a ferramenta mais parecida). Aqui não há modelo: cidade → fuso.
  */
 
-const semAcento = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+const semAcentoLocal = (s: string) => semAcento(s).trim();
 
 const FUSOS: [RegExp, string, string][] = [
   [/^(toquio|tokyo|japao)$/, "Asia/Tokyo", "Tóquio"],
@@ -44,7 +45,7 @@ const FUSOS: [RegExp, string, string][] = [
 
 /** "tóquio" → { fuso, nome }, ou null. */
 export function fusoDe(cidade: string): { fuso: string; nome: string } | null {
-  const c = semAcento(cidade).replace(/^(o|a|os|as)\s+/, "").replace(/[?.!]+$/, "").trim();
+  const c = semAcentoLocal(cidade).replace(/^(o|a|os|as)\s+/, "").replace(/[?.!]+$/, "").trim();
   for (const [re, fuso, nome] of FUSOS) if (re.test(c)) return { fuso, nome };
   return null;
 }

@@ -292,6 +292,11 @@
       <div id="tc-desfazer" class="tc-desfazer" hidden aria-live="polite"></div>
     </div>
     <div class="hoje-grade">
+      <!-- Fase 20: pomodoro, cartões de revisão e plano de estudo (js/estudo.js). -->
+      <section class="hoje-painel hoje-largo">
+        <div class="hoje-painel-topo"><h3>Estudo</h3></div>
+        <div id="hoje-estudo"></div>
+      </section>
       <section class="hoje-painel hoje-largo">
         <div class="hoje-painel-topo"><h3>Hábitos de hoje</h3><span class="hoje-botoes-mini"><button class="hoje-acao" data-hoje-gerenciar="1" title="Todos os hábitos e metas, inclusive os que não valem hoje e as metas concluídas"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-list"/></svg><span>Todos</span></button><button class="hoje-acao" data-hoje-novo-habito="1"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-plus"/></svg><span>Hábito</span></button></span></div>
         <div id="hoje-habitos"></div>
@@ -408,6 +413,8 @@
     <!-- Perguntas de partida. Ficam encostadas na barra de escrita porque é de lá que
          a próxima mensagem sai — no topo virariam decoração. Só no lado da IA: recado
          para o celular não tem pergunta pronta. -->
+    <!-- Fase 20: o modo ligado ("∑ Matemática ✕"). Some quando não há modo. -->
+    <div id="modo-faixa" hidden></div>
     <div id="chat-bolhas"></div>
 
     <div id="input-bar">
@@ -432,6 +439,8 @@
       <div id="text-zone">
         <button class="mic-btn" id="anexo-btn" title="Anexar imagem ou texto (ou arraste, ou cole)"><svg class="ico" aria-hidden="true"><use href="#i-paperclip"/></svg></button>
         <input id="anexo-input" type="file" multiple hidden>
+        <button class="mic-btn" id="modo-btn" title="Modos: matemática, português, inglês…"><svg class="ico" aria-hidden="true"><use href="#i-layers"/></svg></button>
+        <div id="modo-pop" hidden></div>
         <textarea id="cmd-input" rows="1" placeholder="Digite um comando ou pergunta…" autocomplete="off" spellcheck="true"></textarea>
         <button class="mic-btn" id="mic-btn" title="Ativar voz (Ctrl+Shift+J)"><svg class="ico" aria-hidden="true"><use href="#i-mic"/></svg></button>
         <button class="send-btn" id="send-btn" title="Enviar"><svg class="ico" aria-hidden="true"><use href="#i-arrow-up"/></svg></button>
@@ -528,6 +537,10 @@
         <!-- Comandos de IA (bloco 137): os de fábrica e os criados pelo Zak. -->
         <section class="cfg-grupo" id="sec-comandos">
           <div id="comandos-corpo"></div>
+        </section>
+
+        <section class="cfg-grupo" id="sec-modos">
+          <div id="modos-corpo"></div>
         </section>
 
         <section class="cfg-grupo" id="sec-agenda">
@@ -646,6 +659,8 @@
 <script src="dashboard/js/hoje.js"></script>
 <script src="dashboard/js/tarefas.js"></script>
 <script src="dashboard/js/inicio.js"></script>
+<script src="dashboard/js/modos.js"></script>
+<script src="dashboard/js/estudo.js"></script>
 <script src="dashboard/js/paleta.js"></script>
 <script src="dashboard/js/boot.js"></script>
 </body>

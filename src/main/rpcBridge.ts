@@ -116,8 +116,19 @@ function descreverAlvo(method: string, params: Record<string, unknown>): { titul
 
 const DESTRUTIVOS = new Set(listRpcMethods().filter(m => m.destructive).map(m => m.method));
 
+/** A URL de quem chamou o IPC é uma tela do próprio app? Pura. */
+export function origemDoApp(url: string | undefined): boolean {
+  if (typeof url !== "string" || !url.startsWith("file://")) return false;
+  let caminho = url;
+  try { caminho = decodeURI(url); } catch { return false; }
+  return /\/renderer\/[\w-]+\.html(?:[?#].*)?$/.test(caminho.replace(/\\/g, "/"));
+}
+
 export function registerRpcBridge(): void {
   ipcMain.handle("rpc:call", async (_e, method: unknown, params: unknown) => {
+    // Fase 20 (bloco 200): só as telas do próprio app (file://) chamam o RPC por aqui. Uma
+    // página de fora que de algum jeito herdasse o preload não alcança os métodos.
+    if (!origemDoApp(_e.senderFrame?.url)) return { error: "origem não autorizada" };
     const safeParams: Record<string, unknown> =
       params && typeof params === "object" && !Array.isArray(params)
         ? (params as Record<string, unknown>)

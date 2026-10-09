@@ -2,6 +2,7 @@ import { shell } from "electron";
 import * as path from "node:path";
 import * as fs from "node:fs";
 import { spawn } from "node:child_process";
+import { rodarPs } from "./ps";
 import { appNotFoundError } from "../services/errors";
 import { notify } from "../main/notify";
 
@@ -19,11 +20,27 @@ function loadAppsMap(): AppMap {
   return appsMap;
 }
 
+/**
+ * Nome que veio de fora (modelo, RPC) e NÃO está no `apps.json`: só nome de programa
+ * (bloco 199). Caminho absoluto, `file:`, `search-ms:`, `ms-…:` e qualquer `x:` saíam direto
+ * para `openPath`/`openExternal` — o modelo, enganado por uma página, podia rodar um `.exe`
+ * baixado. Os comandos do `apps.json` são do projeto e continuam valendo como estão. Pura.
+ */
+export function nomeDeProgramaAceito(nome: string): boolean {
+  const n = nome.trim();
+  if (!n || n.length > 80) return false;
+  if (/[\\/:*?"<>|]/.test(n) || /^\.|\.\./.test(n)) return false;
+  return /^[\p{L}\p{N} ._&+()-]+$/u.test(n);
+}
+
 export async function openApp(appName: string): Promise<string> {
   const map = loadAppsMap();
   const key = appName.toLowerCase().trim();
 
   const command = map[key] ?? findPartial(map, key) ?? null;
+  if (!command && !nomeDeProgramaAceito(appName)) {
+    return `Não abro "${appName}": só programas pelo nome (caminhos e links ficam de fora por segurança).`;
+  }
 
   try {
     await launch(command ?? appName);
@@ -94,42 +111,25 @@ function launchViaExplorer(appId: string): Promise<void> {
  * Ordem: Get-StartApps → App Paths registry → Get-Command (PATH).
  * Retorna o AppID/path ou null se não encontrado.
  */
-function resolveAppId(name: string): Promise<string | null> {
-  const safe = name.replace(/'/g, "''");
-
-  const psQuery =
-    // O Node lê este stdout como UTF-8 e o PowerShell escreve em ANSI. Aqui o retorno é
-    // um caminho de arquivo, então acento corrompido não só fica feio: quebra o
-    // `shell.openPath` de qualquer programa instalado sob "Arquivos de Programas".
-    `[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; ` +
-    `$ErrorActionPreference='SilentlyContinue'; ` +
+async function resolveAppId(name: string): Promise<string | null> {
+  // O nome vai em $env:NX_NOME (bloco 198): antes era `'…${safe}…'` com o `''` de escape,
+  // que as aspas curvas ‘ ’ furavam.
+  const psQuery = [
+    "$ErrorActionPreference='SilentlyContinue'",
+    "$n = $env:NX_NOME",
     // 1. Get-StartApps por nome (UWP, Store, Win32 registrados)
-    `$a=Get-StartApps|Where-Object{$_.Name -like '*${safe}*'}|Select-Object -First 1; ` +
-    `if($a){ Write-Output $a.AppID; exit 0 } ` +
+    "$a = Get-StartApps | Where-Object { $_.Name -like ('*' + $n + '*') } | Select-Object -First 1",
+    "if ($a) { Write-Output $a.AppID; exit 0 }",
     // 2. App Paths registry (apps instalados com .exe em HKCU/HKLM)
-    `foreach($n in @('${safe}.exe','${safe}')){ ` +
-      `foreach($h in @('HKCU:','HKLM:')){ ` +
-        `$r=Get-ItemProperty "$h\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\$n" -EA SilentlyContinue; ` +
-        `if($r){ Write-Output $r.'(default)'; exit 0 } ` +
-      `} ` +
-    `} ` +
-    // 3. Fallback: Get-Command (procura em PATH)
-    `$cmd=Get-Command '${safe}' -EA SilentlyContinue; ` +
-    `if($cmd -and $cmd.Source){ Write-Output $cmd.Source; exit 0 } ` +
-    `exit 1`;
-
-  return new Promise<string | null>((resolve) => {
-    const ps = spawn(
-      "powershell.exe",
-      ["-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-NonInteractive", "-Command", psQuery],
-      { stdio: "pipe" },
-    );
-    let out = "";
-    ps.stdout?.on("data", (d: Buffer) => { out += d.toString(); });
-    ps.on("close", (code) => {
-      const appId = out.trim();
-      resolve(code === 0 && appId ? appId : null);
-    });
-    ps.on("error", () => resolve(null));
-  });
+    "foreach ($x in @(($n + '.exe'), $n)) { foreach ($h in @('HKCU:','HKLM:')) {",
+    "  $r = Get-ItemProperty -LiteralPath ($h + '\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\' + $x) -EA SilentlyContinue",
+    "  if ($r) { Write-Output $r.'(default)'; exit 0 } } }",
+    // 3. Get-Command (PATH), só aplicativo — nunca script ou função do PowerShell.
+    "$cmd = Get-Command -Name $n -CommandType Application -EA SilentlyContinue | Select-Object -First 1",
+    "if ($cmd -and $cmd.Source) { Write-Output $cmd.Source; exit 0 }",
+    "exit 1",
+  ].join("\n");
+  const r = await rodarPs(psQuery, { NX_NOME: name }, { timeoutMs: 20_000 });
+  const appId = r.saida.split(/\r?\n/)[0]?.trim() ?? "";
+  return r.codigo === 0 && appId ? appId : null;
 }

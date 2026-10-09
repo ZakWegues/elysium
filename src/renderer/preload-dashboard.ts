@@ -48,7 +48,6 @@ contextBridge.exposeInMainWorld("nx", {
   onActionLog:     (cb: (l: unknown) => void)   => { ipcRenderer.on("dash:action-log",    (_e, l) => cb(l)); },
 
   // ── System ─────────────────────────────────────────────────────────────────
-  killProcess:     (pid: number)                => ipcRenderer.send("system:kill-process", pid),
   mediaControl:    (op: string)                 => ipcRenderer.send("media:direct", op),
   stopTts:         ()                           => ipcRenderer.send("tts:stop"),
   onFalando:       (cb: (f: boolean) => void)   => { ipcRenderer.on("tts:falando", (_e, f) => cb(f)); },
@@ -59,7 +58,6 @@ contextBridge.exposeInMainWorld("nx", {
   chatSessionsSave:     (sessionId: string | null, messages: unknown[]) =>
                                                     ipcRenderer.invoke("chat-sessions:save", sessionId, messages),
   chatSessionsFavorite: (id: string)             => ipcRenderer.invoke("chat-sessions:favorite", id),
-  chatSessionsDelete:   (id: string)             => ipcRenderer.invoke("chat-sessions:delete", id),
   chatSessionsRename:   (id: string, t: string)  => ipcRenderer.invoke("chat-sessions:rename", id, t),
 
   // ── Presets ────────────────────────────────────────────────────────────────
@@ -100,6 +98,9 @@ contextBridge.exposeInMainWorld("nx", {
   onAtualizacao:        (cb: (e: unknown) => void) => { ipcRenderer.on("atualizacao:mudou", (_e, e) => cb(e)); },
   novidades:            () => ipcRenderer.invoke("novidades:pendentes"),
   onFoco:               (cb: () => void) => { ipcRenderer.on("foco:mudou", () => cb()); },
+  // Fase 20: o modo da Ely mudou (pela voz, pelo celular ou daqui).
+  onModo:               (cb: (m: unknown) => void) => { ipcRenderer.on("modo:mudou", (_e, m) => cb(m)); },
+  onPomodoro:           (cb: (p: unknown) => void) => { ipcRenderer.on("pomodoro:mudou", (_e, p) => cb(p)); },
   // Google Agenda (bloco 120).
   agendaEstado:         () => ipcRenderer.invoke("agenda:estado"),
   agendaCliente:        (id: string, segredo: string) => ipcRenderer.invoke("agenda:cliente", id, segredo),
@@ -112,10 +113,8 @@ contextBridge.exposeInMainWorld("nx", {
   mailboxSessionsCreate:   (title?: string)          => ipcRenderer.invoke("mailbox:sessions-create", title),
   mailboxSessionsRename:   (id: string, t: string)   => ipcRenderer.invoke("mailbox:sessions-rename", id, t),
   mailboxSessionsFavorite: (id: string)              => ipcRenderer.invoke("mailbox:sessions-favorite", id),
-  mailboxSessionsDelete:   (id: string)              => ipcRenderer.invoke("mailbox:sessions-delete", id),
   mailboxSessionsOpen:     (id: string)              => ipcRenderer.invoke("mailbox:sessions-open", id),
   mailboxSessionsActive:   ()                        => ipcRenderer.invoke("mailbox:sessions-active"),
-  mailboxMessageDelete:    (id: string)              => ipcRenderer.invoke("mailbox:message-delete", id),
   onMailboxMessage:     (cb: (m: unknown) => void)  => { ipcRenderer.on("mailbox:new-message", (_e, m) => cb(m)); },
   mailboxCopyImage:     (attachmentPath: string)                       => ipcRenderer.invoke("mailbox:copy-image", attachmentPath),
   mailboxSaveAs:        (attachmentPath: string, suggestedName: string) => ipcRenderer.invoke("mailbox:save-as", attachmentPath, suggestedName),

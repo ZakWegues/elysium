@@ -8,6 +8,7 @@ import { getConfig } from "../main/config";
 import type { Canal } from "./estiloResposta";
 import { comContexto, Fonte, fontesDoPedido, usouReserva } from "./contextoComando";
 import { responderConfirmacao } from "./confirmacao";
+import { responderRevisao, semMarcas } from "./cartoes";
 
 export type ResultadoComando = {
   actions: BrainAction[];
@@ -69,6 +70,15 @@ async function executarNoContexto(
     return { actions: [], reply: confirmado, atalho: true };
   }
 
+  // Fase 20: no meio da revisão ("Ely, revisão"), o pedido é a resposta do cartão — a não ser
+  // que seja um comando de verdade ("pausa", "abre o Chrome"): aí a revisão acaba e ele segue.
+  const daRevisao = responderRevisao(text, (t) => { const a = fastRoute(t); return !!a && !a.every(x => x.action === "calculate"); });
+  if (daRevisao !== null) {
+    registrarTurnoUsuario(text);
+    recordAssistantReply(daRevisao);
+    return { actions: [], reply: daRevisao, atalho: true };
+  }
+
   const shortcut = fastRoute(text);
   if (shortcut) noteFastRouted(text, shortcut);
 
@@ -85,7 +95,9 @@ async function executarNoContexto(
     });
     if (r?.modo === "ferramentas") {
       actions = r.acoes.length ? r.acoes : [{ action: "chat" }];
-      replyPronta = r.reply;
+      // A marca do quiz no agente só sai da tela: o agente lê páginas e telas, e o quiz de
+      // verdade passa pela conversa (fase 20, revisão).
+      replyPronta = r.reply ? semMarcas(r.reply) : r.reply;
       // A resposta chega inteira; o dashboard e o celular esperam pedaços — um pedaço só.
       if (replyPronta) ganchos.onToken?.(replyPronta);
     } else if (r?.modo === "chat") {

@@ -29,6 +29,8 @@ export function pastaDeLogs(): string {
 export function mascarar(texto: string): string {
   return texto
     .replace(/gsk_[A-Za-z0-9]{12,}/g, "gsk_[oculto]")
+    // Fase 20: o segredo do cliente OAuth do Google também.
+    .replace(/GOCSPX-[A-Za-z0-9_-]{10,}/g, "GOCSPX-[oculto]")
     .replace(/\b(gh[pousr]_|github_pat_)[A-Za-z0-9_]{16,}/g, "$1[oculto]")
     .replace(/\b[a-f0-9]{64}\b/gi, "[token oculto]")
     .replace(/(Bearer\s+)[A-Za-z0-9._-]{16,}/gi, "$1[oculto]");

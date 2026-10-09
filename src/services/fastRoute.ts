@@ -7,6 +7,12 @@ import { pedidoDeHora } from "./horaMundo";
 import { listarTreinos, pedidoDeCorrida, pedidoDePeso, pedidoDeTreino } from "./corpo";
 import { pedidoFecharSeAberto, pedidoLembreteDaquiA, pedidoPausarSeTocando } from "./condicionais";
 import { pedidoComIsso } from "./isso";
+import { isoLocal } from "./hora";
+import { pedidoDeModo } from "./modos";
+import { pedidoDeCartao } from "./cartoes";
+import { pedidoDePomodoro } from "./pomodoro";
+import { pedidoDePlano } from "./planoEstudo";
+import { pedidoDeMediaEscolar } from "./notas";
 
 /**
  * Roteamento local, sem IA.
@@ -125,6 +131,12 @@ const RULES: Rule[] = [
   { pattern: /^(cancela|cancelar|para|parar|desliga|desligar) o timer( (do|da|de) (.+))?$/,
     build: (m) => [{ action: "timer_cancel", name: m[4] }] },
 
+  // — revisão (fase 20) — "revisa isso" é do isso.ts, que vem antes; aqui só a frase inteira.
+  { pattern: /^(?:ely )?(?:revisao|revisar|vamos revisar|bora revisar|revisa(?:r)? (?:os |meus )?cartoes|me pergunta os cartoes|hora da revisao|comeca a revisao|comecar a revisao)$/,
+    build: () => [{ action: "cards", operacao: "revisar" }] },
+  { pattern: /^(?:ely )?(?:quantos cartoes(?: (?:eu )?(?:tenho|tem))?(?: (?:pra|para) (?:revisar|hoje))?|tem revisao hoje|tenho revisao hoje)$/,
+    build: () => [{ action: "cards", operacao: "status" }] },
+
   // — presets e memória —
   { pattern: /^(lista(r)? (os )?presets|quais presets( eu)? tenho|meus presets)$/,
     build: () => [{ action: "list_presets" }] },
@@ -151,6 +163,12 @@ export function fastRoute(text: string): BrainAction[] | null {
   // Só gatilho explícito, e o resto tem que ter cara de lista (vírgula ou " e "): "organiza
   // as janelas", "anota tudo que eu falar na reunião" e "despejo do lixo é amanhã" seguem
   // para o cérebro (a revisão pegou os três).
+  // "Quanto preciso tirar?" (fase 20): só com média e notas ditas; senão, o cérebro pergunta.
+  const mediaEscolar = pedidoDeMediaEscolar(text);
+  if (mediaEscolar) return [{ action: "grade_needed", ...mediaEscolar }];
+  // Plano de estudo (fase 20): antes do despejo e das listas — "monta um plano… assuntos: a, b".
+  const plano = pedidoDePlano(text);
+  if (plano) return [{ action: "study_plan", ...plano }];
   const despejo = /^\s*(?:ely[,!]?\s+)?(?:despejo\s*:|anota tudo isso\s*[:,]?|anota a[íi] tudo isso\s*[:,]?|anota essas coisas\s*[:,]?)\s*(.{15,})$/is.exec(text);
   if (despejo && /,|\s(e|tamb[ée]m|depois)\s/i.test(despejo[1])) return [{ action: "brain_dump", texto: despejo[1].trim() }];
   // Listas e timers (blocos 135/136): o item e o nome precisam do texto ORIGINAL (com
@@ -175,9 +193,7 @@ export function fastRoute(text: string): BrainAction[] | null {
   if (isso && !(isso === "explicar" && /\b(isso|isto)\s*\??$/i.test(text.trim()) && respondeuHaPouco())) return [{ action: "about_this", comando: isso }];
   const daquiA = pedidoLembreteDaquiA(text);
   if (daquiA) {
-    const d = new Date(Date.now() + daquiA.minutos * 60_000);
-    const p = (n: number) => String(n).padStart(2, "0");
-    return [{ action: "create_reminder", text: daquiA.texto, due_at: `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}` }];
+    return [{ action: "create_reminder", text: daquiA.texto, due_at: isoLocal(new Date(Date.now() + daquiA.minutos * 60_000)) }];
   }
   // Treino, corrida e peso (fase 18). "Treinei" só vira atalho com treino cadastrado.
   const treino = pedidoDeTreino(text);
@@ -202,6 +218,20 @@ export function fastRoute(text: string): BrainAction[] | null {
   for (const rule of RULES) {
     const match = normalized.match(rule.pattern);
     if (match) return rule.build(match);
+  }
+  // Pomodoro (fase 20): "pomodoro de 50 e 10, 3 ciclos"; com sobra que não entendi, cérebro.
+  const pomo = pedidoDePomodoro(text);
+  if (pomo) return [pomo.tipo === "start" ? { action: "pomodoro", operacao: "start", ...pomo.config } : { action: "pomodoro", operacao: pomo.tipo }];
+  // Cartão à mão (fase 20): o texto original, com acento ("mitocôndria é…").
+  const cartao = pedidoDeCartao(text);
+  if (cartao) return [{ action: "cards", operacao: "guardar", ...("semFormato" in cartao ? {} : cartao) }];
+  // Modos (fase 20) depois das regras: "modo foco" e "modo anônimo" já casaram acima, e um
+  // nome que não é modo ("modo gaming") volta `null` e segue para o preset no cérebro.
+  const modo = pedidoDeModo(text);
+  if (modo) {
+    if (modo.tipo === "ligar") return [{ action: "mode", operacao: "ligar", id: modo.id }];
+    if (modo.tipo === "criar") return [{ action: "mode", operacao: "criar", nome: modo.nome, instrucao: modo.instrucao }];
+    return [{ action: "mode", operacao: modo.tipo }];
   }
   return null;
 }

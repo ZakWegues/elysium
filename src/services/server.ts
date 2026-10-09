@@ -197,6 +197,24 @@ export function broadcastEstadoPc(estado: object): void {
   }
 }
 
+/** O pomodoro mudou de fase (fase 20): o card do celular acompanha na hora. */
+export function broadcastPomodoro(pomodoro: object): void {
+  if (wsClients.size === 0) return;
+  const frame = buildTextFrame(JSON.stringify({ type: "pomodoro", pomodoro }));
+  for (const c of wsClients) {
+    try { c.socket.write(frame); } catch { wsClients.delete(c); }
+  }
+}
+
+/** O modo da Ely mudou (fase 20): o chip do celular acompanha o do PC. */
+export function broadcastModo(modo: object | null): void {
+  if (wsClients.size === 0) return;
+  const frame = buildTextFrame(JSON.stringify({ type: "modo", modo }));
+  for (const c of wsClients) {
+    try { c.socket.write(frame); } catch { wsClients.delete(c); }
+  }
+}
+
 export function broadcastMailboxEvent(direction: "toMobile" | "toDesktop", id: string): void {
   if (wsClients.size === 0) return;
   const frame = buildTextFrame(JSON.stringify({ type: "mailbox_new", direction, id }));
@@ -232,7 +250,11 @@ export function clientesConectados(): number {
 }
 
 export function setActiveToken(token: string): void {
+  const mudou = token !== activeToken;
   activeToken = token;
+  // Bloco 200: token novo derruba as conexões abertas — o aparelho revogado continuava com o
+  // WebSocket de pé, mandando pedido, até a conexão cair sozinha.
+  if (mudou) for (const c of [...wsClients]) { try { c.socket.destroy(); } catch { /* já caiu */ } wsClients.delete(c); }
 }
 
 function authorized(req: http.IncomingMessage): boolean {
@@ -330,6 +352,31 @@ function rateLimited(req: http.IncomingMessage): boolean {
   return hits.length > RATE_LIMIT_MAX_REQUESTS;
 }
 
+// ── recuo depois de token errado (bloco 200) ──────────────────────────────────
+// 20 recusas em 10 min do mesmo IP = 10 min sem resposta. Adivinhar 256 bits não é viável, mas
+// um celular com o token VELHO martelando a cada 15 s enchia o log e o disco (cada 401 gravava).
+const recusas = new Map<string, { n: number; desde: number; bloqueadoAte: number }>();
+const JANELA_RECUSA_MS = 10 * 60_000;
+
+/** Pura, para teste: o estado novo depois de uma recusa. */
+export function proximaRecusa(r: { n: number; desde: number; bloqueadoAte: number } | undefined, agora: number): { n: number; desde: number; bloqueadoAte: number } {
+  const atual = !r || agora - r.desde > JANELA_RECUSA_MS ? { n: 0, desde: agora, bloqueadoAte: 0 } : { ...r };
+  atual.n++;
+  if (atual.n >= 20) atual.bloqueadoAte = agora + JANELA_RECUSA_MS;
+  return atual;
+}
+
+function contarRecusa(req: http.IncomingMessage): void {
+  const ip = req.socket.remoteAddress ?? "unknown";
+  recusas.set(ip, proximaRecusa(recusas.get(ip), Date.now()));
+  if (recusas.size > 256) for (const [k, v] of recusas) if (Date.now() - v.desde > JANELA_RECUSA_MS && v.bloqueadoAte < Date.now()) recusas.delete(k);
+}
+
+function recusasDemais(req: http.IncomingMessage): boolean {
+  const r = recusas.get(req.socket.remoteAddress ?? "unknown");
+  return !!r && r.bloqueadoAte > Date.now();
+}
+
 // ── leitura de corpo com teto ─────────────────────────────────────────────────
 
 class BodyTooLargeError extends Error {}
@@ -378,7 +425,9 @@ function makeHandler(
       return;
     }
 
+    if (recusasDemais(req)) { sendJson(res, 429, { error: "Too many failed attempts" }); return; }
     if (!authorized(req)) {
+      contarRecusa(req);
       registrarAcesso(req, false);
       sendJson(res, 401, { error: "Unauthorized" });
       return;
@@ -610,8 +659,15 @@ function handleUpgrade(
   socket: Socket,
   head: Buffer,
 ): void {
+  // Bloco 200: o upgrade também passa pelo limite (antes só o HTTP passava).
+  if (rateLimited(req) || recusasDemais(req)) {
+    socket.write("HTTP/1.1 429 Too Many Requests\r\nConnection: close\r\n\r\n");
+    socket.destroy();
+    return;
+  }
   // Reject unauthenticated upgrades
   if (!authorized(req)) {
+    contarRecusa(req);
     registrarAcesso(req, false);
     socket.write("HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n");
     socket.destroy();

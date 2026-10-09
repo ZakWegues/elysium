@@ -1,6 +1,7 @@
 import Store from "electron-store";
 import * as crypto from "node:crypto";
 import { diaDe } from "./habitos";
+import { semAcento } from "./texto";
 
 /**
  * Treino, nutrição e corrida (fase 18, 08/10).
@@ -441,7 +442,7 @@ export function importarCorpo(d: Partial<Dados>): void {
 
 // ── puras: pedidos falados (atalho sem modelo) ──────────────────────────────
 
-const sem = (t: string) => t.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[.!?]+$/, "").trim();
+const sem = (t: string) => semAcento(t).replace(/[.!?]+$/, "").trim();
 
 /** "treinei hoje", "fiz o treino", "terminei o treino B" → `{ nome? }`. */
 export function pedidoDeTreino(texto: string): { nome?: string } | null {

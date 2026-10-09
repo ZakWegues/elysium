@@ -1,4 +1,5 @@
 import Store from "electron-store";
+import { semAcento } from "./texto";
 
 /**
  * Timers com nome (bloco 136) — "timer de 10 minutos do miojo". O que mais se usa numa
@@ -13,7 +14,6 @@ import Store from "electron-store";
 
 export interface Timer { id: string; nome: string; criadoEm: number; fimEm: number; duracaoMs: number }
 
-const semAcento = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
 const NUMEROS: Record<string, number> = {
   um: 1, uma: 1, dois: 2, duas: 2, tres: 3, quatro: 4, cinco: 5, seis: 6, sete: 7, oito: 8, nove: 9, dez: 10,

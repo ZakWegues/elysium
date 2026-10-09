@@ -1,3 +1,4 @@
+import { semAcento } from "./texto";
 /**
  * O que o agente pode fazer depois de ler conteúdo de fora (fase 19, bloco 192). Puro.
  *
@@ -15,7 +16,16 @@
  */
 
 /** Ferramentas cujo resultado é texto de fora (web, link, tela, área de transferência). */
-export const FONTES_EXTERNAS = new Set(["buscar_na_web", "resumir_link", "olhar_a_tela", "area_de_transferencia", "comando_de_ia", "janela_em_foco"]);
+export const FONTES_EXTERNAS = new Set([
+  "buscar_na_web", "resumir_link", "olhar_a_tela", "area_de_transferencia", "comando_de_ia", "janela_em_foco",
+  // Fase 20 (bloco 201): também é texto que outra pessoa escreve — título de convite da agenda
+  // (qualquer um manda um convite), título de aba do navegador, nome de música, e as conversas
+  // lembradas (que trazem o que uma página disse dias atrás).
+  "agenda", "programas_abertos", "tocando_agora", "lembrar_conversa",
+]);
+
+/** Ferramentas que fazem o PC acessar um endereço — o jeito clássico de vazar dado numa URL. */
+const SAEM_PARA_URL = new Set(["resumir_link", "abrir_site", "abrir_programa"]);
 
 /**
  * Ações sensíveis e, para cada uma, as palavras do PEDIDO que mostram que ele quis aquilo.
@@ -50,10 +60,46 @@ const INTENCAO: Record<string, RegExp> = {
   marcar_habito: /\b(marc|fiz|feito|conclu)/,
   avancar_meta: /\b(meta|soma|avanc|adicion|mais)/,
   modo_foco: /\b(foco|concentr)/,
+  janela: /\b(janela|minimiz|maximiz|foc|fech|traz|tras|mostra)/,
+  // Fase 20 (revisão): o que a Ely leu não guarda cartão nem liga pomodoro/plano sozinho.
+  guardar_cartao: /\b(cart|revis|guard|lembr)/,
+  pomodoro: /\b(pomodoro|foc|concentr|estud)/,
+  plano_de_estudo: /\b(plano|estud|prova|cronograma)/,
 };
 
+/**
+ * Para onde cada pedaço de texto aponta: o host ("evil.com"), ou o endereço inteiro quando não
+ * há host ("ms-settings:…"). Pela MESMA leitura que quem acessa faz (`new URL`), não por
+ * regex: a revisão da fase 20 achou `http:evil.com?d=…` e `https:\\evil.com` passando pela
+ * regex antiga, que só via `http://`, `www.` e `host.tld/`. Pura.
+ */
+export function destinosDoTexto(texto: string): string[] {
+  const destinos: string[] = [];
+  for (const bruto of texto.split(/[\s"'<>]+/)) {
+    const t = bruto.replace(/^[(\[]+|[)\],.;!?]+$/g, "");
+    if (!t) continue;
+    let u: URL | null = null;
+    try {
+      if (/^[a-z][a-z0-9+.-]*:/i.test(t) && !/^\d+:\d/.test(t)) u = new URL(t);
+      else if (/^(?:www\.)?[a-z0-9-]+(?:\.[a-z0-9-]+)+(?:[/?#:]|$)/i.test(t)) u = new URL(`http://${t}`);
+    } catch { u = null; }
+    if (u) destinos.push(u.hostname ? u.hostname.toLowerCase().replace(/^www\./, "") : u.href.toLowerCase());
+  }
+  return destinos;
+}
+
+/** Os destinos de todos os argumentos de texto (e listas de texto) de uma chamada. Pura. */
+export function destinosDosArgs(args: Record<string, unknown> | undefined): string[] {
+  const textos: string[] = [];
+  for (const v of Object.values(args ?? {})) {
+    if (typeof v === "string") textos.push(v);
+    else if (Array.isArray(v)) for (const x of v) if (typeof x === "string") textos.push(x);
+  }
+  return textos.flatMap(destinosDoTexto);
+}
+
 function sem(t: string): string {
-  return t.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  return semAcento(t);
 }
 
 export type Decisao = { tipo: "executar" } | { tipo: "bloquear"; mensagem: string };
@@ -62,7 +108,14 @@ export type Decisao = { tipo: "executar" } | { tipo: "bloquear"; mensagem: strin
  * Pode chamar `nome` agora? `contaminado` = este pedido já leu conteúdo de fora. Ações que não
  * estão na tabela (tocar música, volume, ler coisas) sempre podem.
  */
-export function decidirChamada(nome: string, contaminado: boolean, pedido: string): Decisao {
+export function decidirChamada(nome: string, contaminado: boolean, pedido: string, args?: Record<string, unknown>): Decisao {
+  // Bloco 201: depois de ler conteúdo de fora, o PC só acessa endereço que ESTÁ no pedido.
+  // "resume esse link" + uma página que manda abrir "https://evil/?d=<memória>" = barrado.
+  if (contaminado && SAEM_PARA_URL.has(nome)) {
+    const doPedido = new Set(destinosDoTexto(pedido));
+    const estranha = destinosDosArgs(args).find(d => !doPedido.has(d));
+    if (estranha) return { tipo: "bloquear", mensagem: "Não abri esse endereço: ele veio do conteúdo que eu li, não do seu pedido. Se quiser, mande o link você mesmo." };
+  }
   const intencao = INTENCAO[nome];
   if (!contaminado || !intencao) return { tipo: "executar" };
   if (intencao.test(sem(pedido))) return { tipo: "executar" };
