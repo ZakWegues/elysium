@@ -1,5 +1,9 @@
-import { modoAtivo } from "./modos";
-import { paraOuvido } from "./falaParaOuvido";
+import { modoAtivo, modoDeConta } from "./modos";
+
+function ehModoDeConta(): boolean {
+  try { return modoDeConta(); } catch { return false; }
+}
+import { matematicaParaOuvido, paraOuvido } from "./falaParaOuvido";
 import { MsEdgeTTS, OUTPUT_FORMAT, ProsodyOptions } from "msedge-tts";
 import * as os from "node:os";
 import * as fs from "node:fs";
@@ -108,7 +112,10 @@ export function cancelSpeak(): void {
  * Strip URLs, file paths, code blocks, emojis, and markdown syntax
  * from text before TTS. Display side (chat) always receives the raw text.
  */
-export function cleanTextForSpeech(raw: string): string {
+export function cleanTextForSpeech(raw: string, conta = ehModoDeConta()): string {
+  // Fase 20: no modo matemática a conta vira fala ANTES da limpeza do markdown, que comia o
+  // "*" da multiplicação e lia "3/4" como data.
+  if (conta) raw = matematicaParaOuvido(raw);
   // Fase 18: depois de limpar o markdown, números, datas e unidades viram fala (falaParaOuvido.ts).
   return paraOuvido(raw
     .replace(/```[\s\S]*?```/g, "trecho de código")

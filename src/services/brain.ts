@@ -1,5 +1,6 @@
 import { provedorDaConversa } from "./cerebroHibrido";
 import { blocoDoModo, modoAtivo, tocarModo } from "./modos";
+import { filtroDeMarcas, guardarRevisoesDoTexto } from "./cartoes";
 import { marcarReserva } from "./contextoComando";
 import { getApiKey, getConfig, AppConfig, nomeDoUsuario } from "../main/config";
 import { blocoDeInstrucoes, Canal, estiloValido, maxTokensDaConversa, personaStark, regrasDaConversa } from "./estiloResposta";
@@ -68,6 +69,8 @@ export type BrainAction =
   // Bloco 190: "modo anônimo" — nada da conversa vira fato nem episódio até desligar.
   | { action: "anon_mode";         ligar: boolean }
   // Fase 20: "modo matemática", "sai do modo" — só o fastRoute produz (ver modos.ts).
+  // Fase 20: cartões de revisão — "Ely, revisão", "guarda pra revisar: X é Y".
+  | { action: "cards";             operacao: "revisar" | "status" | "guardar"; frente?: string; verso?: string }
   | { action: "mode";              operacao: "ligar" | "desligar" | "status" | "listar" | "criar"; id?: string; nome?: string; instrucao?: string }
   // Bloco 193: "resume isso", "traduz isso" — o copiado, ou a tela.
   | { action: "about_this";        comando: ComandoIsso }
@@ -232,6 +235,7 @@ function actionSummary(action: BrainAction): string {
     case "timer_cancel":      return "Cancelou timer";
     case "calculate":         return "Conta";
     case "anon_mode":         return action.ligar ? "Modo anônimo ligado" : "Modo anônimo desligado";
+    case "cards":             return action.operacao === "guardar" ? "Cartão de revisão" : "Revisão";
     case "mode":              return action.operacao === "ligar" ? "Modo ligado" : action.operacao === "desligar" ? "Saiu do modo" : action.operacao === "criar" ? `Criou o modo ${action.nome ?? ""}`.trim() : "Modos";
     case "about_this":        return `Isso: ${action.comando}`;
     case "brain_dump":        return "Despejo para organizar";
@@ -484,6 +488,12 @@ export async function composeChatReply(
   /** Bloco 130: falada (curta) ou escrita no chat (markdown, tamanho livre). */
   canal: Canal = "voz",
 ): Promise<string | null> {
+  // Fase 20: a marca [[REVISAR: …]] do quiz vira cartão e nunca chega à tela nem à voz.
+  const r = await comporResposta(userText, onToken ? filtroDeMarcas(onToken) : undefined, canal);
+  return r ? guardarRevisoesDoTexto(r) || null : r;
+}
+
+async function comporResposta(userText: string, onToken: ((token: string) => void) | undefined, canal: Canal): Promise<string | null> {
   const cfg = getConfig();
 
   // O mesmo histórico do roteador, para o modelo entender "e ele?" depois de uma

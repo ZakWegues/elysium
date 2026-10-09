@@ -9,6 +9,7 @@ import { pedidoFecharSeAberto, pedidoLembreteDaquiA, pedidoPausarSeTocando } fro
 import { pedidoComIsso } from "./isso";
 import { isoLocal } from "./hora";
 import { pedidoDeModo } from "./modos";
+import { pedidoDeCartao } from "./cartoes";
 
 /**
  * Roteamento local, sem IA.
@@ -127,6 +128,12 @@ const RULES: Rule[] = [
   { pattern: /^(cancela|cancelar|para|parar|desliga|desligar) o timer( (do|da|de) (.+))?$/,
     build: (m) => [{ action: "timer_cancel", name: m[4] }] },
 
+  // — revisão (fase 20) — "revisa isso" é do isso.ts, que vem antes; aqui só a frase inteira.
+  { pattern: /^(?:ely )?(?:revisao|revisar|vamos revisar|bora revisar|revisa(?:r)? (?:os |meus )?cartoes|me pergunta os cartoes|hora da revisao|comeca a revisao|comecar a revisao)$/,
+    build: () => [{ action: "cards", operacao: "revisar" }] },
+  { pattern: /^(?:ely )?(?:quantos cartoes(?: (?:eu )?(?:tenho|tem))?(?: (?:pra|para) (?:revisar|hoje))?|tem revisao hoje|tenho revisao hoje)$/,
+    build: () => [{ action: "cards", operacao: "status" }] },
+
   // — presets e memória —
   { pattern: /^(lista(r)? (os )?presets|quais presets( eu)? tenho|meus presets)$/,
     build: () => [{ action: "list_presets" }] },
@@ -203,6 +210,9 @@ export function fastRoute(text: string): BrainAction[] | null {
     const match = normalized.match(rule.pattern);
     if (match) return rule.build(match);
   }
+  // Cartão à mão (fase 20): o texto original, com acento ("mitocôndria é…").
+  const cartao = pedidoDeCartao(text);
+  if (cartao) return [{ action: "cards", operacao: "guardar", ...("semFormato" in cartao ? {} : cartao) }];
   // Modos (fase 20) depois das regras: "modo foco" e "modo anônimo" já casaram acima, e um
   // nome que não é modo ("modo gaming") volta `null` e segue para o preset no cérebro.
   const modo = pedidoDeModo(text);

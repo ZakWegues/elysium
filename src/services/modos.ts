@@ -231,10 +231,24 @@ export function blocoDoModo(m: Modo | null, canal: Canal): string {
   return `\n\n${cab} Enquanto este modo estiver ligado, vale acima do estilo normal de resposta:\n${m.instrucao}${voz}`;
 }
 
+/**
+ * Para a visão (câmera do celular, "o que tem na tela") e para o "explica isso": foto da
+ * lista de exercícios no modo matemática vira resolução passo a passo. O quiz fica de fora:
+ * numa foto não há "uma pergunta por vez". Pura.
+ */
+export function blocoDoModoNaImagem(m: Modo | null): string {
+  if (!m || m.id === "estudo") return "";
+  return `\n\n[MODO ${m.nome.toUpperCase()}] Ele ligou este modo; siga-o mesmo que passe de 3 frases (sem markdown):\n${m.instrucao}${m.naVoz ? `\n${m.naVoz}` : ""}`;
+}
+
 /** Uma linha no prompt do agente. Pura. */
 export function linhaDoAgente(m: Modo | null): string {
   return m ? `\n- Modo ${m.nome} ligado: ao responder conteúdo, ${m.resumo}` : "";
 }
+
+/** Modos em que "3/4" é fração e "2*3" é vezes na fala (falaParaOuvido). */
+const DE_CONTA = new Set(["matematica", "ciencias", "estudo"]);
+export function modoDeConta(m: Modo | null = modoAtivo()): boolean { return !!m && DE_CONTA.has(m.id); }
 
 /** Para o chip e para o celular. */
 export function modoParaCliente(m: Modo | null): { id: string; nome: string; icone: string; resumo: string; meu: boolean } | null {

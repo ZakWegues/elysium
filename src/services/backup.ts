@@ -11,6 +11,7 @@ import { importarListas, Lista, listarListas } from "./listas";
 import { Habito, importarHabitos, listarHabitos, listarMetas, Meta } from "./habitos";
 import { Episodio, importarEpisodios, listarEpisodios } from "./episodios";
 import { importarModos, modosParaBackup, type Modo } from "./modos";
+import { importarCartoes, listarCartoes, type Cartao } from "./cartoes";
 
 /**
  * Exportar e importar tudo o que é do Zak (bloco 96) — o seguro contra formatar o PC.
@@ -54,6 +55,8 @@ export interface Backup {
   episodios?: Episodio[];
   /** Fase 20: os modos que ele criou (o catálogo vem com o app). */
   modos?: Modo[];
+  /** Fase 20: cartões de revisão, com a caixa e o dia de voltar. */
+  cartoes?: Cartao[];
 }
 
 export interface ResumoImportacao {
@@ -73,6 +76,7 @@ export interface ResumoImportacao {
   episodios?: number;
   /** Modos criados por ele restaurados (fase 20). */
   modos?: number;
+  cartoes?: number;
   /** Itens que não deu para restaurar (inválidos ou que falharam) — antes sumiam calados. */
   pulados?: number;
 }
@@ -101,6 +105,7 @@ export function montarBackup(): Backup {
     corpo: exportarCorpo(),
     episodios: listarEpisodios(),
     modos: modosParaBackup(),
+    cartoes: listarCartoes(),
   };
 }
 
@@ -124,6 +129,7 @@ export function lerBackup(bruto: unknown): Backup {
     corpo: b.corpo && typeof b.corpo === "object" ? b.corpo : undefined,
     episodios: Array.isArray(b.episodios) ? b.episodios : [],
     modos: Array.isArray(b.modos) ? b.modos : [],
+    cartoes: Array.isArray(b.cartoes) ? b.cartoes : [],
   };
 }
 
@@ -187,6 +193,7 @@ export function aplicarBackup(b: Backup): ResumoImportacao {
   try {
     const m = importarModos(b.modos ?? []);
     resumo.modos = m.somados;
+    resumo.cartoes = importarCartoes(b.cartoes ?? []);
     resumo.pulados = (resumo.pulados ?? 0) + m.pulados;
   } catch { pulou(); }
   // Corpo: só restaura se aqui ainda não há treino — não sobrescreve o que já está em uso.

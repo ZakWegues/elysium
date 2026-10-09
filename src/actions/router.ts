@@ -43,6 +43,7 @@ import { pedirConfirmacao } from "../services/confirmacao";
 // "a, b e c" — para a voz não ler a lista como enumeração de vírgulas (texto.ts, fase 20).
 import { emFrase } from "../services/texto";
 import { definirModo, listarModos, modoAtivo, salvarModoMeu } from "../services/modos";
+import { cartoesVencidos, comecarRevisao, criarCartao, listarCartoes } from "../services/cartoes";
 
 export async function routeAction(action: BrainAction): Promise<string> {
   switch (action.action) {
@@ -123,6 +124,7 @@ export async function routeAction(action: BrainAction): Promise<string> {
       return pedirConfirmacao(`Entendi ${descreverDespejo(itens)}.`, async () => aplicarDespejo(itens).mensagem);
     }
     case "mode":              return falaDoModo(action);
+    case "cards":             return falaDosCartoes(action);
     case "anon_mode":
       definirAnonimo(action.ligar);
       return action.ligar
@@ -198,4 +200,18 @@ function falaDoModo(a: Extract<BrainAction, { action: "mode" }>): string {
       return `Criei e liguei o modo ${r.nome}. Para sair, diga "sai do modo".`;
     }
   }
+}
+
+/** "Ely, revisão", "quantos cartões", "guarda pra revisar: X é Y" (fase 20). */
+function falaDosCartoes(a: Extract<BrainAction, { action: "cards" }>): string {
+  if (a.operacao === "revisar") return comecarRevisao();
+  if (a.operacao === "status") {
+    const hoje = cartoesVencidos().length;
+    const total = listarCartoes().length;
+    if (!total) return "Você ainda não tem cartões de revisão.";
+    return hoje ? `${hoje} ${hoje === 1 ? "cartão" : "cartões"} para revisar hoje, de ${total}. Diga "revisão" para começar.` : `Nada para hoje; você tem ${total} ${total === 1 ? "cartão" : "cartões"} no total.`;
+  }
+  if (!a.frente || !a.verso) return "Diga no formato \"guarda pra revisar: pergunta é resposta\" — por exemplo, \"mitocôndria é a organela que produz energia\".";
+  const c = criarCartao(a.frente, a.verso, "manual");
+  return c ? `Guardei: ${c.frente}. Volta amanhã na revisão.` : "Não consegui guardar esse cartão.";
 }

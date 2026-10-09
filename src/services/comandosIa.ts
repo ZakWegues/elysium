@@ -83,12 +83,13 @@ export function apagarComando(id: string): boolean {
   return meus.length !== store.get("meus", []).length;
 }
 
-export async function rodarComando(idOuNome: string, texto: string): Promise<{ comando: ComandoIa; resultado: string }> {
+export async function rodarComando(idOuNome: string, texto: string, acrescimo = ""): Promise<{ comando: ComandoIa; resultado: string }> {
   const cmd = acharComando(listarComandos(), idOuNome);
   if (!cmd) throw new Error(`Não conheço o comando "${idOuNome}".`);
   if (!texto.trim()) throw new Error("Não há texto para transformar.");
   const cfg = getConfig();
-  const messages = mensagensDoComando(cmd, texto);
+  // Fase 20: o modo ligado pode acrescentar à instrução ("explica isso" no modo matemática).
+  const messages = mensagensDoComando(acrescimo ? { instrucao: `${cmd.instrucao.trim()}\n${acrescimo}` } : cmd, texto);
   const tentar = (provider: Provider) => callChat({
     provider, model: provider === "ollama" ? cfg.ollamaChatModel : cfg.brainModel,
     messages, temperature: 0.2, maxTokens: 2000, timeoutMs: 90_000,

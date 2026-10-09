@@ -74,6 +74,7 @@ import { askAboutImage, askAboutScreen } from "./vision";
 import { searchWeb } from "./webSearch";
 import { listarSugestoes } from "./sugestoes";
 import { bolhasDoChat } from "./perguntas";
+import { apagarCartao, cartoesVencidos, criarCartao, listarCartoes, responderCartao } from "./cartoes";
 import { apagarModoMeu, definirModo, listarModos, modoAtivo, modoParaCliente, salvarModoMeu, type ErroModo } from "./modos";
 import { climaAgora, motivoDaFalha } from "./clima";
 import {
@@ -1373,6 +1374,26 @@ const METHODS: Record<string, MethodDef> = {
     destructive: true,
     handler: async () => ({ removidos: apagarTodosEpisodios() }),
   },
+  // Cartões de revisão (fase 20): a tela vira o cartão e marca "acertei"/"errei".
+  "cartoes.list": {
+    handler: async () => ({ cartoes: listarCartoes(), vencidos: cartoesVencidos().map(c => c.id) }),
+  },
+  "cartoes.responder": {
+    handler: async (params) => {
+      if (typeof params["acertou"] !== "boolean") throw new RpcError(400, "\"acertou\" precisa ser true ou false");
+      const c = responderCartao(requireString(params, "id"), params["acertou"]);
+      if (!c) throw new RpcError(404, "cartão não encontrado");
+      return { cartao: c, restantes: cartoesVencidos().length };
+    },
+  },
+  "cartoes.criar": {
+    handler: async (params) => {
+      const c = criarCartao(requireString(params, "frente"), requireString(params, "verso"), "manual");
+      if (!c) throw new RpcError(400, "frente e verso são obrigatórios");
+      return { cartao: c };
+    },
+  },
+  "cartoes.delete": { destructive: true, handler: async (params) => ({ ok: apagarCartao(requireString(params, "id")) }) },
   // Modos da Ely (fase 20). `modos.set` com id null sai do modo.
   "modos.list": {
     handler: async () => ({ modos: listarModos().map(m => ({ id: m.id, nome: m.nome, icone: m.icone, resumo: m.resumo, meu: !!m.meu, ...(m.meu ? { instrucao: m.instrucao } : {}) })), ativo: modoParaCliente(modoAtivo()) }),
