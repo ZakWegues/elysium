@@ -10,6 +10,18 @@ import { clipboard } from "electron";
 import { limparFeitos, marcarItem, normalizarNomeLista } from "./listas";
 import { calcular, formatarNumero } from "./calculadora";
 import { falaDaNota, notaNecessaria } from "./notas";
+import { montarPlano, type PedidoPlano } from "./planoEstudo";
+import { aplicarDespejo, dataValida } from "./despejo";
+import { comecarPomodoro, estadoPomodoro, falaDaFase, falaDoEstado, pararPomodoro, pularFase } from "./pomodoro";
+import { criarCartao } from "./cartoes";
+
+/** Os argumentos do modelo para o plano, conferidos (data e hora só no formato certo). */
+function argsDoPlano(a: Record<string, unknown>): PedidoPlano {
+  const dia = typeof a["dia"] === "string" && dataValida(a["dia"]) ? a["dia"] : undefined;
+  const hora = typeof a["hora"] === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(a["hora"]) ? a["hora"] : undefined;
+  const assuntos = Array.isArray(a["assuntos"]) ? (a["assuntos"] as unknown[]).filter((x): x is string => typeof x === "string").map(x => x.trim().slice(0, 60)).filter(Boolean).slice(0, 14) : [];
+  return { materia: String(a["materia"] ?? "").trim().slice(0, 60), assuntos, ...(dia ? { dia } : {}), ...(hora ? { hora } : {}) };
+}
 import { horaEm } from "./horaMundo";
 import { rodarComando } from "./comandosIa";
 import { resumirLink } from "./leitorDeLink";
@@ -577,6 +589,47 @@ export const FERRAMENTAS: Ferramenta[] = [
       const v = calcular(e);
       return v === null ? "Essa expressão não é uma conta que eu consiga fazer." : `${e} = ${formatarNumero(v)}`;
     },
+  },
+  // Estudo (fase 20): o fastRoute pega as frases fechadas; estas cobrem o resto.
+  {
+    name: "plano_de_estudo",
+    description: "Monta um plano de estudo para uma prova: divide os assuntos em sessões até a véspera (revisão na véspera) e cria as tarefas com aviso. Use para 'me ajuda a estudar pra prova de X', 'organiza meu estudo de X até sexta'. Pede confirmação antes de gravar.",
+    parameters: obj({
+      materia: s("A matéria da prova, ex.: 'física'"),
+      dia: s("Dia da prova em AAAA-MM-DD, se ele disse; vazio = procura nas tarefas"),
+      hora: s("Horário das sessões em HH:MM (padrão 19:00)"),
+      assuntos: { type: "array", items: { type: "string" }, description: "Os assuntos, se ele disse" },
+    }, ["materia"]),
+    executar: async a => (await montarPlano(argsDoPlano(a))).resumo,
+    confirmar: async (a) => {
+      const p = await montarPlano(argsDoPlano(a));
+      if (!p.itens.length) return null;
+      return { descricao: `Vou criar ${p.resumo.charAt(0).toLowerCase()}${p.resumo.slice(1)}`, executar: async () => aplicarDespejo(p.itens).mensagem };
+    },
+  },
+  {
+    name: "pomodoro",
+    description: "Pomodoro: blocos de foco com pausa (padrão 25+5, 4 ciclos), com o modo foco ligado nos blocos. Use para 'quero focar 50 minutos com pausa de 10', 'começa um pomodoro', 'para o pomodoro', 'quanto falta do pomodoro', 'pula a pausa'.",
+    parameters: obj({
+      operacao: s("start, stop, status ou skip", { enum: ["start", "stop", "status", "skip"] }),
+      foco: { type: "integer", description: "Minutos de foco por bloco" },
+      pausa: { type: "integer", description: "Minutos de pausa" },
+      ciclos: { type: "integer", description: "Quantos blocos de foco" },
+    }, ["operacao"]),
+    executar: async a => {
+      const op = str(a, "operacao");
+      if (op === "stop") { const e = estadoPomodoro(); pararPomodoro(); return e.ativo ? "Pomodoro encerrado." : "Nenhum pomodoro rodando."; }
+      if (op === "status") return falaDoEstado(estadoPomodoro());
+      if (op === "skip") { if (!estadoPomodoro().ativo) return "Nenhum pomodoro rodando."; const e = await pularFase(); return e.ativo ? falaDaFase(e) : "Era a última fase: pomodoro concluído."; }
+      const e = await comecarPomodoro({ foco: num(a, "foco"), pausa: num(a, "pausa"), ciclos: num(a, "ciclos") });
+      return `Pomodoro: ${e.config.ciclos} ciclos de ${e.config.foco} minutos com ${e.config.pausa} de pausa, começando agora.`;
+    },
+  },
+  {
+    name: "guardar_cartao",
+    description: "Guarda um cartão de revisão (pergunta e resposta) para a repetição espaçada — volta amanhã e depois em 3, 7, 14 e 30 dias. Use para 'quero revisar isso depois', 'cria um cartão sobre X'.",
+    parameters: obj({ frente: s("A pergunta"), verso: s("A resposta") }, ["frente", "verso"]),
+    executar: async a => { const c = criarCartao(str(a, "frente"), str(a, "verso"), "manual"); return c ? `Guardei o cartão: ${c.frente}. Volta amanhã na revisão.` : "Faltou a pergunta ou a resposta."; },
   },
   {
     name: "nota_necessaria",

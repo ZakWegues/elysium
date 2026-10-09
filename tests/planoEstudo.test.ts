@@ -52,3 +52,20 @@ describe("plano de estudo (bloco 210)", () => {
     expect(fastRoute("monta um plano de estudo pra prova de física")?.[0]).toMatchObject({ action: "study_plan", materia: "física" });
   });
 });
+
+describe("ferramentas de estudo do agente (bloco 210)", async () => {
+  const { executarFerramenta, ferramenta } = await import("../src/services/ferramentas");
+  it("plano_de_estudo pede confirmação com a prévia e só grava no executar", async () => {
+    const f = ferramenta("plano_de_estudo")!;
+    const daqui10 = new Date(Date.now() + 10 * 86_400_000);
+    const dia = `${daqui10.getFullYear()}-${String(daqui10.getMonth() + 1).padStart(2, "0")}-${String(daqui10.getDate()).padStart(2, "0")}`;
+    const c = await f.confirmar!({ materia: "física", dia, assuntos: ["ondas", "óptica"] });
+    expect(c?.descricao).toMatch(/^Vou criar 3 sessões de física/);
+    // Data inválida do modelo é ignorada (vira "procura nas tarefas").
+    expect(await executarFerramenta("plano_de_estudo", { materia: "biologia", dia: "amanhã" })).toMatch(/Não achei a prova de biologia/);
+  });
+  it("pomodoro e guardar_cartao", async () => {
+    expect(await executarFerramenta("pomodoro", { operacao: "status" })).toBe("Nenhum pomodoro rodando.");
+    expect(await executarFerramenta("guardar_cartao", { frente: "Capital do Canadá", verso: "Ottawa" })).toMatch(/Guardei o cartão/);
+  });
+});
