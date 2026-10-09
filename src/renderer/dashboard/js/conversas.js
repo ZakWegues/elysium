@@ -120,7 +120,10 @@ async function loadChatConversations() {
     del.title = "Apagar";
     del.addEventListener("click", async (e) => {
       e.stopPropagation();
-      await window.nx.chatSessionsDelete(s.id);
+      // Fase 20 (bloco 201): pelo RPC, que pergunta antes (o IPC antigo apagava sem perguntar).
+      const r = await window.nx.rpc("chat.delete", { id: s.id });
+      if (r?.cancelado) return;
+      if (r?.error) { showToast(r.error, true); return; }
       if (s.id === chatSessionId) startNewConversation();
       loadConversations();
     });
@@ -243,8 +246,10 @@ async function loadMailboxSessions() {
       e.stopPropagation();
       // Apagar aqui não tem desfazer e ainda remove arquivo do disco. Uma pergunta antes
       // é o equivalente local à confirmação biométrica que o celular paga no RPC.
-      if (!confirm(`Apagar "${s.title}"?\n\nOs recados e os anexos dela somem do disco.`)) return;
-      await window.nx.mailboxSessionsDelete(s.id);
+      // Fase 20: a pergunta agora é a do RPC (a mesma de toda ação que apaga).
+      const r = await window.nx.rpc("mailbox.sessions.delete", { id: s.id });
+      if (r?.cancelado) return;
+      if (r?.error) { showToast(r.error, true); return; }
       if (s.id === mailboxSessionId) {
         mailboxSessionId = null;
         await loadSelfThread();

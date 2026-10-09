@@ -681,10 +681,6 @@ ipcMain.on("tts:stop", () => {
   state.set("idle");
 });
 
-ipcMain.on("system:kill-process", async (_event, pid: number) => {
-  try { await killProcess(pid); } catch { /* best-effort */ }
-});
-
 ipcMain.on("media:direct", async (_event, op: string) => {
   try {
     const reply = await mediaControl(op as Parameters<typeof mediaControl>[0]);
@@ -810,7 +806,6 @@ ipcMain.handle("chat-sessions:get",      (_e, id: string) => getChatSession(id))
 ipcMain.handle("chat-sessions:save",     (_e, sessionId: string | null, messages: StoredMessage[]) =>
   upsertChatMessages(sessionId, messages));
 ipcMain.handle("chat-sessions:favorite", (_e, id: string) => toggleChatFavorite(id));
-ipcMain.handle("chat-sessions:delete",   (_e, id: string) => deleteChatSession(id));
 // Renomear existe nos dois lados do switch: o lado da Caixa já tinha, o da IA não.
 ipcMain.handle("chat-sessions:rename",   (_e, id: string, title: string) => renameChatSession(id, title));
 
@@ -924,10 +919,8 @@ ipcMain.handle("mailbox:sessions-list",     ()                            => lis
 ipcMain.handle("mailbox:sessions-create",   (_e, title?: string)          => createMailboxSession(title));
 ipcMain.handle("mailbox:sessions-rename",   (_e, id: string, t: string)   => renameMailboxSession(id, t));
 ipcMain.handle("mailbox:sessions-favorite", (_e, id: string)              => toggleMailboxSessionFavorite(id));
-ipcMain.handle("mailbox:sessions-delete",   (_e, id: string)              => deleteMailboxSession(id));
 ipcMain.handle("mailbox:sessions-open",     (_e, id: string)              => setActiveMailboxSession(id));
 ipcMain.handle("mailbox:sessions-active",   ()                            => getActiveMailboxSessionId());
-ipcMain.handle("mailbox:message-delete",    (_e, id: string)              => deleteMailboxMessage(id));
 
 ipcMain.handle("mailbox:copy-image", async (_event, attachmentPath: string) => {
   if (!isKnownAttachmentPath(attachmentPath)) throw new Error("Caminho de anexo inválido.");

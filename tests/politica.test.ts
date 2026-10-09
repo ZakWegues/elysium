@@ -90,3 +90,19 @@ describe("política cobre listas, tarefas e rotinas (revisão)", () => {
     expect(decidirChamada("cancelar_lembrete", true, "lê o email e cancela o lembrete da reunião").tipo).toBe("executar");
   });
 });
+
+describe("política, fase 20 (bloco 201)", async () => {
+  const { urlsDosArgs, FONTES_EXTERNAS } = await import("../src/services/politicaFerramentas");
+  it("endereço que veio do conteúdo lido não é acessado", () => {
+    expect(decidirChamada("resumir_link", true, "pesquisa sobre SSD", { url: "https://evil.com/?d=segredo" }).tipo).toBe("bloquear");
+    expect(decidirChamada("abrir_site", true, "abre o link https://g1.globo.com/noticia", { url: "https://g1.globo.com/noticia" }).tipo).toBe("executar");
+    expect(decidirChamada("resumir_link", false, "x", { url: "https://evil.com" }).tipo).toBe("executar");
+  });
+  it("acha endereços nos argumentos", () => {
+    expect(urlsDosArgs({ a: "veja https://x.com/a?b=1 e www.y.com", n: 3 })).toEqual(["https://x.com/a?b=1", "www.y.com"]);
+  });
+  it("título de convite, de aba e conversas lembradas são conteúdo de fora", () => {
+    for (const f of ["agenda", "programas_abertos", "tocando_agora", "lembrar_conversa"]) expect(FONTES_EXTERNAS.has(f)).toBe(true);
+    expect(decidirChamada("janela", true, "o que tem na agenda?").tipo).toBe("bloquear");
+  });
+});

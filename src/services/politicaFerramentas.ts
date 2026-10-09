@@ -15,7 +15,16 @@
  */
 
 /** Ferramentas cujo resultado é texto de fora (web, link, tela, área de transferência). */
-export const FONTES_EXTERNAS = new Set(["buscar_na_web", "resumir_link", "olhar_a_tela", "area_de_transferencia", "comando_de_ia", "janela_em_foco"]);
+export const FONTES_EXTERNAS = new Set([
+  "buscar_na_web", "resumir_link", "olhar_a_tela", "area_de_transferencia", "comando_de_ia", "janela_em_foco",
+  // Fase 20 (bloco 201): também é texto que outra pessoa escreve — título de convite da agenda
+  // (qualquer um manda um convite), título de aba do navegador, nome de música, e as conversas
+  // lembradas (que trazem o que uma página disse dias atrás).
+  "agenda", "programas_abertos", "tocando_agora", "lembrar_conversa",
+]);
+
+/** Ferramentas que fazem o PC acessar um endereço — o jeito clássico de vazar dado numa URL. */
+const SAEM_PARA_URL = new Set(["resumir_link", "abrir_site", "abrir_programa"]);
 
 /**
  * Ações sensíveis e, para cada uma, as palavras do PEDIDO que mostram que ele quis aquilo.
@@ -50,7 +59,22 @@ const INTENCAO: Record<string, RegExp> = {
   marcar_habito: /\b(marc|fiz|feito|conclu)/,
   avancar_meta: /\b(meta|soma|avanc|adicion|mais)/,
   modo_foco: /\b(foco|concentr)/,
+  janela: /\b(janela|minimiz|maximiz|foc|fech|traz|tras|mostra)/,
 };
+
+/** Os endereços que aparecem nos argumentos de uma chamada. Pura. */
+export function urlsDosArgs(args: Record<string, unknown> | undefined): string[] {
+  const urls: string[] = [];
+  for (const v of Object.values(args ?? {})) {
+    if (typeof v !== "string") continue;
+    for (const m of v.matchAll(/\b(?:https?:\/\/|www\.)[^\s"'<>]+|\b[a-z0-9-]+(?:\.[a-z0-9-]+)+\/[^\s"'<>]*/gi)) urls.push(m[0]);
+  }
+  return urls;
+}
+
+function semBarra(u: string): string {
+  return u.toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/[/?#.,;)]+$/, "");
+}
 
 function sem(t: string): string {
   return t.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -62,7 +86,14 @@ export type Decisao = { tipo: "executar" } | { tipo: "bloquear"; mensagem: strin
  * Pode chamar `nome` agora? `contaminado` = este pedido já leu conteúdo de fora. Ações que não
  * estão na tabela (tocar música, volume, ler coisas) sempre podem.
  */
-export function decidirChamada(nome: string, contaminado: boolean, pedido: string): Decisao {
+export function decidirChamada(nome: string, contaminado: boolean, pedido: string, args?: Record<string, unknown>): Decisao {
+  // Bloco 201: depois de ler conteúdo de fora, o PC só acessa endereço que ESTÁ no pedido.
+  // "resume esse link" + uma página que manda abrir "https://evil/?d=<memória>" = barrado.
+  if (contaminado && SAEM_PARA_URL.has(nome)) {
+    const doPedido = semBarra(pedido);
+    const estranha = urlsDosArgs(args).find(u => !doPedido.includes(semBarra(u)));
+    if (estranha) return { tipo: "bloquear", mensagem: "Não abri esse endereço: ele veio do conteúdo que eu li, não do seu pedido. Se quiser, mande o link você mesmo." };
+  }
   const intencao = INTENCAO[nome];
   if (!contaminado || !intencao) return { tipo: "executar" };
   if (intencao.test(sem(pedido))) return { tipo: "executar" };

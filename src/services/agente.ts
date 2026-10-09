@@ -310,7 +310,7 @@ export async function agir(
  * sim.") e só roda no "sim" do próximo pedido (`confirmacao.ts`).
  */
 async function executarComPolitica(nome: string, args: Record<string, unknown>, contaminado: boolean, pedido: string): Promise<{ resultado: string; pergunta?: boolean }> {
-  const decisao = decidirChamada(nome, contaminado, pedido);
+  const decisao = decidirChamada(nome, contaminado, pedido, args);
   if (decisao.tipo === "bloquear") {
     console.warn(`[agente] ${nome} barrada: veio depois de ler conteúdo de fora e o pedido não pedia isso.`);
     return { resultado: decisao.mensagem };
