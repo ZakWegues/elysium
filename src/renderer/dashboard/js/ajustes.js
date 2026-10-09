@@ -158,6 +158,10 @@ const SECOES_AJUSTES = [
     resumo: () => "O que você mais pede" },
   { id: "dados", titulo: "Dados e diagnóstico", icone: "download", nos: ["#sec-dados"],
     resumo: () => "Backup, importar, log" },
+  { id: "modos", titulo: "Modos", icone: "layers", nos: ["#sec-modos"],
+    // `modoAtual` mora no modos.js, que carrega depois: o try cobre a leitura antes dele.
+    resumo: () => { try { return modoAtual ? `Ligado: ${modoAtual.nome}` : "Matemática, inglês… e os seus"; } catch { return "Matemática, inglês… e os seus"; } },
+    aoAbrir: () => desenharModosAjustes() },
   { id: "comandos", titulo: "Comandos de IA", icone: "sparkles", nos: ["#sec-comandos"],
     resumo: () => "Corrigir, traduzir, resumir… e os seus",
     aoAbrir: () => desenharComandos() },

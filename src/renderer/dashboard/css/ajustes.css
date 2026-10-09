@@ -222,12 +222,14 @@
 .atu-form input { flex: 1; min-width: 0; }
 
 /* Formulários das seções (comandos de IA, bloco 137; agenda): mesmo campo dos Ajustes. */
-.atu-form input {
+.atu-form input, .atu-form textarea {
   padding: 8px 11px; border-radius: var(--radius-7);
   background: rgba(var(--purple-rgb),0.06); border: 1px solid var(--border);
   color: var(--text); font-family: inherit; font-size: 12px; outline: none;
 }
-.atu-form input:focus { border-color: var(--purple); }
+.atu-form input:focus, .atu-form textarea:focus { border-color: var(--purple); }
+/* Fase 20: a instrução de um modo é um parágrafo, não uma linha. */
+.atu-form textarea { flex-basis: 100%; resize: vertical; line-height: 1.45; }
 .atu-form button {
   padding: 8px 14px; border-radius: var(--radius-7); border: 1px solid rgba(var(--purple-rgb),0.45);
   background: rgba(var(--purple-rgb),0.14); color: var(--text); font-family: inherit; font-size: 12px; cursor: pointer;
