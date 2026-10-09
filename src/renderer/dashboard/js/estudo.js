@@ -62,6 +62,8 @@ document.getElementById("hoje-estudo")?.addEventListener("click", async (e) => {
     estadoPomodoroTela = r.result;
     desenharEstudo();
     if (op === "start") showToast("Pomodoro começou. Modo foco ligado.");
+    // Pular é em silêncio no PC (a voz já diz a fase): aqui o aviso é o balão.
+    if (op === "skip") showToast(r.result?.ativo ? `Agora: ${NOME_FASE[r.result.fase] ?? r.result.fase}.` : "Pomodoro concluído.");
     return;
   }
   if (e.target.closest("[data-est-revisar]")) { abrirRevisao(); return; }
@@ -75,6 +77,8 @@ function abrirRevisao() {
   const fila = (cartoesHoje.cartoes ?? []).filter(c => (cartoesHoje.vencidos ?? []).includes(c.id));
   if (!fila.length) { showToast("Nada para revisar hoje."); return; }
   let i = 0, certos = 0, virado = false;
+  // Clique duplo (ou "1" duas vezes) respondia o mesmo cartão duas vezes e pulava o seguinte.
+  let respondendo = false;
   const desenhar = (corpo) => {
     const c = fila[i];
     if (!c) {
@@ -102,7 +106,9 @@ function abrirRevisao() {
       desenhar(corpo);
       const responder = async (acertou) => {
         const c = fila[i];
-        const r = await window.nx.rpc("cartoes.responder", { id: c.id, acertou });
+        if (!c || respondendo) return;
+        respondendo = true;
+        const r = await window.nx.rpc("cartoes.responder", { id: c.id, acertou }).finally(() => { respondendo = false; });
         if (r.error) { showToast(r.error, true); return; }
         if (acertou) certos++;
         i++; virado = false;

@@ -278,7 +278,8 @@ export function pedidoDeModo(texto: string): PedidoDeModo | null {
   if (!t || !/\bmodos?\b|\bnormal\b/.test(t)) return null;
   const criar = CRIAR.exec(bruto);
   if (criar) return { tipo: "criar", nome: criar[1].trim(), instrucao: criar[2].trim() };
-  if (NORMAL.test(t)) return { tipo: "desligar" };
+  // "volta ao normal" sem a palavra "modo" só é sobre modo se houver um ligado.
+  if (NORMAL.test(t)) return /\bmodo\b/.test(t) || modoAtivo() ? { tipo: "desligar" } : null;
   if (LISTAR.test(t)) return { tipo: "listar" };
   if (STATUS.test(t)) return { tipo: "status" };
   const des = DESLIGAR.exec(t);

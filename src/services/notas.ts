@@ -55,6 +55,8 @@ export function pedidoDeMediaEscolar(texto: string): EntradaNota | null {
   const t = semAcento(String(texto ?? "")).toLowerCase();
   // O gatilho é largo ("quanto preciso na terceira"), mas sem média E notas ditas nada casa.
   if (!/\b(?:quanto (?:eu )?(?:preciso|tenho que|devo)\b|que nota (?:eu )?(?:preciso|tenho que tirar)|nota (?:minima|necessaria) (?:pra|para|na))/.test(t)) return null;
+  // "quanto preciso guardar pra ficar com 5000" não é nota: precisa de contexto de escola.
+  if (!/\b(?:media|nota|notas|tirei|prova|provas|bimestre|trimestre|recuperacao|passar de ano)\b/.test(t)) return null;
   const notas: number[] = [];
   const pesos: (number | undefined)[] = [];
   let media: number | undefined;
@@ -71,7 +73,8 @@ export function pedidoDeMediaEscolar(texto: string): EntradaNota | null {
       continue;
     }
     if (/\bfalta(?:m)?\s*$/.test(antes) && /^\s*provas?\b/.test(depois)) { faltam = v; continue; }
-    if (/^\s*(?:a|ª|o|º)?\s*(?:prova|bimestre|trimestre|unidade)/.test(depois) && v <= 6 && Number.isInteger(v)) continue; // "na 3ª prova"
+    // "na 3ª prova", "na 2ª": ordinal não é nota.
+    if (Number.isInteger(v) && v <= 6 && (/^\s*[ªº]/.test(depois) || /^\s*(?:a|o)?\s*(?:prova|bimestre|trimestre|unidade)/.test(depois))) continue;
     notas.push(v);
   }
   if (/\b(?:nas|as) (?:duas|2) (?:ultimas|proximas|que faltam)\b/.test(t)) faltam = 2;

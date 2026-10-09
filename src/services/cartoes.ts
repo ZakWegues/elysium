@@ -233,6 +233,11 @@ export function julgar(resposta: string, verso: string): boolean {
 interface Sessao { fila: string[]; atual: string | null; certos: number; feitos: number; ultimo: { antes: Cartao; acertou: boolean } | null; expiraEm: number }
 const VALIDADE_MS = 5 * 60_000;
 let sessao: Sessao | null = null;
+/**
+ * O último "não era isso" vale por 1 min mesmo depois do fim: no ÚLTIMO cartão a revisão já
+ * acaba na mesma fala que diz "se você disse isso, diga acertei" (revisão da fase 20).
+ */
+let ultimoErro: { antes: Cartao; expiraEm: number } | null = null;
 
 function frase(c: Cartao, i: number, total: number): string {
   return `Cartão ${i} de ${total}: ${c.frente}`;
@@ -277,24 +282,36 @@ export function haRevisaoAtiva(agora = Date.now()): boolean {
  * pedido segue o caminho normal, como na confirmação).
  */
 export function responderRevisao(texto: string, ehOutroPedido: (t: string) => boolean = () => false, agora = Date.now()): string | null {
-  if (!haRevisaoAtiva(agora) || !sessao) return null;
-  const s = sessao;
   const t = chave(texto);
+  if (!haRevisaoAtiva(agora) || !sessao) {
+    const u = ultimoErro;
+    if (u && u.expiraEm > agora && ACERTEI.test(t)) {
+      ultimoErro = null;
+      restaurar(u.antes);
+      responderCartao(u.antes.id, true);
+      return "Valeu, contei como certo.";
+    }
+    return null;
+  }
+  const s = sessao;
   if (PARAR.test(t)) return fimDaRevisao();
   if (ACERTEI.test(t) && s.ultimo && !s.ultimo.acertou) {
     restaurar(s.ultimo.antes);
     responderCartao(s.ultimo.antes.id, true);
     s.ultimo = { ...s.ultimo, acertou: true };
+    ultimoErro = null;
     s.certos++;
     s.expiraEm = agora + VALIDADE_MS;
     const c = s.atual ? listarCartoes().find(x => x.id === s.atual) : undefined;
     return `Valeu, contei como certo. ${c ? `Seguindo: ${c.frente}` : fimDaRevisao()}`;
   }
-  if (ehOutroPedido(texto)) { sessao = null; return null; }
+  // "pula", "passa", "próxima" são "não sei" aqui — não o comando de mídia.
+  if (!NAO_SEI.test(t) && ehOutroPedido(texto)) { sessao = null; return null; }
   const atual = s.atual ? listarCartoes().find(x => x.id === s.atual) : undefined;
   if (!atual) return fimDaRevisao();
   const acertou = !NAO_SEI.test(t) && julgar(texto, atual.verso);
   s.ultimo = { antes: atual, acertou };
+  ultimoErro = acertou ? null : { antes: atual, expiraEm: agora + 60_000 };
   responderCartao(atual.id, acertou);
   s.feitos++;
   if (acertou) s.certos++;
@@ -303,4 +320,4 @@ export function responderRevisao(texto: string, ehOutroPedido: (t: string) => bo
   return `${veredito} ${proximaPergunta(s)}`;
 }
 
-export function encerrarRevisao(): void { sessao = null; }
+export function encerrarRevisao(): void { sessao = null; ultimoErro = null; }

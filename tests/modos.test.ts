@@ -35,7 +35,6 @@ describe("modos (bloco 205)", () => {
     expect(pedidoDeModo("sai do modo")).toEqual({ tipo: "desligar" });
     expect(pedidoDeModo("desliga o modo matemática")).toEqual({ tipo: "desligar" });
     expect(pedidoDeModo("modo normal")).toEqual({ tipo: "desligar" });
-    expect(pedidoDeModo("volta pro normal")).toEqual({ tipo: "desligar" });
     expect(pedidoDeModo("qual modo tá ligado?")).toEqual({ tipo: "status" });
     expect(pedidoDeModo("quais modos tem?")).toEqual({ tipo: "listar" });
     expect(pedidoDeModo("cria um modo chefe de cozinha que responde como um chef, com receitas práticas")).toEqual({
@@ -119,5 +118,16 @@ describe("modos (bloco 205)", () => {
     expect(r).toEqual({ somados: 1, pulados: 1 });
     expect(apagarModoMeu(chef.id)).toBe(true);
     expect(modoAtivo()).toBeNull();
+  });
+});
+
+describe("modos: casos da revisão", () => {
+  it("'volta ao normal' sem modo ligado não é sobre modo", () => {
+    definirModo(null);
+    expect(pedidoDeModo("volta ao normal")).toBeNull();
+    expect(pedidoDeModo("modo normal")).toEqual({ tipo: "desligar" });
+    definirModo("matematica");
+    expect(pedidoDeModo("volta ao normal")).toEqual({ tipo: "desligar" });
+    definirModo(null);
   });
 });

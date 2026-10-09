@@ -131,7 +131,8 @@ export function pedidoDePomodoro(texto: string): PedidoPomodoro | null {
     if (r) { f(r); resto = (resto.slice(0, r.index) + " " + resto.slice(r.index + r[0].length)).replace(/\s+/g, " ").trim(); }
   };
   pegar(/\b(\d{1,2}) ciclos?\b/, r => { config.ciclos = Number(r[1]); });
-  pegar(/\b(?:com )?pausa (?:longa )?de (\d{1,2})(?: minutos?| min)?\b/, r => { config.pausa = Number(r[1]); });
+  pegar(/\b(?:com )?pausa longa de (\d{1,2})(?: minutos?| min)?\b/, r => { config.longa = Number(r[1]); });
+  pegar(/\b(?:com )?pausa de (\d{1,2})(?: minutos?| min)?\b/, r => { config.pausa = Number(r[1]); });
   pegar(/\bde (\d{1,3})(?: minutos?| min)?(?: (?:e|com|por) (\d{1,2})(?: minutos?| min)?(?: de (?:pausa|descanso))?)?\b/, r => { config.foco = Number(r[1]); if (r[2]) config.pausa = Number(r[2]); });
   resto = resto.replace(/^(?:e|com|,)\s*/, "").replace(/\b(?:agora|por favor|pf)\b/g, "").trim();
   // Sobrou coisa que não entendi ("pomodoro amanhã às 9"): é para o cérebro.
@@ -212,7 +213,8 @@ export async function pularFase(agora = Date.now()): Promise<EstadoPomodoro> {
   const e = estadoPomodoro();
   if (!e.ativo) return e;
   gravar(pular(e, agora));
-  await virar(agora);
+  // Em silêncio: quem pediu (voz, agente, tela) já diz a fase nova — senão saía duas vezes.
+  await virar(agora, true);
   return estadoPomodoro();
 }
 

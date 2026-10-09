@@ -73,11 +73,26 @@ describe("pomodoro (bloco 208)", () => {
       expect(avisos).toEqual(["Pausa de 5 minutos. 1 de 2 ciclos feitos."]);
       expect(parou).toBe(1);
       await pularFase();
-      expect(avisos[1]).toBe("Foco: 25 minutos. Ciclo 2 de 2.");
+      // Pular é em silêncio: quem pediu já diz a fase nova.
+      expect(avisos).toHaveLength(1);
       expect(estadoPomodoro().indice).toBe(2);
       await vi.advanceTimersByTimeAsync(25 * MIN + 10);
       expect(avisos.at(-1)).toMatch(/concluído/);
       expect(estadoPomodoro().ativo).toBe(false);
     } finally { vi.useRealTimers(); }
+  });
+});
+
+describe("pomodoro: casos da revisão", () => {
+  it("pausa longa não muda a pausa curta; pular não anuncia em dobro", async () => {
+    expect(pedidoDePomodoro("pomodoro com pausa longa de 20")).toEqual({ tipo: "start", config: { longa: 20 } });
+    expect(pedidoDePomodoro("pomodoro de 25 com pausa de 5")).toEqual({ tipo: "start", config: { foco: 25, pausa: 5 } });
+    const avisos: string[] = [];
+    iniciarPomodoro({ avisar: (_t, f) => avisos.push(f), focoLigar: async () => {}, focoParar: () => {} });
+    await comecarPomodoro();
+    await pularFase();
+    expect(avisos).toEqual([]);
+    expect(estadoPomodoro().indice).toBe(1);
+    pararPomodoro();
   });
 });

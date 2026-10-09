@@ -45,3 +45,13 @@ describe("conta para o ouvido (bloco 206)", () => {
     expect(cleanTextForSpeech("prova em 3/4", false)).toMatch(/3 de abril/);
   });
 });
+
+describe("conta para o ouvido: casos da revisão", () => {
+  it("lista com hífen, travessão de prosa e itálico não viram conta", () => {
+    expect(limpo(matematicaParaOuvido("Passos: - isole x - divida por 2"))).toBe("Passos: - isole x - divida por 2");
+    expect(limpo(matematicaParaOuvido("o *x* é a incógnita"))).toBe("o x é a incógnita");
+    expect(limpo(matematicaParaOuvido("2x - 4 = 0"))).toBe("2x menos 4 igual a 0");
+    expect(limpo(matematicaParaOuvido("x - 3"))).toBe("x menos 3");
+    expect(limpo(matematicaParaOuvido("2 * 3 * 4"))).toBe("2 vezes 3 vezes 4");
+  });
+});

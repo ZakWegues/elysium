@@ -91,12 +91,17 @@ export function matematicaParaOuvido(texto: string): string {
     .replace(/(^|[^\w/])(\d{1,2})\/(\d{1,2})(?![\w/])(?!\s*(?:às|as|de 20\d\d)\b)/g, (m, antes: string, a: string, b: string, i: number, todo: string) =>
       /\bdia\s*$/i.test(todo.slice(0, i + antes.length)) || Number(b) === 0 ? m : `${antes}${fracao(a, b)}`)
     // Operadores.
-    .replace(/(\w|\))\s*[*×·]\s*(?=[\w(])/g, "$1 vezes ")
+    // Itálico de markdown ("o *x* é") antes do "vezes": sem isto virava "o vezes x* é".
+    .replace(/(^|[^\w*])\*([^*\s][^*\n]*?)\*(?!\*)/g, "$1$2")
+    .replace(/(\d|\))\s*[*×·]\s*(?=[\w(])|([a-z])\s*[×·]\s*(?=[\w(])/gi, (_m, a?: string, b?: string) => `${a ?? b} vezes `)
     .replace(/\s+\/\s+/g, " dividido por ")
     .replace(/\s*=\s*/g, " igual a ")
     .replace(/\s+\+\s+|(?<=\d)\+(?=\d)/g, " mais ")
-    .replace(/\s+[−-]\s+|(?<=\d)[−](?=\d)/g, " menos ")
-    .replace(/(^|\s)[−-](?=\d)/g, "$1menos ")
+    // Menos só ENTRE operandos: "- isole x" de uma lista e o travessão da prosa ficam.
+    // Operando = número, ")", potência ou variável de UMA letra ("2x - 4", "x - 3"); "x - divida"
+    // tem palavra do outro lado e fica como está.
+    .replace(/(?<=(?:\d|\)|[²³]|(?<![a-zà-ú])[a-z]|ao quadrado|ao cubo))\s+[−-]\s+(?=(?:\d|\(|√|[a-z](?![a-zà-ú])))|(?<=\d)[−](?=\d)/gi, " menos ")
+    .replace(/(^|[\s(=])[−-](?=\d)/g, "$1menos ")
     .replace(/[()]/g, " ")
     .replace(/\s{2,}/g, " "));
 }

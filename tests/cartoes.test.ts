@@ -112,3 +112,24 @@ describe("cartões de revisão (bloco 209)", () => {
     expect(separarRegras("Só o texto.")).toEqual({ texto: "Só o texto.", regras: "" });
   });
 });
+
+describe("revisão por voz: casos da revisão", () => {
+  it("'pula' é não sei, não o comando de mídia", async () => {
+    for (const c of listarCartoes()) apagarCartao(c.id);
+    criarCartao("Capital da Austrália", "Canberra", "manual", new Date(Date.now() - 86_400_000));
+    criarCartao("Ano da Revolução Francesa", "1789", "manual", new Date(Date.now() - 86_400_000));
+    comecarRevisao();
+    const r = responderRevisao("pula", (t) => fastRoute(t) !== null)!;
+    expect(r).toMatch(/Sem problema/);
+    expect(r).toMatch(/Cartão 2 de 2/);
+  });
+  it("'acertei' depois do erro no ÚLTIMO cartão ainda conta", () => {
+    for (const c of listarCartoes()) apagarCartao(c.id);
+    criarCartao("Capital da Austrália", "Canberra", "manual", new Date(Date.now() - 86_400_000));
+    comecarRevisao();
+    expect(responderRevisao("Sydney")).toMatch(/Fim da revisão/);
+    expect(responderRevisao("acertei")).toBe("Valeu, contei como certo.");
+    expect(listarCartoes()[0].caixa).toBe(2);
+    expect(responderRevisao("acertei")).toBeNull();
+  });
+});

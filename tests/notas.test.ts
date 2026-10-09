@@ -38,3 +38,10 @@ describe("quanto preciso tirar (bloco 211)", () => {
     expect(await executarFerramenta("nota_necessaria", { notas: [6, 7], media: 6 })).toBe("Você precisa de 5 na próxima para fechar com 6.");
   });
 });
+
+describe("nota necessária: casos da revisão", () => {
+  it("dinheiro não é nota; ordinal não é nota", () => {
+    expect(pedidoDeMediaEscolar("quanto preciso guardar por mês pra ficar com 5000 se eu tenho 2000?")).toBeNull();
+    expect(pedidoDeMediaEscolar("tirei 8 na 1ª prova e 5 na 2ª, média 6, quanto preciso na 3ª?")).toEqual({ notas: [8, 5], media: 6 });
+  });
+});
