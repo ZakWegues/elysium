@@ -578,7 +578,14 @@ ipcMain.on("voice:start", () => {
 
 // ── chat IPC ──────────────────────────────────────────────────────────────────
 
-ipcMain.on("chat:send", async (_event, text: string, opcoes?: { refazer?: boolean }) => {
+// Função com nome (fase 20): a bandeja chamava com `ipcMain.emit("chat:send", null, …)`, um
+// evento falso sem remetente — e o IPC é o lugar onde o texto chega de fora sem tipo garantido.
+ipcMain.on("chat:send", (_event, text: unknown, opcoes?: { refazer?: boolean }) => {
+  if (typeof text !== "string" || !text.trim()) return;
+  void enviarTexto(text.slice(0, 50_000), { refazer: opcoes?.refazer === true });
+});
+
+async function enviarTexto(text: string, opcoes?: { refazer?: boolean }): Promise<void> {
   // Escrever por cima da fala interrompe a fala: quem já leu a resposta na tela não quer
   // esperar o TTS terminar um parágrafo para mandar a pergunta seguinte. Só gravação e
   // processamento continuam bloqueando — aí há um pedido em andamento de verdade.
@@ -635,7 +642,7 @@ ipcMain.on("chat:send", async (_event, text: string, opcoes?: { refazer?: boolea
   } finally {
     if (turnoAtual() === meuToken) state.set("idle");
   }
-});
+}
 
 ipcMain.on("chat:clear", () => {
   clearHistory();
@@ -1085,7 +1092,7 @@ app.on("ready", async () => {
     openConfigWindow,
     openDashboard,
     () => { openDashboard(); startListening().catch((e) => console.error("[bandeja] não consegui começar a ouvir:", e)); },
-    (text) => { openDashboard(); ipcMain.emit("chat:send", null, text); },
+    (text) => { openDashboard(); void enviarTexto(text); },
   );
 
   state.on("change", (s) => {
