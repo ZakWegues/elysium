@@ -12,6 +12,7 @@ import { pedidoDeModo } from "./modos";
 import { pedidoDeCartao } from "./cartoes";
 import { pedidoDePomodoro } from "./pomodoro";
 import { pedidoDePlano } from "./planoEstudo";
+import { pedidoDeMediaEscolar } from "./notas";
 
 /**
  * Roteamento local, sem IA.
@@ -162,6 +163,9 @@ export function fastRoute(text: string): BrainAction[] | null {
   // Só gatilho explícito, e o resto tem que ter cara de lista (vírgula ou " e "): "organiza
   // as janelas", "anota tudo que eu falar na reunião" e "despejo do lixo é amanhã" seguem
   // para o cérebro (a revisão pegou os três).
+  // "Quanto preciso tirar?" (fase 20): só com média e notas ditas; senão, o cérebro pergunta.
+  const mediaEscolar = pedidoDeMediaEscolar(text);
+  if (mediaEscolar) return [{ action: "grade_needed", ...mediaEscolar }];
   // Plano de estudo (fase 20): antes do despejo e das listas — "monta um plano… assuntos: a, b".
   const plano = pedidoDePlano(text);
   if (plano) return [{ action: "study_plan", ...plano }];

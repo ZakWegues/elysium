@@ -72,6 +72,8 @@ export type BrainAction =
   // Fase 20: cartões de revisão — "Ely, revisão", "guarda pra revisar: X é Y".
   // Fase 20: pomodoro — "Ely, pomodoro de 50", "pula a pausa", "para o pomodoro".
   // Fase 20: "monta um plano de estudo pra prova de física" — prévia e "Confirma? Diga sim.".
+  // Fase 20: "tirei 6 e 7, média 6, quanto preciso na terceira?" — conta exata.
+  | { action: "grade_needed";      notas: number[]; pesos?: number[]; media: number; pesoFaltante?: number; faltam?: number }
   | { action: "study_plan";        materia: string; assuntos: string[]; dia?: string; hora?: string }
   | { action: "pomodoro";          operacao: "start" | "stop" | "status" | "skip"; foco?: number; pausa?: number; ciclos?: number }
   | { action: "cards";             operacao: "revisar" | "status" | "guardar"; frente?: string; verso?: string }
@@ -239,6 +241,7 @@ function actionSummary(action: BrainAction): string {
     case "timer_cancel":      return "Cancelou timer";
     case "calculate":         return "Conta";
     case "anon_mode":         return action.ligar ? "Modo anônimo ligado" : "Modo anônimo desligado";
+    case "grade_needed":      return "Nota necessária";
     case "study_plan":        return `Plano de estudo: ${action.materia}`;
     case "pomodoro":          return action.operacao === "start" ? "Pomodoro" : action.operacao === "stop" ? "Parou o pomodoro" : action.operacao === "skip" ? "Pulou a fase" : "Pomodoro";
     case "cards":             return action.operacao === "guardar" ? "Cartão de revisão" : "Revisão";

@@ -9,6 +9,7 @@ import { marcarTreinoFalado, metaFalada, registrarCorridaFalada, registrarPesoFa
 import { clipboard } from "electron";
 import { limparFeitos, marcarItem, normalizarNomeLista } from "./listas";
 import { calcular, formatarNumero } from "./calculadora";
+import { falaDaNota, notaNecessaria } from "./notas";
 import { horaEm } from "./horaMundo";
 import { rodarComando } from "./comandosIa";
 import { resumirLink } from "./leitorDeLink";
@@ -575,6 +576,24 @@ export const FERRAMENTAS: Ferramenta[] = [
       const e = str(a, "expressao");
       const v = calcular(e);
       return v === null ? "Essa expressão não é uma conta que eu consiga fazer." : `${e} = ${formatarNumero(v)}`;
+    },
+  },
+  {
+    name: "nota_necessaria",
+    description: "Quanto ele precisa tirar na(s) próxima(s) prova(s) para fechar a média escolar, com pesos. Use para 'quanto preciso tirar', 'que nota preciso pra passar'. Conta exata — nunca de cabeça.",
+    parameters: obj({
+      notas: { type: "array", items: { type: "number" }, description: "As notas que ele já tirou" },
+      pesos: { type: "array", items: { type: "number" }, description: "O peso de cada nota, na mesma ordem (vazio = todos 1)" },
+      media: { type: "number", description: "A média para passar" },
+      peso_faltante: { type: "number", description: "O peso da prova que falta (padrão 1)" },
+      faltam: { type: "integer", description: "Quantas provas faltam (padrão 1)" },
+    }, ["notas", "media"]),
+    executar: async a => {
+      const nums = (k: string) => (Array.isArray(a[k]) ? (a[k] as unknown[]).map(Number).filter(Number.isFinite) : []);
+      const e = { notas: nums("notas"), pesos: nums("pesos"), media: Number(a["media"]), pesoFaltante: Number(a["peso_faltante"]) || undefined, faltam: Number(a["faltam"]) || undefined };
+      if (!e.notas.length) return "Faltaram as notas que ele já tirou.";
+      const r = notaNecessaria(e);
+      return r ? falaDaNota(r, e) : "Faltou a média para passar.";
     },
   },
   {

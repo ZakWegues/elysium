@@ -45,6 +45,7 @@ import { emFrase } from "../services/texto";
 import { definirModo, listarModos, modoAtivo, salvarModoMeu } from "../services/modos";
 import { cartoesVencidos, comecarRevisao, criarCartao, listarCartoes } from "../services/cartoes";
 import { montarPlano } from "../services/planoEstudo";
+import { falaDaNota, notaNecessaria } from "../services/notas";
 import { comecarPomodoro, estadoPomodoro, falaDaFase, falaDoEstado, pararPomodoro, pularFase } from "../services/pomodoro";
 
 export async function routeAction(action: BrainAction): Promise<string> {
@@ -128,6 +129,10 @@ export async function routeAction(action: BrainAction): Promise<string> {
     case "mode":              return falaDoModo(action);
     case "cards":             return falaDosCartoes(action);
     case "pomodoro":          return falaDoPomodoro(action);
+    case "grade_needed": {
+      const r = notaNecessaria(action);
+      return r ? falaDaNota(r, action) : "Faltou a média para passar. Diga, por exemplo: \"tirei 6 e 7, a média é 6, quanto preciso na terceira?\"";
+    }
     case "study_plan": {
       // Nada é gravado antes do "sim" (mesma regra do despejo).
       const p = await montarPlano({ materia: action.materia, assuntos: action.assuntos ?? [], dia: action.dia, hora: action.hora });
