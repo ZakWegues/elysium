@@ -1274,7 +1274,7 @@ const METHODS: Record<string, MethodDef> = {
       } catch (e) { throw new RpcError(400, (e as Error).message); }
     },
   },
-  "corrida.delete": { handler: async (params) => ({ ok: apagarCorrida(requireString(params, "id")), painel: montarPainelCorpo() }) },
+  "corrida.delete": { destructive: true, handler: async (params) => ({ ok: apagarCorrida(requireString(params, "id")), painel: montarPainelCorpo() }) },
   // Timers com nome (bloco 136).
   "timers.list": { handler: async () => ({ timers: listarTimers(), agora: Date.now() }) },
   "timers.start": {
