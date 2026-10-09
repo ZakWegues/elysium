@@ -29,13 +29,33 @@ export interface EstadoApp {
   anterior: { motivo: MotivoEncerramento; em: number } | null;
   /** Para onde vai o som do PC (a voz da Ely): virtual ou no mudo = ninguém ouve. */
   som: { nome: string; volume: number; mudo: boolean; virtual: boolean } | null;
+  /** Fase 19: as sessões dos últimos 7 dias (quando o ELYSIUM abriu e como terminou). */
+  sessoes: Sessao[];
 }
+
+export interface Sessao { inicio: number; fim: number; motivo: MotivoEncerramento }
 
 interface Gravado {
   /** Último batimento: até quando o app esteve vivo. */
   vivoEm: number;
   /** Encerramento avisado (Sair, atualização, desligar). Sem ele, a sessão morreu sem avisar. */
   encerramento: { motivo: MotivoEncerramento; em: number } | null;
+  /** Fase 19: quando a sessão atual começou, e as anteriores. Ausentes em gravação antiga. */
+  iniciadoEm?: number;
+  sessoes?: Sessao[];
+}
+
+const SETE_DIAS = 7 * 86_400_000;
+
+/**
+ * Junta a sessão que acabou ao histórico: só os últimos 7 dias, no máximo 30, a mais recente
+ * primeiro. Sessão sem começo conhecido (gravação de antes da fase 19) não entra. Pura.
+ */
+export function juntarSessao(historico: Sessao[] | undefined, g: Gravado, agora: number): Sessao[] {
+  const lista = Array.isArray(historico) ? historico.filter(s => agora - s.fim <= SETE_DIAS) : [];
+  const fim = sessaoAnterior(g);
+  if (fim && g.iniciadoEm && g.iniciadoEm <= fim.em) lista.unshift({ inicio: g.iniciadoEm, fim: fim.em, motivo: fim.motivo });
+  return lista.sort((a, b) => b.inicio - a.inicio).slice(0, 30);
 }
 
 let store: Store<{ estado: Gravado }> | null = null;
@@ -74,8 +94,9 @@ export function iniciarEstadoApp(opcoes: { versao: string; janela: () => Janela;
     versao: opcoes.versao,
     anterior: sessaoAnterior(g),
     som: null,
+    sessoes: juntarSessao(g.sessoes, g, agora),
   };
-  loja().set("estado", { vivoEm: agora, encerramento: null });
+  loja().set("estado", { vivoEm: agora, encerramento: null, iniciadoEm: agora, sessoes: estado.sessoes });
   setInterval(() => { try { loja().set("estado", { ...loja().get("estado"), vivoEm: Date.now() }); } catch { /* disco cheio etc. */ } }, 60_000).unref();
 }
 
@@ -125,10 +146,10 @@ export function telaBloqueada(bloqueada: boolean): void {
  * não encerra o app, mas para o celular é o mesmo silêncio — e a volta zera o aviso.
  */
 export function registrarEncerramento(motivo: MotivoEncerramento): void {
-  try { loja().set("estado", { vivoEm: Date.now(), encerramento: { motivo, em: Date.now() } }); } catch { /* segue saindo */ }
+  try { loja().set("estado", { ...loja().get("estado"), vivoEm: Date.now(), encerramento: { motivo, em: Date.now() } }); } catch { /* segue saindo */ }
 }
 
 /** Voltou da suspensão: o app nunca saiu, então o aviso de suspensão não vale mais. */
 export function voltouDaSuspensao(): void {
-  try { loja().set("estado", { vivoEm: Date.now(), encerramento: null }); } catch { /* ok */ }
+  try { loja().set("estado", { ...loja().get("estado"), vivoEm: Date.now(), encerramento: null }); } catch { /* ok */ }
 }

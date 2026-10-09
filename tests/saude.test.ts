@@ -121,3 +121,17 @@ describe("Tailscale (bloco 122)", async () => {
     expect(avaliarSaude(f).find(i => i.id === "tailscale")).toBeUndefined();
   });
 });
+
+describe("som no card Saúde (fase 19, bloco 195)", () => {
+  const som = (nome: string, volume = 50, mudo = false, virtual = false) => ({ nome, volume, mudo, virtual, em: 0 });
+  it("alto-falante virtual vira aviso com o atalho para o som do Windows", () => {
+    const item = avaliarSaude({ ...base(), som: som("Alto-falantes (Steam Streaming Speakers)", 50, false, true) }).find(i => i.id === "som")!;
+    expect(item.nivel).toBe("aviso");
+    expect(item.detalhe).toMatch(/virtual/);
+    expect(item.conserto?.valor).toBe("som");
+  });
+  it("saída normal é ok; sem leitura, o item nem aparece", () => {
+    expect(avaliarSaude({ ...base(), som: som("SAMSUNG (NVIDIA High Definition Audio)", 40) }).find(i => i.id === "som")?.nivel).toBe("ok");
+    expect(avaliarSaude(base()).some(i => i.id === "som")).toBe(false);
+  });
+});

@@ -19,3 +19,22 @@ describe("como terminou a sessão anterior do app", () => {
     expect(sessaoAnterior({ vivoEm: 0, encerramento: null })).toBeNull();
   });
 });
+
+describe("histórico de sessões (fase 19, bloco 195)", async () => {
+  const { juntarSessao } = await import("../src/services/estadoApp");
+  const H = 3_600_000;
+  const agora = Date.UTC(2026, 9, 9, 12);
+  it("a sessão que acabou entra no topo; as de mais de 7 dias saem", () => {
+    const velha = { inicio: agora - 9 * 24 * H, fim: agora - 8 * 24 * H, motivo: "fechado" as const };
+    const ontem = { inicio: agora - 26 * H, fim: agora - 20 * H, motivo: "desligando" as const };
+    const l = juntarSessao([ontem, velha], { vivoEm: agora - 2 * H, encerramento: { motivo: "fechado", em: agora - 2 * H }, iniciadoEm: agora - 5 * H }, agora);
+    expect(l).toEqual([{ inicio: agora - 5 * H, fim: agora - 2 * H, motivo: "fechado" }, ontem]);
+  });
+  it("gravação antiga, sem começo, não inventa sessão", () => {
+    expect(juntarSessao(undefined, { vivoEm: agora - H, encerramento: null }, agora)).toEqual([]);
+  });
+  it("caiu sem avisar = interrompido, até o último batimento", () => {
+    expect(juntarSessao([], { vivoEm: agora - H, encerramento: null, iniciadoEm: agora - 3 * H }, agora))
+      .toEqual([{ inicio: agora - 3 * H, fim: agora - H, motivo: "interrompido" }]);
+  });
+});

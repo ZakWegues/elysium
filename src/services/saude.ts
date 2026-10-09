@@ -8,7 +8,8 @@ import { DiskEntry, getDashboardTelemetry } from "../actions/systemInfo";
 import { listarAparelhos } from "./aparelhos";
 import { clientesConectados, estadoDoServidor } from "./server";
 import { abrirTailscale, EstadoTailscale, estadoTailscale } from "./tailscale";
-import { app } from "electron";
+import { app, shell } from "electron";
+import { lerSaidaDeSom, problemaDeSom, ultimaSaidaDeSom, type SaidaDeSom } from "./saidaDeSom";
 import * as fs from "node:fs";
 import * as path from "node:path";
 
@@ -55,6 +56,8 @@ export interface FatosSaude {
   tailscale?: EstadoTailscale;
   /** Bloco 127. Ausente = teste antigo; o servidor é tratado como de pé. */
   servidor?: { ouvindo: boolean; erro: string | null };
+  /** Fase 19: para onde vai o som (a voz da Ely). Ausente = não deu para ler. */
+  som?: SaidaDeSom | null;
   agora: number;
 }
 
@@ -139,6 +142,14 @@ export function avaliarSaude(f: FatosSaude): ItemSaude[] {
     }
   }
 
+  // Som (fase 19): o "a Ely não fala" de 08/10 era a saída padrão num alto-falante virtual
+  // do Steam. Antes só a notificação do Windows e o celular avisavam; o card não dizia nada.
+  if (f.som) {
+    const problema = problemaDeSom(f.som);
+    if (problema) itens.push({ id: "som", titulo: "Som", nivel: "aviso", detalhe: problema, conserto: { rotulo: "Abrir o som do Windows", tipo: "consertar", valor: "som" } });
+    else itens.push({ id: "som", titulo: "Som", nivel: "ok", detalhe: `${f.som.nome} · ${f.som.volume}%` });
+  }
+
   // Chaves de assinatura (bloco 113): sem cópia, nenhum APK novo instala por cima do atual.
   const SEIS_MESES = 180 * 86_400_000;
   const script = "rode scripts\\backup-chaves.ps1 para um pendrive e uma nuvem";
@@ -159,12 +170,14 @@ function lerBackupChaves(): number | null {
 export async function verificarSaude(): Promise<ItemSaude[]> {
   const cfg = getConfig();
   const cerebroLocal = cfg.routerProvider === "ollama" || cfg.chatProvider !== "groq";
-  const [ollama, inicio, discos, tailscale] = await Promise.all([
+  const [ollama, inicio, discos, tailscale, som] = await Promise.all([
     cerebroLocal ? ollamaDisponivel(cfg.ollamaRouterModel) : Promise.resolve({ ok: true, detalhe: "" }),
     inicioAutomaticoConfere().catch(() => ({ ok: true, detalhe: "não consegui ler o Registro" })),
     getDashboardTelemetry().then(t => t.disks ?? []).catch(() => [] as DiskEntry[]),
     // Bloco 128: só quando o Zak quer acompanhar o acesso de fora (Ajustes).
     cfg.acessoRemotoNaSaude ? estadoTailscale().catch(() => undefined) : Promise.resolve(undefined),
+    // A leitura que o main faz a cada 3 min; sem ela ainda, lê agora (~1 s).
+    ultimaSaidaDeSom() ? Promise.resolve(ultimaSaidaDeSom()) : lerSaidaDeSom().catch(() => null),
   ]);
   const limite = momentoDoUltimoLimiteGroq();
   const celular = listarAparelhos().filter(a => /ELYSIUM-M/.test(a.cliente) && a.pedidos > 0);
@@ -183,6 +196,7 @@ export async function verificarSaude(): Promise<ItemSaude[]> {
     backupChavesEm: lerBackupChaves(),
     tailscale,
     servidor: estadoDoServidor(),
+    som,
     agora: Date.now(),
   });
 }
@@ -191,6 +205,11 @@ export async function verificarSaude(): Promise<ItemSaude[]> {
 export async function consertarSaude(item: string): Promise<string> {
   if (item === "ollama") {
     return (await garantirOllama(baseDoOllama(), true)) ? "O Ollama está de pé." : "Não consegui subir o Ollama — abra-o pelo menu Iniciar.";
+  }
+  if (item === "som") {
+    // Trocar a saída é configuração do Windows: o app só abre a tela certa.
+    await shell.openExternal("ms-settings:sound");
+    return "Abri as configurações de som — escolha o alto-falante certo em Saída.";
   }
   if (item === "tailscale") {
     return (await abrirTailscale()) ? "Abri o Tailscale; entre na conta se ele pedir." : "Não achei o Tailscale instalado neste PC.";
