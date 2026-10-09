@@ -18,7 +18,7 @@ import { routeAction } from "../actions/router";
 import { getRunningApps, getTopProcesses, getDashboardTelemetry } from "../actions/systemInfo";
 import { climaFalado } from "./clima";
 import { listPending } from "./scheduler";
-import { listFacts } from "./memoryStore";
+import { listFacts, removeFactById } from "./memoryStore";
 import { getAllPresets } from "./presetsStore";
 import { alternarRotina, apagarRotina, executarRotina, listarRotinas, proximoDisparo, salvarRotina } from "./rotinas";
 import { getNowPlaying } from "./spotify";
@@ -28,6 +28,8 @@ import { comecarFoco, focoFalado, pararFoco } from "./foco";
 import { resumoDoDia } from "./resumoDoDia";
 import { agendaFalada } from "./agenda";
 import { escolherEpisodios, linhaDoEpisodio, listarEpisodios } from "./episodios";
+import { windowManagement } from "../actions/windowManagement";
+import { deriveProcessNames } from "../actions/closeApp";
 import { buscarNasConversas } from "./buscaConversas";
 import { listSessions } from "./chatSessionsStore";
 
@@ -52,6 +54,12 @@ export interface Ferramenta extends DefinicaoDeFerramenta {
   executar: (args: Record<string, unknown>) => Promise<string>;
   /** A ação equivalente, para o rótulo "Abrindo o Chrome…" do dashboard e o histórico. */
   acao?: (args: Record<string, unknown>) => BrainAction | null;
+  /**
+   * Fase 19 (bloco 192): ação sem volta pergunta antes. Devolve a frase do que vai acontecer
+   * e a execução já amarrada ao alvo achado agora; `null` = não há o que confirmar (alvo não
+   * achado — aí o `executar` normal responde "não achei").
+   */
+  confirmar?: (args: Record<string, unknown>) => Promise<{ descricao: string; executar: () => Promise<string> } | null>;
 }
 
 const str = (a: Record<string, unknown>, k: string, padrao = ""): string => (typeof a[k] === "string" ? (a[k] as string).trim() : padrao);
@@ -260,6 +268,30 @@ export const FERRAMENTAS: Ferramenta[] = [
     parameters: obj({ nome: s("Nome do programa") }, ["nome"]),
     executar: a => acao({ action: "close_app", app_name: str(a, "nome") }),
     acao: a => ({ action: "close_app", app_name: str(a, "nome") }),
+  },
+  {
+    // Bloco 192: o caso que a bancada sempre errava — o 7B inventava a lista de programas. A
+    // lista agora vem de quem está aberto DE VERDADE, é lida em voz alta e só fecha com "sim".
+    // Fecha a JANELA (como o X), não mata o processo: quem tiver algo sem salvar pergunta.
+    name: "fechar_tudo_menos",
+    description: "Fecha TODOS os programas abertos, menos os que o usuário quer manter ('fecha tudo menos o VS Code', 'fecha tudo exceto o Spotify'). Pergunta antes, dizendo o que vai fechar.",
+    parameters: obj({ manter: { type: "array", items: s("Programa que fica aberto"), description: "Os programas que NÃO devem ser fechados" } }, ["manter"]),
+    // Só chega aqui sem confirmação quando não há nada para fechar (o `confirmar` devolveu null).
+    executar: async (a) => (programasParaFechar(await getRunningApps(), arr(a, "manter")).length
+      ? "Isso precisa de confirmação: peça de novo."
+      : "Não tem nada aberto além do que você quer manter."),
+    confirmar: async (a) => {
+      const fechar = programasParaFechar(await getRunningApps(), arr(a, "manter"));
+      if (!fechar.length) return null;
+      return {
+        descricao: `Vou fechar ${fechar.length === 1 ? fechar[0].rotulo : `${fechar.slice(0, -1).map(f => f.rotulo).join(", ")} e ${fechar[fechar.length - 1].rotulo}`}.`,
+        executar: async () => {
+          const r = await Promise.all(fechar.map(f => windowManagement(f.processo, "close")));
+          const falhas = r.filter(x => !/^Ok/.test(x)).length;
+          return falhas ? `Fechei ${fechar.length - falhas} de ${fechar.length}; o resto pode estar pedindo para salvar.` : "Pronto, fechei tudo menos o que você pediu.";
+        },
+      };
+    },
   },
   {
     name: "janela",
@@ -646,6 +678,13 @@ export const FERRAMENTAS: Ferramenta[] = [
     parameters: obj({ texto: s("Trecho do fato") }, ["texto"]),
     executar: a => acao({ action: "forget", query: str(a, "texto") }),
     acao: a => ({ action: "forget", query: str(a, "texto") }),
+    // O trecho casa por substring: "esquece o carro" podia apagar o fato errado sem ninguém ver.
+    confirmar: async (a) => {
+      const q = str(a, "texto").toLowerCase();
+      const f = q ? listFacts().find(x => x.text.toLowerCase().includes(q) || q.includes(x.text.toLowerCase())) : undefined;
+      if (!f) return null;
+      return { descricao: `Vou esquecer: "${f.text}".`, executar: async () => (removeFactById(f.id) ? "Esquecido." : "Esse fato já não estava mais lá.") };
+    },
   },
   {
     name: "rodar_preset",
@@ -685,6 +724,11 @@ export const FERRAMENTAS: Ferramenta[] = [
       if (!r) return `Não achei rotina com "${str(a, "nome")}".`;
       apagarRotina(r.id);
       return `Rotina "${r.nome}" apagada.`;
+    },
+    confirmar: async (a) => {
+      const r = acharRotina(str(a, "nome"));
+      if (!r) return null;
+      return { descricao: `Vou apagar a rotina "${r.nome}".`, executar: async () => { apagarRotina(r.id); return `Rotina "${r.nome}" apagada.`; } };
     },
   },
   {
@@ -732,6 +776,28 @@ export const FERRAMENTAS: Ferramenta[] = [
 ];
 
 /** Rotina por nome, tolerante: caixa, acento e parte do nome. */
+/**
+ * O que "fecha tudo menos X" fecharia: os programas com janela, tirando o que ele quer manter
+ * e o que é do próprio Windows ou do ELYSIUM (fechar o Explorer some com a barra de tarefas).
+ * Um item por processo. Pura, para teste.
+ */
+const NUNCA_FECHAR = new Set(["explorer", "electron", "elysium", "applicationframehost", "systemsettings", "textinputhost", "shellexperiencehost", "startmenuexperiencehost", "searchhost", "searchapp", "lockapp", "widgets", "gamebar", "nvidia overlay", "rtkuwp"]);
+export function programasParaFechar(abertos: { name: string; title?: string }[], manter: string[]): { processo: string; rotulo: string }[] {
+  const semAc = (x: string) => x.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, "");
+  const alvosManter = manter.flatMap(m => [semAc(m), ...deriveProcessNames(m).map(semAc)]).filter(Boolean);
+  const vistos = new Set<string>();
+  const saida: { processo: string; rotulo: string }[] = [];
+  for (const a of abertos) {
+    const proc = semAc(a.name);
+    if (!proc || NUNCA_FECHAR.has(a.name.toLowerCase()) || vistos.has(proc)) continue;
+    const titulo = semAc(a.title ?? "");
+    if (alvosManter.some(m => proc === m || proc.includes(m) || m.includes(proc) || (m.length >= 4 && titulo.includes(m)))) continue;
+    vistos.add(proc);
+    saida.push({ processo: a.name, rotulo: a.name });
+  }
+  return saida;
+}
+
 function acharRotina(nome: string) {
   const alvo = nome.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
   if (!alvo) return undefined;

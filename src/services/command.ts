@@ -7,6 +7,7 @@ import { trackUsage } from "./history";
 import { getConfig } from "../main/config";
 import type { Canal } from "./estiloResposta";
 import { comContexto, Fonte, fontesDoPedido, usouReserva } from "./contextoComando";
+import { responderConfirmacao } from "./confirmacao";
 
 export type ResultadoComando = {
   actions: BrainAction[];
@@ -59,6 +60,15 @@ async function executarNoContexto(
   // Comandos fechados ("pausa", "volume 40") não precisam de modelo nenhum. Além de
   // instantâneo, isso preserva a cota de tokens por minuto da Groq para os pedidos
   // que realmente exigem interpretação.
+  // Bloco 192: a Ely acabou de perguntar "Confirma? Diga sim." — este pedido é a resposta?
+  // "sim" executa, "não" desiste; outra coisa descarta a pergunta e segue normal.
+  const confirmado = await responderConfirmacao(text);
+  if (confirmado !== null) {
+    registrarTurnoUsuario(text);
+    recordAssistantReply(confirmado);
+    return { actions: [], reply: confirmado, atalho: true };
+  }
+
   const shortcut = fastRoute(text);
   if (shortcut) noteFastRouted(text, shortcut);
 

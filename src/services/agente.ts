@@ -1,9 +1,11 @@
 import { getApiKey, getConfig, nomeDoUsuario } from "../main/config";
 import { blocoDasConversasAnteriores } from "./episodios";
+import { decidirChamada, envelopeExterno, FONTES_EXTERNAS } from "./politicaFerramentas";
+import { pedirConfirmacao } from "./confirmacao";
 import { blocoDeInstrucoes, Canal, regraDoAgente } from "./estiloResposta";
 import { buildMemoryBlock } from "./memoryStore";
 import { callChatComFerramentas, ChatMessage, ChamadaDeFerramenta, Provider } from "./llm";
-import { definicoesDeFerramentas, executarFerramenta, ferramenta } from "./ferramentas";
+import { definicoesDeFerramentas, executarFerramenta, ferramenta, normalizarArgs } from "./ferramentas";
 import { contextoRecente, provedorDoRoteador, BrainAction } from "./brain";
 
 /**
@@ -175,6 +177,8 @@ export async function agir(
   const maxRodadas = modoTarefa ? MAX_RODADAS_TAREFA : MAX_RODADAS;
   const maxChamadas = modoTarefa ? MAX_CHAMADAS_TAREFA : MAX_CHAMADAS;
   let rodadasComAcao = 0;
+  // Bloco 192: este pedido já leu conteúdo de fora (web, link, tela, área de transferência)?
+  let contaminado = false;
   /** Índice em `chamadas` da primeira ação — as leituras anteriores não viram fala. */
   let inicioFala = -1;
   let prov = provider, mod = modelo;
@@ -253,11 +257,14 @@ export async function agir(
       opcoes.onChamada?.(c.name, c.args);
       const equivalente = ferramenta(c.name)?.acao?.(c.args);
       if (equivalente) acoes.push(equivalente);
-      const resultado = await executarFerramenta(c.name, c.args);
+      const resultado = await executarComPolitica(c.name, c.args, contaminado, texto);
       chamadas.push({ nome: c.name, args: c.args, resultado });
       // Nome da ferramenta e se deu certo; argumentos e resultado podem ter dado pessoal.
       console.log(`[agente] ${c.name}(${Object.keys(c.args).join(", ")}) → ${resultado.length} caracteres`);
-      messages.push({ role: "tool", tool_call_id: c.id, name: c.name, content: resultado });
+      // Conteúdo de fora vai ao modelo marcado como DADO, e o resto do pedido fica "contaminado".
+      const externo = FONTES_EXTERNAS.has(c.name);
+      if (externo) contaminado = true;
+      messages.push({ role: "tool", tool_call_id: c.id, name: c.name, content: externo ? envelopeExterno(c.name, resultado) : resultado });
     }
 
     // 🔴 Rodada com AÇÃO: acabou. A resposta é o que os executores disseram ("Abrindo
@@ -288,6 +295,29 @@ export async function agir(
 
   // Estourou as rodadas só lendo: a resposta é o que foi lido.
   return { modo: "ferramentas", reply: modoTarefa && inicioFala >= 0 ? falasDaTarefa(chamadas.slice(inicioFala), true) : falasDasChamadas(chamadas), acoes, chamadas };
+}
+
+/**
+ * Executa uma ferramenta passando pela política do bloco 192: ação sensível pedida pelo que a
+ * Ely LEU (e não pelo pedido dele) é barrada; ação sem volta vira pergunta ("Confirma? Diga
+ * sim.") e só roda no "sim" do próximo pedido (`confirmacao.ts`).
+ */
+async function executarComPolitica(nome: string, args: Record<string, unknown>, contaminado: boolean, pedido: string): Promise<string> {
+  const decisao = decidirChamada(nome, contaminado, pedido);
+  if (decisao.tipo === "bloquear") {
+    console.warn(`[agente] ${nome} barrada: veio depois de ler conteúdo de fora e o pedido não pedia isso.`);
+    return decisao.mensagem;
+  }
+  const f = ferramenta(nome);
+  if (f?.confirmar) {
+    try {
+      const c = await f.confirmar(normalizarArgs(nome, args ?? {}));
+      if (c) return pedirConfirmacao(c.descricao, c.executar);
+    } catch (e) {
+      return `Não consegui preparar isso: ${e instanceof Error ? e.message : String(e)}`;
+    }
+  }
+  return executarFerramenta(nome, args);
 }
 
 /**
