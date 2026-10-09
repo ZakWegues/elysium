@@ -10,6 +10,8 @@ import { pedidoComIsso } from "./isso";
 import { isoLocal } from "./hora";
 import { pedidoDeModo } from "./modos";
 import { pedidoDeCartao } from "./cartoes";
+import { pedidoDePomodoro } from "./pomodoro";
+import { pedidoDePlano } from "./planoEstudo";
 
 /**
  * Roteamento local, sem IA.
@@ -160,6 +162,9 @@ export function fastRoute(text: string): BrainAction[] | null {
   // Só gatilho explícito, e o resto tem que ter cara de lista (vírgula ou " e "): "organiza
   // as janelas", "anota tudo que eu falar na reunião" e "despejo do lixo é amanhã" seguem
   // para o cérebro (a revisão pegou os três).
+  // Plano de estudo (fase 20): antes do despejo e das listas — "monta um plano… assuntos: a, b".
+  const plano = pedidoDePlano(text);
+  if (plano) return [{ action: "study_plan", ...plano }];
   const despejo = /^\s*(?:ely[,!]?\s+)?(?:despejo\s*:|anota tudo isso\s*[:,]?|anota a[íi] tudo isso\s*[:,]?|anota essas coisas\s*[:,]?)\s*(.{15,})$/is.exec(text);
   if (despejo && /,|\s(e|tamb[ée]m|depois)\s/i.test(despejo[1])) return [{ action: "brain_dump", texto: despejo[1].trim() }];
   // Listas e timers (blocos 135/136): o item e o nome precisam do texto ORIGINAL (com
@@ -210,6 +215,9 @@ export function fastRoute(text: string): BrainAction[] | null {
     const match = normalized.match(rule.pattern);
     if (match) return rule.build(match);
   }
+  // Pomodoro (fase 20): "pomodoro de 50 e 10, 3 ciclos"; com sobra que não entendi, cérebro.
+  const pomo = pedidoDePomodoro(text);
+  if (pomo) return [pomo.tipo === "start" ? { action: "pomodoro", operacao: "start", ...pomo.config } : { action: "pomodoro", operacao: pomo.tipo }];
   // Cartão à mão (fase 20): o texto original, com acento ("mitocôndria é…").
   const cartao = pedidoDeCartao(text);
   if (cartao) return [{ action: "cards", operacao: "guardar", ...("semFormato" in cartao ? {} : cartao) }];

@@ -62,7 +62,8 @@ import { habitosParaLembrar } from "../services/habitos";
 import { podeAvisarAlto } from "../services/avisos";
 import { ElysiumError } from "../services/errors";
 import { processCommand, processCommandStream, executarComando } from "../services/command";
-import { startServer, setActiveToken, broadcastMailboxEvent, broadcastNotify, broadcastEstadoPc, broadcastModo } from "../services/server";
+import { startServer, setActiveToken, broadcastMailboxEvent, broadcastNotify, broadcastEstadoPc, broadcastModo, broadcastPomodoro } from "../services/server";
+import { iniciarPomodoro, pararRelogioPomodoro, pomodoroParaCliente } from "../services/pomodoro";
 import { aoMudarModo, modoParaCliente } from "../services/modos";
 import { iniciarRotinas, pararRotinas, enfileirarEntrega, type Entrega } from "../services/rotinas";
 import { avaliarCondicao } from "../services/agente";
@@ -72,7 +73,7 @@ import { baseDoOllama, ollamaDisponivel } from "../services/llm";
 import { garantirOllama } from "../services/ollamaVivo";
 import { registerRpcBridge } from "./rpcBridge";
 import { vigiarDisco } from "../actions/armazenamento";
-import { iniciarFoco } from "../services/foco";
+import { comecarFoco, estadoFoco, iniciarFoco, pararFoco } from "../services/foco";
 import { resumoDoDia } from "../services/resumoDoDia";
 import { conectarAgenda, desconectarAgenda, estadoAgenda, vigiarAgenda } from "../services/agenda";
 import Store from "electron-store";
@@ -1059,6 +1060,7 @@ app.on("ready", async () => {
     inputHost.stop();
     stopScheduler();
     pararIntervalos();
+    pararRelogioPomodoro();
   pararRotinas();
     void aviso.finally(() => app.exit(0));
   };
@@ -1138,6 +1140,24 @@ app.on("ready", async () => {
       : `${unseenFromMobile.length} itens`;
     notify("ELYSIUM — Mailbox", `Recebido do celular: ${preview}`);
   }
+
+  // Pomodoro (fase 20): a troca de fase fala (pedida por ele: não gasta o orçamento de avisos),
+  // vira balão e vai ao celular; o foco liga em silêncio — o fim de cada bloco é anunciado aqui.
+  iniciarPomodoro({
+    avisar: (titulo, fala) => {
+      notify(`ELYSIUM — ${titulo}`, fala);
+      speak(fala).catch(() => { /* best-effort */ });
+      mandarAoCelular("aviso", titulo, fala, { push: "reminder" });
+    },
+    focoLigar: (minutos) => comecarFoco({ minutos, doPomodoro: true }),
+    focoParar: () => { if (estadoFoco().doPomodoro) pararFoco(); },
+    mudou: () => {
+      const p = pomodoroParaCliente();
+      enviarAoDash("pomodoro:mudou", p);
+      enviarAoDash("foco:mudou");
+      try { broadcastPomodoro(p); } catch { /* sem servidor */ }
+    },
+  });
 
   // Modos (fase 20): o chip do dashboard e o do celular mudam juntos, venha a troca de onde vier.
   aoMudarModo((m) => {

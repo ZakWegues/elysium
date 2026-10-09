@@ -74,6 +74,8 @@ import { askAboutImage, askAboutScreen } from "./vision";
 import { searchWeb } from "./webSearch";
 import { listarSugestoes } from "./sugestoes";
 import { bolhasDoChat } from "./perguntas";
+import { montarPlano } from "./planoEstudo";
+import { comecarPomodoro, pararPomodoro, pomodoroParaCliente, pularFase } from "./pomodoro";
 import { apagarCartao, cartoesVencidos, criarCartao, listarCartoes, responderCartao } from "./cartoes";
 import { apagarModoMeu, definirModo, listarModos, modoAtivo, modoParaCliente, salvarModoMeu, type ErroModo } from "./modos";
 import { climaAgora, motivoDaFalha } from "./clima";
@@ -86,7 +88,7 @@ import { apagarEpisodio, apagarTodosEpisodios, definirAnonimo, listarEpisodios, 
 import { marcarAcompanhado, pendentesDeAcompanhamento } from "./acompanhamento";
 import { adiarTarefaPor, concluirTarefaCompleta } from "./operacoes";
 import { registrarFalaDaEly } from "./brain";
-import { aplicarDespejo, interpretarFala, validarItens } from "./despejo";
+import { aplicarDespejo, dataValida, interpretarFala, validarItens } from "./despejo";
 import {
   listSessions as listChatSessions, getSession as getChatSession,
   mergeSession as mergeChatSession, toggleFavorite as toggleChatFavorite,
@@ -1374,6 +1376,28 @@ const METHODS: Record<string, MethodDef> = {
     destructive: true,
     handler: async () => ({ removidos: apagarTodosEpisodios() }),
   },
+  // Plano de estudo (fase 20): só a PRÉVIA; gravar é o `despejo.aplicar` com os escolhidos.
+  "estudo.planejar": {
+    handler: async (params) => {
+      const dia = optionalString(params, "dia");
+      const hora = optionalString(params, "hora");
+      if (dia && !dataValida(dia)) throw new RpcError(400, "dia no formato AAAA-MM-DD");
+      if (hora && !/^([01]\d|2[0-3]):[0-5]\d$/.test(hora)) throw new RpcError(400, "hora no formato HH:MM");
+      const assuntos = Array.isArray(params["assuntos"]) ? (params["assuntos"] as unknown[]).filter((x): x is string => typeof x === "string").map(s => s.trim().slice(0, 60)).filter(Boolean).slice(0, 14) : [];
+      return montarPlano({ materia: requireString(params, "materia").slice(0, 60), assuntos, dia, hora });
+    },
+  },
+  // Pomodoro (fase 20). O card mostra a fase e o tempo; `fimEm` + `agora` acertam o relógio.
+  "pomodoro.get": { handler: async () => pomodoroParaCliente() },
+  "pomodoro.start": {
+    handler: async (params) => {
+      const n = (k: string) => (typeof params[k] === "number" ? params[k] as number : undefined);
+      await comecarPomodoro({ foco: n("foco"), pausa: n("pausa"), longa: n("longa"), ciclos: n("ciclos") });
+      return pomodoroParaCliente();
+    },
+  },
+  "pomodoro.stop": { handler: async () => { pararPomodoro(); return pomodoroParaCliente(); } },
+  "pomodoro.skip": { handler: async () => { await pularFase(); return pomodoroParaCliente(); } },
   // Cartões de revisão (fase 20): a tela vira o cartão e marca "acertei"/"errei".
   "cartoes.list": {
     handler: async () => ({ cartoes: listarCartoes(), vencidos: cartoesVencidos().map(c => c.id) }),

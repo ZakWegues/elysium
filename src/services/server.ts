@@ -197,6 +197,15 @@ export function broadcastEstadoPc(estado: object): void {
   }
 }
 
+/** O pomodoro mudou de fase (fase 20): o card do celular acompanha na hora. */
+export function broadcastPomodoro(pomodoro: object): void {
+  if (wsClients.size === 0) return;
+  const frame = buildTextFrame(JSON.stringify({ type: "pomodoro", pomodoro }));
+  for (const c of wsClients) {
+    try { c.socket.write(frame); } catch { wsClients.delete(c); }
+  }
+}
+
 /** O modo da Ely mudou (fase 20): o chip do celular acompanha o do PC. */
 export function broadcastModo(modo: object | null): void {
   if (wsClients.size === 0) return;

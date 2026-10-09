@@ -24,6 +24,8 @@ export interface EstadoFoco {
   fechar: boolean;
   /** Quantas vezes um app da lista apareceu durante o foco. */
   distracoes: number;
+  /** Fase 20: ligado pelo pomodoro — o fim é anunciado por ele, não aqui (senão dois avisos). */
+  doPomodoro?: boolean;
 }
 
 export interface DependenciasFoco {
@@ -105,7 +107,7 @@ function terminar(motivo: "fim" | "parado"): EstadoFoco {
   avisados.clear();
   const fim: EstadoFoco = { ativo: false, apps: f.apps, fechar: f.fechar, distracoes: f.distracoes, minutos: f.minutos };
   store.set("foco", fim);
-  if (f.ativo && deps) {
+  if (f.ativo && deps && !f.doPomodoro) {
     const feito = f.comecouEm ? Math.round((Date.now() - f.comecouEm) / 60000) : f.minutos ?? 0;
     const dist = f.distracoes === 0 ? "sem nenhuma distração" : f.distracoes === 1 ? "1 distração" : `${f.distracoes} distrações`;
     deps.avisar(motivo === "fim" ? "Foco concluído" : "Foco encerrado", `${feito} min, ${dist}.`);
@@ -113,13 +115,13 @@ function terminar(motivo: "fim" | "parado"): EstadoFoco {
   return fim;
 }
 
-export async function comecarFoco(opcoes: { minutos: number; apps?: string[]; fechar?: boolean }): Promise<EstadoFoco> {
+export async function comecarFoco(opcoes: { minutos: number; apps?: string[]; fechar?: boolean; doPomodoro?: boolean }): Promise<EstadoFoco> {
   const minutos = Math.round(opcoes.minutos);
   if (!Number.isFinite(minutos) || minutos < 1 || minutos > 480) throw new Error("minutos deve ficar entre 1 e 480");
   const apps = (opcoes.apps?.length ? opcoes.apps : store.get("focoApps")).map(a => a.trim()).filter(Boolean).slice(0, 30);
   if (opcoes.apps?.length) store.set("focoApps", apps);
   const agora = Date.now();
-  const f: EstadoFoco = { ativo: true, ate: agora + minutos * 60000, comecouEm: agora, minutos, apps, fechar: Boolean(opcoes.fechar), distracoes: 0 };
+  const f: EstadoFoco = { ativo: true, ate: agora + minutos * 60000, comecouEm: agora, minutos, apps, fechar: Boolean(opcoes.fechar), distracoes: 0, ...(opcoes.doPomodoro ? { doPomodoro: true } : {}) };
   store.set("foco", f);
   avisados.clear();
   armar();

@@ -70,6 +70,10 @@ export type BrainAction =
   | { action: "anon_mode";         ligar: boolean }
   // Fase 20: "modo matemática", "sai do modo" — só o fastRoute produz (ver modos.ts).
   // Fase 20: cartões de revisão — "Ely, revisão", "guarda pra revisar: X é Y".
+  // Fase 20: pomodoro — "Ely, pomodoro de 50", "pula a pausa", "para o pomodoro".
+  // Fase 20: "monta um plano de estudo pra prova de física" — prévia e "Confirma? Diga sim.".
+  | { action: "study_plan";        materia: string; assuntos: string[]; dia?: string; hora?: string }
+  | { action: "pomodoro";          operacao: "start" | "stop" | "status" | "skip"; foco?: number; pausa?: number; ciclos?: number }
   | { action: "cards";             operacao: "revisar" | "status" | "guardar"; frente?: string; verso?: string }
   | { action: "mode";              operacao: "ligar" | "desligar" | "status" | "listar" | "criar"; id?: string; nome?: string; instrucao?: string }
   // Bloco 193: "resume isso", "traduz isso" — o copiado, ou a tela.
@@ -235,6 +239,8 @@ function actionSummary(action: BrainAction): string {
     case "timer_cancel":      return "Cancelou timer";
     case "calculate":         return "Conta";
     case "anon_mode":         return action.ligar ? "Modo anônimo ligado" : "Modo anônimo desligado";
+    case "study_plan":        return `Plano de estudo: ${action.materia}`;
+    case "pomodoro":          return action.operacao === "start" ? "Pomodoro" : action.operacao === "stop" ? "Parou o pomodoro" : action.operacao === "skip" ? "Pulou a fase" : "Pomodoro";
     case "cards":             return action.operacao === "guardar" ? "Cartão de revisão" : "Revisão";
     case "mode":              return action.operacao === "ligar" ? "Modo ligado" : action.operacao === "desligar" ? "Saiu do modo" : action.operacao === "criar" ? `Criou o modo ${action.nome ?? ""}`.trim() : "Modos";
     case "about_this":        return `Isso: ${action.comando}`;

@@ -44,6 +44,8 @@ import { pedirConfirmacao } from "../services/confirmacao";
 import { emFrase } from "../services/texto";
 import { definirModo, listarModos, modoAtivo, salvarModoMeu } from "../services/modos";
 import { cartoesVencidos, comecarRevisao, criarCartao, listarCartoes } from "../services/cartoes";
+import { montarPlano } from "../services/planoEstudo";
+import { comecarPomodoro, estadoPomodoro, falaDaFase, falaDoEstado, pararPomodoro, pularFase } from "../services/pomodoro";
 
 export async function routeAction(action: BrainAction): Promise<string> {
   switch (action.action) {
@@ -125,6 +127,14 @@ export async function routeAction(action: BrainAction): Promise<string> {
     }
     case "mode":              return falaDoModo(action);
     case "cards":             return falaDosCartoes(action);
+    case "pomodoro":          return falaDoPomodoro(action);
+    case "study_plan": {
+      // Nada é gravado antes do "sim" (mesma regra do despejo).
+      const p = await montarPlano({ materia: action.materia, assuntos: action.assuntos ?? [], dia: action.dia, hora: action.hora });
+      if (!p.itens.length) return p.resumo;
+      const assuntos = p.itens.filter(i => /: /.test(i.texto)).map(i => i.texto.replace(/^[^:]*: /, ""));
+      return pedirConfirmacao(`Montei ${p.resumo.charAt(0).toLowerCase()}${p.resumo.slice(1)}${assuntos.length ? ` Assuntos: ${emFrase(assuntos)}.` : ""}`, async () => aplicarDespejo(p.itens).mensagem);
+    }
     case "anon_mode":
       definirAnonimo(action.ligar);
       return action.ligar
@@ -214,4 +224,25 @@ function falaDosCartoes(a: Extract<BrainAction, { action: "cards" }>): string {
   if (!a.frente || !a.verso) return "Diga no formato \"guarda pra revisar: pergunta é resposta\" — por exemplo, \"mitocôndria é a organela que produz energia\".";
   const c = criarCartao(a.frente, a.verso, "manual");
   return c ? `Guardei: ${c.frente}. Volta amanhã na revisão.` : "Não consegui guardar esse cartão.";
+}
+
+/** Pomodoro pela voz (fase 20). */
+async function falaDoPomodoro(a: Extract<BrainAction, { action: "pomodoro" }>): Promise<string> {
+  const atual = estadoPomodoro();
+  if (a.operacao === "status") return falaDoEstado(atual);
+  if (a.operacao === "stop") {
+    if (!atual.ativo) return "Nenhum pomodoro rodando.";
+    pararPomodoro();
+    return "Pomodoro encerrado.";
+  }
+  if (a.operacao === "skip") {
+    if (!atual.ativo) return "Nenhum pomodoro rodando.";
+    const e = await pularFase();
+    return e.ativo ? falaDaFase(e) : "Era a última fase: pomodoro concluído.";
+  }
+  // "Ely, pomodoro" com um já rodando é pergunta de status, não recomeço.
+  if (atual.ativo && a.foco === undefined && a.pausa === undefined && a.ciclos === undefined) return falaDoEstado(atual);
+  const e = await comecarPomodoro({ foco: a.foco, pausa: a.pausa, ciclos: a.ciclos });
+  const c = e.config;
+  return `Pomodoro: ${c.ciclos} ${c.ciclos === 1 ? "ciclo" : "ciclos"} de ${c.foco} minutos com ${c.pausa} de pausa. Modo foco ligado — começando agora.`;
 }

@@ -100,6 +100,7 @@ contextBridge.exposeInMainWorld("nx", {
   onFoco:               (cb: () => void) => { ipcRenderer.on("foco:mudou", () => cb()); },
   // Fase 20: o modo da Ely mudou (pela voz, pelo celular ou daqui).
   onModo:               (cb: (m: unknown) => void) => { ipcRenderer.on("modo:mudou", (_e, m) => cb(m)); },
+  onPomodoro:           (cb: (p: unknown) => void) => { ipcRenderer.on("pomodoro:mudou", (_e, p) => cb(p)); },
   // Google Agenda (bloco 120).
   agendaEstado:         () => ipcRenderer.invoke("agenda:estado"),
   agendaCliente:        (id: string, segredo: string) => ipcRenderer.invoke("agenda:cliente", id, segredo),
