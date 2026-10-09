@@ -85,6 +85,7 @@ import { logAnomaly, getAnomalyHistory, getInsights } from "../services/telemetr
 import { getAllPresets } from "../services/presetsStore";
 import { fraseDeArranque, fraseDeEspera, fraseDeHabito, fraseDeLembrete, fraseDeTimer } from "../services/falasVivas";
 import { criarFatiador, restoParaFalar } from "../services/fatiadorDeFrases";
+import { anexoAbreDireto } from "../services/anexos";
 import { marcarAcompanhado, pendentesDeAcompanhamento } from "../services/acompanhamento";
 import { lerHumor, type Humor } from "../services/humor";
 import {
@@ -947,7 +948,12 @@ ipcMain.handle("mailbox:save-as", async (_event, attachmentPath: string, suggest
 
 ipcMain.handle("mailbox:open-attachment", async (_event, attachmentPath: string) => {
   if (!isKnownAttachmentPath(attachmentPath)) throw new Error("Caminho de anexo inválido.");
-  await shell.openPath(attachmentPath);
+  // Bloco 199: só abre direto o que não executa (imagem, PDF, texto, áudio, vídeo). Um ".exe",
+  // ".bat" ou ".lnk" que chegou pela Caixa só aparece selecionado na pasta — abrir é decisão
+  // de quem vê o arquivo, não de um clique num balão.
+  if (anexoAbreDireto(attachmentPath)) { await shell.openPath(attachmentPath); return { aberto: true }; }
+  shell.showItemInFolder(attachmentPath);
+  return { aberto: false };
 });
 
 ipcMain.handle("telemetry:get-history",  () => getAnomalyHistory());

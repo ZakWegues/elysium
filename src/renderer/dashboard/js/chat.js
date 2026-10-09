@@ -134,10 +134,15 @@ function buildAttachmentEl(attachment) {
 
   const el = document.createElement("div");
   el.className = "attachment-file";
-  el.innerHTML = ico("paperclip", "ico-sm") + `<span>${escHtml(attachment.name)}</span>`;
+  // Bloco 199: sem os caracteres que invertem a direção do texto ("fdp\u202Eexe.pdf" aparecia
+  // como "fdpfdp.exe"), o nome mostrado é o nome de verdade.
+  const nomeLimpo = String(attachment.name ?? "").replace(/[\u202a-\u202e\u2066-\u2069\u200e\u200f]/g, "");
+  el.innerHTML = ico("paperclip", "ico-sm") + `<span>${escHtml(nomeLimpo)}</span>`;
   el.title = "Clique para abrir";
   el.addEventListener("click", () => {
-    window.nx.mailboxOpenAttachment(attachment.filePath).catch(() => showToast("Falha ao abrir arquivo.", true));
+    window.nx.mailboxOpenAttachment(attachment.filePath)
+      .then((r) => { if (r && r.aberto === false) showToast("Esse tipo de arquivo não abre direto — mostrei na pasta."); })
+      .catch(() => showToast("Falha ao abrir arquivo.", true));
   });
   return el;
 }

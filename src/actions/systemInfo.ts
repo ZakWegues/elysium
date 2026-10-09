@@ -71,7 +71,10 @@ function runPs(script: string): Promise<string> {
 
 export async function systemInfo(query: InfoQuery): Promise<string> {
   const key    = query.toLowerCase().trim();
-  const script = QUERIES[key] ?? `Write-Output "Não sei como obter: ${key}"`;
+  // Bloco 198: o `key` vem do modelo e ia para dentro de um Write-Output com aspas DUPLAS —
+  // onde `$(…)` executa. Pedido desconhecido não chega mais ao PowerShell.
+  const script = QUERIES[key];
+  if (!script) return `Não sei como obter: ${key.slice(0, 40)}.`;
   return runPs(script);
 }
 
@@ -351,6 +354,8 @@ export async function getDashboardTelemetry(): Promise<DashboardTelemetry> {
 // ── Kill process ──────────────────────────────────────────────────────────────
 
 export async function killProcess(pid: number): Promise<void> {
+  // Só número inteiro positivo chega ao script (o RPC já confere; aqui é a última porta).
+  if (!Number.isInteger(pid) || pid <= 4) throw new Error("pid inválido");
   const script = `Stop-Process -Id ${pid} -Force -ErrorAction SilentlyContinue`;
   await runPs(script);
 }

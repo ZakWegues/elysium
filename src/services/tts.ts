@@ -5,6 +5,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { spawn, ChildProcess } from "node:child_process";
 import { getConfig } from "../main/config";
+import { spawnPs } from "../actions/ps";
 import type { Humor } from "./humor";
 
 const VOICE = "pt-BR-FranciscaNeural";
@@ -220,7 +221,8 @@ export async function synthesize(text: string, humor?: Humor): Promise<void> {
     // deixa o app completamente mudo.
     function speakOffline() {
       if (settled) return;
-      const safe = clean.replace(/'/g, "''");
+      // O texto vai em $env:NX_TEXTO (bloco 198): a fala vem do modelo e do /api/tts, e o
+      // escape antigo (`''`) deixava as aspas curvas ‘ ’ fecharem a string.
       const psScript = [
         "Add-Type -AssemblyName System.Speech",
         "$s = New-Object System.Speech.Synthesis.SpeechSynthesizer",
@@ -230,13 +232,9 @@ export async function synthesize(text: string, humor?: Humor): Promise<void> {
         "  if (-not $v) { $v = $voices | Select-Object -First 1 }",
         "  if ($v) { $s.SelectVoice($v.VoiceInfo.Name) }",
         "} catch {}",
-        `$s.Speak('${safe}')`,
+        "$s.Speak($env:NX_TEXTO)",
       ].join("\n");
-      const encoded = Buffer.from(psScript, "utf16le").toString("base64");
-
-      ps = spawn("powershell.exe", [
-        "-ExecutionPolicy", "Bypass", "-NonInteractive", "-WindowStyle", "Hidden", "-EncodedCommand", encoded,
-      ], { stdio: "pipe" });
+      ps = spawnPs(psScript, { NX_TEXTO: clean });
 
       let stderr = "";
       ps.stderr?.on("data", (d: Buffer) => { stderr += d.toString(); });
@@ -294,8 +292,8 @@ export async function synthesize(text: string, humor?: Humor): Promise<void> {
 
         // MCI (winmm.dll): "play alias wait" blocks until playback completes.
         // Works on Win10/11 for MP3 without any external codec.
-        // PS single-quoted string: only ' needs escaping (as ''); backslashes are literal.
-        const safePath = tmpFile.replace(/'/g, "''");
+        // O caminho vai em $env:NX_ARQUIVO (bloco 198): a pasta temporária é do usuário, e um
+        // nome de usuário com aspas curvas fecharia a string do script antigo.
         const psScript = [
           "Add-Type @\"",
           "using System;using System.Text;using System.Runtime.InteropServices;",
@@ -304,19 +302,14 @@ export async function synthesize(text: string, humor?: Humor): Promise<void> {
           "    public static extern int mciSendString(string cmd,StringBuilder sb,int sz,IntPtr h);",
           "}",
           "\"@",
-          `$f='${safePath}'`,
+          "$f = $env:NX_ARQUIVO",
           "[NxMci]::mciSendString('open \"'+$f+'\" alias nx_s',$null,0,[IntPtr]::Zero)|Out-Null",
           "[NxMci]::mciSendString('play nx_s wait',$null,0,[IntPtr]::Zero)|Out-Null",
           "[NxMci]::mciSendString('close nx_s',$null,0,[IntPtr]::Zero)|Out-Null",
           "Remove-Item $f -Force -EA 0",
         ].join("\n");
 
-        const encoded = Buffer.from(psScript, "utf16le").toString("base64");
-
-        ps = spawn("powershell.exe", [
-          "-ExecutionPolicy", "Bypass", "-NonInteractive",
-          "-WindowStyle", "Hidden", "-EncodedCommand", encoded,
-        ], { stdio: "pipe" });
+        ps = spawnPs(psScript, { NX_ARQUIVO: tmpFile });
 
         let stderr = "";
         ps.stderr?.on("data", (d: Buffer) => { stderr += d.toString(); });

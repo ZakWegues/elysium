@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { nomeDeProcessoValido, rodarPs } from "./ps";
 
 // Maps common app names to their process names
 const PROCESS_MAP: Record<string, string[]> = {
@@ -55,20 +55,14 @@ export async function closeAppIfOpen(appName: string, abertos: { name: string }[
 }
 
 export async function closeApp(appName: string): Promise<string> {
-  const names = deriveProcessNames(appName);
-  const safe = names.map(n => n.replace(/'/g, "''"));
-
-  const psCmd =
-    `$ErrorActionPreference='SilentlyContinue'; ` +
-    safe.map(n => `Stop-Process -Name '${n}' -Force`).join("; ") +
-    `; if ($?) { Write-Output 'ok' } else { Write-Output 'notfound' }`;
-
-  return new Promise<string>((resolve) => {
-    const ps = spawn("powershell.exe", [
-      "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-NonInteractive",
-      "-Command", psCmd,
-    ], { stdio: "pipe" });
-    ps.on("close", () => resolve(`${appName} fechado.`));
-    ps.on("error", () => resolve(`Não consegui fechar ${appName}.`));
-  });
+  // Bloco 198: os nomes vão em $env:NX_NOMES (separados por "|"), nunca no texto do script —
+  // o escape antigo (`''`) deixava passar as aspas curvas ‘ ’, que o PowerShell também aceita.
+  const names = deriveProcessNames(appName).filter(nomeDeProcessoValido);
+  if (!names.length) return `Não reconheci "${appName}" como programa.`;
+  const script = [
+    "$ErrorActionPreference='SilentlyContinue'",
+    "foreach ($n in ($env:NX_NOMES -split '\|')) { Stop-Process -Name $n -Force }",
+  ].join("\n");
+  const r = await rodarPs(script, { NX_NOMES: names.join("|") }, { timeoutMs: 15_000 });
+  return r.codigo === -1 ? `Não consegui fechar ${appName}.` : `${appName} fechado.`;
 }
