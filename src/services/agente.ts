@@ -257,7 +257,14 @@ export async function agir(
       opcoes.onChamada?.(c.name, c.args);
       const equivalente = ferramenta(c.name)?.acao?.(c.args);
       if (equivalente) acoes.push(equivalente);
-      const resultado = await executarComPolitica(c.name, c.args, contaminado, texto);
+      const { resultado, pergunta } = await executarComPolitica(c.name, c.args, contaminado, texto);
+      // Pediu confirmação: o turno para AQUI, com a pergunta. Seguir deixaria o modelo chamar
+      // outra ação sem volta, e a segunda pergunta apagava a primeira — o "sim" só valia para
+      // a última (a revisão pegou). O que já foi feito antes entra na fala.
+      if (pergunta) {
+        const antes = falasDasChamadas(chamadas.filter(x => !LEITURA.has(x.nome)));
+        return { modo: "ferramentas", reply: antes && antes !== "Feito." ? `${antes} ${resultado}` : resultado, acoes, chamadas: [...chamadas, { nome: c.name, args: c.args, resultado }] };
+      }
       chamadas.push({ nome: c.name, args: c.args, resultado });
       // Nome da ferramenta e se deu certo; argumentos e resultado podem ter dado pessoal.
       console.log(`[agente] ${c.name}(${Object.keys(c.args).join(", ")}) → ${resultado.length} caracteres`);
@@ -302,22 +309,22 @@ export async function agir(
  * Ely LEU (e não pelo pedido dele) é barrada; ação sem volta vira pergunta ("Confirma? Diga
  * sim.") e só roda no "sim" do próximo pedido (`confirmacao.ts`).
  */
-async function executarComPolitica(nome: string, args: Record<string, unknown>, contaminado: boolean, pedido: string): Promise<string> {
+async function executarComPolitica(nome: string, args: Record<string, unknown>, contaminado: boolean, pedido: string): Promise<{ resultado: string; pergunta?: boolean }> {
   const decisao = decidirChamada(nome, contaminado, pedido);
   if (decisao.tipo === "bloquear") {
     console.warn(`[agente] ${nome} barrada: veio depois de ler conteúdo de fora e o pedido não pedia isso.`);
-    return decisao.mensagem;
+    return { resultado: decisao.mensagem };
   }
   const f = ferramenta(nome);
   if (f?.confirmar) {
     try {
       const c = await f.confirmar(normalizarArgs(nome, args ?? {}));
-      if (c) return pedirConfirmacao(c.descricao, c.executar);
+      if (c) return { resultado: pedirConfirmacao(c.descricao, c.executar), pergunta: true };
     } catch (e) {
-      return `Não consegui preparar isso: ${e instanceof Error ? e.message : String(e)}`;
+      return { resultado: `Não consegui preparar isso: ${e instanceof Error ? e.message : String(e)}` };
     }
   }
-  return executarFerramenta(nome, args);
+  return { resultado: await executarFerramenta(nome, args) };
 }
 
 /**

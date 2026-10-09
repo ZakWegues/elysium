@@ -1,4 +1,4 @@
-import type { BrainAction } from "./brain";
+import { respondeuHaPouco, type BrainAction } from "./brain";
 import { pedidoDeDitado, pedidoDeLista, pedidoDeNota } from "./listas";
 import { acharHabito, listarHabitos, listarMetas, pedidoDeHabito, pedidoDeMeta } from "./habitos";
 import { interpretarTimer } from "./timers";
@@ -148,8 +148,11 @@ export function fastRoute(text: string): BrainAction[] | null {
 
   // Antes da lista e da nota: "anota tudo isso: …" não é UMA nota.
   // "Anota tudo isso: …" (bloco 194): o texto ORIGINAL vai inteiro para a separação.
-  const despejo = /^\s*(?:ely[,!]?\s+)?(?:despejo|anota tudo(?: isso)?|anota a[íi] tudo|organiza (?:isso|tudo isso|pra mim)|anota essas coisas)\s*[:,.-]?\s+(.{15,})$/is.exec(text);
-  if (despejo) return [{ action: "brain_dump", texto: despejo[1].trim() }];
+  // Só gatilho explícito, e o resto tem que ter cara de lista (vírgula ou " e "): "organiza
+  // as janelas", "anota tudo que eu falar na reunião" e "despejo do lixo é amanhã" seguem
+  // para o cérebro (a revisão pegou os três).
+  const despejo = /^\s*(?:ely[,!]?\s+)?(?:despejo\s*:|anota tudo isso\s*[:,]?|anota a[íi] tudo isso\s*[:,]?|anota essas coisas\s*[:,]?)\s*(.{15,})$/is.exec(text);
+  if (despejo && /,|\s(e|tamb[ée]m|depois)\s/i.test(despejo[1])) return [{ action: "brain_dump", texto: despejo[1].trim() }];
   // Listas e timers (blocos 135/136): o item e o nome precisam do texto ORIGINAL (com
   // acento: "café", "pão de queijo"), então vêm antes das regras sobre o normalizado.
   const lista = pedidoDeLista(text);
@@ -168,7 +171,8 @@ export function fastRoute(text: string): BrainAction[] | null {
   if (pedidoPausarSeTocando(text)) return [{ action: "pause_if_playing" }];
   // "Resume isso", "traduz isso pro inglês" (bloco 193): o copiado ou a tela.
   const isso = pedidoComIsso(text);
-  if (isso) return [{ action: "about_this", comando: isso }];
+  // "explica isso" logo depois de uma resposta dela fica com o cérebro: o "isso" é a resposta.
+  if (isso && !(isso === "explicar" && /\b(isso|isto)\s*\??$/i.test(text.trim()) && respondeuHaPouco())) return [{ action: "about_this", comando: isso }];
   const daquiA = pedidoLembreteDaquiA(text);
   if (daquiA) {
     const d = new Date(Date.now() + daquiA.minutos * 60_000);

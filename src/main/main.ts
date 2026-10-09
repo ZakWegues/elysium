@@ -442,6 +442,8 @@ async function resumoDaManha(): Promise<void> {
     await new Promise(r => setTimeout(r, 4000));
     const t0 = Date.now();
     while (!state.is("idle") && Date.now() - t0 < 60_000) await new Promise(r => setTimeout(r, 1000));
+    // Fase 19: ocupado depois de 1 min (ouvindo, pensando) — falar agora entraria no microfone.
+    if (!state.is("idle")) return;
     const texto = await resumoDoDia();
     notify("Resumo do dia", texto);
     speak(texto).catch(() => { /* best-effort */ });
@@ -463,11 +465,15 @@ async function perguntarComoFoi(): Promise<void> {
     if (comoFoiStore.get("ultimoDia") === dia) return;
     const [primeira] = pendentesDeAcompanhamento(agora.getTime());
     if (!primeira) return;
-    comoFoiStore.set("ultimoDia", dia);
     // Depois do resumo da manhã, se houver, e com o app livre (até 1 min).
     await new Promise(r => setTimeout(r, 15_000));
     const t0 = Date.now();
     while (!state.is("idle") && Date.now() - t0 < 60_000) await new Promise(r => setTimeout(r, 1000));
+    // Ainda ocupado (ouvindo, pensando, falando): falar agora entraria no microfone ou no
+    // meio do turno dele. Fica para a próxima volta — o dia só é marcado quando pergunta.
+    if (!state.is("idle")) return;
+    if (comoFoiStore.get("ultimoDia") === dia) return;
+    comoFoiStore.set("ultimoDia", dia);
     if (!podeAvisarAlto()) return;
     marcarAcompanhado(primeira.id);
     registrarFalaDaEly(primeira.pergunta);
@@ -534,7 +540,9 @@ ipcMain.on("audio-data", async (_event, buffer: Buffer) => {
       if (currentToken !== meuToken || !frase) return;
       clearTimeout(espera);
       jaFalado += ` ${frase}`;
-      state.set("speaking");
+      // O estado continua "processing" até o pedido terminar: "speaking" é interrompível pelo
+      // chat e pela palavra, que começariam um pedido novo com este ainda rodando (ações do
+      // agente, histórico fora de ordem). A tela sabe da fala pelo `tts:falando`.
       falas.push(speak(frase, humor).catch(() => {}));
     };
     const { reply: combined } = await executarComando(text, {

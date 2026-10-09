@@ -272,7 +272,7 @@ function tcPerguntarReagendar() {
     abrirGaveta({
       titulo: "Reagendar atrasadas", icone: "calendar", classe: "gaveta-pc",
       html: `<div class="hoje-gerenciar">${[["hoje16", "Hoje às 16h"], ["amanha", "Amanhã"], ["semana", "Semana que vem"]].map(([k, t]) => `<button data-para="${k}">${ico("calendar", "ico-sm")}<span>${t}</span><small></small></button>`).join("")}</div>`,
-      aoAbrir: (corpo) => corpo.addEventListener("click", (e) => { const b = e.target.closest("[data-para]"); if (b) { escolhido = b.dataset.para; fecharGaveta(); } }),
+      aoAbrir: (corpo, signal) => corpo.addEventListener("click", (e) => { const b = e.target.closest("[data-para]"); if (b) { escolhido = b.dataset.para; fecharGaveta(); } }, { signal }),
       aoFechar: () => ok(escolhido),
     });
   });

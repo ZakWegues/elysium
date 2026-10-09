@@ -8,7 +8,7 @@ import { quemOcupaGpu } from "./gpuGuard";
 import { contextoDoMomento } from "./persona";
 import { lerHumor, linhaDoHumor } from "./humor";
 import { estadoFoco } from "./foco";
-import { blocoDasConversasAnteriores, modoAnonimo, registrarEpisodio } from "./episodios";
+import { aoMudarAnonimo, blocoDasConversasAnteriores, modoAnonimo, registrarEpisodio } from "./episodios";
 import type { MediaOperation } from "../actions/mediaControl";
 import type { WinOperation }   from "../actions/windowManagement";
 import type { PowerOperation } from "../actions/powerControl";
@@ -162,6 +162,13 @@ function zerarSeOcioso(now: number): void {
  * pessoais que o usuário disse (bloco 118). Cada atividade adia; só as falas do USUÁRIO vão.
  */
 let timerAprendizado: NodeJS.Timeout | null = null;
+// Modo anônimo virou (bloco 190): a conversa começa do zero dos dois lados da virada — ao
+// ligar, nada do que vier se mistura com o antes; ao desligar, nada do anônimo é aprendido.
+aoMudarAnonimo(() => {
+  if (timerAprendizado) { clearTimeout(timerAprendizado); timerAprendizado = null; }
+  history = [];
+  limparResumo();
+});
 function agendarAprendizado(): void {
   if (timerAprendizado) clearTimeout(timerAprendizado);
   timerAprendizado = setTimeout(() => {
@@ -358,6 +365,14 @@ export function registrarTurnoUsuario(text: string): void {
   zerarSeOcioso(Date.now());
   history.push({ role: "user", content: text });
   podarHistorico();
+}
+
+/**
+ * A Ely acabou de responder (nos últimos `ms`)? "Explica isso" logo depois de uma resposta
+ * dela é sobre a RESPOSTA, não sobre o que está copiado (bloco 193, revisão).
+ */
+export function respondeuHaPouco(ms = 120_000, agora = Date.now()): boolean {
+  return history[history.length - 1]?.role === "assistant" && agora - lastActivity < ms;
 }
 
 /** A conversa recente como bloco de texto (sem o pedido atual), para o system prompt. */

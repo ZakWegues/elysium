@@ -81,3 +81,12 @@ describe("'fecha tudo menos X' (bloco 192)", () => {
     expect(programasParaFechar(abertos, ["vs code", "spotify"]).map(p => p.processo)).toEqual(["chrome", "Discord"]);
   });
 });
+
+describe("política cobre listas, tarefas e rotinas (revisão)", () => {
+  it("página lida não cancela lembrete nem limpa tarefas sozinha", () => {
+    expect(decidirChamada("cancelar_lembrete", true, "o que diz esse link?").tipo).toBe("bloquear");
+    expect(decidirChamada("limpar_feitos", true, "resume a página").tipo).toBe("bloquear");
+    expect(decidirChamada("rodar_rotina", true, "pesquisa o tempo amanhã").tipo).toBe("bloquear");
+    expect(decidirChamada("cancelar_lembrete", true, "lê o email e cancela o lembrete da reunião").tipo).toBe("executar");
+  });
+});

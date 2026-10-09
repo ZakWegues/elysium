@@ -122,9 +122,16 @@ export function lookupSeguro(resolver: Resolvedor = dnsCb.lookup as unknown as R
 
 interface Resposta { status: number; headers: http.IncomingHttpHeaders; corpo: Buffer }
 
-/** Um GET com o `lookupSeguro`, prazo de 15 s e teto de bytes. Sem seguir redirecionamento. */
+/**
+ * Um GET com o `lookupSeguro`, prazo TOTAL de 15 s e teto de bytes (no fio e depois de
+ * descomprimir — um "gzip bomba" de 4 MB pede gigabytes no processo principal). Sem seguir
+ * redirecionamento.
+ */
 function baixar(url: string): Promise<Resposta> {
   return new Promise((ok, falha) => {
+    // O `timeout` do request é de OCIOSIDADE: um servidor que pinga um byte a cada 10 s
+    // segurava o pedido para sempre. Este é o prazo do pedido inteiro.
+    const prazo = setTimeout(() => req.destroy(new Error("A página demorou demais para responder.")), 15_000);
     const u = new URL(url);
     const mod = u.protocol === "https:" ? https : http;
     const req = mod.request(u, {
@@ -151,11 +158,20 @@ function baixar(url: string): Promise<Resposta> {
         feito = true;
         let corpo = Buffer.concat(pedacos);
         const enc = String(res.headers["content-encoding"] ?? "").toLowerCase();
+        clearTimeout(prazo);
+        const teto = { maxOutputLength: MAX_BYTES * 2 };
         try {
-          if (enc.includes("gzip")) corpo = zlib.gunzipSync(corpo);
-          else if (enc.includes("br")) corpo = zlib.brotliDecompressSync(corpo);
-          else if (enc.includes("deflate")) corpo = zlib.inflateSync(corpo);
-        } catch { /* cortado no teto ou corrompido: usa o que veio */ }
+          if (enc.includes("gzip")) corpo = zlib.gunzipSync(corpo, teto);
+          else if (enc.includes("br")) corpo = zlib.brotliDecompressSync(corpo, teto);
+          else if (enc.includes("deflate")) corpo = zlib.inflateSync(corpo, teto);
+        } catch (e) {
+          // Passou do teto descomprimindo: não é página de texto que se leia.
+          if ((e as NodeJS.ErrnoException)?.code === "ERR_BUFFER_TOO_LARGE" || /buffer|too large|maxOutputLength/i.test(String(e))) {
+            falha(new Error("A página é grande demais para ler."));
+            return;
+          }
+          /* cortado no teto do fio ou corrompido: usa o que veio */
+        }
         ok({ status: res.statusCode ?? 0, headers: res.headers, corpo });
       };
       res.on("end", fim);
@@ -163,7 +179,7 @@ function baixar(url: string): Promise<Resposta> {
       res.on("error", falha);
     });
     req.on("timeout", () => req.destroy(new Error("A página demorou demais para responder.")));
-    req.on("error", falha);
+    req.on("error", (e) => { clearTimeout(prazo); falha(e); });
     req.end();
   });
 }

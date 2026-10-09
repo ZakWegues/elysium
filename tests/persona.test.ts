@@ -63,3 +63,18 @@ describe("humor de quem pede (bloco 187)", () => {
     expect(linhaDoHumor("triste")).toMatch(/gentil/);
   });
 });
+
+describe("humor: casos da revisão", () => {
+  it("frases comuns não viram humor", () => {
+    expect(lerHumor("não consegui instalar o driver, o que eu faço?")).not.toBe("animado");
+    expect(lerHumor("o PC desligou sozinho ontem")).toBe("neutro");
+    expect(lerHumor("qual o carro mais rápido do mundo?")).toBe("neutro");
+    expect(lerHumor("fui correndo pro trabalho")).toBe("neutro");
+    expect(lerHumor("não acredito que o Brasil ganhou!")).not.toBe("frustrado");
+  });
+  it("e os de verdade continuam", () => {
+    expect(lerHumor("responde rápido, tô atrasado")).toBe("apressado");
+    expect(lerHumor("tô me sentindo sozinho hoje")).toBe("triste");
+    expect(lerHumor("consegui o estágio!")).toBe("animado");
+  });
+});

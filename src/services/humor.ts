@@ -23,10 +23,10 @@ function sem(texto: string): string {
   return texto.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 }
 
-const FRUSTRADO = /\b(aff+|af{2,}|pqp|porra|caralho|merda|que saco|que droga|que odio|odeio isso|nao funciona|nao ta funcionando|nao esta funcionando|nao deu certo|parou de funcionar|tu e burra|voce e burra|que burra|inutil|ta errado|esta errado|de novo isso|outra vez isso|nao acredito|que raiva|irritad[oa]|estressad[oa]|pelo amor de deus)\b/;
-const TRISTE = /\b(to triste|tou triste|estou triste|fiquei triste|ando triste|chatead[oa]|desanimad[oa]|deprimid[oa]|depre|sozinh[oa]|chorando|chorei|dia (pessimo|horrivel|ruim|de merda)|to mal|tou mal|estou mal|me sentindo mal|tudo da errado|nada da certo)\b/;
+const FRUSTRADO = /\b(aff+|af{2,}|pqp|porra|caralho|merda|que saco|que droga|que odio|odeio isso|nao funciona|nao ta funcionando|nao esta funcionando|nao deu certo|parou de funcionar|tu e burra|voce e burra|que burra|inutil|ta errado|esta errado|de novo isso|outra vez isso|que raiva|irritad[oa]|estressad[oa]|pelo amor de deus)\b/;
+const TRISTE = /\b(to triste|tou triste|estou triste|fiquei triste|ando triste|chatead[oa]|desanimad[oa]|deprimid[oa]|depre|(?:to|tou|estou|me sinto|me sentindo|ando) sozinh[oa]|chorando|chorei|dia (pessimo|horrivel|ruim|de merda)|to mal|tou mal|estou mal|me sentindo mal|tudo da errado|nada da certo)\b/;
 const CANSADO = /\b(cansad[oa]|exaust[oa]|esgotad[oa]|morto de sono|morta de sono|morrendo de sono|com sono|to morto|to morta|tou morto|destruid[oa] hoje|sem energia|moid[oa])\b/;
-const APRESSADO = /\b(rapido|rapidinho|depressa|urgente|to atrasad[oa]|tou atrasad[oa]|estou atrasad[oa]|atrasadissim[oa]|sem tempo|correndo|agora mesmo|anda logo)\b/;
+const APRESSADO = /\b(rapidinho|(?:seja|responde|responda|fala|fale) rapido|^rapido|depressa|urgente|to atrasad[oa]|tou atrasad[oa]|estou atrasad[oa]|atrasadissim[oa]|sem tempo|to correndo|tou correndo|estou correndo|agora mesmo|anda logo)\b/;
 const ANIMADO = /\b(consegui|passei na|passei no|fui aprovad[oa]|uhu+l?|eba+|que massa|to feliz|tou feliz|estou feliz|que alegria|ganhei)\b/;
 
 // Com pontuação no fim: o `\b` depois de "!" não casa no fim da frase, então ficam à parte.
@@ -49,7 +49,8 @@ export function lerHumor(texto: string): Humor {
   if (TRISTE.test(t)) return "triste";
   if (CANSADO.test(t)) return "cansado";
   if (APRESSADO.test(t)) return "apressado";
-  if (ANIMADO.test(t) || ANIMADO_PONTUADO.test(t)) return "animado";
+  // "não consegui", "nem passei" são o contrário de festa.
+  if ((ANIMADO.test(t) && !/\b(nao|nem|nunca) (consegui|passei|ganhei|fui aprovad)/.test(t)) || ANIMADO_PONTUADO.test(t)) return "animado";
   return "neutro";
 }
 

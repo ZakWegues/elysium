@@ -62,3 +62,12 @@ describe("despejo (bloco 194)", () => {
     expect(fastRoute("anota que a senha do wifi está na geladeira")?.[0].action).toBe("list_add");
   });
 });
+
+describe("despejo não sequestra pedido normal (revisão da fase 19)", () => {
+  it("só gatilho explícito com cara de lista", () => {
+    for (const t of ["organiza pra mim as janelas lado a lado", "organiza isso por ordem alfabética", "anota tudo que eu falar na reunião de hoje", "despejo do lixo é amanhã às 8 da manhã", "anota tudo isso"]) {
+      expect(fastRoute(t)?.[0]?.action).not.toBe("brain_dump");
+    }
+    expect(fastRoute("despejo: pão, leite e café")?.[0]).toEqual({ action: "brain_dump", texto: "pão, leite e café" });
+  });
+});

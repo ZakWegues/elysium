@@ -134,7 +134,7 @@ export async function routeAction(action: BrainAction): Promise<string> {
     case "anon_mode":
       definirAnonimo(action.ligar);
       return action.ligar
-        ? "Modo anônimo ligado. Não vou guardar nada desta conversa até você desligar."
+        ? "Modo anônimo ligado. Não vou transformar nada desta conversa em lembrança ou fato até você desligar."
         : "Modo anônimo desligado. Volto a lembrar das conversas.";
     case "run_preset":        return runPreset(action.preset_name);
     case "list_presets":      return listPresetsReply();

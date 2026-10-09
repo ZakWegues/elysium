@@ -115,8 +115,21 @@ export function blocoDeEpisodios(eps: Episodio[], agora = Date.now()): string {
 // Só na memória do processo: reiniciar o app desliga. Persistir um "anônimo" esquecido
 // faria a Ely parar de lembrar das coisas sem ninguém entender por quê.
 let anonimo = false;
+const aoMudar = new Set<(ligado: boolean) => void>();
 export function modoAnonimo(): boolean { return anonimo; }
-export function definirAnonimo(ligar: boolean): boolean { anonimo = !!ligar; return anonimo; }
+/**
+ * Liga ou desliga. A virada avisa o cérebro (`brain.ts`), que ZERA o histórico da conversa: o
+ * aprendizado roda no fim da conversa sobre o histórico inteiro, e sem isto desligar o modo
+ * anônimo e continuar falando fazia as falas "anônimas" virarem fato e lembrança (a revisão
+ * pegou).
+ */
+export function definirAnonimo(ligar: boolean): boolean {
+  const antes = anonimo;
+  anonimo = !!ligar;
+  if (antes !== anonimo) for (const fn of aoMudar) { try { fn(anonimo); } catch { /* segue */ } }
+  return anonimo;
+}
+export function aoMudarAnonimo(fn: (ligado: boolean) => void): void { aoMudar.add(fn); }
 
 // ── Store ────────────────────────────────────────────────────────────────────
 

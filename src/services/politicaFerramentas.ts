@@ -35,6 +35,21 @@ const INTENCAO: Record<string, RegExp> = {
   fechar_programa: /\b(fech|encerr|mata)/,
   fechar_tudo_menos: /\b(fech|encerr)/,
   rodar_preset: /\b(modo|preset|ativa)/,
+  // Revisão da fase 19: o que mexe nas listas, tarefas, lembretes e rotinas também.
+  cancelar_lembrete: /\b(cancel|apag|remov|tira|desmarc)/,
+  cancelar_timer: /\b(cancel|para|pare|desliga)\w*\b.*\btimer|\btimer\b.*\b(cancel|para|pare)/,
+  concluir_tarefa: /\b(conclu|termin|feit[oa]|marca|risca|fiz)/,
+  editar_tarefa: /\b(edit|muda|mude|troca|altera|corrig|renome)/,
+  adiar_tarefa: /\b(adi|empurr|deixa pra|joga pra|remarc|reagend)/,
+  adicionar_na_lista: /\b(lista|anot|adicion|poe|coloca|bota|inclu)/,
+  anotar_varias: /\b(anot|lista|tarefa|adicion)/,
+  limpar_feitos: /\b(limp|apag|tira|remov)/,
+  pausar_rotina: /\b(paus|desativ|deslig|para a rotina|suspend)/,
+  rodar_rotina: /\b(rod|execut|dispar|roda|faz a rotina|rotina)/,
+  abrir_programa: /\b(abr|abre|inici|execut|liga|roda)/,
+  marcar_habito: /\b(marc|fiz|feito|conclu)/,
+  avancar_meta: /\b(meta|soma|avanc|adicion|mais)/,
+  modo_foco: /\b(foco|concentr)/,
 };
 
 function sem(t: string): string {

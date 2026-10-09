@@ -195,12 +195,16 @@ function abrirGaveta({ titulo, icone = "grid", nos = [], html = "", aoAbrir, aoF
       corpo.appendChild(no);
     });
   }
-  gavetaAtual = { movidos, aoFechar };
+  // Fase 19: o corpo da gaveta é o MESMO elemento a cada abertura, e o `aoAbrir` que pendura
+  // um ouvinte nele acumulava um a cada vez — o Despejar salvava tudo duas vezes na 2ª
+  // abertura. Quem pendura usa `{ signal }`: fechar a gaveta solta os ouvintes.
+  const controle = new AbortController();
+  gavetaAtual = { movidos, aoFechar, controle };
   document.getElementById("gaveta-titulo").textContent = titulo;
   document.getElementById("gaveta-ico").innerHTML = ico(icone, "ico-sm");
   document.getElementById("gaveta-veu").classList.add("aberto");
   corpo.scrollTop = 0;
-  aoAbrir?.(corpo);
+  aoAbrir?.(corpo, controle.signal);
   // Quem abriu já pôs o foco num campo (a ressalva do "Concluir"): respeita. Antes o foco ia
   // para o primeiro campo/botão de qualquer jeito, e Enter concluía sem a ressalva (08/10).
   if (!corpo.contains(document.activeElement)) {
@@ -214,6 +218,7 @@ function fecharGaveta(silencioso = false) {
   const g = gavetaAtual;
   gavetaAtual = null;
   for (const m of g.movidos) m.pai.insertBefore(m.no, m.proximo);
+  g.controle?.abort();
   g.aoFechar?.();
   if (!silencioso) {
     document.getElementById("gaveta-veu").classList.remove("aberto");

@@ -244,7 +244,7 @@ function abrirDespejo() {
       <div class="home-acoes"><button class="principal" data-despejo-organizar="1">${ico("sparkles", "ico-sm")}<span>Organizar</span></button></div>
       <div id="despejo-previa"></div>
     </div>`,
-    aoAbrir: (corpo) => {
+    aoAbrir: (corpo, signal) => {
       corpo.querySelector("#despejo-texto")?.focus();
       corpo.addEventListener("click", async (e) => {
         const org = e.target.closest("[data-despejo-organizar]");
@@ -270,7 +270,7 @@ function abrirDespejo() {
           fecharGaveta();
           carregarHoje();
         }
-      });
+      }, { signal });
     },
   });
 }
@@ -287,10 +287,10 @@ async function abrirRevisaoSemana() {
       ${v.atrasadas.length ? `<h4 class="hoje-sub">Atrasadas</h4>${v.atrasadas.map(x => `<div class="hoje-linha"><span>${escHtml(x)}</span></div>`).join("")}` : ""}
       <div class="home-acoes"><button class="principal" data-revisao-ouvir="1">${ico("volume", "ico-sm")}<span>Ouvir</span></button>${v.atrasadas.length ? `<button data-revisao-tarefas="1">${ico("layers", "ico-sm")}<span>Ver as tarefas</span></button>` : ""}</div>
     </div>`,
-    aoAbrir: (corpo) => corpo.addEventListener("click", (e) => {
+    aoAbrir: (corpo, signal) => corpo.addEventListener("click", (e) => {
       if (e.target.closest("[data-revisao-ouvir]")) { window.nx.chatSend("faz a revisão da semana"); showToast("Lendo a revisão…"); }
       if (e.target.closest("[data-revisao-tarefas]")) { fecharGaveta(); abrirTarefasCheia(); }
-    }),
+    }, { signal }),
   });
 }
 
@@ -427,12 +427,12 @@ async function gerenciarHabitos() {
       <h4>Hábitos</h4>${hs.length ? hs.map(h => `<button data-g-habito="${escHtml(h.id)}">${ico("check", "ico-sm")}<span>${escHtml(h.nome)}</span><small>${h.dias.length ? h.dias.map(d => DIAS_LONGOS[d]).join(", ") : "todo dia"} · 🔥${h.sequencia}</small></button>`).join("") : '<p class="hoje-vazio">Nenhum hábito.</p>'}
       <h4>Metas</h4>${ms.length ? ms.map(m => `<button data-g-meta="${escHtml(m.id)}">${ico("star", "ico-sm")}<span>${escHtml(m.titulo)}</span><small>${m.progresso}/${m.alvo}${m.concluidaEm ? " · concluída" : ""}</small></button>`).join("") : '<p class="hoje-vazio">Nenhuma meta.</p>'}
     </div>`,
-    aoAbrir: (corpo) => corpo.addEventListener("click", (e) => {
+    aoAbrir: (corpo, signal) => corpo.addEventListener("click", (e) => {
       const bh = e.target.closest("[data-g-habito]");
       if (bh) { formHabito(hojeTodosHabitos.find(x => x.id === bh.dataset.gHabito) ?? {}); return; }
       const bm = e.target.closest("[data-g-meta]");
       if (bm) formMeta(hojeTodasMetas.find(x => x.id === bm.dataset.gMeta) ?? {});
-    }),
+    }, { signal }),
   });
 }
 let hojeTodosHabitos = [], hojeTodasMetas = [];
