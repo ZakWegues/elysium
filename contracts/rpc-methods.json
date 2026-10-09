@@ -349,6 +349,26 @@
       "destructive": false
     },
     {
+      "method": "modos.delete",
+      "destructive": true
+    },
+    {
+      "method": "modos.get",
+      "destructive": false
+    },
+    {
+      "method": "modos.list",
+      "destructive": false
+    },
+    {
+      "method": "modos.save",
+      "destructive": false
+    },
+    {
+      "method": "modos.set",
+      "destructive": false
+    },
+    {
       "method": "notify.ack",
       "destructive": false
     },

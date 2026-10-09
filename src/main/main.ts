@@ -62,7 +62,8 @@ import { habitosParaLembrar } from "../services/habitos";
 import { podeAvisarAlto } from "../services/avisos";
 import { ElysiumError } from "../services/errors";
 import { processCommand, processCommandStream, executarComando } from "../services/command";
-import { startServer, setActiveToken, broadcastMailboxEvent, broadcastNotify, broadcastEstadoPc } from "../services/server";
+import { startServer, setActiveToken, broadcastMailboxEvent, broadcastNotify, broadcastEstadoPc, broadcastModo } from "../services/server";
+import { aoMudarModo, modoParaCliente } from "../services/modos";
 import { iniciarRotinas, pararRotinas, enfileirarEntrega, type Entrega } from "../services/rotinas";
 import { avaliarCondicao } from "../services/agente";
 import { emitirEvento, MARCOS_OCIOSO } from "../services/eventos";
@@ -1137,6 +1138,13 @@ app.on("ready", async () => {
       : `${unseenFromMobile.length} itens`;
     notify("ELYSIUM — Mailbox", `Recebido do celular: ${preview}`);
   }
+
+  // Modos (fase 20): o chip do dashboard e o do celular mudam juntos, venha a troca de onde vier.
+  aoMudarModo((m) => {
+    const modo = modoParaCliente(m);
+    enviarAoDash("modo:mudou", modo);
+    try { broadcastModo(modo); } catch { /* sem servidor */ }
+  });
 
   mailboxEvents.on("new-message", (msg) => {
     enviarAoDash("mailbox:new-message", msg);

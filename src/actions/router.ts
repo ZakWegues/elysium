@@ -42,6 +42,7 @@ import { pedirConfirmacao } from "../services/confirmacao";
 
 // "a, b e c" — para a voz não ler a lista como enumeração de vírgulas (texto.ts, fase 20).
 import { emFrase } from "../services/texto";
+import { definirModo, listarModos, modoAtivo, salvarModoMeu } from "../services/modos";
 
 export async function routeAction(action: BrainAction): Promise<string> {
   switch (action.action) {
@@ -121,6 +122,7 @@ export async function routeAction(action: BrainAction): Promise<string> {
       if (!itens.length) return "Não consegui separar nada nisso. Pode falar de novo, uma coisa de cada vez?";
       return pedirConfirmacao(`Entendi ${descreverDespejo(itens)}.`, async () => aplicarDespejo(itens).mensagem);
     }
+    case "mode":              return falaDoModo(action);
     case "anon_mode":
       definirAnonimo(action.ligar);
       return action.ligar
@@ -160,4 +162,40 @@ function deletePreset(presetName: string): string {
   if (!key) return `Preset "${presetName}" não encontrado.`;
   deletePresetByKey(key);
   return `Preset "${key}" removido.`;
+}
+
+/** "Modo matemática", "sai do modo", "cria um modo…" (fase 20). */
+function falaDoModo(a: Extract<BrainAction, { action: "mode" }>): string {
+  switch (a.operacao) {
+    case "ligar": {
+      const m = a.id ? definirModo(a.id) : null;
+      if (!m) return "Não achei esse modo. Diga \"quais modos tem\" para ouvir a lista.";
+      return `Modo ${m.nome} ligado: ${m.resumo} Para sair, diga "sai do modo".`;
+    }
+    case "desligar": {
+      const antes = modoAtivo();
+      definirModo(null);
+      return antes ? `Saí do modo ${antes.nome}.` : "Nenhum modo estava ligado.";
+    }
+    case "status": {
+      const m = modoAtivo();
+      return m ? `Estamos no modo ${m.nome}: ${m.resumo}` : "Nenhum modo ligado — respondo do jeito de sempre.";
+    }
+    case "listar":
+      return `Tenho os modos ${emFrase(listarModos().map(m => m.nome))}. É só dizer "modo" e o nome.`;
+    case "criar": {
+      const r = salvarModoMeu({ nome: a.nome ?? "", instrucao: a.instrucao ?? "" });
+      if (typeof r === "string") {
+        return {
+          nome: "Faltou o nome do modo.",
+          instrucao: "Diga o que o modo deve fazer, com um pouco mais de detalhe.",
+          reservado: "Esse nome já é de outra coisa (foco, anônimo ou um preset seu). Escolha outro.",
+          existe: "Já existe um modo com esse nome.",
+          cheio: "Você já tem 12 modos seus. Apague um em Ajustes → Modos para criar outro.",
+        }[r];
+      }
+      definirModo(r.id);
+      return `Criei e liguei o modo ${r.nome}. Para sair, diga "sai do modo".`;
+    }
+  }
 }

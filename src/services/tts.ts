@@ -1,3 +1,4 @@
+import { modoAtivo } from "./modos";
 import { paraOuvido } from "./falaParaOuvido";
 import { MsEdgeTTS, OUTPUT_FORMAT, ProsodyOptions } from "msedge-tts";
 import * as os from "node:os";
@@ -43,6 +44,16 @@ export function vozEfetiva(voz: string | undefined): string {
   if (v === "pt-BR-ThalitaNeural") return "pt-BR-ThalitaMultilingualNeural";
   if (/^pt-BR-Macerio/.test(v)) return "pt-BR-AntonioNeural";
   return v;
+}
+
+/**
+ * A voz agora: a escolhida em Ajustes, ou a do modo ligado (fase 20 — o modo inglês fala com
+ * a Thalita multilíngue, que pronuncia inglês de verdade; a Francisca lê "weekend" em português).
+ */
+export function vozDoMomento(): string {
+  let doModo: string | undefined;
+  try { doModo = modoAtivo()?.voz; } catch { /* sem modo */ }
+  return doModo ?? vozEfetiva(getConfig().voice);
 }
 
 function pct(n: number): string {
@@ -132,7 +143,7 @@ const cacheMp3 = new Map<string, Buffer>();
 export async function sintetizarMp3(texto: string, humor?: Humor): Promise<Buffer> {
   const limpo = cleanTextForSpeech(texto);
   if (!limpo) throw new Error("nada para falar");
-  const voz = vozEfetiva(getConfig().voice);
+  const voz = vozDoMomento();
   const prosodia = prosodiaAgora(voz, humor);
   const chave = chaveMp3(voz, limpo, prosodia);
   const guardado = cacheMp3.get(chave);
@@ -257,7 +268,7 @@ export async function synthesize(text: string, humor?: Humor): Promise<void> {
         // handshake; a 2.x acompanha. Na 2.x o `toStream` devolve { audioStream,
         // metadataStream } em vez do stream direto.
         // Pendência 10 da §15: a chave `voice` existia no config e nunca era lida.
-        const voz = vozEfetiva(getConfig().voice);
+        const voz = vozDoMomento();
         const prosodia = prosodiaAgora(voz, humor);
         const jaPronto = cacheMp3.get(chaveMp3(voz, clean, prosodia));
         // O `{}` é obrigatório: a 2.0.7 declara o terceiro parâmetro como opcional e lê

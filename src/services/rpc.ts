@@ -74,6 +74,7 @@ import { askAboutImage, askAboutScreen } from "./vision";
 import { searchWeb } from "./webSearch";
 import { listarSugestoes } from "./sugestoes";
 import { bolhasDoChat } from "./perguntas";
+import { apagarModoMeu, definirModo, listarModos, modoAtivo, modoParaCliente, salvarModoMeu, type ErroModo } from "./modos";
 import { climaAgora, motivoDaFalha } from "./clima";
 import {
   getAllPresets, getPreset, findPresetKey, savePreset, deletePresetByKey,
@@ -248,6 +249,14 @@ function listApps(): AppEntry[] {
 }
 
 // ── tabela de métodos ─────────────────────────────────────────────────────────
+
+const ERROS_DO_MODO: Record<ErroModo, string> = {
+  nome: "o nome precisa de pelo menos 2 letras",
+  instrucao: "descreva o que o modo faz (pelo menos 10 caracteres)",
+  reservado: "esse nome já é de outra coisa (foco, anônimo ou um preset)",
+  existe: "já existe um modo com esse nome",
+  cheio: "limite de 12 modos criados",
+};
 
 const METHODS: Record<string, MethodDef> = {
   // — sistema —
@@ -1364,6 +1373,27 @@ const METHODS: Record<string, MethodDef> = {
     destructive: true,
     handler: async () => ({ removidos: apagarTodosEpisodios() }),
   },
+  // Modos da Ely (fase 20). `modos.set` com id null sai do modo.
+  "modos.list": {
+    handler: async () => ({ modos: listarModos().map(m => ({ id: m.id, nome: m.nome, icone: m.icone, resumo: m.resumo, meu: !!m.meu, ...(m.meu ? { instrucao: m.instrucao } : {}) })), ativo: modoParaCliente(modoAtivo()) }),
+  },
+  "modos.get": { handler: async () => ({ ativo: modoParaCliente(modoAtivo()) }) },
+  "modos.set": {
+    handler: async (params) => {
+      const id = params["id"];
+      if (id !== null && typeof id !== "string") throw new RpcError(400, "\"id\" precisa ser o id do modo ou null");
+      if (typeof id === "string" && !listarModos().some(m => m.id === id)) throw new RpcError(404, "modo não encontrado");
+      return { ativo: modoParaCliente(definirModo(id)) };
+    },
+  },
+  "modos.save": {
+    handler: async (params) => {
+      const r = salvarModoMeu({ id: optionalString(params, "id"), nome: requireString(params, "nome"), instrucao: requireString(params, "instrucao"), icone: optionalString(params, "icone") });
+      if (typeof r === "string") throw new RpcError(400, ERROS_DO_MODO[r]);
+      return { modo: { id: r.id, nome: r.nome, icone: r.icone, resumo: r.resumo, meu: true, instrucao: r.instrucao } };
+    },
+  },
+  "modos.delete": { destructive: true, handler: async (params) => ({ ok: apagarModoMeu(requireString(params, "id")) }) },
   "memoria.anonimo.get": {
     handler: async () => ({ anonimo: modoAnonimo() }),
   },

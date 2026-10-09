@@ -20,6 +20,7 @@
  */
 
 import Store from "electron-store";
+import { modoAtivo } from "./modos";
 
 export interface Pergunta {
   texto: string;
@@ -107,6 +108,9 @@ function sortear<T>(pool: T[], n: number): T[] {
  * cada vez que você a abre.
  */
 export function bolhasDoChat(quantas = 4): string[] {
+  // Fase 20: com um modo ligado, as bolhas são as dele ("Resolve passo a passo: …").
+  const modo = modoAtivo();
+  if (modo?.sugestoes.length) return modo.sugestoes.slice(0, quantas);
   const frequentes = perguntasFrequentes(2).map(p => p.texto);
   const faltam = quantas - frequentes.length;
   const curadas = sortear(CURADAS.filter(c => !frequentes.some(f => normalizar(f) === normalizar(c))), faltam);

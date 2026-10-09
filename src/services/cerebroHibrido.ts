@@ -24,11 +24,13 @@ export function ehPerguntaDeConhecimento(texto: string): boolean {
 }
 
 /** Qual provedor escreve esta resposta. Sem chave da Groq, sempre o local. */
-export function provedorDaConversa(pref: PreferenciaChat | string | undefined, pergunta: string, canal: "voz" | "texto", temChave: boolean): "groq" | "ollama" {
+export function provedorDaConversa(pref: PreferenciaChat | string | undefined, pergunta: string, canal: "voz" | "texto", temChave: boolean, modoDeEstudo = false): "groq" | "ollama" {
   if (pref === "groq") return temChave ? "groq" : "ollama";
   if (pref === "ollama") return "ollama";
   if (!temChave) return "ollama";
-  return canal === "texto" || ehPerguntaDeConhecimento(pergunta) ? "groq" : "ollama";
+  // Fase 20: no modo matemática (e nos outros de estudo) até "e o 3?" é conteúdo — o
+  // modelo local erra conta e regra de gramática.
+  return canal === "texto" || modoDeEstudo || ehPerguntaDeConhecimento(pergunta) ? "groq" : "ollama";
 }
 
 /** Para as tarefas baratas de fundo (sugestões, aprendizado): "auto" fica no local. */

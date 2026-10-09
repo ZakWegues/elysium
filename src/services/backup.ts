@@ -10,6 +10,7 @@ import { ChatSession, listSessions, mergeSession } from "./chatSessionsStore";
 import { importarListas, Lista, listarListas } from "./listas";
 import { Habito, importarHabitos, listarHabitos, listarMetas, Meta } from "./habitos";
 import { Episodio, importarEpisodios, listarEpisodios } from "./episodios";
+import { importarModos, modosParaBackup, type Modo } from "./modos";
 
 /**
  * Exportar e importar tudo o que é do Zak (bloco 96) — o seguro contra formatar o PC.
@@ -51,6 +52,8 @@ export interface Backup {
   corpo?: ReturnType<typeof exportarCorpo>;
   /** Fase 19: as conversas que a Ely lembra. */
   episodios?: Episodio[];
+  /** Fase 20: os modos que ele criou (o catálogo vem com o app). */
+  modos?: Modo[];
 }
 
 export interface ResumoImportacao {
@@ -68,6 +71,8 @@ export interface ResumoImportacao {
   corpo?: number;
   /** Conversas lembradas restauradas (fase 19). */
   episodios?: number;
+  /** Modos criados por ele restaurados (fase 20). */
+  modos?: number;
   /** Itens que não deu para restaurar (inválidos ou que falharam) — antes sumiam calados. */
   pulados?: number;
 }
@@ -95,6 +100,7 @@ export function montarBackup(): Backup {
     tarefas: listarTarefasTodas(),
     corpo: exportarCorpo(),
     episodios: listarEpisodios(),
+    modos: modosParaBackup(),
   };
 }
 
@@ -117,6 +123,7 @@ export function lerBackup(bruto: unknown): Backup {
     tarefas: Array.isArray(b.tarefas) ? b.tarefas : [],
     corpo: b.corpo && typeof b.corpo === "object" ? b.corpo : undefined,
     episodios: Array.isArray(b.episodios) ? b.episodios : [],
+    modos: Array.isArray(b.modos) ? b.modos : [],
   };
 }
 
@@ -177,6 +184,11 @@ export function aplicarBackup(b: Backup): ResumoImportacao {
     resumo.tarefas = importarTarefas(tarefas);
   } catch { pulou(); }
   try { resumo.episodios = importarEpisodios(b.episodios ?? []); } catch { pulou(); }
+  try {
+    const m = importarModos(b.modos ?? []);
+    resumo.modos = m.somados;
+    resumo.pulados = (resumo.pulados ?? 0) + m.pulados;
+  } catch { pulou(); }
   // Corpo: só restaura se aqui ainda não há treino — não sobrescreve o que já está em uso.
   try { if (b.corpo && !listarTreinos().length) { importarCorpo(b.corpo); resumo.corpo = listarTreinos().length; } } catch { pulou(); }
 

@@ -4,6 +4,7 @@ import { decidirChamada, envelopeExterno, FONTES_EXTERNAS } from "./politicaFerr
 import { pedirConfirmacao } from "./confirmacao";
 import { isoLocal } from "./hora";
 import { blocoDeInstrucoes, Canal, regraDoAgente } from "./estiloResposta";
+import { linhaDoAgente, modoAtivo } from "./modos";
 import { buildMemoryBlock } from "./memoryStore";
 import { callChatComFerramentas, ChatMessage, ChamadaDeFerramenta, Provider } from "./llm";
 import { definicoesDeFerramentas, executarFerramenta, ferramenta, normalizarArgs } from "./ferramentas";
@@ -82,7 +83,7 @@ Como agir
 - Não mencione "ferramenta", "função" ou "busca": fale em primeira pessoa, como se você mesmo tivesse olhado e feito.
 - Fale COM o usuário, na segunda pessoa ("seu PC", "você"), nunca sobre ele em terceira pessoa ("o PC do usuário").
 - Em programas_abertos cada item é "processo (título da janela)": "CalculatorApp (Calculadora)" ou "ApplicationFrameHost (Calculadora)" quer dizer que a calculadora está aberta.
-- Datas para lembretes: calcule a data absoluta a partir de agora.${blocoDeInstrucoes(getConfig().instrucoesPessoais)}${buildMemoryBlock(pedido)}${blocoDasConversasAnteriores(pedido)}`;
+- Datas para lembretes: calcule a data absoluta a partir de agora.${linhaDoAgente(modoAtivo())}${blocoDeInstrucoes(getConfig().instrucoesPessoais)}${buildMemoryBlock(pedido)}${blocoDasConversasAnteriores(pedido)}`;
 }
 
 /**

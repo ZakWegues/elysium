@@ -197,6 +197,15 @@ export function broadcastEstadoPc(estado: object): void {
   }
 }
 
+/** O modo da Ely mudou (fase 20): o chip do celular acompanha o do PC. */
+export function broadcastModo(modo: object | null): void {
+  if (wsClients.size === 0) return;
+  const frame = buildTextFrame(JSON.stringify({ type: "modo", modo }));
+  for (const c of wsClients) {
+    try { c.socket.write(frame); } catch { wsClients.delete(c); }
+  }
+}
+
 export function broadcastMailboxEvent(direction: "toMobile" | "toDesktop", id: string): void {
   if (wsClients.size === 0) return;
   const frame = buildTextFrame(JSON.stringify({ type: "mailbox_new", direction, id }));

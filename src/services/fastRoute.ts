@@ -8,6 +8,7 @@ import { listarTreinos, pedidoDeCorrida, pedidoDePeso, pedidoDeTreino } from "./
 import { pedidoFecharSeAberto, pedidoLembreteDaquiA, pedidoPausarSeTocando } from "./condicionais";
 import { pedidoComIsso } from "./isso";
 import { isoLocal } from "./hora";
+import { pedidoDeModo } from "./modos";
 
 /**
  * Roteamento local, sem IA.
@@ -201,6 +202,14 @@ export function fastRoute(text: string): BrainAction[] | null {
   for (const rule of RULES) {
     const match = normalized.match(rule.pattern);
     if (match) return rule.build(match);
+  }
+  // Modos (fase 20) depois das regras: "modo foco" e "modo anônimo" já casaram acima, e um
+  // nome que não é modo ("modo gaming") volta `null` e segue para o preset no cérebro.
+  const modo = pedidoDeModo(text);
+  if (modo) {
+    if (modo.tipo === "ligar") return [{ action: "mode", operacao: "ligar", id: modo.id }];
+    if (modo.tipo === "criar") return [{ action: "mode", operacao: "criar", nome: modo.nome, instrucao: modo.instrucao }];
+    return [{ action: "mode", operacao: modo.tipo }];
   }
   return null;
 }

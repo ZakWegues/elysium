@@ -1,4 +1,5 @@
 import { provedorDaConversa } from "./cerebroHibrido";
+import { blocoDoModo, modoAtivo, tocarModo } from "./modos";
 import { marcarReserva } from "./contextoComando";
 import { getApiKey, getConfig, AppConfig, nomeDoUsuario } from "../main/config";
 import { blocoDeInstrucoes, Canal, estiloValido, maxTokensDaConversa, personaStark, regrasDaConversa } from "./estiloResposta";
@@ -66,6 +67,8 @@ export type BrainAction =
   | { action: "calculate";         expression: string }
   // Bloco 190: "modo anônimo" — nada da conversa vira fato nem episódio até desligar.
   | { action: "anon_mode";         ligar: boolean }
+  // Fase 20: "modo matemática", "sai do modo" — só o fastRoute produz (ver modos.ts).
+  | { action: "mode";              operacao: "ligar" | "desligar" | "status" | "listar" | "criar"; id?: string; nome?: string; instrucao?: string }
   // Bloco 193: "resume isso", "traduz isso" — o copiado, ou a tela.
   | { action: "about_this";        comando: ComandoIsso }
   // Bloco 194: "anota tudo isso: …" — separa em tarefas, listas e notas, e pergunta antes.
@@ -229,6 +232,7 @@ function actionSummary(action: BrainAction): string {
     case "timer_cancel":      return "Cancelou timer";
     case "calculate":         return "Conta";
     case "anon_mode":         return action.ligar ? "Modo anônimo ligado" : "Modo anônimo desligado";
+    case "mode":              return action.operacao === "ligar" ? "Modo ligado" : action.operacao === "desligar" ? "Saiu do modo" : action.operacao === "criar" ? `Criou o modo ${action.nome ?? ""}`.trim() : "Modos";
     case "about_this":        return `Isso: ${action.comando}`;
     case "brain_dump":        return "Despejo para organizar";
     case "world_time":        return `Hora em ${action.city}`;
@@ -486,9 +490,12 @@ export async function composeChatReply(
   // pergunta anterior. Sem o bloco de ações: aqui ele só conversa. O pedido atual já é o
   // último turno do histórico — `decideBrain` o empurrou antes de chegar aqui.
   const recent = history.slice(-cfg.chatHistoryTurns * 2);
+  // Fase 20: o modo ligado vem logo depois da persona, e cada uso conta para as 6 h.
+  const modo = modoAtivo();
+  if (modo) tocarModo();
   const ultimo = recent[recent.length - 1];
   const messages: ChatMessage[] = [
-    { role: "system", content: CHAT_SYSTEM_PROMPT(canal) + blocoDoMomento(userText) + blocoDeInstrucoes(cfg.instrucoesPessoais) + buildMemoryBlock(userText) + blocoDasConversasAnteriores(userText) + (blocoDoResumo() ? `\n\n[O QUE VEIO ANTES NESTA CONVERSA]\n${blocoDoResumo()}` : "") },
+    { role: "system", content: CHAT_SYSTEM_PROMPT(canal) + blocoDoModo(modo, canal) + blocoDoMomento(userText) + blocoDeInstrucoes(cfg.instrucoesPessoais) + buildMemoryBlock(userText) + blocoDasConversasAnteriores(userText) + (blocoDoResumo() ? `\n\n[O QUE VEIO ANTES NESTA CONVERSA]\n${blocoDoResumo()}` : "") },
     ...recent.map(m => ({ role: m.role, content: m.content })),
     // Rede de segurança: se alguém chamar a composição sem passar pelo roteador, o
     // pedido não estaria no histórico e o modelo responderia ao turno anterior.
@@ -511,7 +518,7 @@ export async function composeChatReply(
   };
 
   // Fase 16: "auto" escolhe por pedido — conhecimento e chat escrito na Groq, o resto local.
-  const primeiro: Provider = provedorDaConversa(cfg.chatProvider, userText, canal, !!getApiKey());
+  const primeiro: Provider = provedorDaConversa(cfg.chatProvider, userText, canal, !!getApiKey(), !!modo?.nuvem);
 
   try {
     const reply = await tentar(primeiro);
