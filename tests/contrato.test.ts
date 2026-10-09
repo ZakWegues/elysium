@@ -20,7 +20,8 @@ describe("contrato RPC (bloco 204)", () => {
     const atual = JSON.stringify({ metodos: listRpcMethods() }, null, 2) + "\n";
     if (process.env.ATUALIZAR_CONTRATO === "1") fs.writeFileSync(ARQUIVO, atual);
     expect(fs.existsSync(ARQUIVO), "rode com ATUALIZAR_CONTRATO=1").toBe(true);
-    expect(fs.readFileSync(ARQUIVO, "utf8")).toBe(atual);
+    // Sem CRLF: no Windows o checkout do git troca as quebras de linha (core.autocrlf).
+    expect(fs.readFileSync(ARQUIVO, "utf8").replace(/\r\n/g, "\n")).toBe(atual);
   });
 
   it("apagar e matar sempre pedem confirmação", () => {
