@@ -4,7 +4,7 @@
 > `CONTRATO_RPC.md` e o `CONTEXTO_NEUROAXIS.md`. Se alguma coisa aqui divergir de outro
 > arquivo do repositório, **este aqui vale**.
 >
-> Última atualização: **29/09/2026**.
+> Última atualização: **10/10/2026** (fase 21, §40).
 
 ---
 
@@ -42,6 +42,8 @@
 | 30 | [Fase 12 — atualização automática e o que veio depois](#30-fase-12--atualização-automática-e-o-que-veio-depois-blocos-95-100) |
 | 31 | [Fase 13 — blindar, mais inteligente, mais alcance](#31-fase-13--blindar-mais-inteligente-mais-alcance-blocos-113125) |
 | 38 | [Fase 19 — Ely mais humana e mais útil](#38-fase-19--ely-mais-humana-e-mais-útil-blocos-186197-0809102026-sessão-na-nuvem) |
+| 39 | Fase 20 — blindagem, arquitetura, modos da Ely e estudo |
+| 40 | Fase 21 — Ely com cérebro Hermes, bolota Stark, janelas, apps e modo live |
 
 ---
 
@@ -190,12 +192,12 @@ pedir de novo.**
 
 ### Git
 
-| Repo | HEAD (08/10/2026) | Estado |
+| Repo | HEAD (10/10/2026) | Estado |
 |---|---|---|
-| `elysium` | fase 20 (§39) na `main` — **2.7.0 publicado e instalado** (09/10) | check verde (357 testes); bancada 38/42 (90%) |
-| `elysium-m` | fase 20 (§39) na `main` — APK 2.1.0 + **OTA da fase 20** (runtime `e2443894…`, 09/10) | check verde (93 testes) |
+| `elysium` | fase 21 (§40) na `main` — **2.8.0 publicado e instalado** (10/10); cérebro Hermes (perfil `ely`) | check verde (397 testes); bancada qwen 41/42 (98%); Hermes 37/42 (88%) |
+| `elysium-m` | fase 21 (§40) na `main` — **APK 2.2.0 (vc22) publicado** (10/10; runtime novo, sem OTA) | check verde (99 testes) |
 
-> Atualizado em 09/10/2026 (fase 20, §39 — feita na nuvem, publicada na máquina do Zak; fase 19 em §38). Antes: 08/10 (fase 18). O texto abaixo da tabela é histórico — as versões
+> Atualizado em 10/10/2026 (fase 21, §40). Antes: 09/10 (fase 20, §39). O texto abaixo da tabela é histórico — as versões
 > de verdade estão na tabela e no `git log`.
 
 > **Desde 29/09/2026 as versões saem como releases do GitHub e se atualizam sozinhas**
@@ -6396,3 +6398,196 @@ Copiar o bloco abaixo para um arquivo, sem as cercas:
   TLS com certificado no QR (precisa do celular na mão).
 - O aviso de som da §37 está funcionando: o log de 09/10 mostra `[som]` — a saída do Windows
   continua no Steam Streaming Speakers; enquanto o Zak não trocar, a Ely do PC não é ouvida.
+
+## 40. Fase 21 — Ely com cérebro Hermes, bolota Stark, janelas, apps e modo live (blocos 213–219, 09–10/10/2026, máquina do Zak)
+
+**Pedido do Zak:** o rosto e a personalidade da Ely com o **Hermes Agent** (v0.21.6, Nous
+Research, em `%LOCALAPPDATA%\hermes`) pensando e agindo por trás; uma **bolota flutuante estilo
+Tony Stark** que muda de cor conforme quem fala e pulsa com o que é dito (PC sobre tudo + celular
+dentro do app, sempre visível, discreta parada, o player de voz do PowerShell continua); e os
+pedidos de antes — organizar janelas, baixar apps, modo live. Na mesma noite: mandar **vários
+arquivos** do celular para o PC de uma vez, **baixar no celular** o que o PC manda e consertar a
+**splash bugada** do celular.
+
+### Spike do Hermes (antes de tudo)
+- `hermes serve` = JSON-RPC por WebSocket em `ws://127.0.0.1:PORTA/api/ws?token=…`. Em loopback o
+  token é o `HERMES_DASHBOARD_SESSION_TOKEN` do processo (ou um aleatório por partida) — por isso
+  **o ELYSIUM sobe o próprio servidor** com um token dele; não dá para pendurar no Hermes que o Zak
+  abre. Ordem: `gateway.ready` → `client.capabilities {server_requests:true}` → `session.create` →
+  `prompt.submit`; eventos `{method:"event", params:{type, session_id, payload}}` (`message.delta`
+  com `text`, `message.complete` com `text`/`status`/`error`, `thinking.delta`, `tool.start`…);
+  perguntas do servidor com `id` `srq-<n>` (`approval` → `{choice}`, `clarify` → `{answers}`).
+- Latência medida (nemotron-3-ultra :free via OpenRouter): servidor sobe em 9–14 s; 1º pedido de
+  uma sessão nova 6–11 s até a 1ª palavra; seguintes **2,0–2,7 s**. Por isso o servidor sobe na
+  partida do app e a sessão é aberta antes do primeiro pedido.
+- O `hermes.exe` é um lançador que sobe um `python.exe` filho — `kill()` não leva o filho;
+  `encerrarArvore` usa `taskkill /T`. O `serve` tem saída por ociosidade sem conexão, então órfão
+  não fica para sempre.
+
+### Bloco 213 — ponte com o Hermes
+- `src/services/hermes/`: `conexao.ts` (JSON-RPC sobre `ws`, que virou dependência explícita),
+  `processo.ts` (acha o exe, porta livre, sobe `hermes -p ely serve --isolated` com token, garante
+  o perfil e o MCP), `sessao.ts` (um turno: deltas, fim, pergunta do servidor, prazos), `persona.ts`
+  (bloco `[CONTEXTO DO ELYSIUM]` por turno: hora, canal, regras de voz/texto, humor, modo,
+  instruções; a persona inteira só no 1º turno da sessão), `aprovacoes.ts`, `cerebro.ts` (estado,
+  sessão renovada com o mesmo ocioso do chat, reinício com recuo 10 s → 10 min).
+- `command.ts`: com `cerebro === "hermes"`, **tudo que não é atalho** vai para `agirViaHermes`;
+  `null` (fora do ar, sem sinal em 6 s — 20 s no 1º turno da sessão —, erro do modelo, 120 s) cai
+  no cérebro de sempre com `marcarReserva()`. O selo "modo local" virou **"reserva"** (PC e
+  celular): cobre o Hermes caído e a nuvem caída.
+- Aprovação do Hermes → `pedirConfirmacao` ("Preciso rodar um comando no PC: … Confirma? Diga
+  sim."); "sim" = `once`, qualquer outra coisa = `deny`. `confirmacao.ts` ganhou `cancelar` (avisa
+  quem perguntou no "não", na troca de pedido e quando vence em 30 s). Esclarecimento → a Ely faz
+  a pergunta e a próxima fala é a resposta (`responderEsclarecimentoHermes`, 90 s). `sudo`,
+  `secret`, `vault.*` e o resto: recusados sem perguntar.
+- **MCP do ELYSIUM**: `services/mcpElysium.ts` servido pela porta 4200 em `/mcp/<token>` (token
+  próprio `mcpToken` no store, só do 127.0.0.1, antes do bearer do celular). Lista permitida
+  `FERRAMENTAS_DO_HERMES` (tarefas, hábitos, lembretes, listas, música, volume, janelas, clima,
+  estado do PC, apps…); fora: energia, memória pessoal, área de transferência, apagar rotina,
+  escrever texto, criar arquivo, ler a tela, busca/links (o Hermes tem os dele). Toda chamada passa
+  por `executarComPolitica(nome, args, contaminado=true, pedidoDoHermes())` — ação sensível só se
+  o pedido do Zak pediu, sem volta vira "Confirma? Diga sim." e o "sim" dele executa.
+- 🔴 **`hermes mcp add` é interativo** (pergunta autenticação, quais ferramentas, "sobrescrever?")
+  e trava sem teclado. O registro é por `hermes -p ely config set mcp_servers.elysium.url <url>` +
+  `…enabled true`. O `mcp list` corta a URL em 25 caracteres — não serve para comparar.
+- **Perfil `ely`** (criado nesta sessão com autorização do Zak, `--clone` do default: mesmo modelo
+  e chave, que o ELYSIUM não lê): memória do Hermes desligada (`memory.memory_enabled` e
+  `user_profile_enabled` false, toolset `memory` desligado), `SOUL.md` com a persona da Ely
+  (genérica, sem dado pessoal). O clone trouxe 2 arquivos em `profiles/ely/memories` (não lidos;
+  com a memória desligada não entram). O `ely` continua com terminal, arquivos, navegador,
+  execução de código e **computer use** ligados — o Zak quis "o Hermes agindo"; comando perigoso
+  passa pela aprovação → "Confirma? Diga sim.". Revisar se quiser restringir
+  (`hermes -p ely tools disable computer_use …`).
+- Config: `cerebro` (`hermes`|`elysium`, padrão hermes), `hermesPerfil` (`ely`),
+  `hermesContextoPessoal` (desligado). Ajustes → Cérebro (seletor, memória, chip de estado); RPC
+  `hermes.status`/`hermes.set` (contrato regerado e copiado); celular: "Cérebro Hermes" no topo de
+  Ajustes → Jeito de responder.
+- "Modo live" que chega pelo celular é respondido no `command.ts` sem cérebro.
+- Ponta a ponta medida: Hermes real chamando o MCP real (`volume(35)`, `criar_lembrete` → a
+  pergunta de confirmação repetida pela Ely); pelo app, conversa em 5,5 s e "quantas tarefas eu
+  tenho pra hoje?" via MCP em 9,5 s, com o "chefe" da persona.
+- Junto: a **segunda instância** do app (abrir de novo, o atualizador) rodava parte do `ready`
+  antes de sair — tentava a 4200 e subia outro Hermes. Agora `if (!souPrincipal) return`.
+
+### Bloco 214 — bolota Stark no PC
+- `main/orbeWindow.ts` + `renderer/orbe.html` + `preload-orbe.ts`; lógica pura em
+  `services/bolota.ts` (`estadoDaBolota`, `palavrasDoMetadado`, `palavrasPeloTexto`,
+  `envelopeDasPalavras`, `prenderNaArea`, `bolotaVisivel`). Dormindo (roxo respirando, discreta),
+  ouvindo (ciano, nível do `audio-level`), pensando (âmbar, anéis rápidos), falando (roxo, pulso
+  por palavra + legenda), erro (vermelho 1,6 s).
+- Pulso da fala: `msedge-tts` com `wordBoundaryEnabled` devolve o tempo de cada palavra (unidades
+  de 100 ns); fica num cache paralelo ao do MP3. O player imprime `NX_PLAY` no stdout logo antes
+  do `play` — o aviso `aoTocarAudio` sai daí, sem adivinhar quanto o Add-Type demora. Voz offline:
+  envelope pelo texto.
+- Clique = falar (sem abrir o dashboard; no live, sair), duplo = abrir o ELYSIUM, direito = menu
+  (falar, parar, modo live, abrir, esconder), arrastar = mover (posição em `bolotaPos`, presa à
+  área útil). Ajustes → Aparência: `bolotaModo` (sempre/falando/desligada) e `bolotaTamanho`.
+- Some com jogo/apresentação em tela cheia: `main/telaCheia.ts`, um PowerShell vivo perguntando
+  `SHQueryUserNotificationState` a cada 2 s.
+- 🔴 **Armadilhas medidas:** (1) com `alwaysOnTop` no construtor e `show:false`, a janela aparecia
+  SEM `WS_EX_TOPMOST` (atrás do dashboard) e repetir `setAlwaysOnTop(true)` não fazia nada — agora
+  `setAlwaysOnTop(false)` + `(true, "screen-saver")` + `moveTop()` depois de mostrar; (2) cor dos
+  anéis vinda de variável CSS herdada com `transition` ficava com a cor do estado ANTERIOR no
+  Chromium — sem transição de cor; (3) o Windows responde 2 ("tela cheia") com a **área de
+  trabalho** na frente (`Progman`/`WorkerW`) — a linha do vigia leva a classe da janela da frente e
+  o shell não conta; (4) para capturar a bolota (janela em camadas) o print precisa de `BitBlt` com
+  `CAPTUREBLT` e coordenadas físicas (a tela do Zak é 1920×1080 a 150%); o `Page.captureScreenshot`
+  da porta 9333 trava em janela transparente.
+
+### Bloco 215 — bolota no celular
+- `components/Bolota.tsx` + `lib/bolota.ts` (fase da voz e nível do microfone num `makeMutable`,
+  envelope pelo texto do trecho). Por cima de todas as abas, arrastável (posição no AsyncStorage);
+  a pílula "Ely falando" **virou o estado aberto** dela (Pausar/Retomar/Parar) — `FalaFlutuante`
+  saiu. Parada, um toque começa a ouvir (como o widget Falar). Chat alimenta ouvindo/pensando
+  (voz ou pedido digitado). Tudo JS.
+
+### Extras do celular (pedidos da noite)
+- **Caixa manda vários arquivos**: seletor com `multiple: true` e qualquer tipo; um recado por
+  arquivo (o servidor guarda um anexo por recado), o texto vai no primeiro, progresso "2/5", e o
+  que já foi não é reenviado se um falhar. `lib/anexos.ts` (`planejarEnvio`, `nomeSeguro`,
+  `resumoDosArquivos`).
+- **Baixar o que o PC manda**: tocar num anexo (imagem também) abre Abrir (no app do tipo, pelo
+  `contentUri` + `IntentLauncher`) / Salvar no celular (pasta escolhida pelo seletor do Android,
+  `Directory.pickDirectoryAsync`, lembrada em `caixa.pastaDestino`) / Salvar em outra pasta. Antes
+  o toque só mostrava o nome num alerta.
+- **Splash**: era o **placeholder do template do Expo** (grade cinza esticada em fundo
+  `#FFFFFF`, `windowBackground` = `splashscreen_logo`). Agora `expo-splash-screen` (plugin com a
+  moeda do ícone — `assets/splash-icon.png` = cópia do `android-icon-foreground.png` — em
+  `#0a0c14`, claro e escuro) e `preventAutoHideAsync` até o pareamento ser lido (trava de 5 s).
+  **Nativo → APK novo (2.2.0, vc22)**; o pacote novo muda o fingerprint, então OTA não serve para
+  o APK 2.1.0.
+
+### Bloco 216 — janelas e apps
+- Janelas: `actions/organizarJanelas.ts` + geometria pura `services/layoutJanelas.ts`. Lado a
+  lado, grade até 4, cascata, metade (esquerda/direita/cima/baixo), centro, maximizar, outro
+  monitor; `salva o layout X` / `layout X` (posição relativa ao monitor, casando pelo processo e
+  pelo título; abre o que falta pelo nome do processo e espera a janela). Layouts no store
+  `layouts-janelas`. `ElyWin` ganhou `Monitores`, `Rect` (DWM extended frame) e `Pos`, que soma a
+  borda invisível de ~7 px de volta — medido: pedido 960,0,960,1032 → visível exatamente isso.
+  Tudo em pixels físicos (`SetProcessDPIAware`). Atalhos no `fastRoute` (`pedidoDeJanelas`),
+  ação `windows_layout`, ferramenta `organizar_janelas`.
+- Apps: `actions/instalarApp.ts` — `buscar_app`, `instalar_app`, `atualizar_apps` pelo winget
+  (catálogos `winget` e `msstore`, Id exato, argumentos separados, sem shell). Instalar: `winget
+  show` dá nome/editora/versão → "Vou instalar X, da Y, versão Z… Confirma? Diga sim." →
+  instala em segundo plano e avisa no fim (notificação, voz fora da noite, celular). Atualizar
+  lista o que tem versão nova e pergunta. O winget usa o cache dele: **Downloads intocada**.
+  Parser da tabela por posição de coluna do cabeçalho, ficando com o texto depois do último `\r`
+  (o spinner reescreve a linha). Política: `instalar_app`, `atualizar_apps` e
+  `organizar_janelas` só depois de conteúdo de fora se o pedido pediu.
+
+### Bloco 217 — modo live
+- PC: "modo live"/"vamos conversar" (voz, chat, botão novo ao lado do microfone, menu da bolota)
+  → turnos encadeados: depois de cada resposta ela volta a ouvir. Sai por "tchau", clique na
+  bolota, o botão, ou 60 s sem fala (`recorder-nada`). Nunca persiste. Alternado de propósito (a
+  voz toca pelo PowerShell; o cancelamento de eco não a enxerga — interromper falando por cima só
+  de fone, fase futura).
+- `recorder.html` ganhou `esperarFalaMs`: o silêncio só conta depois que a fala começou (limiar
+  0,03), sem fala no prazo o áudio é descartado; `cancel-recording` para sem mandar. Frases que o
+  Whisper inventa com áudio vazio (`ehAlucinacaoDoWhisper`) não viram pedido no live.
+- Celular: o Chat volta a gravar depois de cada resposta (`liveRef`), esperando até 60 s; faixa
+  "LIVE · Pode falar. "Tchau" sai."; X, tchau, trocar de aba ou 60 s calado saem.
+
+### Bloco 218 — bancada do Hermes
+- `scripts/bench-hermes.mjs`: perfil **`ely-bench`** (clone do `ely` com terminal, navegador,
+  arquivos, execução de código, computer use, imagem, tts, cron, delegação, memória, conexões e
+  busca de sessões DESLIGADOS — o script recusa rodar se algum deles estiver ligado) e um MCP falso
+  (definições de produção, leituras devolvem cenário, ações "feito", nada toca o PC). Recusa toda
+  aprovação; ferramenta própria perigosa no `tool.start` interrompe o turno. Mede 1º sinal, 1ª
+  palavra e total, acerto nos 42 casos (ferramenta fora da lista do MCP não conta como falta) e
+  persona em 10 frases (curta, sem markdown, sem bastidor, feminino, português).
+- Resultado (nemotron-3-ultra :free): 1ª rodada **29/42**, persona 10/10, mas 7 turnos começaram e ficaram mudos até os 120 s → criado o vigia de silêncio (`PRAZO_SILENCIO_MS` = 25 s sem evento no meio do turno = desiste e cai na reserva). A bancada também mostrou o Hermes fechando programas um por um (sem a pergunta) e pausando a rotina que era para apagar → `fechar_tudo_menos`, `apagar_rotina` e `criar_rotina` entraram na lista do MCP e as escolhas certas foram para o `initialize` do MCP (`INSTRUCOES_MCP`) e para o `SOUL.md` dos dois perfis. 2ª rodada: **37/42 (88%)**, 13 pelo atalho, persona 10/10, nenhum turno travado; 1ª palavra p50 6,7 s / p90 11,3 s, total p50 7,9 s / p90 11,9 s. Falhas: “abre o bloco de notas e me diz o tempo” (a ação chegou DEPOIS do fim do turno e caiu no caso seguinte — artefato da bancada, mas mostra que o `message.complete` pode vir antes de uma chamada de ferramenta), “tira um print e manda pro celular” (tirar_print está fora da lista), “terminei o relatório…” e “me ajuda a estudar pra prova… dia 20” (não chamou concluir_tarefa / plano_de_estudo).
+- Bancada do cérebro de sempre (qwen2.5:7b, com as 4 ferramentas novas no prompt):
+  **41/42 (98%)**, 13 pelo atalho, p50 1,3 s (era 38/42). Falha: “qual nota eu preciso na recuperação…” — chamou nota_necessaria com `faltam` e a bancada esperava como leitura.
+- Limites reais: modelos `:free` do OpenRouter têm teto por minuto/dia e podem sumir — é para isso
+  a reserva. Conferir em <https://openrouter.ai/activity> (uso) e <https://openrouter.ai/settings/keys>.
+
+### Testes e entrega
+- Desktop 397 (era 357) testes, celular 99 (era 93); `npm run check` verde em todo commit.
+- **Desktop 2.8.0** publicado (release no GitHub) e instalado nesta máquina (`"pc":"2.8.0"`, Hermes `pronto` no app empacotado, pedido real respondido com o "chefe"). **Celular APK 2.2.0 (vc22)** publicado (release `v2.2.0` do elysium-m): o PC baixa e o cartão "versão nova" do celular oferece a instalação. **Sem OTA** desta vez: o `expo-splash-screen` é nativo e muda o fingerprint do runtime; um OTA para o APK 2.1.0 quebraria. Notas das releases em `scratchpad` (não versionadas), com `## Novidades` e `## Para testar`.
+
+### Para o Zak conferir (só dá com ele)
+1. Ouvir a bolota: cor mudando entre ele (ciano) e a Ely (roxo), pulso seguindo as palavras
+   (com a saída de som certa — o PC continua no alto-falante do Steam). Arrastar, fechar o app e
+   reabrir (posição volta); abrir um jogo em tela cheia (some).
+2. Hermes pela voz: uma pergunta, uma ação ("cria um lembrete…"), e algo que peça aprovação do
+   Hermes ("roda um comando que…") → "Confirma? Diga sim.". Fechar o Hermes do PC à força e ver
+   a resposta com o selo "reserva".
+3. "Instala o VLC" → ouvir nome/editora/versão → "sim" → aviso de instalado. "Tem atualização?".
+4. "Salva o layout estudo" com as janelas arrumadas → bagunçar → "layout estudo".
+5. Modo live de fone: 3 turnos sem tocar em nada; "tchau"; no alto-falante, o alternado.
+6. Celular (APK 2.2.0): a splash nova; mandar 3 arquivos de uma vez; tocar num arquivo que o PC
+   mandou → Salvar no celular (escolher a pasta uma vez) e Abrir; a bolota (tocar parada começa a
+   ouvir; falando abre os controles); "modo live" no Chat.
+7. Decidir se o perfil `ely` fica com terminal/computer use ligados.
+8. As 3 sessões de teste "spike" do começo ficaram no histórico do perfil default do Hermes (não
+   apaguei: apagar é com ele).
+
+### Armadilhas novas desta fase (para não pagar de novo)
+- `hermes mcp add` interativo → `config set mcp_servers.<nome>.url`.
+- `alwaysOnTop` + `show:false` perde o TOPMOST; repetir o mesmo valor é ignorado.
+- Transição CSS de cor vinda de variável herdada atrasa um estado no Chromium.
+- `SHQueryUserNotificationState` = 2 com a área de trabalho na frente.
+- Print de janela em camadas: `BitBlt` com `CAPTUREBLT`, coordenadas físicas.
+- O spinner do winget reescreve a linha com `\r` — fique com o último pedaço de cada linha.
+- Segunda instância do Electron roda o `ready` antes do `app.quit()` fazer efeito.
+- Splash do celular: sem o plugin `expo-splash-screen`, o prebuild deixa o placeholder do template.
