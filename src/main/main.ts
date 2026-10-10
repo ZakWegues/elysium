@@ -56,7 +56,8 @@ import { Confianca, desligarPalavraDeAtivacao, ligarPalavraDeAtivacao, podeInter
 iniciarLogEmArquivo();
 import { getTopHistory } from "../services/history";
 import { registrarPergunta, bolhasDoChat } from "../services/perguntas";
-import { ehNoite } from "../services/tts";
+import { aoTocarAudio, ehNoite } from "../services/tts";
+import { aplicarConfigBolota, bolotaEvento, bolotaFala, bolotaNivel, fecharBolota, iniciarBolota } from "./orbeWindow";
 import { aoMudarFala, estaFalando, falaAtual, falar as speak, interromperTudo as interruptAll, novoTurno, turnoAtual } from "./fala";
 import { habitosParaLembrar } from "../services/habitos";
 import { podeAvisarAlto } from "../services/avisos";
@@ -266,7 +267,10 @@ let appQuitting = false;
 aoMudarFala((f) => {
   marcarFalaNaBandeja(f);
   enviarAoDash("tts:falando", f);
+  bolotaEvento({ tipo: "fala", falando: f });
 });
+// Fase 21: o áudio começou de verdade — a bolota pulsa palavra por palavra.
+aoTocarAudio((a) => bolotaFala(a));
 
 // ── action label helper ───────────────────────────────────────────────────────
 
@@ -561,6 +565,7 @@ ipcMain.on("audio-data", async (_event, buffer: Buffer) => {
 });
 
 ipcMain.on("recorder-error", (_event, msg: string) => {
+  bolotaEvento({ tipo: "erro" });
   notify("ELYSIUM — Microfone", msg);
   enviarAoDash("voice:error", "Microfone indisponível. Verifique se está conectado.");
   state.set("speaking");
@@ -571,6 +576,7 @@ ipcMain.on("recorder-error", (_event, msg: string) => {
 
 ipcMain.on("audio-level", (_event, level: number) => {
   enviarAoDash("voice:audio-level", level);
+  bolotaNivel(level);
 });
 
 // ── voice IPC ─────────────────────────────────────────────────────────────────
@@ -733,6 +739,7 @@ ipcMain.handle("config:set-all", async (_e, patch: Partial<AppConfig>) => {
 
   // Fase 21: trocar o cérebro em Ajustes sobe ou derruba o Hermes na hora.
   if (patch.cerebro !== undefined && patch.cerebro !== prev.cerebro) aplicarConfigHermes();
+  if (patch.bolotaModo !== undefined || patch.bolotaTamanho !== undefined || patch.movimento !== undefined) aplicarConfigBolota();
 
   // Sem notificação do Windows aqui. Este handler é chamado ao arrastar um card da tela
   // Início, ao trocar de tema e a cada campo de Ajustes — uma notificação por gravação
@@ -1028,7 +1035,10 @@ function handleShortcut(): void {
 
 // ── app lifecycle ─────────────────────────────────────────────────────────────
 
-if (!app.requestSingleInstanceLock()) {
+// Fase 21: a segunda instância (abrir o atalho de novo, o atualizador) chegava a rodar o
+// `ready` antes de sair — tentava a porta 4200 e subia outro Hermes. Medido em 09/10.
+const souPrincipal = app.requestSingleInstanceLock();
+if (!souPrincipal) {
   app.quit();
 } else {
   app.on("second-instance", () => {
@@ -1054,6 +1064,7 @@ app.on("web-contents-created", (_e, wc) => {
 });
 
 app.on("ready", async () => {
+  if (!souPrincipal) return;
   if (process.platform === "win32") app.setAppUserModelId("com.zak.elysium");
 
   const quit = (motivo: MotivoEncerramento = "fechado") => {
@@ -1069,6 +1080,7 @@ app.on("ready", async () => {
     pararRelogioPomodoro();
     pararRotinas();
     pararHermes();
+    fecharBolota();
     void aviso.finally(() => app.exit(0));
   };
 
@@ -1108,6 +1120,19 @@ app.on("ready", async () => {
   state.on("change", (s) => {
     refreshTray(s);
     enviarAoDash("voice:state", s);
+    bolotaEvento(s === "error" ? { tipo: "erro" } : { tipo: "app", estado: s });
+  });
+
+  // Fase 21: a bolota Stark. Clique = falar (como o atalho, sem abrir o dashboard); duplo
+  // clique = abrir o ELYSIUM; botão direito = menu.
+  iniciarBolota({
+    falar: () => {
+      if (!hasApiKey()) { openConfigWindow(); return; }
+      if (!state.is("idle")) { interruptAll(); interromperHermes(); state.set("idle"); return; }
+      startListening().catch((e) => console.error("[bolota] não consegui começar a ouvir:", e));
+    },
+    abrirDashboard: () => openDashboard(),
+    pararFala: () => { interruptAll(); interromperHermes(); state.set("idle"); },
   });
 
   recorderWin = createRecorderWindow();

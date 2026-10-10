@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'none'; object-src 'none'; base-uri 'none'">
+<title>ELYSIUM — Ely</title>
+<style>
+  /* A bolota Stark (fase 21, bloco 214). Janela transparente, sempre por cima. As cores são as
+     do tema Stark: roxo da marca (Ely falando), ciano (ele falando), âmbar (pensando). */
+  :root { --t: 140px; --c: 123,94,167; --n: 0; }
+  html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; user-select: none; font-family: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif; }
+  #palco { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; }
+  #orbe { position: relative; width: var(--t); height: var(--t); margin-top: 6px; cursor: pointer; border-radius: 50%; transition: opacity .6s ease, transform .6s ease; }
+  /* Sem transição de cor nos anéis: com a cor vinda de uma variável herdada, o Chromium
+     deixava os anéis com a cor do estado ANTERIOR até a próxima troca. */
+  #orbe > * { position: absolute; border-radius: 50%; pointer-events: none; }
+  /* Núcleo: cresce com o nível (voz dele ou palavra dela). */
+  #nucleo { inset: 26%; transform: scale(calc(0.86 + var(--n) * 0.32));
+    background: radial-gradient(circle at 42% 38%, rgba(255,255,255,0.85) 0%, rgba(var(--c),0.95) 22%, rgba(var(--c),0.45) 55%, rgba(var(--c),0) 72%);
+    box-shadow: 0 0 calc(10px + var(--n) * 34px) rgba(var(--c), calc(0.35 + var(--n) * 0.45)); }
+  #brilho { inset: 8%; background: radial-gradient(circle, rgba(var(--c), calc(0.10 + var(--n) * 0.22)) 0%, rgba(var(--c),0) 68%); }
+  #anel1 { inset: 12%; border: 1.5px solid rgba(var(--c), 0.55); }
+  #anel2 { inset: 4%; border: 1.5px dashed rgba(var(--c), 0.45); animation: gira 18s linear infinite; }
+  #anel3 { inset: 18%; border: 2px solid transparent; border-top-color: rgba(var(--c), 0.9); border-right-color: rgba(var(--c), 0.35); animation: gira 6s linear infinite reverse; }
+  @keyframes gira { to { transform: rotate(360deg); } }
+  @keyframes respira { 0%, 100% { transform: scale(0.92); opacity: .55; } 50% { transform: scale(0.98); opacity: .8; } }
+
+  body.dormindo #orbe { animation: respira 5.5s ease-in-out infinite; }
+  body.dormindo #anel3 { opacity: 0; }
+  body.ouvindo { --c: 78,205,196; }
+  body.pensando { --c: 240,178,64; }
+  body.pensando #anel2 { animation-duration: 3s; }
+  body.pensando #anel3 { animation-duration: 1.1s; }
+  body.falando { --c: 150,112,214; }
+  body.erro { --c: 229,72,77; }
+  body.erro #orbe { animation: treme .35s ease-in-out 2; }
+  @keyframes treme { 25% { transform: translateX(-3px); } 75% { transform: translateX(3px); } }
+  body.parado #anel2, body.parado #anel3, body.parado #orbe { animation: none !important; }
+
+  #legenda { margin-top: 6px; max-width: calc(100% - 16px); padding: 4px 10px; border-radius: 10px; font-size: 12.5px; line-height: 1.35;
+    color: #f1f5f9; background: rgba(12, 12, 30, 0.72); border: 1px solid rgba(var(--c), 0.35);
+    text-align: center; opacity: 0; transform: translateY(-4px); transition: opacity .3s ease, transform .3s ease;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  #legenda.on { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: reduce) { #anel2, #anel3, #orbe { animation: none !important; } }
+</style>
+</head>
+<body class="dormindo">
+<div id="palco">
+  <div id="orbe" role="button" aria-label="Ely — clique para falar">
+    <div id="brilho"></div><div id="anel2"></div><div id="anel1"></div><div id="anel3"></div><div id="nucleo"></div>
+  </div>
+  <div id="legenda" aria-live="polite"></div>
+</div>
+<script>
+  const raiz = document.documentElement;
+  const orbe = document.getElementById("orbe");
+  const legenda = document.getElementById("legenda");
+  let estado = "dormindo";
+  let alvo = 0, atual = 0;
+  let fala = null; // { env, passo, t0 }
+  let tLegenda = null;
+
+  window.orbe.aoEstado(({ estado: e, tamanho, movimento }) => {
+    estado = e;
+    document.body.className = e + (movimento === false ? " parado" : "");
+    if (tamanho) raiz.style.setProperty("--t", tamanho + "px");
+    if (e !== "falando") fala = null;
+    if (e !== "ouvindo" && e !== "falando") alvo = 0;
+  });
+  window.orbe.aoNivel((n) => { if (estado === "ouvindo") alvo = Math.min(1, n * 5); });
+  window.orbe.aoFala(({ envelope, passoMs, texto }) => {
+    fala = { env: envelope, passo: passoMs || 33, t0: performance.now() };
+    if (texto) mostrarLegenda(texto, envelope.length * (passoMs || 33));
+  });
+
+  function mostrarLegenda(texto, durMs) {
+    legenda.textContent = texto.length > 140 ? texto.slice(0, 139) + "…" : texto;
+    legenda.classList.add("on");
+    clearTimeout(tLegenda);
+    tLegenda = setTimeout(() => legenda.classList.remove("on"), Math.max(2500, durMs + 800));
+  }
+
+  function quadro(agora) {
+    if (fala) {
+      const i = Math.floor((agora - fala.t0) / fala.passo);
+      if (i >= fala.env.length) { fala = null; alvo = 0; } else alvo = fala.env[i] || 0;
+    }
+    // Sobe rápido, desce devagar: parece voz, não ruído.
+    atual += (alvo - atual) * (alvo > atual ? 0.45 : 0.18);
+    raiz.style.setProperty("--n", atual.toFixed(3));
+    requestAnimationFrame(quadro);
+  }
+  requestAnimationFrame(quadro);
+
+  // Clique = falar; duplo = abrir o ELYSIUM; botão direito = menu; arrastar = mover.
+  let arrasto = null, ultimoClique = 0, tClique = null;
+  orbe.addEventListener("pointerdown", (e) => {
+    if (e.button !== 0) return;
+    orbe.setPointerCapture(e.pointerId);
+    arrasto = { x: e.screenX, y: e.screenY, moveu: false };
+  });
+  orbe.addEventListener("pointermove", (e) => {
+    if (!arrasto) return;
+    const dx = e.screenX - arrasto.x, dy = e.screenY - arrasto.y;
+    if (!arrasto.moveu && Math.abs(dx) + Math.abs(dy) < 4) return;
+    arrasto.moveu = true;
+    arrasto.x = e.screenX; arrasto.y = e.screenY;
+    window.orbe.arrastar(dx, dy);
+  });
+  orbe.addEventListener("pointerup", (e) => {
+    if (!arrasto) return;
+    const moveu = arrasto.moveu;
+    arrasto = null;
+    try { orbe.releasePointerCapture(e.pointerId); } catch {}
+    if (moveu) { window.orbe.soltar(); return; }
+    const agora = Date.now();
+    if (agora - ultimoClique < 280) { clearTimeout(tClique); ultimoClique = 0; window.orbe.duplo(); return; }
+    ultimoClique = agora;
+    tClique = setTimeout(() => window.orbe.clique(), 280);
+  });
+  orbe.addEventListener("contextmenu", (e) => { e.preventDefault(); window.orbe.menu(); });
+  orbe.addEventListener("mouseenter", () => window.orbe.mouseDentro(true));
+  orbe.addEventListener("mouseleave", () => { if (!arrasto) window.orbe.mouseDentro(false); });
+</script>
+</body>
+</html>

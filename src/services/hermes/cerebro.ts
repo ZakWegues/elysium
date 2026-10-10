@@ -4,7 +4,7 @@ import { modoAtivo } from "../modos";
 import { buildMemoryBlock } from "../memoryStore";
 import { pedirConfirmacao } from "../confirmacao";
 import { ConexaoHermes } from "./conexao";
-import { acharHermes, garantirMcp, garantirPerfil, subirServidor, ServidorHermes, PERFIL_PADRAO } from "./processo";
+import { acharHermes, encerrarArvore, garantirMcp, garantirPerfil, subirServidor, ServidorHermes, PERFIL_PADRAO } from "./processo";
 import { contextoDoTurno } from "./persona";
 import { FimDoTurno, PRAZO_SINAL_FRIO_MS, PRAZO_SINAL_QUENTE_MS, rodarTurno } from "./sessao";
 import { descricaoDaAprovacao, falaDoEsclarecimento, respostaDeRecusa, respostasDoEsclarecimento, tipoDaPergunta } from "./aprovacoes";
@@ -116,7 +116,7 @@ function reiniciarDepois(motivo: string): void {
 
 function encerrarProcesso(): void {
   try { s.con?.fechar(); } catch { /* */ }
-  try { s.servidor?.filho.kill(); } catch { /* */ }
+  if (s.servidor) encerrarArvore(s.servidor.filho);
   s.servidor = null;
 }
 

@@ -83,6 +83,19 @@ export async function garantirMcp(exe: string, url: string, perfil = PERFIL_PADR
   console.log("[hermes] ferramentas do ELYSIUM registradas no perfil");
 }
 
+/**
+ * Encerra o Hermes com os filhos. O `hermes.exe` é um lançador que sobe um `python.exe` (medido
+ * em 09/10): `kill()` só fecha o lançador e o Python ficava órfão segurando a porta. No Windows,
+ * `taskkill /T` leva a árvore inteira.
+ */
+export function encerrarArvore(filho: ChildProcess): void {
+  if (filho.exitCode !== null || !filho.pid) return;
+  if (process.platform === "win32") {
+    try { execFile("taskkill", ["/PID", String(filho.pid), "/T", "/F"], { windowsHide: true }, () => {}); return; } catch { /* cai no kill */ }
+  }
+  try { filho.kill(); } catch { /* já saiu */ }
+}
+
 export interface ServidorHermes {
   url: string;
   porta: number;
@@ -116,6 +129,6 @@ export async function subirServidor(exe: string, perfil = PERFIL_PADRAO, prazoMs
     } catch { /* ainda subindo */ }
     await new Promise(r => setTimeout(r, 500));
   }
-  try { filho.kill(); } catch { /* */ }
+  encerrarArvore(filho);
   throw new Error("o Hermes não subiu em 60 s");
 }

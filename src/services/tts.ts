@@ -12,6 +12,7 @@ import { spawn, ChildProcess } from "node:child_process";
 import { getConfig } from "../main/config";
 import { spawnPs } from "../actions/ps";
 import type { Humor } from "./humor";
+import { duracaoDoMp3, Palavra, palavrasDoMetadado, palavrasPeloTexto } from "./bolota";
 
 const VOICE = "pt-BR-FranciscaNeural";
 const TTS_TIMEOUT_MS = 30_000;
@@ -146,6 +147,33 @@ export function cleanTextForSpeech(raw: string, conta = ehModoDeConta()): string
 // dela no meio. Cache das últimas 20 falas: tocar de novo a mesma resposta não sintetiza.
 let _ttsCelular: MsEdgeTTS | null = null;
 const cacheMp3 = new Map<string, Buffer>();
+/** Fase 21: o tempo de cada palavra do MP3 de mesma chave — o pulso da bolota. */
+const cachePalavras = new Map<string, Palavra[]>();
+
+/**
+ * Fase 21 (bloco 214): avisa quando o áudio da Ely COMEÇA a tocar, com a duração e o tempo de
+ * cada palavra. O player imprime uma marca logo antes do `play`, então o aviso não depende de
+ * adivinhar quanto o PowerShell leva para compilar o Add-Type.
+ */
+export interface AudioTocando { texto: string; durMs: number; palavras: Palavra[] }
+let ouvinteAudio: (a: AudioTocando) => void = () => {};
+export function aoTocarAudio(fn: (a: AudioTocando) => void): void { ouvinteAudio = fn; }
+function avisarAudio(a: AudioTocando): void {
+  try { ouvinteAudio(a); } catch { /* bolota fechada não trava a fala */ }
+}
+
+/** Junta o metadado de palavras de um `toStream` (o stream pode não existir). */
+function coletarPalavras(metadataStream: NodeJS.ReadableStream | null): () => Palavra[] {
+  const pedacos: string[] = [];
+  metadataStream?.on("data", (c: Buffer) => pedacos.push(String(c)));
+  return () => palavrasDoMetadado(pedacos);
+}
+
+function guardarPalavras(chave: string, palavras: Palavra[]): void {
+  if (!palavras.length) return;
+  cachePalavras.set(chave, palavras);
+  if (cachePalavras.size > 20) cachePalavras.delete(cachePalavras.keys().next().value as string);
+}
 
 export async function sintetizarMp3(texto: string, humor?: Humor): Promise<Buffer> {
   const limpo = cleanTextForSpeech(texto);
@@ -157,8 +185,9 @@ export async function sintetizarMp3(texto: string, humor?: Humor): Promise<Buffe
   if (guardado) return guardado;
 
   if (!_ttsCelular) _ttsCelular = new MsEdgeTTS();
-  await _ttsCelular.setMetadata(voz, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3, {});
-  const { audioStream } = _ttsCelular.toStream(limpo, prosodia);
+  await _ttsCelular.setMetadata(voz, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3, { wordBoundaryEnabled: true });
+  const { audioStream, metadataStream } = _ttsCelular.toStream(limpo, prosodia);
+  const palavras = coletarPalavras(metadataStream);
   const pedacos: Buffer[] = [];
   await new Promise<void>((ok, falha) => {
     const t = setTimeout(() => falha(new Error("síntese demorou demais")), TTS_TIMEOUT_MS);
@@ -169,6 +198,7 @@ export async function sintetizarMp3(texto: string, humor?: Humor): Promise<Buffe
   const mp3 = Buffer.concat(pedacos);
   if (!mp3.length) throw new Error("síntese vazia");
   cacheMp3.set(chave, mp3);
+  guardarPalavras(chave, palavras());
   if (cacheMp3.size > 20) cacheMp3.delete(cacheMp3.keys().next().value as string);
   return mp3;
 }
@@ -253,6 +283,9 @@ export async function synthesize(text: string, humor?: Humor): Promise<void> {
         "$s.Speak($env:NX_TEXTO)",
       ].join("\n");
       ps = spawnPs(psScript, { NX_TEXTO: clean });
+      // Voz offline: sem metadado nem MP3 — a duração sai do texto (~65 ms por letra).
+      const durOffline = clean.length * 65;
+      avisarAudio({ texto: clean, durMs: durOffline, palavras: palavrasPeloTexto(clean, durOffline) });
 
       let stderr = "";
       ps.stderr?.on("data", (d: Buffer) => { stderr += d.toString(); });
@@ -277,15 +310,18 @@ export async function synthesize(text: string, humor?: Humor): Promise<void> {
         // Pendência 10 da §15: a chave `voice` existia no config e nunca era lida.
         const voz = vozDoMomento();
         const prosodia = prosodiaAgora(voz, humor);
-        const jaPronto = cacheMp3.get(chaveMp3(voz, clean, prosodia));
+        const chave = chaveMp3(voz, clean, prosodia);
+        const jaPronto = cacheMp3.get(chave);
+        let palavras = cachePalavras.get(chave) ?? [];
         // O `{}` é obrigatório: a 2.0.7 declara o terceiro parâmetro como opcional e lê
         // `metadataOptions.voiceLocale` sem conferir a partir da SEGUNDA chamada na mesma
         // instância — a primeira fala saía neural e todas as seguintes caíam no SAPI.
         let mp3: Buffer;
         if (jaPronto) mp3 = jaPronto;
         else {
-          await _tts.setMetadata(voz, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3, {});
-          const { audioStream } = _tts.toStream(clean, prosodia);
+          await _tts.setMetadata(voz, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3, { wordBoundaryEnabled: true });
+          const { audioStream, metadataStream } = _tts.toStream(clean, prosodia);
+          const lerPalavras = coletarPalavras(metadataStream);
 
           const chunks: Buffer[] = [];
           audioStream.on("data", (c: Buffer) => { if (!settled) chunks.push(c); });
@@ -295,6 +331,8 @@ export async function synthesize(text: string, humor?: Humor): Promise<void> {
             audioStream.on("error", rej);
           });
           mp3 = Buffer.concat(chunks);
+          palavras = lerPalavras();
+          guardarPalavras(chave, palavras);
         }
 
         if (settled) return;
@@ -322,12 +360,20 @@ export async function synthesize(text: string, humor?: Humor): Promise<void> {
           "\"@",
           "$f = $env:NX_ARQUIVO",
           "[NxMci]::mciSendString('open \"'+$f+'\" alias nx_s',$null,0,[IntPtr]::Zero)|Out-Null",
+          // Fase 21: a marca de "começou a tocar" para a bolota pulsar junto.
+          "[Console]::Out.WriteLine('NX_PLAY'); [Console]::Out.Flush()",
           "[NxMci]::mciSendString('play nx_s wait',$null,0,[IntPtr]::Zero)|Out-Null",
           "[NxMci]::mciSendString('close nx_s',$null,0,[IntPtr]::Zero)|Out-Null",
           "Remove-Item $f -Force -EA 0",
         ].join("\n");
 
         ps = spawnPs(psScript, { NX_ARQUIVO: tmpFile });
+        const durMs = duracaoDoMp3(mp3.length);
+        const tocando: AudioTocando = { texto: clean, durMs, palavras: palavras.length ? palavras : palavrasPeloTexto(clean, durMs) };
+        let avisado = false;
+        ps.stdout?.on("data", (d: Buffer) => {
+          if (!avisado && !settled && d.toString().includes("NX_PLAY")) { avisado = true; avisarAudio(tocando); }
+        });
 
         let stderr = "";
         ps.stderr?.on("data", (d: Buffer) => { stderr += d.toString(); });

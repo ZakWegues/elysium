@@ -62,6 +62,11 @@ const AJUSTES = [
     campos: [
       { chave: "movimento", rotulo: "Animações", tipo: "select", opcoes: [
         ["auto", "Seguir o Windows"], ["sempre", "Sempre animar"], ["nunca", "Nunca animar"]] },
+      // Fase 21: a bolota Stark flutuante.
+      { chave: "bolotaModo", rotulo: "Bolota da Ely", tipo: "select", opcoes: [
+        ["sempre", "Sempre visível (discreta quando parada)"], ["falando", "Só quando ouve, pensa ou fala"], ["desligada", "Desligada"]],
+        dica: "Fica por cima de tudo: ciano quando você fala, âmbar pensando, roxo quando ela fala (pulsando a cada palavra). Clique para falar, clique duplo abre o ELYSIUM, botão direito abre o menu, arraste para mudar de lugar. Some sozinha com jogo em tela cheia." },
+      { chave: "bolotaTamanho", rotulo: "Tamanho da bolota", tipo: "faixa", min: 90, max: 220, passo: 10, unidade: "px" },
     ],
   },
   {
@@ -132,6 +137,7 @@ const AJUSTES = [
 /** Formata um valor de faixa para leitura humana. */
 function valorLegivel(campo, v) {
   if (campo.unidade === "%") return `${v > 0 ? "+" : ""}${v}%`;
+  if (campo.unidade === "px") return `${v} px`;
   if (campo.unidade !== "ms") return String(v);
   if (v < 1000) return `${v} ms`;
   if (v < 60000) return `${(v / 1000).toFixed(v % 1000 ? 1 : 0).replace(".", ",")} s`;
