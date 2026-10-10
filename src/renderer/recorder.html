@@ -13,13 +13,25 @@
   let maxTimer = null;
   let silenceMs = 2500;
 
+  // Fase 21: acima disto é fala (o limiar de silêncio é 0,01; fala perto do microfone passa de 0,03).
+  const FALA_THRESHOLD = 0.03;
+  let ouviuFala = false;
+  let esperarFala = false;
+  let semFalaTimer = null;
+  let descartar = false;
+
   window.elysium.onStartRecording(async (cfg) => {
     silenceMs = cfg.silenceMs;
     chunks = [];
     clearTimeout(silenceTimer);
     clearTimeout(maxTimer);
+    clearTimeout(semFalaTimer);
     silenceTimer = null;
     maxTimer = null;
+    semFalaTimer = null;
+    ouviuFala = false;
+    descartar = false;
+    esperarFala = Number(cfg.esperarFalaMs) > 0;
 
     let stream;
     try {
@@ -44,6 +56,7 @@
     mediaRecorder.onstop = async () => {
       stream.getTracks().forEach((t) => t.stop());
       if (audioCtx.state !== "closed") audioCtx.close();
+      if (descartar) return;
       const blob = new Blob(chunks, { type: mimeType });
       const buf = await blob.arrayBuffer();
       window.elysium.sendAudio(buf);
@@ -67,8 +80,11 @@
         lastLevelSend = now;
       }
 
+      // Fase 21 (modo live): com `esperarFalaMs`, o silêncio só conta DEPOIS que ele começou a
+      // falar — senão a gravação parava em 2,5 s de nada e o Whisper inventava uma frase.
+      if (rms >= FALA_THRESHOLD && !ouviuFala) { ouviuFala = true; clearTimeout(semFalaTimer); semFalaTimer = null; }
       if (rms < SILENCE_THRESHOLD) {
-        if (!silenceTimer) silenceTimer = setTimeout(stopRecording, silenceMs);
+        if (!silenceTimer && (ouviuFala || !esperarFala)) silenceTimer = setTimeout(stopRecording, silenceMs);
       } else {
         clearTimeout(silenceTimer);
         silenceTimer = null;
@@ -78,13 +94,20 @@
     requestAnimationFrame(checkSilence);
 
     maxTimer = setTimeout(stopRecording, cfg.maxRecordMs);
+    // Ninguém falou no prazo: descarta o áudio e avisa "nada".
+    if (esperarFala) semFalaTimer = setTimeout(() => { descartar = true; stopRecording(); window.elysium.sendNada?.(); }, cfg.esperarFalaMs);
   });
+
+  // Fase 21: sair do modo live no meio da escuta — para sem mandar o áudio.
+  window.elysium.onCancel?.(() => { descartar = true; stopRecording(); });
 
   function stopRecording() {
     clearTimeout(silenceTimer);
     clearTimeout(maxTimer);
+    clearTimeout(semFalaTimer);
     silenceTimer = null;
     maxTimer = null;
+    semFalaTimer = null;
     if (mediaRecorder && mediaRecorder.state !== "inactive") {
       mediaRecorder.stop();
       mediaRecorder = null;

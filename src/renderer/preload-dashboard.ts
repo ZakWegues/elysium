@@ -10,6 +10,9 @@ contextBridge.exposeInMainWorld("nx", {
   rpcMethods: () => ipcRenderer.invoke("rpc:methods"),
   // ── Voice ──────────────────────────────────────────────────────────────────
   startListening:  ()                       => ipcRenderer.send("voice:start"),
+  // Fase 21: modo live (conversa contínua).
+  alternarLive:    ()                       => ipcRenderer.send("live:alternar"),
+  onLive:          (cb: (ligado: boolean) => void) => { ipcRenderer.on("live:mudou", (_e, v) => cb(Boolean(v))); },
   onState:         (cb: (s: string)    => void) => { ipcRenderer.on("voice:state",        (_e, s) => cb(s)); },
   onTranscript:    (cb: (t: string)    => void) => { ipcRenderer.on("voice:transcript",   (_e, t) => cb(t)); },
   onReply:         (cb: (r: string)    => void) => { ipcRenderer.on("voice:reply",        (_e, r) => cb(r)); },

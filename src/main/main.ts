@@ -58,6 +58,7 @@ import { getTopHistory } from "../services/history";
 import { registrarPergunta, bolhasDoChat } from "../services/perguntas";
 import { aoTocarAudio, ehNoite } from "../services/tts";
 import { aoTerminarInstalacao } from "../actions/instalarApp";
+import { ehAlucinacaoDoWhisper, ehEntradaDoLive, ehSaidaDoLive, SILENCIO_LIVE_MS } from "../services/live";
 import { aplicarConfigBolota, bolotaEvento, bolotaFala, bolotaNivel, fecharBolota, iniciarBolota } from "./orbeWindow";
 import { aoMudarFala, estaFalando, falaAtual, falar as speak, interromperTudo as interruptAll, novoTurno, turnoAtual } from "./fala";
 import { habitosParaLembrar } from "../services/habitos";
@@ -469,7 +470,7 @@ async function perguntarComoFoi(): Promise<void> {
 
 // ── recording flow ────────────────────────────────────────────────────────────
 
-async function startListening(): Promise<void> {
+async function startListening(opcoes: { esperarFalaMs?: number } = {}): Promise<void> {
   if (!recorderWin || recorderWin.isDestroyed()) {
     recorderWin = createRecorderWindow();
     await new Promise<void>((res) => recorderWin!.webContents.once("did-finish-load", res));
@@ -479,8 +480,60 @@ async function startListening(): Promise<void> {
   recorderWin.webContents.send("start-recording", {
     silenceMs:    cfg.silenceMs,
     maxRecordMs:  cfg.maxRecordMs,
+    esperarFalaMs: opcoes.esperarFalaMs ?? 0,
   });
 }
+
+// ── modo live (fase 21, bloco 217) ──────────────────────────────────────────────
+// Turnos encadeados: ela responde e volta a ouvir sozinha. Só em memória — reiniciar o app
+// desliga. Sai por "tchau", clique na bolota ou 60 s sem ouvir nada (ver services/live.ts).
+let liveLigado = false;
+let liveTimer: NodeJS.Timeout | null = null;
+
+function ligarLive(): void {
+  if (liveLigado) return;
+  liveLigado = true;
+  console.log("[live] ligado");
+  enviarAoDash("live:mudou", true);
+  notify("ELYSIUM — modo live", "Pode falar. Diga “tchau” (ou clique na bolota) para sair.");
+  const t = (getConfig().tratamento ?? "").trim();
+  void speak(`Modo live ligado${t ? `, ${t}` : ""}. Pode falar.`).catch(() => {}).finally(() => ouvirNoLive(400));
+}
+
+function desligarLive(fala?: string): void {
+  if (!liveLigado) return;
+  liveLigado = false;
+  if (liveTimer) { clearTimeout(liveTimer); liveTimer = null; }
+  console.log("[live] desligado");
+  enviarAoDash("live:mudou", false);
+  if (fala) void speak(fala).catch(() => {});
+}
+
+/** Volta a ouvir, se o live continua e o app está livre (a fala já acabou). */
+function ouvirNoLive(depoisDe = 350): void {
+  if (!liveLigado) return;
+  if (liveTimer) clearTimeout(liveTimer);
+  liveTimer = setTimeout(() => {
+    liveTimer = null;
+    if (!liveLigado || !state.is("idle") || estaFalando()) return;
+    startListening({ esperarFalaMs: SILENCIO_LIVE_MS }).catch((e) => { console.error("[live] não consegui ouvir:", e); desligarLive(); });
+  }, depoisDe);
+}
+
+/** Para a gravação em andamento sem mandar o áudio (sair do live no meio da escuta). */
+function cancelarGravacao(): void {
+  if (recorderWin && !recorderWin.isDestroyed()) recorderWin.webContents.send("cancel-recording");
+}
+
+ipcMain.on("live:alternar", () => {
+  if (liveLigado) { desligarLive(); cancelarGravacao(); state.set("idle"); }
+  else if (hasApiKey()) ligarLive();
+});
+
+ipcMain.on("recorder-nada", () => {
+  state.set("idle");
+  if (liveLigado) desligarLive("Fiquei um minuto sem ouvir nada. Saí do modo live.");
+});
 
 ipcMain.on("audio-data", async (_event, buffer: Buffer) => {
   const meuToken = novoTurno();
@@ -498,13 +551,27 @@ ipcMain.on("audio-data", async (_event, buffer: Buffer) => {
       acordadoPorVozEm = 0;
     }
 
-    if (!text) {
-      notify("ELYSIUM", "Não entendi o áudio. Tente novamente.");
+    if (!text || (liveLigado && ehAlucinacaoDoWhisper(text))) {
+      // No live, áudio sem pedido só volta a ouvir — sem balão a cada vez.
+      if (!liveLigado) notify("ELYSIUM", "Não entendi o áudio. Tente novamente.");
       state.set("idle");
       return;
     }
 
     enviarAoDash("voice:transcript", text);
+
+    // Fase 21: entrar e sair do modo live são do PC (microfone), não do cérebro.
+    if (liveLigado && ehSaidaDoLive(text)) {
+      const t = (getConfig().tratamento ?? "").trim();
+      desligarLive(`Até mais${t ? `, ${t}` : ""}.`);
+      state.set("idle");
+      return;
+    }
+    if (!liveLigado && ehEntradaDoLive(text)) {
+      state.set("idle");
+      ligarLive();
+      return;
+    }
 
     // Frase de espera (fase 18, 08/10): pedido que passa de 2,5 s (busca na web, o agente
     // olhando várias coisas) ganha um "Um instante." — silêncio longo na voz parece que caiu.
@@ -562,6 +629,8 @@ ipcMain.on("audio-data", async (_event, buffer: Buffer) => {
     try { await speak(msg); } catch { /* ignore */ }
   } finally {
     if (turnoAtual() === meuToken) state.set("idle");
+    // Modo live: terminou o turno (ou não tinha pedido) — volta a ouvir.
+    if (liveLigado) ouvirNoLive();
   }
 });
 
@@ -610,6 +679,12 @@ async function enviarTexto(text: string, opcoes?: { refazer?: boolean }): Promis
   // O token é o que impede o handler interrompido de devolver o estado a "ocioso" no
   // meio do pedido novo: `interruptAll` avança o contador, e só o dono do valor atual
   // encerra o ciclo.
+  // Fase 21: "modo live" digitado no chat também liga (o microfone é deste PC).
+  if (ehEntradaDoLive(text)) {
+    enviarAoDash("chat:reply", "Modo live ligado. Pode falar; diga “tchau” ou clique na bolota para sair.");
+    ligarLive();
+    return;
+  }
   const meuToken = novoTurno();
   state.set("processing");
   try {
@@ -1129,11 +1204,15 @@ app.on("ready", async () => {
   iniciarBolota({
     falar: () => {
       if (!hasApiKey()) { openConfigWindow(); return; }
+      // No modo live, o clique na bolota é a saída.
+      if (liveLigado) { desligarLive(); interruptAll(); interromperHermes(); cancelarGravacao(); state.set("idle"); return; }
       if (!state.is("idle")) { interruptAll(); interromperHermes(); state.set("idle"); return; }
       startListening().catch((e) => console.error("[bolota] não consegui começar a ouvir:", e));
     },
     abrirDashboard: () => openDashboard(),
     pararFala: () => { interruptAll(); interromperHermes(); state.set("idle"); },
+    alternarLive: () => { if (liveLigado) { desligarLive(); cancelarGravacao(); state.set("idle"); } else ligarLive(); },
+    liveLigado: () => liveLigado,
   });
 
   recorderWin = createRecorderWindow();

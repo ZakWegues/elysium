@@ -302,6 +302,16 @@ function sendText() {
 }
 
 sendBtn.addEventListener("click", sendText);
+
+// Fase 21: modo live — um clique liga a conversa contínua, outro desliga. O botão acende
+// enquanto ele está ligado (venha de onde vier: voz, bolota ou aqui).
+const liveBtn = document.getElementById("live-btn");
+liveBtn?.addEventListener("click", () => window.nx.alternarLive?.());
+window.nx.onLive?.((ligado) => {
+  liveBtn?.classList.toggle("active", ligado);
+  liveBtn?.setAttribute("aria-pressed", String(ligado));
+  if (liveBtn) liveBtn.title = ligado ? "Sair do modo live" : "Modo live: conversa contínua (diga “tchau” para sair)";
+});
 cmdInput.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendText(); } });
 
 micBtn.addEventListener("click", () => {
