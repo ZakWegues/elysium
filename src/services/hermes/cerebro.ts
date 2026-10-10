@@ -207,7 +207,7 @@ async function tratarFim(fim: FimDoTurno, noTurno: boolean): Promise<RespostaHer
     s.pedido = "";
     console.warn(`[hermes] turno falhou: ${fim.motivo}`);
     // Sessão que demorou a começar pode estar presa: a próxima abre outra.
-    if (/demorou|não terminou/.test(fim.motivo)) s.sessao = null;
+    if (/demorou|não terminou|parou no meio/.test(fim.motivo)) s.sessao = null;
     return noTurno ? null : { reply: "Não consegui terminar isso agora." };
   }
   const antes = fim.texto ? `${fim.texto} ` : "";

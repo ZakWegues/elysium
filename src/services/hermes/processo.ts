@@ -66,6 +66,8 @@ export async function garantirPerfil(exe: string, perfil = PERFIL_PADRAO): Promi
   await rodarHermes(exe, ["profile", "create", perfil, "--clone", "--no-alias", "--description", "Cerebro da Ely, a assistente do ELYSIUM."], 180_000);
   await rodarHermes(exe, ["-p", perfil, "config", "set", "memory.memory_enabled", "false"]);
   await rodarHermes(exe, ["-p", perfil, "config", "set", "memory.user_profile_enabled", "false"]);
+  // A ferramenta de memória escreve o MEMORY.md do perfil mesmo com a injeção desligada.
+  await rodarHermes(exe, ["-p", perfil, "tools", "disable", "memory"]).catch(() => "");
 }
 
 /**

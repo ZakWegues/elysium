@@ -14,6 +14,8 @@ import { ConexaoHermes, EventoHermes } from "./conexao";
 export const PRAZO_SINAL_QUENTE_MS = 6_000;
 export const PRAZO_SINAL_FRIO_MS = 20_000;
 export const PRAZO_TURNO_MS = 120_000;
+/** Sem nenhum evento por este tempo no meio do turno = o Hermes travou (ferramenta lenta conta como evento). */
+export const PRAZO_SILENCIO_MS = 25_000;
 
 export type FimDoTurno =
   | { tipo: "resposta"; texto: string }
@@ -25,6 +27,7 @@ export interface OpcoesTurno {
   /** Prazo para o 1º sinal de vida (pensamento, ferramenta ou texto). Estourou = reserva. */
   prazoSinalMs: number;
   prazoTurnoMs?: number;
+  prazoSilencioMs?: number;
 }
 
 /** Eventos que mostram que o agente está trabalhando neste turno. Puro. */
@@ -60,6 +63,7 @@ export function rodarTurno(
     let acumulado = "";
     let sinal = false;
     let acabou = false;
+    let esperandoDono = false;
     // Depois de uma pergunta, o resto do turno segue aqui (o "sim" do dono destrava o agente).
     let resolverAtual = resolver;
 
@@ -68,14 +72,28 @@ export function rodarTurno(
       acabou = true;
       clearTimeout(tSinal);
       clearTimeout(tTurno);
+      if (tSilencio) clearTimeout(tSilencio);
       desligar();
       pedidos.aguardar(null);
       resolverAtual(fim);
     };
 
+    // Medido na bancada (10/10): o modelo :free às vezes começa (pensamento) e para de mandar
+    // qualquer coisa — o turno ficava preso até os 120 s. Sem evento nenhum por
+    // `prazoSilencioMs` depois do primeiro sinal, desiste e o chamador cai na reserva.
+    let tSilencio: ReturnType<typeof setTimeout> | null = null;
+    const vigiarSilencio = () => {
+      if (tSilencio) clearTimeout(tSilencio);
+      tSilencio = setTimeout(() => {
+        void con.chamar("session.interrupt", { session_id: sessionId }, 5_000).catch(() => {});
+        terminar(acumulado.trim() ? { tipo: "resposta", texto: acumulado.trim() } : { tipo: "erro", motivo: "o Hermes parou no meio" });
+      }, op.prazoSilencioMs ?? PRAZO_SILENCIO_MS);
+    };
+
     const desligar = con.ouvir((e: EventoHermes) => {
       if (e.session_id && e.session_id !== sessionId) return;
-      if (ehSinalDeVida(e.type)) { sinal = true; clearTimeout(tSinal); }
+      if (sinal && !esperandoDono) vigiarSilencio();
+      if (ehSinalDeVida(e.type)) { if (!sinal) vigiarSilencio(); sinal = true; clearTimeout(tSinal); }
       if (e.type === "message.delta") {
         const t = typeof e.payload?.text === "string" ? e.payload.text : "";
         if (t) { acumulado += t; op.onToken?.(t); }
@@ -87,6 +105,11 @@ export function rodarTurno(
     pedidos.aguardar((metodo, params, responder) => {
       sinal = true;
       clearTimeout(tSinal);
+      // Esperando o "sim" do dono: o silêncio do Hermes é normal; volta a vigiar na resposta.
+      esperandoDono = true;
+      if (tSilencio) clearTimeout(tSilencio);
+      const responderOriginal = responder;
+      responder = (r: unknown) => { esperandoDono = false; vigiarSilencio(); responderOriginal(r); };
       // O turno "acaba" para quem perguntou, com a pergunta; o resto continua numa promessa nova.
       const anterior = resolverAtual;
       const resto = new Promise<FimDoTurno>((r) => { resolverAtual = r; });

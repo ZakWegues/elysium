@@ -111,6 +111,14 @@ describe("ponte com o Hermes (bloco 213)", () => {
     con.fechar();
   });
 
+  it("começou e travou: desiste pelo vigia de silêncio, sem esperar os 120 s", async () => {
+    const url = await falso((_ws, sid, enviar) => { enviar(evento("thinking.delta", { text: "…" }, sid)); });
+    const con = await conectar(url);
+    const fim = await rodarTurno(con, "s1", "oi", { prazoSinalMs: 2000, prazoSilencioMs: 200 }, pedidosDe());
+    expect(fim).toEqual({ tipo: "erro", motivo: "o Hermes parou no meio" });
+    con.fechar();
+  });
+
   it("erro do modelo no message.complete é erro, não resposta", () => {
     expect(lerFim({ status: "error", error: "429 rate limit" }, "").tipo).toBe("erro");
     expect(lerFim({ status: "complete" }, "texto acumulado")).toEqual({ tipo: "resposta", texto: "texto acumulado" });
@@ -185,14 +193,15 @@ describe("MCP do ELYSIUM para o Hermes", () => {
     definicoes: () => [
       { name: "volume", description: "volume", parameters: { type: "object" } },
       { name: "energia", description: "desliga", parameters: { type: "object" } },
-      { name: "apagar_rotina", description: "apaga", parameters: { type: "object" } },
+      { name: "lembrar_fato", description: "guarda na memória", parameters: { type: "object" } },
     ],
     executar: async (nome: string) => nome === "volume" ? { resultado: "Volume em 40." } : { resultado: "Apagar? Confirma? Diga sim.", pergunta: true },
   };
-  it("lista só as permitidas (energia e apagar rotina ficam de fora)", async () => {
+  it("lista só as permitidas (energia e memória pessoal ficam de fora)", async () => {
     const r = await responderMcp({ jsonrpc: "2.0", id: 1, method: "tools/list" }, ex) as { result: { tools: { name: string }[] } };
     expect(r.result.tools.map(t => t.name)).toEqual(["volume"]);
     expect(FERRAMENTAS_DO_HERMES.has("energia")).toBe(false);
+    expect(FERRAMENTAS_DO_HERMES.has("fechar_tudo_menos")).toBe(true);
     expect(FERRAMENTAS_DO_HERMES.has("lembrar_fato")).toBe(false);
   });
   it("chamada fora da lista é recusada; notificação não tem resposta", async () => {
