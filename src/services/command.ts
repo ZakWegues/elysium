@@ -8,6 +8,7 @@ import { getConfig } from "../main/config";
 import type { Canal } from "./estiloResposta";
 import { comContexto, Fonte, fontesDoPedido, marcarReserva, usouReserva } from "./contextoComando";
 import { agirViaHermes, responderEsclarecimentoHermes } from "./hermes/cerebro";
+import { ehEntradaDoLive } from "./live";
 import { responderConfirmacao } from "./confirmacao";
 import { responderRevisao, semMarcas } from "./cartoes";
 
@@ -87,6 +88,14 @@ async function executarNoContexto(
     recordAssistantReply(doHermes);
     ganchos.onToken?.(doHermes);
     return { actions: [{ action: "chat" }], reply: doHermes, atalho: false };
+  }
+
+  // Fase 21: "modo live" que chega aqui veio do celular (a voz e o chat do PC tratam antes, no
+  // main) — quem liga o laço é o app do celular; a resposta só confirma.
+  if (ehEntradaDoLive(text)) {
+    const reply = "Modo live ligado. Pode falar; diga tchau para sair.";
+    ganchos.onToken?.(reply);
+    return { actions: [{ action: "chat" }], reply, atalho: true };
   }
 
   const shortcut = fastRoute(text);
