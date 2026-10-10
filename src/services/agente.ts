@@ -311,7 +311,7 @@ export async function agir(
  * Ely LEU (e não pelo pedido dele) é barrada; ação sem volta vira pergunta ("Confirma? Diga
  * sim.") e só roda no "sim" do próximo pedido (`confirmacao.ts`).
  */
-async function executarComPolitica(nome: string, args: Record<string, unknown>, contaminado: boolean, pedido: string): Promise<{ resultado: string; pergunta?: boolean }> {
+export async function executarComPolitica(nome: string, args: Record<string, unknown>, contaminado: boolean, pedido: string): Promise<{ resultado: string; pergunta?: boolean }> {
   const decisao = decidirChamada(nome, contaminado, pedido, args);
   if (decisao.tipo === "bloquear") {
     console.warn(`[agente] ${nome} barrada: veio depois de ler conteúdo de fora e o pedido não pedia isso.`);

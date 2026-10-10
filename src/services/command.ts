@@ -6,7 +6,8 @@ import { routeAction } from "../actions/router";
 import { trackUsage } from "./history";
 import { getConfig } from "../main/config";
 import type { Canal } from "./estiloResposta";
-import { comContexto, Fonte, fontesDoPedido, usouReserva } from "./contextoComando";
+import { comContexto, Fonte, fontesDoPedido, marcarReserva, usouReserva } from "./contextoComando";
+import { agirViaHermes, responderEsclarecimentoHermes } from "./hermes/cerebro";
 import { responderConfirmacao } from "./confirmacao";
 import { responderRevisao, semMarcas } from "./cartoes";
 
@@ -79,16 +80,44 @@ async function executarNoContexto(
     return { actions: [], reply: daRevisao, atalho: true };
   }
 
+  // Fase 21: o Hermes perguntou algo no turno anterior ("qual pasta?") — este pedido é a resposta.
+  const doHermes = await responderEsclarecimentoHermes(text);
+  if (doHermes !== null) {
+    registrarTurnoUsuario(text);
+    recordAssistantReply(doHermes);
+    ganchos.onToken?.(doHermes);
+    return { actions: [{ action: "chat" }], reply: doHermes, atalho: false };
+  }
+
   const shortcut = fastRoute(text);
   if (shortcut) noteFastRouted(text, shortcut);
+
+  let actions: BrainAction[] | null = shortcut;
+  let replyPronta: string | null = null;
+
+  // Fase 21: com o cérebro "hermes", tudo que não é atalho vai para o Hermes (perfil `ely`), que
+  // pensa, usa as ferramentas dele e as do ELYSIUM (MCP) e escreve a resposta com a persona da
+  // Ely. Qualquer falha — fora do ar, demorou a começar, erro do modelo — cai no cérebro de
+  // sempre logo abaixo, com o selo "reserva".
+  let turnoRegistrado = false;
+  if (!shortcut && getConfig().cerebro === "hermes") {
+    registrarTurnoUsuario(text);
+    turnoRegistrado = true;
+    const h = await agirViaHermes(text, { canal: ganchos.canal, onToken: ganchos.onToken });
+    if (h) {
+      const reply = semMarcas(h.reply);
+      recordAssistantReply(reply);
+      trackUsage(text, { action: "chat" });
+      return { actions: [{ action: "chat" }], reply, atalho: false };
+    }
+    marcarReserva();
+  }
 
   // O cérebro com ferramentas (bloco 78): olha o PC, age em etapas e escreve a resposta.
   // "CHAT" vira a composição de sempre (com streaming); falha do provedor cai no roteador
   // clássico logo abaixo — ele continua inteiro como rede de segurança.
-  let actions: BrainAction[] | null = shortcut;
-  let replyPronta: string | null = null;
   if (!shortcut && getConfig().cerebroFerramentas !== false) {
-    registrarTurnoUsuario(text);
+    if (!turnoRegistrado) registrarTurnoUsuario(text);
     const r = await agir(text, {
       canal: ganchos.canal,
       onChamada: (nome, args) => { const eq = ferramentaComoAcao(nome, args); if (eq) ganchos.onActions?.([eq]); },
@@ -106,7 +135,7 @@ async function executarNoContexto(
       actions = await decideBrain(text, true);
     }
   }
-  if (!actions) actions = await decideBrain(text);
+  if (!actions) actions = await decideBrain(text, turnoRegistrado);
   ganchos.onActions?.(actions);
 
   const replies: string[] = [];

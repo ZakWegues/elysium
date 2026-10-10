@@ -236,7 +236,8 @@ function anexarExtras(x) {
       `<button type="button" data-fonte="${escHtml(f.url)}" title="${escHtml(f.titulo)}"><b>${i + 1}</b>${escHtml(host(f.url))}</button>`).join("")}</div>`);
   }
   if (x?.local && !rodape.querySelector(".chat-local")) {
-    rodape.insertAdjacentHTML("afterbegin", `<div class="chat-local" title="A nuvem não respondeu; quem respondeu foi o modelo deste PC — pode ser menos preciso.">modo local</div>`);
+    // Fase 21: "reserva" cobre os dois casos — o Hermes não respondeu, ou a nuvem caiu e o local respondeu.
+    rodape.insertAdjacentHTML("afterbegin", `<div class="chat-local" title="O cérebro principal não respondeu a tempo; quem respondeu foi a reserva — pode ser menos preciso.">reserva</div>`);
   }
   if (x?.sugestoes?.length) {
     rodape.querySelector(".chat-sugestoes")?.remove();

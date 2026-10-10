@@ -45,6 +45,7 @@ import { sintetizarMp3 } from "./tts";
 import { registrarAcesso } from "./aparelhos";
 import { estadoAtualizacao } from "./atualizacao";
 import * as fsAtualizacao from "node:fs";
+import { ehDoProprioPc, ExecutorMcp, responderMcp } from "./mcpElysium";
 
 const WS_MAGIC = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
@@ -275,6 +276,37 @@ function authorized(req: http.IncomingMessage): boolean {
   return false;
 }
 
+// ── MCP do Hermes (fase 21) ───────────────────────────────────────────────────
+
+let mcp: { token: string; ex: ExecutorMcp } | null = null;
+
+/** Liga o `/mcp/<token>` (main.ts, na partida, quando o cérebro é o Hermes). */
+export function ligarMcp(token: string, ex: ExecutorMcp): void {
+  mcp = { token, ex };
+}
+
+function mesmoToken(a: string, b: string): boolean {
+  const h = (t: string) => crypto.createHash("sha256").update(t, "utf8").digest();
+  return crypto.timingSafeEqual(h(a), h(b));
+}
+
+async function atenderMcp(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
+  const token = (req.url ?? "").split("?")[0].slice("/mcp/".length);
+  if (!mcp || !ehDoProprioPc(req.socket.remoteAddress) || !mesmoToken(token, mcp.token)) {
+    contarRecusa(req);
+    sendJson(res, 401, { error: "Unauthorized" });
+    return;
+  }
+  if (req.method === "DELETE") { res.writeHead(200); res.end(); return; }
+  if (req.method !== "POST") { res.writeHead(405, { Allow: "POST" }); res.end(); return; }
+  let corpo: unknown;
+  try { corpo = JSON.parse(await readBody(req)); } catch { sendJson(res, 400, { jsonrpc: "2.0", id: null, error: { code: -32700, message: "JSON inválido" } }); return; }
+  const lista = Array.isArray(corpo) ? corpo : [corpo];
+  const respostas = (await Promise.all(lista.map(m => responderMcp(m as object, mcp!.ex)))).filter(Boolean);
+  if (!respostas.length) { res.writeHead(202); res.end(); return; }
+  sendJson(res, 200, Array.isArray(corpo) ? respostas : respostas[0]);
+}
+
 // ── callback do OAuth do Spotify ──────────────────────────────────────────────
 
 function escaparHtml(t: string): string {
@@ -426,6 +458,11 @@ function makeHandler(
     }
 
     if (recusasDemais(req)) { sendJson(res, 429, { error: "Too many failed attempts" }); return; }
+
+    // Fase 21: o MCP das ferramentas do ELYSIUM para o Hermes. Token próprio no caminho (o
+    // cliente MCP do Hermes não manda o nosso cabeçalho), e só do próprio PC.
+    if ((req.url ?? "").startsWith("/mcp/")) { await atenderMcp(req, res); return; }
+
     if (!authorized(req)) {
       contarRecusa(req);
       registrarAcesso(req, false);

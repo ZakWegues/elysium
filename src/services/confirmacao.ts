@@ -14,6 +14,11 @@ export interface ConfirmacaoPendente {
   descricao: string;
   executar: () => Promise<string>;
   expiraEm: number;
+  /**
+   * Fase 21: quem perguntou precisa saber do "não" (o agente do Hermes fica parado esperando
+   * a licença). Chamado no "não", quando a pergunta vence ou é trocada por outro pedido.
+   */
+  cancelar?: () => void;
 }
 
 export const VALIDADE_MS = 30_000;
@@ -36,8 +41,14 @@ export function ehNao(texto: string): boolean {
 }
 
 /** Guarda a ação e devolve a pergunta que a Ely fala. */
-export function pedirConfirmacao(descricao: string, executar: () => Promise<string>, agora = Date.now()): string {
-  pendente = { descricao, executar, expiraEm: agora + VALIDADE_MS };
+export function pedirConfirmacao(descricao: string, executar: () => Promise<string>, agora = Date.now(), cancelar?: () => void): string {
+  descartar();
+  pendente = { descricao, executar, expiraEm: agora + VALIDADE_MS, cancelar };
+  if (cancelar) {
+    // Ninguém respondeu em 30 s: avisa quem perguntou, sem esperar o próximo pedido.
+    const p = pendente;
+    setTimeout(() => { if (pendente === p) descartar(); }, VALIDADE_MS + 500).unref?.();
+  }
   return `${descricao} Confirma? Diga sim.`;
 }
 
@@ -46,7 +57,13 @@ export function haConfirmacaoPendente(agora = Date.now()): boolean {
 }
 
 export function limparConfirmacao(): void {
+  descartar();
+}
+
+function descartar(): void {
+  const p = pendente;
   pendente = null;
+  try { p?.cancelar?.(); } catch { /* quem perguntou já foi */ }
 }
 
 /**
@@ -58,11 +75,13 @@ export async function responderConfirmacao(texto: string, agora = Date.now()): P
   const p = pendente;
   if (!p) return null;
   pendente = null;
-  if (p.expiraEm <= agora) return null;
+  const cancelar = () => { try { p.cancelar?.(); } catch { /* */ } };
+  if (p.expiraEm <= agora) { cancelar(); return null; }
   if (ehSim(texto)) {
     try { return (await p.executar()).trim() || "Feito."; }
     catch (e) { return `Não consegui: ${e instanceof Error ? e.message : String(e)}`; }
   }
+  cancelar();
   if (ehNao(texto)) return "Tudo bem, deixei como estava.";
   return null;
 }

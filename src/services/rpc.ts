@@ -25,6 +25,7 @@ import * as os from "node:os";
 import { getAllLocalIPv4 } from "../main/network";
 import { clientesConectados } from "./server";
 import { getConfig, setOverride } from "../main/config";
+import { aplicarConfigHermes, estadoHermes } from "./hermes/cerebro";
 
 function hostnameOf(): string {
   try { return os.hostname(); } catch { return "PC"; }
@@ -1340,6 +1341,18 @@ const METHODS: Record<string, MethodDef> = {
       setOverride(patch);
       const c = getConfig();
       return { estiloResposta: estiloValido(c.estiloResposta), instrucoesPessoais: c.instrucoesPessoais ?? "", tratamento: c.tratamento ?? "chefe" };
+    },
+  },
+  // Fase 21: o cérebro Hermes — estado (chip de Ajustes no PC e no celular) e a escolha.
+  "hermes.status": { handler: async () => estadoHermes() },
+  "hermes.set": {
+    handler: async (params) => {
+      const patch: { cerebro?: "hermes" | "elysium"; hermesContextoPessoal?: boolean } = {};
+      if (params["cerebro"] === "hermes" || params["cerebro"] === "elysium") patch.cerebro = params["cerebro"];
+      if (typeof params["contextoPessoal"] === "boolean") patch.hermesContextoPessoal = params["contextoPessoal"];
+      setOverride(patch);
+      aplicarConfigHermes();
+      return estadoHermes();
     },
   },
   // Busca dentro das conversas salvas (bloco 133): paleta do PC e, no futuro, o celular.

@@ -34,6 +34,12 @@ const AJUSTES = [
           "bancada do agente (20 pedidos compostos e condicionais × 3): qwen2.5:7b acertou 80% em " +
           "1,0 s, llama3.1:8b 73% em 2,1 s, llama3.2:3b 60% e age em conversa.",
     campos: [
+      // Fase 21: o Hermes Agent instalado no PC pensa e age; o resto desta seção vira a reserva.
+      { chave: "cerebro", rotulo: "Cérebro principal", tipo: "select", opcoes: [
+        ["hermes", "Hermes — o agente instalado neste PC (com reserva)"], ["elysium", "ELYSIUM — Groq e modelo local"]],
+        dica: "Com o Hermes, tudo que não é atalho vai para ele, com a voz e o jeito da Ely. Se ele estiver fora do ar ou demorar, responde o cérebro de baixo e a resposta ganha o selo “reserva”." },
+      { chave: "hermesContextoPessoal", rotulo: "Mandar minha memória ao Hermes", tipo: "bool",
+        dica: "Desligado: o Hermes recebe só seu nome, o tratamento e suas instruções. Ligado, também os fatos guardados na memória — que vão para o modelo na nuvem que o Hermes usa." },
       { chave: "routerProvider", rotulo: "Quem decide a ação", tipo: "select", opcoes: [
         ["ollama", "Local — Ollama nesta máquina"], ["groq", "Nuvem — Groq"]] },
       { chave: "chatProvider", rotulo: "Quem escreve a resposta", tipo: "select", opcoes: [
@@ -143,7 +149,8 @@ const SECOES_AJUSTES = [
   { id: "atalho", titulo: "Atalho e conta", icone: "key", nos: ["#sec-atalho"],
     resumo: (c) => c.shortcut || "Ctrl+Shift+J" },
   { id: "cerebro", titulo: "Cérebro", icone: "cpu", nos: ["[data-secao='cerebro']", "[data-secao='modelos-da-groq']"],
-    resumo: (c) => (c.routerProvider === "groq" ? "Nuvem" : "Local") + " · " + (c.chatProvider === "groq" ? "responde na nuvem" : c.chatProvider === "auto" ? "híbrido" : "responde local") },
+    resumo: (c) => (c.cerebro !== "elysium" ? "Hermes · reserva " : "") + (c.routerProvider === "groq" ? "Nuvem" : "Local") + " · " + (c.chatProvider === "groq" ? "responde na nuvem" : c.chatProvider === "auto" ? "híbrido" : "responde local"),
+    aoAbrir: () => desenharEstadoHermes() },
   { id: "voz", titulo: "Voz", icone: "mic", nos: ["[data-secao='voz']"],
     resumo: (c) => (String(c.voice || "").match(/pt-BR-([A-Za-z]+?)(Multilingual)?Neural/)?.[1]) || "Francisca" },
   { id: "clima", titulo: "Clima", icone: "cloud", nos: ["#sec-clima"],
@@ -284,6 +291,23 @@ document.getElementById("aj-hub")?.addEventListener("click", (e) => {
   const az = e.target.closest("[data-secao-id]");
   if (az) abrirSecao(az.dataset.secaoId);
 });
+
+/**
+ * Fase 21: o chip de estado do Hermes no topo da gaveta Cérebro — se ele está de pé, qual modelo
+ * e quanto levou a 1ª palavra da última resposta.
+ */
+async function desenharEstadoHermes() {
+  const corpo = document.getElementById("gaveta-corpo");
+  if (!corpo) return;
+  let el = document.getElementById("hermes-estado");
+  if (!el) { el = document.createElement("p"); el.id = "hermes-estado"; el.className = "cfg-nota"; corpo.prepend(el); }
+  let h = null;
+  try { h = (await window.nx.rpc("hermes.status")).result; } catch { /* preload antigo */ }
+  if (!h) { el.textContent = ""; return; }
+  const rotulo = { pronto: "Hermes no ar", subindo: "Hermes subindo…", "sem-hermes": "Hermes não instalado neste PC", erro: "Hermes fora do ar", desligado: "Hermes desligado" }[h.estado] ?? h.estado;
+  const det = [h.modelo, h.latenciaMs ? `1ª palavra em ${(h.latenciaMs / 1000).toFixed(1).replace(".", ",")} s` : "", h.estado === "erro" && h.erro ? h.erro : ""].filter(Boolean).join(" · ");
+  el.innerHTML = `<b>${escHtml(rotulo)}</b>${det ? ` — ${escHtml(det)}` : ""} (perfil ${escHtml(h.perfil)})`;
+}
 
 /** A seção "Sobre": o que se pergunta quando algo dá errado, num lugar só. */
 async function desenharSobre() {

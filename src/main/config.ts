@@ -93,6 +93,15 @@ export interface AppConfig {
    * volta ao roteador clássico de uma lista de ações — a rede de segurança.
    */
   cerebroFerramentas: boolean;
+  /**
+   * Fase 21: quem responde o que não é atalho. "hermes" = o Hermes Agent instalado no PC (perfil
+   * `hermesPerfil`), com o cérebro de sempre como reserva; "elysium" = só o cérebro de sempre
+   * (Groq/local, conforme `routerProvider`/`chatProvider`).
+   */
+  cerebro: "hermes" | "elysium";
+  hermesPerfil: string;
+  /** Mandar a memória pessoal ao Hermes (vai para um modelo de terceiros). Desligado por padrão. */
+  hermesContextoPessoal: boolean;
   /** Dizer "Elysium" acorda o assistente (bloco 88, reconhecedor offline do Windows). */
   palavraDeAtivacao: boolean;
   /** Versão nova já baixada instala sozinha entre 3 e 5 h, com o PC parado (fase 12). */
@@ -224,6 +233,11 @@ const DEFAULTS: AppConfig = {
   ollamaNumCtx: 8192,
   fallbackToGroq: true,
   cerebroFerramentas: true,
+  // Fase 21: decisão do Zak (09/10) — o Hermes responde tudo que não é atalho. Sem o Hermes
+  // instalado, o estado fica "sem-hermes" e tudo segue pelo cérebro de sempre.
+  cerebro: "hermes",
+  hermesPerfil: "ely",
+  hermesContextoPessoal: false,
   // Microfone sempre aberto é escolha do dono, não padrão de fábrica.
   palavraDeAtivacao: false,
   atualizarDeMadrugada: true,
@@ -269,9 +283,9 @@ function loadDefaults(): AppConfig {
 }
 
 // Store seguro no userData. A API key vive aqui.
-const store = new Store<{ apiKey: string; overrides: Partial<AppConfig>; serverToken: string; githubToken: string; googleClientId: string; googleClientSecret: string }>({
+const store = new Store<{ apiKey: string; overrides: Partial<AppConfig>; serverToken: string; mcpToken: string; githubToken: string; googleClientId: string; googleClientSecret: string }>({
   name: "elysium-config",
-  defaults: { apiKey: "", overrides: {}, serverToken: "", githubToken: "", googleClientId: "", googleClientSecret: "" },
+  defaults: { apiKey: "", overrides: {}, serverToken: "", mcpToken: "", githubToken: "", googleClientId: "", googleClientSecret: "" },
 });
 
 const fileDefaults = loadDefaults();
@@ -467,6 +481,8 @@ export function getConfig(): AppConfig {
     searchModel: healModel(merged.searchModel, DEFAULTS.searchModel, "searchModel"),
     ollamaRouterModel: healOllama(merged.ollamaRouterModel, DEFAULTS.ollamaRouterModel, "ollamaRouterModel"),
     ollamaChatModel:   healOllama(merged.ollamaChatModel,   DEFAULTS.ollamaChatModel,   "ollamaChatModel"),
+    cerebro: merged.cerebro === "elysium" ? "elysium" : "hermes",
+    hermesPerfil: /^[a-z0-9][a-z0-9_-]{0,31}$/.test(String(merged.hermesPerfil ?? "")) ? merged.hermesPerfil : DEFAULTS.hermesPerfil,
   };
 
   // A cura vai para o disco quando o modelo morto era uma escolha do USUÁRIO: sem isso o
@@ -575,6 +591,19 @@ export function hasApiKey(): boolean {
 
 export function userDataPath(): string {
   return app.getPath("userData");
+}
+
+/**
+ * Fase 21: o token do MCP que o Hermes usa para chamar as ferramentas do ELYSIUM. Separado do
+ * `serverToken` de propósito: não abre o RPC inteiro, só a lista permitida do `mcpElysium.ts`, e
+ * só vindo do próprio PC.
+ */
+export function getOrCreateMcpToken(): string {
+  const existing = store.get("mcpToken", "");
+  if (/^[0-9a-f]{48}$/.test(existing)) return existing;
+  const token = crypto.randomBytes(24).toString("hex");
+  store.set("mcpToken", token);
+  return token;
 }
 
 export function getOrCreateServerToken(): string {

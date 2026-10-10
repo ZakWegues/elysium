@@ -23,7 +23,7 @@ import { aplicarBackup, lerBackup, montarBackup } from "../services/backup";
 import { montarDiagnostico } from "../services/diagnostico";
 import { esquecerAparelhos, listarAparelhos } from "../services/aparelhos";
 import * as QRCode from "qrcode";
-import { getConfig, getApiKey, setApiKey, hasApiKey, setOverride, getOrCreateServerToken, regenerateServerToken, AppConfig, getGithubToken, setGithubToken, setGoogleCliente } from "./config";
+import { getConfig, getApiKey, setApiKey, hasApiKey, setOverride, getOrCreateServerToken, getOrCreateMcpToken, regenerateServerToken, AppConfig, getGithubToken, setGithubToken, setGoogleCliente } from "./config";
 import { limparCacheClima } from "../services/clima";
 import { getLocalIPv4, getAllLocalIPv4 } from "./network";
 import { inputHost } from "../services/inputHost";
@@ -62,11 +62,13 @@ import { habitosParaLembrar } from "../services/habitos";
 import { podeAvisarAlto } from "../services/avisos";
 import { ElysiumError } from "../services/errors";
 import { processCommand, processCommandStream, executarComando } from "../services/command";
-import { startServer, setActiveToken, broadcastMailboxEvent, broadcastNotify, broadcastEstadoPc, broadcastModo, broadcastPomodoro } from "../services/server";
+import { startServer, setActiveToken, broadcastMailboxEvent, broadcastNotify, broadcastEstadoPc, broadcastModo, broadcastPomodoro, ligarMcp } from "../services/server";
 import { iniciarPomodoro, pararRelogioPomodoro, pomodoroParaCliente } from "../services/pomodoro";
 import { aoMudarModo, modoParaCliente } from "../services/modos";
 import { iniciarRotinas, pararRotinas, enfileirarEntrega, type Entrega } from "../services/rotinas";
-import { avaliarCondicao } from "../services/agente";
+import { avaliarCondicao, executarComPolitica } from "../services/agente";
+import { definicoesDeFerramentas } from "../services/ferramentas";
+import { definirUrlDoMcp, iniciarHermes, interromperHermes, pararHermes, pedidoDoHermes, aplicarConfigHermes } from "../services/hermes/cerebro";
 import { emitirEvento, MARCOS_OCIOSO } from "../services/eventos";
 import { getRunningApps } from "../actions/systemInfo";
 import { baseDoOllama, ollamaDisponivel } from "../services/llm";
@@ -729,6 +731,9 @@ ipcMain.handle("config:set-all", async (_e, patch: Partial<AppConfig>) => {
     await sincronizarInicioAutomatico(patch.autoLaunch);
   }
 
+  // Fase 21: trocar o cérebro em Ajustes sobe ou derruba o Hermes na hora.
+  if (patch.cerebro !== undefined && patch.cerebro !== prev.cerebro) aplicarConfigHermes();
+
   // Sem notificação do Windows aqui. Este handler é chamado ao arrastar um card da tela
   // Início, ao trocar de tema e a cada campo de Ajustes — uma notificação por gravação
   // vira ruído constante. Quem grava explicitamente já mostra um toast na própria tela.
@@ -1007,6 +1012,7 @@ function handleShortcut(): void {
   if (!hasApiKey()) { openConfigWindow(); return; }
   if (!state.is("idle")) {
     interruptAll();
+    interromperHermes();
     state.set("idle");
   }
   openDashboard();
@@ -1061,7 +1067,8 @@ app.on("ready", async () => {
     stopScheduler();
     pararIntervalos();
     pararRelogioPomodoro();
-  pararRotinas();
+    pararRotinas();
+    pararHermes();
     void aviso.finally(() => app.exit(0));
   };
 
@@ -1108,6 +1115,15 @@ app.on("ready", async () => {
   const serverToken = getOrCreateServerToken();
   const cfg = getConfig();
   startServer(serverToken, processCommand, cfg.serverPort ?? 4200, processCommandStream);
+  // Fase 21: o Hermes como cérebro. As ferramentas do ELYSIUM vão para ele por MCP (só a lista
+  // permitida, sempre pela política de conteúdo de fora); o servidor dele sobe em segundo plano.
+  const mcpToken = getOrCreateMcpToken();
+  ligarMcp(mcpToken, {
+    definicoes: definicoesDeFerramentas,
+    executar: (nome, args) => executarComPolitica(nome, args, true, pedidoDoHermes()),
+  });
+  definirUrlDoMcp(`http://127.0.0.1:${cfg.serverPort ?? 4200}/mcp/${mcpToken}`);
+  void iniciarHermes();
   iniciarAtualizacoes({ sair: () => quit("atualizando"), ocupado: () => state.get() !== "idle" });
   // Cérebro local: se o Ollama estiver parado, sobe já — antes do primeiro pedido pagar a espera.
   // "auto" (fase 16) também usa o local para a conversa curta.
