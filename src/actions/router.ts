@@ -47,6 +47,8 @@ import { cartoesVencidos, comecarRevisao, criarCartao, listarCartoes } from "../
 import { montarPlano } from "../services/planoEstudo";
 import { falaDaNota, notaNecessaria } from "../services/notas";
 import { comecarPomodoro, estadoPomodoro, falaDaFase, falaDoEstado, pararPomodoro, pularFase } from "../services/pomodoro";
+import { aplicarLayout, organizarJanelas, salvarLayout } from "./organizarJanelas";
+import type { ModoOrganizar } from "../services/layoutJanelas";
 
 export async function routeAction(action: BrainAction): Promise<string> {
   switch (action.action) {
@@ -129,6 +131,10 @@ export async function routeAction(action: BrainAction): Promise<string> {
     case "mode":              return falaDoModo(action);
     case "cards":             return falaDosCartoes(action);
     case "pomodoro":          return falaDoPomodoro(action);
+    case "windows_layout":
+      if (action.modo === "salvar_layout") return salvarLayout(action.layout || "padrão");
+      if (action.modo === "aplicar_layout") return aplicarLayout(action.layout || "padrão");
+      return organizarJanelas(action.modo as ModoOrganizar, action.programa);
     case "grade_needed": {
       const r = notaNecessaria(action);
       return r ? falaDaNota(r, action) : "Faltou a média para passar. Diga, por exemplo: \"tirei 6 e 7, a média é 6, quanto preciso na terceira?\"";

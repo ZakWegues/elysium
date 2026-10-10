@@ -78,6 +78,8 @@ export type BrainAction =
   | { action: "pomodoro";          operacao: "start" | "stop" | "status" | "skip"; foco?: number; pausa?: number; ciclos?: number }
   | { action: "cards";             operacao: "revisar" | "status" | "guardar"; frente?: string; verso?: string }
   | { action: "mode";              operacao: "ligar" | "desligar" | "status" | "listar" | "criar"; id?: string; nome?: string; instrucao?: string }
+  // Fase 21: "organiza minhas janelas", "salva o layout estudo", "joga o Chrome pra esquerda".
+  | { action: "windows_layout";    modo: string; programa?: string; layout?: string }
   // Bloco 193: "resume isso", "traduz isso" — o copiado, ou a tela.
   | { action: "about_this";        comando: ComandoIsso }
   // Bloco 194: "anota tudo isso: …" — separa em tarefas, listas e notas, e pergunta antes.
@@ -244,6 +246,7 @@ function actionSummary(action: BrainAction): string {
     case "grade_needed":      return "Nota necessária";
     case "study_plan":        return `Plano de estudo: ${action.materia}`;
     case "pomodoro":          return action.operacao === "start" ? "Pomodoro" : action.operacao === "stop" ? "Parou o pomodoro" : action.operacao === "skip" ? "Pulou a fase" : "Pomodoro";
+    case "windows_layout":    return action.modo === "salvar_layout" ? `Salvou o layout ${action.layout ?? ""}`.trim() : action.modo === "aplicar_layout" ? `Layout ${action.layout ?? ""}`.trim() : "Organizou as janelas";
     case "cards":             return action.operacao === "guardar" ? "Cartão de revisão" : "Revisão";
     case "mode":              return action.operacao === "ligar" ? "Modo ligado" : action.operacao === "desligar" ? "Saiu do modo" : action.operacao === "criar" ? `Criou o modo ${action.nome ?? ""}`.trim() : "Modos";
     case "about_this":        return `Isso: ${action.comando}`;

@@ -57,6 +57,32 @@ const TIPO_CS = [
   // Janela em segundo plano não pode roubar o foco (regra do Windows contra pop-ups); um
   // Alt "apertado e solto" antes do SetForegroundWindow é o jeito conhecido de liberar.
   " public static void Focar(IntPtr h) { if (IsIconic(h)) ShowWindowAsync(h, 9); keybd_event(0x12, 0, 0, UIntPtr.Zero); keybd_event(0x12, 0, 2, UIntPtr.Zero); SetForegroundWindow(h); }",
+  // Fase 21 (bloco 216): posição. Tudo em pixels físicos (SetProcessDPIAware), senão a escala
+  // de 150% embaralha o que é lido e o que é escrito.
+  " [StructLayout(LayoutKind.Sequential)] public struct RECT { public int L, T, R, B; }",
+  " [StructLayout(LayoutKind.Sequential)] struct MINFO { public int cb; public RECT mon; public RECT work; public uint flags; }",
+  " delegate bool MonProc(IntPtr m, IntPtr dc, ref RECT r, IntPtr d);",
+  " [DllImport(\"user32.dll\")] static extern bool EnumDisplayMonitors(IntPtr dc, IntPtr clip, MonProc f, IntPtr d);",
+  " [DllImport(\"user32.dll\")] static extern bool GetMonitorInfo(IntPtr m, ref MINFO i);",
+  " [DllImport(\"user32.dll\")] public static extern bool SetProcessDPIAware();",
+  " [DllImport(\"user32.dll\")] static extern bool GetWindowRect(IntPtr h, out RECT r);",
+  " [DllImport(\"user32.dll\")] static extern bool ShowWindow(IntPtr h, int c);",
+  " [DllImport(\"user32.dll\")] static extern bool SetWindowPos(IntPtr h, IntPtr a, int x, int y, int w, int ht, uint f);",
+  " [DllImport(\"dwmapi.dll\")] static extern int DwmGetWindowAttribute(IntPtr h, int a, out RECT v, int s);",
+  " public static List<string> Monitores() {",
+  "  var r = new List<string>();",
+  "  EnumDisplayMonitors(IntPtr.Zero, IntPtr.Zero, (IntPtr m, IntPtr dc, ref RECT rc, IntPtr d) => { var i = new MINFO(); i.cb = Marshal.SizeOf(typeof(MINFO)); GetMonitorInfo(m, ref i); r.Add(i.work.L + \",\" + i.work.T + \",\" + (i.work.R - i.work.L) + \",\" + (i.work.B - i.work.T) + \",\" + (i.flags & 1)); return true; }, IntPtr.Zero);",
+  "  return r; }",
+  " public static string Rect(IntPtr h) { RECT f; if (DwmGetWindowAttribute(h, 9, out f, 16) != 0) GetWindowRect(h, out f); return f.L + \",\" + f.T + \",\" + (f.R - f.L) + \",\" + (f.B - f.T) + \",\" + (IsZoomed(h) ? 1 : 0); }",
+  // A janela tem uma borda invisível de ~7 px no Windows 10/11 (a área de redimensionar): o
+  // retângulo pedido é o VISÍVEL, então a borda é somada de volta antes do SetWindowPos.
+  " public static void Pos(IntPtr h, int x, int y, int w, int ht) {",
+  "  if (IsIconic(h) || IsZoomed(h)) ShowWindow(h, 9);",
+  "  RECT r, f; GetWindowRect(h, out r);",
+  "  int dl = 0, dt = 0, dr = 0, db = 0;",
+  "  if (DwmGetWindowAttribute(h, 9, out f, 16) == 0) { dl = f.L - r.L; dt = f.T - r.T; dr = r.R - f.R; db = r.B - f.B; }",
+  "  SetWindowPos(h, IntPtr.Zero, x - dl, y - dt, w + dl + dr, ht + dt + db, 0x0004 | 0x0040); }",
+  " public static void Max(IntPtr h) { ShowWindow(h, 3); }",
   "}",
 ].join("\n");
 
@@ -117,3 +143,6 @@ export async function controlarJanela(hwnd: string, operacao: OperacaoJanela): P
     }
   }
 }
+
+/** O mesmo PowerShell com o tipo `ElyWin`, para quem posiciona janelas (organizarJanelas.ts). */
+export const rodarPsJanelas = rodarPs;

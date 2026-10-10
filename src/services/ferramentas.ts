@@ -43,6 +43,9 @@ import { agendaFalada } from "./agenda";
 import { escolherEpisodios, linhaDoEpisodio, listarEpisodios } from "./episodios";
 import { adiarTarefaPor, avancarMetaPorNome, concluirTarefaCompleta, falaDaConclusao, falaDaMeta, falaDoHabito, marcarHabitoPorNome } from "./operacoes";
 import { controlarJanela, listarJanelas } from "../actions/janelas";
+import { aplicarLayout, organizarJanelas, salvarLayout } from "../actions/organizarJanelas";
+import type { ModoOrganizar } from "./layoutJanelas";
+import { atualizacoesDisponiveis, atualizarTudoEmSegundoPlano, buscarApp, detalhesDoPacote, escolherPacote, falaDaBusca, idValido, instalarEmSegundoPlano } from "../actions/instalarApp";
 import { janelaDaFrente } from "./isso";
 import { deriveProcessNames } from "../actions/closeApp";
 import { buscarNasConversas } from "./buscaConversas";
@@ -326,6 +329,68 @@ export const FERRAMENTAS: Ferramenta[] = [
     parameters: obj({ programa: s("Nome do programa"), operacao: s("O que fazer", { enum: ["maximize", "minimize", "focus", "close"] }) }, ["programa", "operacao"]),
     executar: a => acao({ action: "window_management", target_app: str(a, "programa"), operation: str(a, "operacao") as never }),
     acao: a => ({ action: "window_management", target_app: str(a, "programa"), operation: str(a, "operacao") as never }),
+  },
+  {
+    // Fase 21 (bloco 216): posição das janelas e layouts salvos.
+    name: "organizar_janelas",
+    description: "Organiza as janelas na tela: lado_a_lado, quadrantes, cascata, um programa na esquerda/direita/cima/baixo/centro/maximizar, ou outro_monitor; e salva/aplica um layout com nome ('salva o layout estudo', 'layout estudo').",
+    parameters: obj({
+      modo: s("O que fazer", { enum: ["lado_a_lado", "quadrantes", "cascata", "esquerda", "direita", "cima", "baixo", "centro", "maximizar", "outro_monitor", "salvar_layout", "aplicar_layout"] }),
+      programa: s("Programa (para esquerda/direita/outro_monitor…); vazio = a janela em foco"),
+      layout: s("Nome do layout (para salvar_layout/aplicar_layout)"),
+    }, ["modo"]),
+    executar: async (a) => {
+      const modo = str(a, "modo");
+      if (modo === "salvar_layout") return salvarLayout(str(a, "layout") || "padrão");
+      if (modo === "aplicar_layout") return aplicarLayout(str(a, "layout") || "padrão");
+      return organizarJanelas(modo as ModoOrganizar, str(a, "programa") || undefined);
+    },
+  },
+  {
+    name: "buscar_app",
+    description: "Procura um programa para baixar no winget e na Microsoft Store e diz os achados (nome, Id, versão). Não instala.",
+    parameters: obj({ nome: s("O programa, como ele falou") }, ["nome"]),
+    executar: async (a) => falaDaBusca(str(a, "nome"), await buscarApp(str(a, "nome"))),
+  },
+  {
+    // Instalar sempre pergunta: a Ely diz nome, editora e versão, e só instala com "sim".
+    name: "instalar_app",
+    description: "Baixa e instala um programa pelo winget/Microsoft Store. Pergunta antes, dizendo nome, editora e versão. Use o Id exato que o buscar_app achou, ou o nome.",
+    parameters: obj({ pacote: s("Id exato do winget (ex.: VideoLAN.VLC) ou o nome do programa") }, ["pacote"]),
+    executar: async (a) => {
+      const achados = await buscarApp(str(a, "pacote")).catch(() => []);
+      return achados.length ? falaDaBusca(str(a, "pacote"), achados) : `Não achei "${str(a, "pacote")}" para instalar.`;
+    },
+    confirmar: async (a) => {
+      const pedido = str(a, "pacote").trim();
+      let id = idValido(pedido) && /\./.test(pedido) ? pedido : "";
+      if (!id) {
+        const escolhido = escolherPacote(pedido, await buscarApp(pedido).catch(() => []));
+        if (!escolhido) return null; // ambíguo ou nada: o `executar` lista as opções
+        id = escolhido.id;
+      }
+      const d = await detalhesDoPacote(id);
+      if (!d) return null;
+      return {
+        descricao: `Vou instalar ${d.nome}${d.editora ? `, da ${d.editora}` : ""}${d.versao ? `, versão ${d.versao}` : ""}, pelo ${d.fonte === "msstore" ? "Microsoft Store" : "winget"}, aceitando os termos dele.`,
+        executar: async () => instalarEmSegundoPlano(d),
+      };
+    },
+  },
+  {
+    name: "atualizar_apps",
+    description: "Vê quais programas instalados têm versão nova (winget) e, com o sim dele, atualiza todos.",
+    parameters: obj({}, []),
+    executar: async () => "Nenhum programa com atualização pelo winget.",
+    confirmar: async () => {
+      const lista = await atualizacoesDisponiveis().catch(() => []);
+      if (!lista.length) return null;
+      const nomes = lista.slice(0, 6).map(l => l.nome).join(", ");
+      return {
+        descricao: `Tem ${lista.length} ${lista.length === 1 ? "atualização" : "atualizações"}: ${nomes}${lista.length > 6 ? " e outros" : ""}. Vou atualizar tudo em segundo plano.`,
+        executar: async () => atualizarTudoEmSegundoPlano(lista.length),
+      };
+    },
   },
   {
     name: "abrir_site",

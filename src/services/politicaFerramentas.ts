@@ -65,6 +65,11 @@ const INTENCAO: Record<string, RegExp> = {
   guardar_cartao: /\b(cart|revis|guard|lembr)/,
   pomodoro: /\b(pomodoro|foc|concentr|estud)/,
   plano_de_estudo: /\b(plano|estud|prova|cronograma)/,
+  // Fase 21: instalar e atualizar programa só se o PEDIDO pediu — uma página que diz "instale X"
+  // não instala nada (e mesmo pedido, instalar ainda passa pelo "Confirma? Diga sim.").
+  instalar_app: /\b(instal|baix)/,
+  atualizar_apps: /\b(atualiz|upgrade)/,
+  organizar_janelas: /\b(janela|organiz|layout|lado a lado|monitor|esquerd|direit|quadrant|cascata)/,
 };
 
 /**

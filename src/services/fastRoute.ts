@@ -11,6 +11,7 @@ import { isoLocal } from "./hora";
 import { pedidoDeModo } from "./modos";
 import { pedidoDeCartao } from "./cartoes";
 import { pedidoDePomodoro } from "./pomodoro";
+import { pedidoDeJanelas } from "./layoutJanelas";
 import { pedidoDePlano } from "./planoEstudo";
 import { pedidoDeMediaEscolar } from "./notas";
 
@@ -219,6 +220,9 @@ export function fastRoute(text: string): BrainAction[] | null {
     const match = normalized.match(rule.pattern);
     if (match) return rule.build(match);
   }
+  // Fase 21: janelas — "organiza minhas janelas", "salva o layout estudo", "layout estudo".
+  const jan = pedidoDeJanelas(text);
+  if (jan) return [{ action: "windows_layout", ...jan }];
   // Pomodoro (fase 20): "pomodoro de 50 e 10, 3 ciclos"; com sobra que não entendi, cérebro.
   const pomo = pedidoDePomodoro(text);
   if (pomo) return [pomo.tipo === "start" ? { action: "pomodoro", operacao: "start", ...pomo.config } : { action: "pomodoro", operacao: pomo.tipo }];

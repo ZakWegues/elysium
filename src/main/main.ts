@@ -57,6 +57,7 @@ iniciarLogEmArquivo();
 import { getTopHistory } from "../services/history";
 import { registrarPergunta, bolhasDoChat } from "../services/perguntas";
 import { aoTocarAudio, ehNoite } from "../services/tts";
+import { aoTerminarInstalacao } from "../actions/instalarApp";
 import { aplicarConfigBolota, bolotaEvento, bolotaFala, bolotaNivel, fecharBolota, iniciarBolota } from "./orbeWindow";
 import { aoMudarFala, estaFalando, falaAtual, falar as speak, interromperTudo as interruptAll, novoTurno, turnoAtual } from "./fala";
 import { habitosParaLembrar } from "../services/habitos";
@@ -1167,6 +1168,12 @@ app.on("ready", async () => {
   vigiarAgenda((titulo, corpo) => {
     notify(titulo, corpo);
     mandarAoCelular("lembrete", titulo, corpo, { push: "reminder" });
+  });
+  // Fase 21: instalação e atualização pelo winget rodam em segundo plano e avisam no fim.
+  aoTerminarInstalacao((titulo, texto) => {
+    notify(`ELYSIUM — ${titulo}`, texto);
+    if (!ehNoite()) speak(texto).catch(() => { /* best-effort */ });
+    mandarAoCelular("aviso", titulo, texto);
   });
   // Disco quase cheio (fase 12): no máximo um aviso por dia, no PC e no celular.
   vigiarDisco((titulo, corpo) => {
