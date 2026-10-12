@@ -6591,3 +6591,27 @@ arquivos** do celular para o PC de uma vez, **baixar no celular** o que o PC man
 - O spinner do winget reescreve a linha com `\r` — fique com o último pedaço de cada linha.
 - Segunda instância do Electron roda o `ready` antes do `app.quit()` fazer efeito.
 - Splash do celular: sem o plugin `expo-splash-screen`, o prebuild deixa o placeholder do template.
+
+### Fase 21.1 — a bolota virou a esfera 3D do Chat (12/10/2026) — desktop 2.8.1, celular OTA
+**Pedido do Zak:** "essa bolota tá toda errada nos dois" — ele queria a esfera **dentro do chat,
+parada (pode ser no plano de fundo), pulsando, e se mexendo quando um dos dois fala; uma bola 3D
+girando e pulsando**. Não uma janela por cima de tudo.
+- **PC:** `renderer/dashboard/js/esfera.js` — nuvem de ~700 pontos numa esfera de Fibonacci,
+  girada e projetada em perspectiva num `<canvas>` 2D atrás da conversa (`#center` com
+  `isolation: isolate`, canvas com `z-index: -1` — o `#center` é absoluto e tem filhos absolutos,
+  então nada de mexer em `position`). Parada gira e respira; voz dele = ciano (o `audio-level` do
+  gravador), voz da Ely = roxo (o envelope de palavras, evento novo `ely:fala` com
+  `{envelope, passoMs}` saindo do `aoTocarAudio`), pensando = âmbar. A superfície ondula com a
+  voz e o giro acelera. Chat vazio: inteira no lugar do "EL" (a saudação desce); com mensagens:
+  maior e apagada (30%) atrás do texto. Só desenha com o Chat à vista; respeita o "Animações".
+  Config `esferaChat` (Ajustes → Aparência). Saíram `orbeWindow.ts`, `orbe.html`,
+  `preload-orbe.ts`, `telaCheia.ts` e as opções `bolotaModo/Tamanho/Pos`.
+- **Celular:** `components/Esfera3D.tsx` no fundo do `ChatScreen` — ~240 pontos calculados num
+  worklet do Reanimated (`useFrameCallback` + `useAnimatedProps`, thread de UI, sem re-render),
+  desenhados em três camadas de profundidade de `Path` do SVG. Mesmas cores; mic pelo
+  `nivelDaBolota`, Ely pelo texto do trecho. A bolota flutuante saiu e a pílula `FalaFlutuante`
+  (pausar/retomar/parar) **voltou**. Só JS → OTA (runtime do APK 2.2.0).
+- Visto no PC (captura com a janela fora da tela, sem foco — o Zak estava usando o PC): parada,
+  roxa no meio do chat vazio; com a Ely falando, deformada e pulsando atrás das mensagens. O
+  celular não tem como ser visto aqui (sem aparelho/emulador): conferir no aparelho.
+- Checks: desktop 391, celular 98.
