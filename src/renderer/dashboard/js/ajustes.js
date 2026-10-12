@@ -62,11 +62,9 @@ const AJUSTES = [
     campos: [
       { chave: "movimento", rotulo: "Animações", tipo: "select", opcoes: [
         ["auto", "Seguir o Windows"], ["sempre", "Sempre animar"], ["nunca", "Nunca animar"]] },
-      // Fase 21: a bolota Stark flutuante.
-      { chave: "bolotaModo", rotulo: "Bolota da Ely", tipo: "select", opcoes: [
-        ["sempre", "Sempre visível (discreta quando parada)"], ["falando", "Só quando ouve, pensa ou fala"], ["desligada", "Desligada"]],
-        dica: "Fica por cima de tudo: ciano quando você fala, âmbar pensando, roxo quando ela fala (pulsando a cada palavra). Clique para falar, clique duplo abre o ELYSIUM, botão direito abre o menu, arraste para mudar de lugar. Some sozinha com jogo em tela cheia." },
-      { chave: "bolotaTamanho", rotulo: "Tamanho da bolota", tipo: "faixa", min: 90, max: 220, passo: 10, unidade: "px" },
+      // Fase 21: a esfera 3D no fundo do Chat.
+      { chave: "esferaChat", rotulo: "Esfera no Chat", tipo: "bool",
+        dica: "Uma esfera 3D no fundo da conversa: gira e respira parada; quando você fala (ciano) ou a Ely fala (roxo, a cada palavra), ela ondula e se mexe. Âmbar enquanto ela pensa." },
     ],
   },
   {

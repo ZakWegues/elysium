@@ -2,10 +2,10 @@ import { semAcento } from "./texto";
 
 /**
  * Modo live (fase 21, bloco 217) — conversa contínua em turnos: ela responde e volta a ouvir
- * sozinha, sem atalho, até ele dizer "tchau", clicar na bolota ou ficar 60 s calado.
+ * sozinha, sem atalho, até ele dizer "tchau", usar o botão do live ou ficar 60 s calado.
  *
  * Opt-in de propósito: o Zak tirou a mão livre em 02/10. Liga só quando ele pede, nunca fica
- * ligado depois de reiniciar, e o microfone aberto aparece (bolota ciano). Como a voz toca pelo
+ * ligado depois de reiniciar, e o microfone aberto aparece (esfera ciano no Chat). Como a voz toca pelo
  * PowerShell, o cancelamento de eco do navegador não a enxerga: o live é ALTERNADO (ela termina
  * de falar, depois ouve) — interromper falando por cima só funcionaria de fone.
  *

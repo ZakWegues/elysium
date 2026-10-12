@@ -59,7 +59,7 @@ import { registrarPergunta, bolhasDoChat } from "../services/perguntas";
 import { aoTocarAudio, ehNoite } from "../services/tts";
 import { aoTerminarInstalacao } from "../actions/instalarApp";
 import { ehAlucinacaoDoWhisper, ehEntradaDoLive, ehSaidaDoLive, SILENCIO_LIVE_MS } from "../services/live";
-import { aplicarConfigBolota, bolotaEvento, bolotaFala, bolotaNivel, fecharBolota, iniciarBolota } from "./orbeWindow";
+import { envelopeDasPalavras } from "../services/bolota";
 import { aoMudarFala, estaFalando, falaAtual, falar as speak, interromperTudo as interruptAll, novoTurno, turnoAtual } from "./fala";
 import { habitosParaLembrar } from "../services/habitos";
 import { podeAvisarAlto } from "../services/avisos";
@@ -269,10 +269,9 @@ let appQuitting = false;
 aoMudarFala((f) => {
   marcarFalaNaBandeja(f);
   enviarAoDash("tts:falando", f);
-  bolotaEvento({ tipo: "fala", falando: f });
 });
-// Fase 21: o áudio começou de verdade — a bolota pulsa palavra por palavra.
-aoTocarAudio((a) => bolotaFala(a));
+// Fase 21: o áudio começou de verdade — a esfera do chat pulsa palavra por palavra.
+aoTocarAudio((a) => enviarAoDash("ely:fala", { envelope: envelopeDasPalavras(a.palavras, a.durMs, 33), passoMs: 33 }));
 
 // ── action label helper ───────────────────────────────────────────────────────
 
@@ -486,7 +485,7 @@ async function startListening(opcoes: { esperarFalaMs?: number } = {}): Promise<
 
 // ── modo live (fase 21, bloco 217) ──────────────────────────────────────────────
 // Turnos encadeados: ela responde e volta a ouvir sozinha. Só em memória — reiniciar o app
-// desliga. Sai por "tchau", clique na bolota ou 60 s sem ouvir nada (ver services/live.ts).
+// desliga. Sai por "tchau", o botão do live ou 60 s sem ouvir nada (ver services/live.ts).
 let liveLigado = false;
 let liveTimer: NodeJS.Timeout | null = null;
 
@@ -495,7 +494,7 @@ function ligarLive(): void {
   liveLigado = true;
   console.log("[live] ligado");
   enviarAoDash("live:mudou", true);
-  notify("ELYSIUM — modo live", "Pode falar. Diga “tchau” (ou clique na bolota) para sair.");
+  notify("ELYSIUM — modo live", "Pode falar. Diga “tchau” (ou use o botão do live) para sair.");
   const t = (getConfig().tratamento ?? "").trim();
   void speak(`Modo live ligado${t ? `, ${t}` : ""}. Pode falar.`).catch(() => {}).finally(() => ouvirNoLive(400));
 }
@@ -635,7 +634,6 @@ ipcMain.on("audio-data", async (_event, buffer: Buffer) => {
 });
 
 ipcMain.on("recorder-error", (_event, msg: string) => {
-  bolotaEvento({ tipo: "erro" });
   notify("ELYSIUM — Microfone", msg);
   enviarAoDash("voice:error", "Microfone indisponível. Verifique se está conectado.");
   state.set("speaking");
@@ -646,7 +644,6 @@ ipcMain.on("recorder-error", (_event, msg: string) => {
 
 ipcMain.on("audio-level", (_event, level: number) => {
   enviarAoDash("voice:audio-level", level);
-  bolotaNivel(level);
 });
 
 // ── voice IPC ─────────────────────────────────────────────────────────────────
@@ -681,7 +678,7 @@ async function enviarTexto(text: string, opcoes?: { refazer?: boolean }): Promis
   // encerra o ciclo.
   // Fase 21: "modo live" digitado no chat também liga (o microfone é deste PC).
   if (ehEntradaDoLive(text)) {
-    enviarAoDash("chat:reply", "Modo live ligado. Pode falar; diga “tchau” ou clique na bolota para sair.");
+    enviarAoDash("chat:reply", "Modo live ligado. Pode falar; diga “tchau” ou use o botão ao lado do microfone para sair.");
     ligarLive();
     return;
   }
@@ -815,7 +812,6 @@ ipcMain.handle("config:set-all", async (_e, patch: Partial<AppConfig>) => {
 
   // Fase 21: trocar o cérebro em Ajustes sobe ou derruba o Hermes na hora.
   if (patch.cerebro !== undefined && patch.cerebro !== prev.cerebro) aplicarConfigHermes();
-  if (patch.bolotaModo !== undefined || patch.bolotaTamanho !== undefined || patch.movimento !== undefined) aplicarConfigBolota();
 
   // Sem notificação do Windows aqui. Este handler é chamado ao arrastar um card da tela
   // Início, ao trocar de tema e a cada campo de Ajustes — uma notificação por gravação
@@ -1156,7 +1152,6 @@ app.on("ready", async () => {
     pararRelogioPomodoro();
     pararRotinas();
     pararHermes();
-    fecharBolota();
     void aviso.finally(() => app.exit(0));
   };
 
@@ -1196,23 +1191,6 @@ app.on("ready", async () => {
   state.on("change", (s) => {
     refreshTray(s);
     enviarAoDash("voice:state", s);
-    bolotaEvento(s === "error" ? { tipo: "erro" } : { tipo: "app", estado: s });
-  });
-
-  // Fase 21: a bolota Stark. Clique = falar (como o atalho, sem abrir o dashboard); duplo
-  // clique = abrir o ELYSIUM; botão direito = menu.
-  iniciarBolota({
-    falar: () => {
-      if (!hasApiKey()) { openConfigWindow(); return; }
-      // No modo live, o clique na bolota é a saída.
-      if (liveLigado) { desligarLive(); interruptAll(); interromperHermes(); cancelarGravacao(); state.set("idle"); return; }
-      if (!state.is("idle")) { interruptAll(); interromperHermes(); state.set("idle"); return; }
-      startListening().catch((e) => console.error("[bolota] não consegui começar a ouvir:", e));
-    },
-    abrirDashboard: () => openDashboard(),
-    pararFala: () => { interruptAll(); interromperHermes(); state.set("idle"); },
-    alternarLive: () => { if (liveLigado) { desligarLive(); cancelarGravacao(); state.set("idle"); } else ligarLive(); },
-    liveLigado: () => liveLigado,
   });
 
   recorderWin = createRecorderWindow();

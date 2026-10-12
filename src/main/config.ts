@@ -102,12 +102,8 @@ export interface AppConfig {
   hermesPerfil: string;
   /** Mandar a memória pessoal ao Hermes (vai para um modelo de terceiros). Desligado por padrão. */
   hermesContextoPessoal: boolean;
-  /** Fase 21: a bolota Stark flutuante — "sempre", "falando" (só quando ouve/pensa/fala) ou "desligada". */
-  bolotaModo: "sempre" | "falando" | "desligada";
-  /** Diâmetro da bolota, em px (90 a 220). */
-  bolotaTamanho: number;
-  /** Onde ela foi solta pela última vez (null = canto inferior direito). */
-  bolotaPos: { x: number; y: number } | null;
+  /** Fase 21: a esfera 3D no fundo do Chat, que pulsa e se mexe com a voz dele e a da Ely. */
+  esferaChat: boolean;
   /** Dizer "Elysium" acorda o assistente (bloco 88, reconhecedor offline do Windows). */
   palavraDeAtivacao: boolean;
   /** Versão nova já baixada instala sozinha entre 3 e 5 h, com o PC parado (fase 12). */
@@ -244,10 +240,8 @@ const DEFAULTS: AppConfig = {
   cerebro: "hermes",
   hermesPerfil: "ely",
   hermesContextoPessoal: false,
-  // Decisão do Zak (09/10): sempre visível, discreta quando parada.
-  bolotaModo: "sempre",
-  bolotaTamanho: 120,
-  bolotaPos: null,
+  // Decisão do Zak (12/10): a esfera mora no Chat, parada no fundo, e se mexe quando alguém fala.
+  esferaChat: true,
   // Microfone sempre aberto é escolha do dono, não padrão de fábrica.
   palavraDeAtivacao: false,
   atualizarDeMadrugada: true,
@@ -493,8 +487,6 @@ export function getConfig(): AppConfig {
     ollamaChatModel:   healOllama(merged.ollamaChatModel,   DEFAULTS.ollamaChatModel,   "ollamaChatModel"),
     cerebro: merged.cerebro === "elysium" ? "elysium" : "hermes",
     hermesPerfil: /^[a-z0-9][a-z0-9_-]{0,31}$/.test(String(merged.hermesPerfil ?? "")) ? merged.hermesPerfil : DEFAULTS.hermesPerfil,
-    bolotaModo: merged.bolotaModo === "falando" || merged.bolotaModo === "desligada" ? merged.bolotaModo : "sempre",
-    bolotaTamanho: Math.min(220, Math.max(90, Math.round(Number(merged.bolotaTamanho) || DEFAULTS.bolotaTamanho))),
   };
 
   // A cura vai para o disco quando o modelo morto era uma escolha do USUÁRIO: sem isso o

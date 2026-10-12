@@ -1,40 +1,10 @@
 /**
- * A bolota Stark (fase 21, blocos 214–215) — a lógica pura: em que estado ela está e como pulsa.
+ * O pulso da fala da Ely (fase 21) — puro. A esfera 3D do Chat se mexe com ele.
  *
- * Estados e cores (tokens do tema Stark):
- *  - `dormindo`  — respira devagar, discreta;
- *  - `ouvindo`   — o dono falando: ciano, o pulso é o nível do microfone;
- *  - `pensando`  — âmbar, anéis girando;
- *  - `falando`   — a Ely falando: roxo da marca, pulso palavra por palavra;
- *  - `erro`      — vermelho curto (falha ou reserva), volta sozinho a dormir.
- *
- * A voz da Ely toca por PowerShell/MCI, então não há volume para medir: o pulso vem do tempo de
- * cada palavra que o Edge devolve junto com o áudio (`wordBoundaryEnabled`). Sem esse metadado
- * (fala em cache antiga, voz offline), o envelope sai do texto e da duração do MP3.
+ * A voz toca por PowerShell/MCI, então não há volume para medir: o pulso vem do tempo de cada
+ * palavra que o Edge devolve junto com o áudio (`wordBoundaryEnabled`). Sem esse metadado
+ * (voz offline), o envelope sai do texto e da duração.
  */
-
-export type EstadoBolota = "dormindo" | "ouvindo" | "pensando" | "falando" | "erro";
-
-export type EventoBolota =
-  | { tipo: "app"; estado: string }          // idle | listening | processing | speaking (state.ts)
-  | { tipo: "fala"; falando: boolean }       // a fila de fala começou/acabou (inclui lembrete, timer…)
-  | { tipo: "erro" }
-  | { tipo: "fimDoErro" };
-
-/** O próximo estado. Puro. */
-export function estadoDaBolota(atual: EstadoBolota, e: EventoBolota): EstadoBolota {
-  switch (e.tipo) {
-    case "erro": return "erro";
-    case "fimDoErro": return atual === "erro" ? "dormindo" : atual;
-    case "fala": return e.falando ? "falando" : (atual === "falando" ? "dormindo" : atual);
-    case "app":
-      if (e.estado === "listening") return "ouvindo";
-      if (e.estado === "processing") return "pensando";
-      if (e.estado === "speaking") return "falando";
-      // Ocioso: o erro ainda aparece até o tempo dele acabar; fala avulsa (lembrete) segue.
-      return atual === "erro" || atual === "falando" ? atual : "dormindo";
-  }
-}
 
 export interface Palavra {
   /** Início, em ms desde o começo do áudio. */
@@ -115,16 +85,3 @@ export function envelopeDasPalavras(palavras: Palavra[], durMs: number, passoMs 
   return env.map(v => Math.round(v * 100) / 100);
 }
 
-/** A bolota aparece agora? `modo` vem de Ajustes → Aparência. Pura. */
-export function bolotaVisivel(modo: string, estado: EstadoBolota, telaCheia: boolean): boolean {
-  if (modo === "desligada" || telaCheia) return false;
-  if (modo === "falando") return estado !== "dormindo";
-  return true;
-}
-
-/** Posição salva presa à área útil do monitor (a bolota nunca some fora da tela). Pura. */
-export function prenderNaArea(pos: { x: number; y: number }, janela: { largura: number; altura: number }, area: { x: number; y: number; width: number; height: number }): { x: number; y: number } {
-  const x = Math.min(Math.max(pos.x, area.x), area.x + area.width - janela.largura);
-  const y = Math.min(Math.max(pos.y, area.y), area.y + area.height - janela.altura);
-  return { x: Math.round(x), y: Math.round(y) };
-}
