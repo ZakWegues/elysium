@@ -6635,3 +6635,22 @@ girando e pulsando**. Não uma janela por cima de tudo.
   público) e agendamento persistente (pelo scheduler de lembretes).
 - O Zak mandou a chave e o número pelo chat; **não foram gravados por mim** — ele cola em Ajustes →
   Telefone. Recomendado gerar uma chave nova na Bland (a do chat ficou exposta).
+
+### 13/10/2026 (noite) — telefone removido; tema Renascença (desktop 2.8.4, celular OTA)
+- **Telefone da Ely removido** a pedido do Zak ("esquece isso do telefone, apaga todo o código"):
+  revert do commit da Bland (serviço, atalho, ferramenta, ação, MCP, política, config, IPC,
+  Ajustes). Nenhuma chave tinha sido salva (o campo `blandKey` vazio que ficou no config é inócuo).
+- **Tema Renascença** ("estilo renascentista cheio de ornamentos, arte e etc"):
+  - Desktop: três variações da família `ely` com `renascenca: true` → classe `theme-renascenca`
+    e `css/renascenca.css` (Florença carmim, Veneza ultramar, Roma verdete; "purple" = ouro).
+    Fundo de nogueira com damasco em folha de ouro, estudo vitruviano e espiral áurea (SVG
+    embutido, ouro fixo #c9a14a — data URI não lê variável) e vinheta; molduras douradas duplas
+    com cantos em voluta em cards, painéis, bolhas, grupos de Ajustes e amostras de tema; serifa
+    Palatino Linotype com versaletes; friso de fleurões no topo; medalhão dourado no logo; fleurão
+    ❦ na aba ativa; capitular iluminada na primeira letra da resposta da Ely. Grupo próprio no
+    seletor de temas. A esfera do Chat, parada, usa a cor de destaque do tema (`--purple-rgb`).
+  - Celular: família `renascenca` nas paletas (mesmas cores; texto pergaminho #EFE4C8, filete de
+    ouro), `components/ui/Ornamentos.tsx` (`CantosOrnamentados` nos `Card`, `FundoRenascenca` no
+    `AppBackground` com o mesmo damasco/vitruviano/espiral em SVG nativo), `Text` em serifa com
+    títulos em itálico, opção em Ajustes → Aparência, esfera dourada parada. Só JS → OTA.
+  - Visto no PC (Chat e Início); o celular, só no aparelho.
