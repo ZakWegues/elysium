@@ -106,10 +106,6 @@ export interface AppConfig {
   hermesContextoPessoal: boolean;
   /** Fase 21: a esfera 3D no fundo do Chat, que pulsa e se mexe com a voz dele e a da Ely. */
   esferaChat: boolean;
-  /** 13/10: o celular do dono, para a Ely ligar (Bland AI). Dado pessoal: só no config do app. */
-  telefoneDono: string;
-  /** Voz da Bland na ligação (vazio = a padrão dela). */
-  telefoneVoz: string;
   /** Dizer "Elysium" acorda o assistente (bloco 88, reconhecedor offline do Windows). */
   palavraDeAtivacao: boolean;
   /** Versão nova já baixada instala sozinha entre 3 e 5 h, com o PC parado (fase 12). */
@@ -248,8 +244,6 @@ const DEFAULTS: AppConfig = {
   hermesContextoPessoal: false,
   // Decisão do Zak (12/10): a esfera mora no Chat, parada no fundo, e se mexe quando alguém fala.
   esferaChat: true,
-  telefoneDono: "",
-  telefoneVoz: "",
   // Microfone sempre aberto é escolha do dono, não padrão de fábrica.
   palavraDeAtivacao: false,
   atualizarDeMadrugada: true,
@@ -295,9 +289,9 @@ function loadDefaults(): AppConfig {
 }
 
 // Store seguro no userData. A API key vive aqui.
-const store = new Store<{ apiKey: string; overrides: Partial<AppConfig>; serverToken: string; mcpToken: string; githubToken: string; blandKey: string; googleClientId: string; googleClientSecret: string }>({
+const store = new Store<{ apiKey: string; overrides: Partial<AppConfig>; serverToken: string; mcpToken: string; githubToken: string; googleClientId: string; googleClientSecret: string }>({
   name: "elysium-config",
-  defaults: { apiKey: "", overrides: {}, serverToken: "", mcpToken: "", githubToken: "", blandKey: "", googleClientId: "", googleClientSecret: "" },
+  defaults: { apiKey: "", overrides: {}, serverToken: "", mcpToken: "", githubToken: "", googleClientId: "", googleClientSecret: "" },
 });
 
 const fileDefaults = loadDefaults();
@@ -556,7 +550,7 @@ export function setApiKey(key: string): void {
 // Migração preguiçosa: o primeiro acesso a um segredo antigo em texto puro o regrava cifrado.
 // Sem cifra disponível (raro), fica como estava — perder a chave seria pior.
 // O `serverToken` NÃO entra: ele já viaja no QR para o celular, e os scripts locais o leem.
-type ChaveSecreta = "apiKey" | "githubToken" | "googleClientSecret" | "blandKey";
+type ChaveSecreta = "apiKey" | "githubToken" | "googleClientSecret";
 const PREFIXO_CIFRA = "enc:v1:";
 
 function cifraDisponivel(): boolean {
@@ -602,14 +596,6 @@ export function getGoogleCliente(): { id: string; segredo: string } {
 export function setGoogleCliente(id: string, segredo: string): void {
   store.set("googleClientId", (id || "").trim());
   gravarSegredo("googleClientSecret", segredo);
-}
-
-/** 13/10: a chave da Bland AI (o telefone da Ely). Cifrada, fora dos `overrides`: não vai no backup. */
-export function getBlandKey(): string {
-  return lerSegredo("blandKey");
-}
-export function setBlandKey(chave: string): void {
-  gravarSegredo("blandKey", chave);
 }
 
 export function setGithubToken(token: string): void {

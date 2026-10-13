@@ -23,7 +23,7 @@ import { aplicarBackup, lerBackup, montarBackup } from "../services/backup";
 import { montarDiagnostico } from "../services/diagnostico";
 import { esquecerAparelhos, listarAparelhos } from "../services/aparelhos";
 import * as QRCode from "qrcode";
-import { getConfig, getApiKey, setApiKey, hasApiKey, setOverride, getOrCreateServerToken, getOrCreateMcpToken, regenerateServerToken, AppConfig, getGithubToken, setGithubToken, setGoogleCliente, setBlandKey } from "./config";
+import { getConfig, getApiKey, setApiKey, hasApiKey, setOverride, getOrCreateServerToken, getOrCreateMcpToken, regenerateServerToken, AppConfig, getGithubToken, setGithubToken, setGoogleCliente } from "./config";
 import { limparCacheClima } from "../services/clima";
 import { getLocalIPv4, getAllLocalIPv4 } from "./network";
 import { inputHost } from "../services/inputHost";
@@ -58,7 +58,6 @@ import { getTopHistory } from "../services/history";
 import { registrarPergunta, bolhasDoChat } from "../services/perguntas";
 import { aoTocarAudio, ehNoite } from "../services/tts";
 import { aoTerminarInstalacao } from "../actions/instalarApp";
-import { cancelarLigacoesAgendadas, estadoTelefone, ligarParaDono, normalizarTelefone } from "../services/telefone";
 import { ehAlucinacaoDoWhisper, ehEntradaDoLive, ehSaidaDoLive, SILENCIO_LIVE_MS } from "../services/live";
 import { envelopeDasPalavras } from "../services/bolota";
 import { aoMudarFala, estaFalando, falaAtual, falar as speak, interromperTudo as interruptAll, novoTurno, turnoAtual } from "./fala";
@@ -952,15 +951,6 @@ ipcMain.handle("agenda:cliente", (_e, id: unknown, segredo: unknown) => { setGoo
 ipcMain.handle("agenda:conectar", () => conectarAgenda());
 ipcMain.handle("agenda:desconectar", () => { desconectarAgenda(); return estadoAgenda(); });
 ipcMain.handle("novidades:vistas", () => marcarNovidadesVistas());
-// 13/10: o telefone da Ely (Bland AI). A chave só entra; a tela sabe se existe, nunca qual é.
-ipcMain.handle("telefone:estado", () => estadoTelefone());
-ipcMain.handle("telefone:salvar", (_e, d: { chave?: unknown; numero?: unknown; voz?: unknown }) => {
-  if (typeof d?.chave === "string" && d.chave.trim()) setBlandKey(d.chave.trim());
-  if (typeof d?.numero === "string") setOverride({ telefoneDono: normalizarTelefone(d.numero) ?? "" });
-  if (typeof d?.voz === "string") setOverride({ telefoneVoz: d.voz.trim().slice(0, 60) });
-  return estadoTelefone();
-});
-ipcMain.handle("telefone:testar", () => ligarParaDono("Isto é um teste do telefone do ELYSIUM. Se você está ouvindo, está tudo certo."));
 ipcMain.handle("atualizacao:token", async (_e, token: unknown) => {
   setGithubToken(typeof token === "string" ? token : "");
   await verificarAtualizacoes();
@@ -1162,7 +1152,6 @@ app.on("ready", async () => {
     pararRelogioPomodoro();
     pararRotinas();
     pararHermes();
-    cancelarLigacoesAgendadas();
     void aviso.finally(() => app.exit(0));
   };
 

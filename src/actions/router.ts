@@ -48,8 +48,6 @@ import { montarPlano } from "../services/planoEstudo";
 import { falaDaNota, notaNecessaria } from "../services/notas";
 import { comecarPomodoro, estadoPomodoro, falaDaFase, falaDoEstado, pararPomodoro, pularFase } from "../services/pomodoro";
 import { aplicarLayout, organizarJanelas, salvarLayout } from "./organizarJanelas";
-import { agendarLigacao, ligarParaDono } from "../services/telefone";
-import { notify } from "../main/notify";
 import type { ModoOrganizar } from "../services/layoutJanelas";
 
 export async function routeAction(action: BrainAction): Promise<string> {
@@ -133,8 +131,6 @@ export async function routeAction(action: BrainAction): Promise<string> {
     case "mode":              return falaDoModo(action);
     case "cards":             return falaDosCartoes(action);
     case "pomodoro":          return falaDoPomodoro(action);
-    case "phone_call":
-      return action.minutos ? agendarLigacao(action.minutos, action.mensagem, (fala) => notify("ELYSIUM — Telefone", fala)) : ligarParaDono(action.mensagem);
     case "windows_layout":
       if (action.modo === "salvar_layout") return salvarLayout(action.layout || "padrão");
       if (action.modo === "aplicar_layout") return aplicarLayout(action.layout || "padrão");
