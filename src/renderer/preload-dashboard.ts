@@ -100,6 +100,10 @@ contextBridge.exposeInMainWorld("nx", {
   atualizacaoVerificar: () => ipcRenderer.invoke("atualizacao:verificar"),
   atualizacaoInstalar:  () => ipcRenderer.invoke("atualizacao:instalar"),
   atualizacaoToken:     (token: string) => ipcRenderer.invoke("atualizacao:token", token),
+  // 13/10: o telefone da Ely (Bland AI).
+  telefoneEstado:       () => ipcRenderer.invoke("telefone:estado"),
+  telefoneSalvar:       (d: { chave?: string; numero?: string; voz?: string }) => ipcRenderer.invoke("telefone:salvar", d),
+  telefoneTestar:       () => ipcRenderer.invoke("telefone:testar"),
   onAtualizacao:        (cb: (e: unknown) => void) => { ipcRenderer.on("atualizacao:mudou", (_e, e) => cb(e)); },
   novidades:            () => ipcRenderer.invoke("novidades:pendentes"),
   onFoco:               (cb: () => void) => { ipcRenderer.on("foco:mudou", () => cb()); },

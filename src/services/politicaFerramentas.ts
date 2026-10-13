@@ -69,6 +69,8 @@ const INTENCAO: Record<string, RegExp> = {
   // não instala nada (e mesmo pedido, instalar ainda passa pelo "Confirma? Diga sim.").
   instalar_app: /\b(instal|baix)/,
   atualizar_apps: /\b(atualiz|upgrade)/,
+  // 13/10: ligação custa crédito — só se o pedido fala em ligar/telefone.
+  ligar_para_mim: /(lig|telefon|celular|cham)/,
   organizar_janelas: /\b(janela|organiz|layout|lado a lado|monitor|esquerd|direit|quadrant|cascata)/,
 };
 

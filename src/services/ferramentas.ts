@@ -43,6 +43,8 @@ import { agendaFalada } from "./agenda";
 import { escolherEpisodios, linhaDoEpisodio, listarEpisodios } from "./episodios";
 import { adiarTarefaPor, avancarMetaPorNome, concluirTarefaCompleta, falaDaConclusao, falaDaMeta, falaDoHabito, marcarHabitoPorNome } from "./operacoes";
 import { controlarJanela, listarJanelas } from "../actions/janelas";
+import { agendarLigacao, ligarParaDono } from "./telefone";
+import { notify } from "../main/notify";
 import { aplicarLayout, organizarJanelas, salvarLayout } from "../actions/organizarJanelas";
 import type { ModoOrganizar } from "./layoutJanelas";
 import { atualizacoesDisponiveis, atualizarTudoEmSegundoPlano, buscarApp, detalhesDoPacote, escolherPacote, falaDaBusca, idValido, instalarEmSegundoPlano } from "../actions/instalarApp";
@@ -390,6 +392,17 @@ export const FERRAMENTAS: Ferramenta[] = [
         descricao: `Tem ${lista.length} ${lista.length === 1 ? "atualização" : "atualizações"}: ${nomes}${lista.length > 6 ? " e outros" : ""}. Vou atualizar tudo em segundo plano.`,
         executar: async () => atualizarTudoEmSegundoPlano(lista.length),
       };
+    },
+  },
+  {
+    // 13/10: o telefone da Ely (Bland AI) — ela liga para o celular dele, agora ou daqui a N minutos.
+    name: "ligar_para_mim",
+    description: "Liga para o celular do dono ('me liga', 'me liga daqui a 20 minutos e me lembra de X'). A Ely fala o recado na ligação.",
+    parameters: obj({ mensagem: s("O recado para dar na ligação (vazio = só ligar)"), em_minutos: { type: "number", description: "Daqui a quantos minutos ligar (vazio = agora)" } }, []),
+    executar: async (a) => {
+      const min = Number(a.em_minutos);
+      if (Number.isFinite(min) && min >= 1) return agendarLigacao(min, str(a, "mensagem"), (fala) => notify("ELYSIUM — Telefone", fala));
+      return ligarParaDono(str(a, "mensagem"));
     },
   },
   {

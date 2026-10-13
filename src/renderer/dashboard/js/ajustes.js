@@ -169,6 +169,8 @@ const SECOES_AJUSTES = [
     resumo: () => "O que você mais pede" },
   { id: "dados", titulo: "Dados e diagnóstico", icone: "download", nos: ["#sec-dados"],
     resumo: () => "Backup, importar, log" },
+  { id: "telefone", titulo: "Telefone", icone: "smartphone", nos: ["#sec-telefone"],
+    resumo: () => "A Ely liga para o seu celular", aoAbrir: () => desenharTelefone() },
   { id: "modos", titulo: "Modos", icone: "layers", nos: ["#sec-modos"],
     // `modoAtual` mora no modos.js, que carrega depois: o try cobre a leitura antes dele.
     resumo: () => { try { return modoAtual ? `Ligado: ${modoAtual.nome}` : "Matemática, inglês… e os seus"; } catch { return "Matemática, inglês… e os seus"; } },
@@ -311,6 +313,45 @@ async function desenharEstadoHermes() {
   const rotulo = { pronto: "Hermes no ar", subindo: "Hermes subindo…", "sem-hermes": "Hermes não instalado neste PC", erro: "Hermes fora do ar", desligado: "Hermes desligado" }[h.estado] ?? h.estado;
   const det = [h.modelo, h.latenciaMs ? `1ª palavra em ${(h.latenciaMs / 1000).toFixed(1).replace(".", ",")} s` : "", h.estado === "erro" && h.erro ? h.erro : ""].filter(Boolean).join(" · ");
   el.innerHTML = `<b>${escHtml(rotulo)}</b>${det ? ` — ${escHtml(det)}` : ""} (perfil ${escHtml(h.perfil)})`;
+}
+
+/**
+ * 13/10: o telefone da Ely (Bland AI). A chave só entra (o campo nunca mostra a salva); o número
+ * fica no config deste PC. "Ligar agora" faz uma ligação de teste — custa crédito na Bland.
+ */
+async function desenharTelefone() {
+  const alvo = document.getElementById("telefone-corpo");
+  if (!alvo) return;
+  let e = { configurado: false, temChave: false, numero: "" };
+  try { e = await window.nx.telefoneEstado(); } catch { /* preload antigo */ }
+  alvo.innerHTML = `
+    <p class="cfg-nota" style="margin-top:0">Diga “Ely, me liga”, “me liga daqui a 20 minutos e me lembra de tirar o bolo”. A ligação sai pela Bland AI (cada minuto usa crédito da sua conta lá) e a Ely dá o recado com a voz dela de telefone.</p>
+    <p class="cfg-nota"><b>${e.configurado ? "Pronto para ligar" : "Falta configurar"}</b>${e.numero ? ` — ligo para ${escHtml(e.numero)}` : ""}${e.temChave ? " · chave salva" : ""}</p>
+    <form class="atu-form" id="tel-form">
+      <input id="tel-chave" type="password" autocomplete="off" spellcheck="false" aria-label="Chave da Bland" placeholder="${e.temChave ? "Chave da Bland (salva — cole outra para trocar)" : "Chave da Bland: org_…"}">
+    </form>
+    <form class="atu-form">
+      <input id="tel-numero" type="tel" autocomplete="off" aria-label="Seu celular" placeholder="Seu celular: (12) 9 0000-0000">
+      <button type="button" id="tel-salvar">Salvar</button>
+      <button type="button" id="tel-testar" ${e.configurado ? "" : "disabled"}>Ligar agora (teste)</button>
+    </form>`;
+  // Enter num campo não pode enviar o formulário (recarregaria a tela).
+  alvo.querySelectorAll("form").forEach(f => f.addEventListener("submit", (ev) => { ev.preventDefault(); alvo.querySelector("#tel-salvar").click(); }));
+  alvo.querySelector("#tel-salvar").addEventListener("click", async () => {
+    const chave = alvo.querySelector("#tel-chave").value.trim();
+    const numero = alvo.querySelector("#tel-numero").value.trim();
+    const d = {};
+    if (chave) d.chave = chave;
+    if (numero) d.numero = numero;
+    if (!chave && !numero) { showToast("Nada para salvar.", true); return; }
+    const r = await window.nx.telefoneSalvar(d);
+    if (numero && !r.numero) showToast("Número não reconhecido — use DDD + número.", true); else showToast("Salvo.");
+    desenharTelefone();
+  });
+  alvo.querySelector("#tel-testar").addEventListener("click", async (ev) => {
+    ev.target.disabled = true;
+    try { showToast(await window.nx.telefoneTestar()); } finally { ev.target.disabled = false; }
+  });
 }
 
 /** A seção "Sobre": o que se pergunta quando algo dá errado, num lugar só. */

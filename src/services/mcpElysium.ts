@@ -33,6 +33,8 @@ export const FERRAMENTAS_DO_HERMES = new Set([
   // Bancada de 10/10: sem estas, o Hermes improvisava — fechava os programas UM POR UM (sem a
   // pergunta do fechar_tudo_menos) e pausava a rotina que era para apagar. As duas pedem "sim".
   "fechar_tudo_menos", "apagar_rotina", "criar_rotina",
+  // 13/10: o telefone (custa crédito da Bland: a política só deixa com o pedido pedindo).
+  "ligar_para_mim",
   "organizar_janelas", "buscar_app", "instalar_app", "atualizar_apps",
 ]);
 

@@ -12,6 +12,7 @@ import { pedidoDeModo } from "./modos";
 import { pedidoDeCartao } from "./cartoes";
 import { pedidoDePomodoro } from "./pomodoro";
 import { pedidoDeJanelas } from "./layoutJanelas";
+import { pedidoDeLigacao } from "./telefone";
 import { pedidoDePlano } from "./planoEstudo";
 import { pedidoDeMediaEscolar } from "./notas";
 
@@ -220,6 +221,9 @@ export function fastRoute(text: string): BrainAction[] | null {
     const match = normalized.match(rule.pattern);
     if (match) return rule.build(match);
   }
+  // 13/10: "me liga", "me liga daqui a 20 minutos e me lembra de X".
+  const lig = pedidoDeLigacao(text);
+  if (lig) return [{ action: "phone_call", ...lig }];
   // Fase 21: janelas — "organiza minhas janelas", "salva o layout estudo", "layout estudo".
   const jan = pedidoDeJanelas(text);
   if (jan) return [{ action: "windows_layout", ...jan }];

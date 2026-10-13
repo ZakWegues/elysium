@@ -80,6 +80,8 @@ export type BrainAction =
   | { action: "mode";              operacao: "ligar" | "desligar" | "status" | "listar" | "criar"; id?: string; nome?: string; instrucao?: string }
   // Fase 21: "organiza minhas janelas", "salva o layout estudo", "joga o Chrome pra esquerda".
   | { action: "windows_layout";    modo: string; programa?: string; layout?: string }
+  // 13/10: "me liga daqui a 20 minutos" — o telefone da Ely (Bland AI).
+  | { action: "phone_call";        mensagem: string; minutos?: number }
   // Bloco 193: "resume isso", "traduz isso" — o copiado, ou a tela.
   | { action: "about_this";        comando: ComandoIsso }
   // Bloco 194: "anota tudo isso: …" — separa em tarefas, listas e notas, e pergunta antes.
@@ -246,6 +248,7 @@ function actionSummary(action: BrainAction): string {
     case "grade_needed":      return "Nota necessária";
     case "study_plan":        return `Plano de estudo: ${action.materia}`;
     case "pomodoro":          return action.operacao === "start" ? "Pomodoro" : action.operacao === "stop" ? "Parou o pomodoro" : action.operacao === "skip" ? "Pulou a fase" : "Pomodoro";
+    case "phone_call":        return action.minutos ? `Ligação em ${action.minutos} min` : "Ligando para o celular";
     case "windows_layout":    return action.modo === "salvar_layout" ? `Salvou o layout ${action.layout ?? ""}`.trim() : action.modo === "aplicar_layout" ? `Layout ${action.layout ?? ""}`.trim() : "Organizou as janelas";
     case "cards":             return action.operacao === "guardar" ? "Cartão de revisão" : "Revisão";
     case "mode":              return action.operacao === "ligar" ? "Modo ligado" : action.operacao === "desligar" ? "Saiu do modo" : action.operacao === "criar" ? `Criou o modo ${action.nome ?? ""}`.trim() : "Modos";
