@@ -6615,3 +6615,23 @@ girando e pulsando**. Não uma janela por cima de tudo.
   roxa no meio do chat vazio; com a Ely falando, deformada e pulsando atrás das mensagens. O
   celular não tem como ser visto aqui (sem aparelho/emulador): conferir no aparelho.
 - Checks: desktop 391, celular 98.
+
+### 13/10/2026 — voz da Ely de volta (2.8.2) e o telefone da Ely (2.8.3)
+- 🔴 **"A voz da Ely tá estranha" era a voz do Windows:** o Edge passou a recusar o aperto de
+  mão da `msedge-tts` 2.0.7 (`Unexpected server response: 403`, 29 vezes no log), e toda fala caía
+  no SAPI. A **2.1.0** voltou a sintetizar (inclusive o metadado de palavras da esfera). Se a voz
+  voltar a ficar robótica: procure `falha na síntese neural` no log e veja se há `msedge-tts` nova.
+- Melhor voz: padrão agora **Thalita Multilingual** (geração mais nova pt-BR do Edge; quem estava na
+  Francisca migra uma vez — `migrarVozThalita`), tom nunca alterado (pitch fora do natural soava
+  sintetizado), velocidade em passos pequenos, pedaços de fala de 110 caracteres (a entonação
+  recomeça a cada pedaço). Amostras para comparar em `ELYSIUM/amostras-voz/` (fora dos repos).
+- **Telefone (Bland AI):** `services/telefone.ts` — "me liga", "me liga daqui a N minutos / em
+  meia hora", "… e me lembra de X" (`pedidoDeLigacao` no fastRoute, ação `phone_call`, ferramenta
+  `ligar_para_mim` também no MCP do Hermes; a política exige o pedido falar em ligar). `POST
+  https://api.bland.ai/v1/calls` com `authorization: <chave>`, `language: pt-BR`, roteiro na persona
+  da Ely, `max_duration` 5. Chave em `blandKey` (safeStorage, fora do backup), número em
+  `telefoneDono` (config do app), voz opcional `telefoneVoz`. Ajustes → Telefone com "Ligar agora
+  (teste)". Agendadas só em memória. Futuro: atender ligação (número comprado na Bland + webhook
+  público) e agendamento persistente (pelo scheduler de lembretes).
+- O Zak mandou a chave e o número pelo chat; **não foram gravados por mim** — ele cola em Ajustes →
+  Telefone. Recomendado gerar uma chave nova na Bland (a do chat ficou exposta).
