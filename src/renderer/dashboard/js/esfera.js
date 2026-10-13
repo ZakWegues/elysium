@@ -49,6 +49,7 @@
   let t = 0;
   let ultimo = performance.now();
   let rodando = false;
+  let corDoTema = null, corDoTemaEm = 0;
 
   function modo() {
     if (estadoApp === "listening") return "ouvindo";
@@ -132,7 +133,13 @@
     nivel += (alvoNivel - nivel) * (alvoNivel > nivel ? 0.35 : 0.08);
     const n = lento ? nivel * 0.5 : nivel;
 
-    const alvoCor = CORES[m];
+    // Parada, a esfera é da cor de destaque do tema (ouro na Renascença, azul no Stark).
+    if (agora - corDoTemaEm > 1000) {
+      corDoTemaEm = agora;
+      const v = getComputedStyle(document.documentElement).getPropertyValue("--purple-rgb").split(",").map(Number);
+      if (v.length === 3 && v.every(Number.isFinite)) corDoTema = v.map(x => Math.min(255, x + 25));
+    }
+    const alvoCor = m === "parado" && corDoTema ? corDoTema : CORES[m];
     for (let k = 0; k < 3; k++) cor[k] += (alvoCor[k] - cor[k]) * 0.08;
     const [cr, cg, cb] = cor.map(Math.round);
 

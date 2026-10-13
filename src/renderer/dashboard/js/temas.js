@@ -31,6 +31,14 @@ const THEMES = {
   "stark-mark": { name: "Stark — Mark",   family: "ely", stark: true, purple: "#ff5a4e", purpleBright: "#ff9183", cyan: "#ffc857", cyanDark: "#d9a43a", bg: "#0b0607", surface: "#170c0e", surface2: "#120909", glassInk: "28,12,14", blobs: ["#5a1414", "#5a4214", "#2a1010"], shaft: "#ff5a4e" },
   "stark-noite":{ name: "Stark — Noite",  family: "ely", stark: true, purple: "#7fb8d8", purpleBright: "#cfeaff", cyan: "#64ffda", cyanDark: "#3fcfae", bg: "#03050a", surface: "#0a0f18", surface2: "#070b12", glassInk: "8,13,22", blobs: ["#1a2a3a", "#123a35", "#20283a"], shaft: "#7fb8d8" },
 
+  // Renascença (13/10, pedido do Zak): a família "ely" com o acabamento de `css/renascenca.css`
+  // por cima — nogueira escura, folha de ouro, molduras douradas com cantos ornamentados,
+  // serifa clássica (Palatino, que vem no Windows), capitular iluminada e desenhos de estudo
+  // ao fundo. "purple" é o ouro; "cyan" é o pigmento da variação (carmim, ultramar, verdete).
+  renascenca:          { name: "Renascença — Florença", family: "ely", renascenca: true, purple: "#c9a14a", purpleBright: "#ecd18f", cyan: "#b23a48", cyanDark: "#8c2a36", bg: "#120c07", surface: "#1f150d", surface2: "#180f09", glassInk: "31,21,13", blobs: ["#5a3a14", "#5a1c22", "#3a2814"], shaft: "#c9a14a" },
+  "renascenca-veneza": { name: "Renascença — Veneza",   family: "ely", renascenca: true, purple: "#d4ae5c", purpleBright: "#f0d898", cyan: "#3d6fd1", cyanDark: "#2b52a3", bg: "#0b0d18", surface: "#151a2c", surface2: "#101423", glassInk: "21,26,44", blobs: ["#1c2c5a", "#5a4214", "#22204a"], shaft: "#d4ae5c" },
+  "renascenca-roma":   { name: "Renascença — Roma",     family: "ely", renascenca: true, purple: "#c7a35a", purpleBright: "#e9d29a", cyan: "#6f9a5b", cyanDark: "#527642", bg: "#0f0d09", surface: "#1c1810", surface2: "#16130c", glassInk: "28,24,16", blobs: ["#3a4a24", "#5a4214", "#2a2416"], shaft: "#c7a35a" },
+
   ely:         { name: "Campos Elísios", family: "ely", purple: "#d9b168", purpleBright: "#f2d49b", cyan: "#9fd8cf", cyanDark: "#6fb3a9", bg: "#0a0c14", surface: "#131726", surface2: "#0e1220", glassInk: "16,21,36", blobs: ["#8a6a2e", "#2f5d57", "#4a3f6b"], shaft: "#d9b168" },
   "ely-dusk":  { name: "Crepúsculo",     family: "ely", purple: "#f0a850", purpleBright: "#ffc47a", cyan: "#e07a9b", cyanDark: "#b85e7c", bg: "#0b0818", surface: "#171232", surface2: "#110d26", glassInk: "26,18,48", blobs: ["#7a4520", "#6b2f47", "#3b2a6b"], shaft: "#f0a850" },
   "ely-ether": { name: "Éter",           family: "ely", purple: "#a8c4d8", purpleBright: "#d3e4f0", cyan: "#7fd4c8", cyanDark: "#4fa89c", bg: "#080b12", surface: "#111624", surface2: "#0c101c", glassInk: "15,21,34", blobs: ["#33506b", "#2b5f59", "#3a4560"], shaft: "#a8c4d8" },
@@ -127,6 +135,7 @@ function applyTheme(id) {
     document.body.classList.toggle(`theme-${fam}`, fam === p.family);
   }
   document.body.classList.toggle("theme-stark", !!p.stark);
+  document.body.classList.toggle("theme-renascenca", !!p.renascenca);
   // Classe comum às duas famílias. Carrega só o que é movimento — molas, entradas de modal
   // e bolha, brilho nos botões, a camada de blobs — que é idêntico entre elas.
   document.body.classList.add("theme-rich");
@@ -139,7 +148,7 @@ function renderThemeSwatches() {
   if (!wrap) return;
   wrap.innerHTML = "";
   const grades = {};
-  for (const [fam, rotulo] of [["stark", "Stark — HUD"], ["ely", "ELYSIUM — noite"], ["lg", "Vidro Líquido — dia"]]) {
+  for (const [fam, rotulo] of [["stark", "Stark — HUD"], ["renascenca", "Renascença — ouro e afresco"], ["ely", "ELYSIUM — noite"], ["lg", "Vidro Líquido — dia"]]) {
     const bloco = document.createElement("div");
     bloco.innerHTML = `<div class="theme-familia">${rotulo}</div><div class="theme-grade"></div>`;
     wrap.appendChild(bloco);
@@ -160,7 +169,7 @@ function renderThemeSwatches() {
       cfgAtual.theme = id;
       window.nx.setConfig({ theme: id }).catch(() => {});
     });
-    grades[t.stark ? "stark" : t.family].appendChild(div);
+    grades[t.stark ? "stark" : t.renascenca ? "renascenca" : t.family].appendChild(div);
   });
 }
 

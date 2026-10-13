@@ -1,0 +1,153 @@
+/* dashboard/css/renascenca.css — tema Renascença (13/10).
+   O pedido: "estilo renascentista cheio de ornamentos, arte e etc". É a família "ely" + a
+   classe `theme-renascenca`, que só ACRESCENTA pele (nada de layout): nogueira escura com
+   damasco em folha de ouro, um estudo de geometria vitruviana e uma espiral áurea ao fundo,
+   molduras douradas duplas com cantos em voluta nos painéis e nas bolhas, serifa clássica
+   (Palatino Linotype, que vem no Windows), versaletes nos rótulos e capitular iluminada na
+   resposta da Ely. Os desenhos são SVG embutido: o ouro deles é fixo (#c9a14a) porque um
+   data URI não lê variável CSS; as três variações têm ouro quase igual de propósito. */
+
+body.theme-renascenca {
+  --ren-serifa: "Palatino Linotype", "Book Antiqua", Palatino, "Georgia", serif;
+  --ren-ouro: var(--purple);
+  --ren-ouro-claro: var(--purple-bright);
+  --ren-linha: rgba(var(--purple-rgb), 0.5);
+  --text: #efe4c8;
+  --muted: #a08f6c;
+  --border: rgba(var(--purple-rgb), 0.28);
+  --border2: rgba(var(--purple-rgb), 0.2);
+  font-family: var(--ren-serifa);
+  font-size: 14px;
+}
+
+/* ── fundo: damasco, estudo vitruviano, espiral áurea, vinheta ── */
+body.theme-renascenca #ely-shafts,
+body.theme-renascenca #bg-aurora,
+body.theme-renascenca #bg-tracos,
+body.theme-renascenca #lg-blob-bg .lg-blob { display: none; }
+body.theme-renascenca #lg-blob-bg {
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(ellipse at 50% 40%, transparent 35%, rgba(0, 0, 0, 0.55) 100%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 600 600' fill='none' stroke='%23c9a14a' stroke-width='1.1' opacity='0.09'%3E%3Ccircle cx='300' cy='300' r='238'/%3E%3Ccircle cx='300' cy='300' r='150'/%3E%3Crect x='90' y='132' width='420' height='420'/%3E%3Cpath d='M90 132 510 552M510 132 90 552M300 62v476M62 300h476'/%3E%3Cpath d='M300 62 506 419H94Z'/%3E%3Cpath d='M300 538 94 181h412Z'/%3E%3Cpath stroke-dasharray='3 7' d='M300 300 538 300A238 238 0 0 0 300 62'/%3E%3Cg stroke-width='0.8'%3E%3Ccircle cx='300' cy='300' r='4' fill='%23c9a14a'/%3E%3Cpath d='M70 590c40-14 90-18 140-10M390 584c46-10 96-10 142 4M60 40c50 10 100 8 150-4M400 30c40 12 90 14 140 4'/%3E%3C/g%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 150' fill='none' stroke='%23c9a14a' stroke-width='0.9' opacity='0.12'%3E%3Cpath d='M1 145A144 144 0 0 1 145 1A89 89 0 0 1 234 90A55 55 0 0 1 179 145A34 34 0 0 1 145 111A21 21 0 0 1 166 90A13 13 0 0 1 179 103A8 8 0 0 1 171 111A5 5 0 0 1 166 106'/%3E%3Cpath stroke-width='0.5' d='M1 1h233v144H1zM145 1v144M145 90h89M179 90v55M145 111h34M166 90v21M166 103h13'/%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 96' fill='none' stroke='%23c9a14a' stroke-width='0.9' opacity='0.06'%3E%3Cpath d='M48 14c-6 8-6 16 0 22 6-6 6-14 0-22zM48 36c-10-2-16 4-16 12 8 0 14-4 16-12zM48 36c10-2 16 4 16 12-8 0-14-4-16-12zM48 36v24M42 60h12M40 66c4-4 12-4 16 0'/%3E%3Cpath d='M0 0c8 6 8 14 0 20M96 0c-8 6-8 14 0 20M0 96c8-6 8-14 0-20M96 96c-8-6-8-14 0-20'/%3E%3Ccircle cx='48' cy='82' r='2'/%3E%3C/svg%3E");
+  background-repeat: no-repeat, no-repeat, no-repeat, repeat;
+  background-size: 100% 100%, min(78vh, 760px), min(42vh, 420px), 96px 96px;
+  background-position: center, 112% 60%, -6% 104%, 0 0;
+}
+body.theme-renascenca #bg-poeira i { background: var(--ren-ouro-claro); }
+
+/* ── tipografia: serifa, versaletes e ouro ── */
+body.theme-renascenca .home-greet,
+body.theme-renascenca .hoje-cabeca h2,
+body.theme-renascenca .pc-topo h2,
+body.theme-renascenca #gaveta-titulo,
+body.theme-renascenca #chat-vazio h2 {
+  font-family: var(--ren-serifa); font-weight: 600; font-style: italic;
+  color: var(--ren-ouro-claro); letter-spacing: 0.01em;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.6), 0 0 18px rgba(var(--purple-rgb), 0.18);
+}
+body.theme-renascenca .vtab-label,
+body.theme-renascenca .hoje-painel h3,
+body.theme-renascenca .rot-h3,
+body.theme-renascenca .home-card-title,
+body.theme-renascenca .theme-familia,
+body.theme-renascenca .cfg-grupo h3,
+body.theme-renascenca .hoje-rotulo {
+  font-family: var(--ren-serifa); font-variant: small-caps; letter-spacing: 0.08em;
+  color: var(--ren-ouro);
+}
+body.theme-renascenca .vtab-label { font-size: 13.5px; text-transform: none; }
+body.theme-renascenca input,
+body.theme-renascenca textarea,
+body.theme-renascenca button { font-family: var(--ren-serifa); }
+
+/* ── barra do topo: friso dourado com fleurões ── */
+body.theme-renascenca #topbar {
+  border-bottom: 1px solid var(--ren-linha);
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 28 8' fill='%23c9a14a' opacity='0.55'%3E%3Cpath d='M14 0 18 4 14 8 10 4Z'/%3E%3Ccircle cx='3' cy='4' r='1'/%3E%3Ccircle cx='25' cy='4' r='1'/%3E%3C/svg%3E"),
+    linear-gradient(180deg, rgba(var(--glass-ink), 0.95), rgba(var(--glass-ink), 0.75));
+  background-repeat: repeat-x, no-repeat;
+  background-size: 28px 8px, 100% 100%;
+  background-position: 0 100%, 0 0;
+}
+body.theme-renascenca .logo-text {
+  font-family: var(--ren-serifa); font-variant: small-caps; letter-spacing: 0.22em;
+  color: var(--ren-ouro-claro);
+}
+body.theme-renascenca .logo-badge {
+  font-family: var(--ren-serifa); font-style: italic; color: #2a1a08;
+  background: radial-gradient(circle at 35% 30%, #fff1c4 0%, var(--ren-ouro-claro) 30%, var(--ren-ouro) 62%, #7a5a1e 100%);
+  border: 1px solid #f3dc9e; box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.5), 0 0 0 3px rgba(var(--purple-rgb), 0.6), 0 2px 10px rgba(0, 0, 0, 0.5);
+}
+body.theme-renascenca .vtab.active { color: var(--ren-ouro-claro); }
+body.theme-renascenca .vtab.active::after {
+  content: "❦"; position: absolute; left: 50%; bottom: -3px; transform: translateX(-50%);
+  font-size: 11px; color: var(--ren-ouro); line-height: 1; pointer-events: none;
+}
+body.theme-renascenca .vtab { position: relative; }
+
+/* ── molduras: ouro duplo com cantos em voluta ──
+   Quatro cantos desenhados (a mesma voluta espelhada) + o filete duplo por sombra interna. */
+body.theme-renascenca .home-card,
+body.theme-renascenca .hoje-painel,
+body.theme-renascenca .rotina,
+body.theme-renascenca .rot-card,
+body.theme-renascenca .bubble.assistant,
+body.theme-renascenca .cfg-grupo,
+body.theme-renascenca .theme-swatch {
+  border: 1px solid var(--ren-linha);
+  border-radius: 4px;
+  box-shadow: inset 0 0 0 3px rgba(0, 0, 0, 0.35), inset 0 0 0 4px rgba(var(--purple-rgb), 0.3), 0 8px 22px rgba(0, 0, 0, 0.45);
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40' fill='none' stroke='%23c9a14a' stroke-width='1.2'%3E%3Cpath d='M3 37V9a6 6 0 0 1 6-6h28'/%3E%3Cpath d='M9 20c0-7 4-11 11-11'/%3E%3Cpath d='M13 24c0-5 3-8 8-8 3 0 4 2 4 3.5S24 22 22.5 22 20 21 20 20'/%3E%3Ccircle cx='8' cy='8' r='2' fill='%23c9a14a'/%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40' fill='none' stroke='%23c9a14a' stroke-width='1.2'%3E%3Cg transform='matrix(-1 0 0 1 40 0)'%3E%3Cpath d='M3 37V9a6 6 0 0 1 6-6h28'/%3E%3Cpath d='M9 20c0-7 4-11 11-11'/%3E%3Cpath d='M13 24c0-5 3-8 8-8 3 0 4 2 4 3.5S24 22 22.5 22 20 21 20 20'/%3E%3Ccircle cx='8' cy='8' r='2' fill='%23c9a14a'/%3E%3C/g%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40' fill='none' stroke='%23c9a14a' stroke-width='1.2'%3E%3Cg transform='matrix(1 0 0 -1 0 40)'%3E%3Cpath d='M3 37V9a6 6 0 0 1 6-6h28'/%3E%3Cpath d='M9 20c0-7 4-11 11-11'/%3E%3Cpath d='M13 24c0-5 3-8 8-8 3 0 4 2 4 3.5S24 22 22.5 22 20 21 20 20'/%3E%3Ccircle cx='8' cy='8' r='2' fill='%23c9a14a'/%3E%3C/g%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40' fill='none' stroke='%23c9a14a' stroke-width='1.2'%3E%3Cg transform='matrix(-1 0 0 -1 40 40)'%3E%3Cpath d='M3 37V9a6 6 0 0 1 6-6h28'/%3E%3Cpath d='M9 20c0-7 4-11 11-11'/%3E%3Cpath d='M13 24c0-5 3-8 8-8 3 0 4 2 4 3.5S24 22 22.5 22 20 21 20 20'/%3E%3Ccircle cx='8' cy='8' r='2' fill='%23c9a14a'/%3E%3C/g%3E%3C/svg%3E"),
+    linear-gradient(180deg, rgba(var(--purple-rgb), 0.06), transparent 40%);
+  background-repeat: no-repeat;
+  background-size: 26px 26px, 26px 26px, 26px 26px, 26px 26px, 100% 100%;
+  background-position: 2px 2px, calc(100% - 2px) 2px, 2px calc(100% - 2px), calc(100% - 2px) calc(100% - 2px), 0 0;
+}
+body.theme-renascenca .home-card:hover,
+body.theme-renascenca .hoje-painel:hover {
+  border-color: rgba(var(--purple-rgb), 0.85);
+  box-shadow: inset 0 0 0 3px rgba(0, 0, 0, 0.35), inset 0 0 0 4px rgba(var(--purple-rgb), 0.45), 0 0 26px rgba(var(--purple-rgb), 0.16);
+}
+/* Bolha da Ely: papel envelhecido escuro, com respiro para os cantos. */
+body.theme-renascenca .bubble.assistant { padding: 14px 18px; line-height: 1.6; }
+body.theme-renascenca .bubble.user {
+  background: rgba(var(--cyan-rgb), 0.16); border: 1px solid rgba(var(--cyan-rgb), 0.55);
+  color: var(--text); border-radius: 4px; font-style: italic;
+}
+
+/* ── capitular iluminada ──
+   A primeira letra da resposta da Ely vira uma inicial de manuscrito: ouro sobre o pigmento
+   da variação, numa caixinha com filete. */
+body.theme-renascenca .bubble.assistant > p:first-child::first-letter {
+  float: left; font-family: var(--ren-serifa); font-size: 2.7em; line-height: 0.95; font-weight: 700;
+  color: var(--ren-ouro-claro); margin: 3px 8px 0 0; padding: 4px 6px 2px;
+  background: radial-gradient(circle at 30% 30%, rgba(var(--cyan-rgb), 0.55), rgba(var(--cyan-rgb), 0.2));
+  border: 1px solid var(--ren-linha); border-radius: 3px;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.7);
+}
+
+/* ── botões, campo e detalhes ── */
+body.theme-renascenca .send-btn {
+  background: radial-gradient(circle at 35% 30%, #fff1c4 0%, var(--ren-ouro-claro) 35%, var(--ren-ouro) 70%, #7a5a1e 100%);
+  color: #2a1a08; border: 1px solid #f3dc9e;
+}
+body.theme-renascenca #cmd-input { border-color: var(--ren-linha); font-size: 14px; }
+body.theme-renascenca #cmd-input::placeholder { font-style: italic; color: var(--muted); }
+body.theme-renascenca #status-badge {
+  font-family: var(--ren-serifa); font-variant: small-caps; letter-spacing: 0.06em; border-radius: 3px;
+}
+body.theme-renascenca ::selection { background: rgba(var(--purple-rgb), 0.35); color: #fff7df; }
+body.theme-renascenca ::-webkit-scrollbar-thumb { background: rgba(var(--purple-rgb), 0.45) !important; }
+body.theme-renascenca #chat-vazio p { font-style: italic; }
+body.theme-renascenca #chat-vazio h2::before,
+body.theme-renascenca #chat-vazio h2::after { content: " ❧ "; color: var(--ren-ouro); font-style: normal; font-size: 0.8em; }
+body.theme-renascenca #chat-vazio h2::before { display: inline-block; transform: scaleX(-1); }
+body.theme-renascenca kbd { font-family: var(--ren-serifa); border-color: var(--ren-linha); }
