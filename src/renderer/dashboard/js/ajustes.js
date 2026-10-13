@@ -72,8 +72,8 @@ const AJUSTES = [
     nota: "Vozes neurais do Edge, pela internet. Sem rede o ELYSIUM cai na voz do Windows.",
     campos: [
       { chave: "voice", rotulo: "Voz", tipo: "select", opcoes: [
-        ["pt-BR-FranciscaNeural", "Francisca — feminina (padrão)"],
-        ["pt-BR-ThalitaMultilingualNeural", "Thalita — feminina, mais jovem"],
+        ["pt-BR-ThalitaMultilingualNeural", "Thalita — feminina, a mais natural (padrão)"],
+        ["pt-BR-FranciscaNeural", "Francisca — feminina, a antiga"],
         ["pt-BR-AntonioNeural", "Antonio — masculina"]],
         dica: "As três vozes brasileiras do Edge. (A Macerio só existe no Azure pago: quem tinha escolhido ouve o Antonio.)" },
       { chave: "velocidadeFala", rotulo: "Velocidade da fala", tipo: "faixa", min: -10, max: 10, passo: 1, unidade: "%",

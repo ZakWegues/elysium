@@ -25,6 +25,8 @@ export interface AppConfig {
   voice: string;
   /** Marca que a troca única para a voz feminina (02/10) já rodou — ver `migrarVozFeminina`. */
   vozFemininaAplicada?: boolean;
+  /** Marca a troca única para a Thalita Multilingual (13/10) — ver `migrarVozThalita`. */
+  vozThalitaAplicada?: boolean;
   /** Marca que a troca única para o tema Stark (fase 16) já rodou — ver `migrarTemaStark`. */
   temaStarkAplicado?: boolean;
   /** Marca a troca única para o cérebro híbrido (fase 16) — ver `migrarCerebroHibrido`. */
@@ -203,7 +205,7 @@ const DEFAULTS: AppConfig = {
   silenceMs: 2500,
   maxRecordMs: 120000,
   // 02/10: a assistente se chama Ely, e o Zak pediu voz feminina. Antes era o Antonio.
-  voice: "pt-BR-FranciscaNeural",
+  voice: "pt-BR-ThalitaMultilingualNeural",
   sttModel: "whisper-large-v3",
   brainModel: "openai/gpt-oss-120b",
   routerModel: "openai/gpt-oss-120b",
@@ -448,6 +450,17 @@ export function migrarVozFeminina(o: Partial<AppConfig>): Partial<AppConfig> | n
 }
 
 /**
+ * Troca única para a Thalita Multilingual (13/10): o Zak achou a voz estranha e pediu a melhor.
+ * Quem estava na Francisca (o padrão antigo) passa para a Thalita; outra escolha é respeitada.
+ */
+export function migrarVozThalita(o: Partial<AppConfig>): Partial<AppConfig> | null {
+  if (o.vozThalitaAplicada) return null;
+  const patch: Partial<AppConfig> = { vozThalitaAplicada: true };
+  if (!o.voice || o.voice === "pt-BR-FranciscaNeural") patch.voice = "pt-BR-ThalitaMultilingualNeural";
+  return patch;
+}
+
+/**
  * Troca única para o tema Stark (fase 16, 07/10): o Zak pediu o visual "Jarvis feminino"
  * como PADRÃO. Roda uma vez para todo mundo; escolher outro tema depois é respeitado.
  */
@@ -468,7 +481,7 @@ export function migrarCerebroHibrido(o: Partial<AppConfig>): Partial<AppConfig> 
 
 export function getConfig(): AppConfig {
   let overrides = store.get("overrides", {} as Partial<AppConfig>);
-  const trocas = { ...(migrarVozFeminina(overrides) ?? {}), ...(migrarTemaStark(overrides) ?? {}), ...(migrarCerebroHibrido(overrides) ?? {}) };
+  const trocas = { ...(migrarVozFeminina(overrides) ?? {}), ...(migrarTemaStark(overrides) ?? {}), ...(migrarCerebroHibrido(overrides) ?? {}), ...(migrarVozThalita(overrides) ?? {}) };
   if (Object.keys(trocas).length) {
     overrides = { ...overrides, ...trocas };
     store.set("overrides", overrides);

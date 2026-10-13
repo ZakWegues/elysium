@@ -67,7 +67,8 @@ describe("fala por frase (02/10)", async () => {
     expect(dividirEmFrases("   ")).toEqual([]);
     const longa = "Hoje faz 24 graus em São Paulo, com sol a tarde toda e vento fraco. " +
       "À noite esfria um pouco, chegando a 17 graus, e não deve chover. " +
-      "Amanhã a previsão é parecida, só um pouco mais quente. Ok.";
+      "Amanhã a previsão é parecida, só um pouco mais quente, com máxima de 27 graus no fim da tarde. " +
+      "No fim de semana deve chover um pouco no sábado, mas o domingo volta a abrir. Ok.";
     const p = dividirEmFrases(longa);
     expect(p.length).toBeGreaterThan(1);
     expect(p.join(" ")).toBe(longa);
@@ -109,18 +110,20 @@ describe("persona Stark (fase 16)", async () => {
 describe("prosódia do momento e vozes (bloco 189)", async () => {
   const { prosodiaDoMomento, vozEfetiva } = await import("../src/services/tts");
   it("base de cada voz, velocidade do dono e humor em passos pequenos", () => {
+    // 13/10: o tom nunca muda (pitch fora do natural soava "estranho"); a Thalita parte do natural.
+    expect(prosodiaDoMomento("pt-BR-ThalitaMultilingualNeural")).toEqual({ rate: "+0%", pitch: "+0%", volume: "+0%" });
     expect(prosodiaDoMomento("pt-BR-FranciscaNeural")).toEqual({ rate: "-4%", pitch: "+0%", volume: "+0%" });
-    expect(prosodiaDoMomento("pt-BR-AntonioNeural")).toEqual({ rate: "-8%", pitch: "-3%", volume: "+0%" });
-    expect(prosodiaDoMomento("pt-BR-FranciscaNeural", { velocidade: 6 }).rate).toBe("+2%");
-    expect(prosodiaDoMomento("pt-BR-FranciscaNeural", { velocidade: 99 }).rate).toBe("+6%");
-    expect(prosodiaDoMomento("pt-BR-FranciscaNeural", { humor: "apressado" }).rate).toBe("+2%");
-    expect(prosodiaDoMomento("pt-BR-FranciscaNeural", { humor: "triste" })).toEqual({ rate: "-9%", pitch: "-2%", volume: "+0%" });
-    expect(prosodiaDoMomento("pt-BR-FranciscaNeural", { noite: true })).toEqual({ rate: "-7%", pitch: "+0%", volume: "-30%" });
+    expect(prosodiaDoMomento("pt-BR-AntonioNeural")).toEqual({ rate: "-6%", pitch: "+0%", volume: "+0%" });
+    expect(prosodiaDoMomento("pt-BR-ThalitaMultilingualNeural", { velocidade: 6 }).rate).toBe("+6%");
+    expect(prosodiaDoMomento("pt-BR-ThalitaMultilingualNeural", { velocidade: 99 }).rate).toBe("+10%");
+    expect(prosodiaDoMomento("pt-BR-ThalitaMultilingualNeural", { humor: "apressado" }).rate).toBe("+4%");
+    expect(prosodiaDoMomento("pt-BR-ThalitaMultilingualNeural", { humor: "triste" })).toEqual({ rate: "-3%", pitch: "+0%", volume: "+0%" });
+    expect(prosodiaDoMomento("pt-BR-ThalitaMultilingualNeural", { noite: true })).toEqual({ rate: "-2%", pitch: "+0%", volume: "-30%" });
   });
   it("nomes de voz que não existem no Edge gratuito viram os que existem", () => {
     expect(vozEfetiva("pt-BR-ThalitaNeural")).toBe("pt-BR-ThalitaMultilingualNeural");
     expect(vozEfetiva("pt-BR-MacerioMultilingualNeural")).toBe("pt-BR-AntonioNeural");
-    expect(vozEfetiva(undefined)).toBe("pt-BR-FranciscaNeural");
+    expect(vozEfetiva(undefined)).toBe("pt-BR-ThalitaMultilingualNeural");
     expect(vozEfetiva("pt-BR-FranciscaNeural")).toBe("pt-BR-FranciscaNeural");
   });
 });

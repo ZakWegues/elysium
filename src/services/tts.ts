@@ -14,7 +14,9 @@ import { spawnPs } from "../actions/ps";
 import type { Humor } from "./humor";
 import { duracaoDoMp3, Palavra, palavrasDoMetadado, palavrasPeloTexto } from "./bolota";
 
-const VOICE = "pt-BR-FranciscaNeural";
+// 13/10: a Thalita Multilingual é a geração mais nova das vozes pt-BR do Edge (a Francisca é a
+// antiga) — o Zak achou a voz "estranha" e pediu a melhor possível.
+const VOICE = "pt-BR-ThalitaMultilingualNeural";
 const TTS_TIMEOUT_MS = 30_000;
 
 // Rate/pitch levemente reduzidos: soa menos apressado e menos robótico
@@ -76,20 +78,21 @@ function pct(n: number): string {
  * Pura, para teste.
  */
 export function prosodiaDoMomento(voz: string, opcoes: { noite?: boolean; humor?: Humor; velocidade?: number } = {}): ProsodyOptions {
+  // 13/10: o tom NUNCA é mexido — qualquer pitch fora do natural deixava a voz "estranha"
+  // (soa sintetizada). Só velocidade, em passos pequenos, e o volume à noite.
   const masculina = /^pt-BR-(Antonio|Macerio)/.test(voz);
-  let rate = masculina ? -8 : -4;
-  let pitch = masculina ? -3 : 0;
+  const moderna = /Multilingual/.test(voz);
+  let rate = masculina ? -6 : moderna ? 0 : -4;
   const vel = Number(opcoes.velocidade);
   rate += Number.isFinite(vel) ? Math.max(-10, Math.min(10, vel)) : 0;
   switch (opcoes.humor) {
-    case "apressado": rate += 6; break;
-    case "cansado":   rate -= 5; break;
-    case "triste":    rate -= 5; pitch -= 2; break;
-    case "animado":   rate += 3; pitch += 2; break;
+    case "apressado": rate += 4; break;
+    case "cansado":
+    case "triste":    rate -= 3; break;
     default: break;
   }
-  if (opcoes.noite) rate -= 3;
-  return { rate: pct(rate), pitch: pct(pitch), volume: opcoes.noite ? "-30%" : "+0%" };
+  if (opcoes.noite) rate -= 2;
+  return { rate: pct(rate), pitch: "+0%", volume: opcoes.noite ? "-30%" : "+0%" };
 }
 
 /** A prosódia de agora, com a config e o relógio. */
@@ -209,7 +212,9 @@ export async function sintetizarMp3(texto: string, humor?: Humor): Promise<Buffe
  * (cada pedaço é uma síntese e um player; "Ok." sozinho sairia picotado). Fala curta
  * volta inteira. Pura, para teste.
  */
-export function dividirEmFrases(texto: string, minimo = 70): string[] {
+// 13/10: pedaços maiores (110): cada pedaço é uma síntese separada, e a entonação recomeça em
+// cada um — pedaço curto demais deixava a fala picotada.
+export function dividirEmFrases(texto: string, minimo = 110): string[] {
   const t = texto.trim();
   if (t.length <= minimo * 2) return t ? [t] : [];
   const frases = t.split(/(?<=[.!?…])\s+/);
