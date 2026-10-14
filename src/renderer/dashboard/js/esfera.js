@@ -51,6 +51,49 @@
   let rodando = false;
   let corDoTema = null, corDoTemaEm = 0;
 
+  // ── mouse (fase 22) ───────────────────────────────────────────────────────
+  // A esfera "olha" para o cursor: inclina na direção dele por mola, os pontos perto dele se
+  // afastam e acendem, e um movimento rápido dá um impulso no giro. O canvas continua sem
+  // pegar clique (pointer-events: none); quem ouve é o #center.
+  const mouse = { x: 0, y: 0, dentro: false, vx: 0, ultX: null };
+  const incl = { x: 0, y: 0, vx: 0, vy: 0 }; // offset de rotação (rad) e velocidade da mola
+  let spin = 0;
+  let geom = { cx: 0, cy: 0, R: 1, dpr: 1 }; // do último quadro, em px do canvas
+  const pulsos = []; // ondas de clique: { t0 }
+
+  function ignorarAlvo(el) {
+    return !!(el && el.closest && el.closest(".bubble, input, textarea, button, select, a, .pop"));
+  }
+  function sobreEsfera() {
+    if (!mouse.dentro) return false;
+    const d = Math.hypot(mouse.x * geom.dpr - geom.cx, mouse.y * geom.dpr - geom.cy);
+    return d <= geom.R;
+  }
+  centro.addEventListener("pointermove", (e) => {
+    const r = centro.getBoundingClientRect();
+    const x = e.clientX - r.left, y = e.clientY - r.top;
+    if (ignorarAlvo(e.target)) { mouse.dentro = false; centro.classList.remove("sobre-esfera"); return; }
+    if (mouse.ultX !== null) mouse.vx = x - mouse.ultX;
+    mouse.ultX = x;
+    mouse.x = x; mouse.y = y; mouse.dentro = true;
+    if (!movimentoReduzido()) spin = Math.max(-0.25, Math.min(0.25, spin + mouse.vx * 0.002));
+    centro.classList.toggle("sobre-esfera", vazio && ligada && sobreEsfera());
+  });
+  centro.addEventListener("pointerleave", () => {
+    mouse.dentro = false; mouse.ultX = null; centro.classList.remove("sobre-esfera");
+  });
+  centro.addEventListener("click", (e) => {
+    if (!vazio || !ligada || ignorarAlvo(e.target) || !sobreEsfera()) return;
+    if (!movimentoReduzido()) pulsos.push({ t0: performance.now() });
+    nivel = Math.min(1, nivel + 0.6);
+    acordar();
+  });
+  // Duplo clique na esfera: começa a ouvir, pelo mesmo caminho do botão do microfone.
+  centro.addEventListener("dblclick", (e) => {
+    if (!vazio || !ligada || ignorarAlvo(e.target) || !sobreEsfera()) return;
+    document.getElementById("mic-btn")?.click();
+  });
+
   function modo() {
     if (estadoApp === "listening") return "ouvindo";
     if (estadoApp === "processing") return "pensando";
@@ -153,11 +196,22 @@
     const cy = H * (vazio ? 0.32 : 0.45);
     const base = Math.min(W, H) * (vazio ? 0.17 : 0.26);
     const R = base * (1 + 0.03 * Math.sin(t * 1.4) + n * 0.14);
+    geom = { cx, cy, R, dpr };
+
+    // Mola da inclinação: o alvo é a direção do cursor (até ±0,35 rad); sem cursor, volta a 0.
+    const comMouse = mouse.dentro && !lento;
+    const mx = comMouse ? Math.max(-1, Math.min(1, (mouse.x * dpr - cx) / (R * 2))) : 0;
+    const my = comMouse ? Math.max(-1, Math.min(1, (mouse.y * dpr - cy) / (R * 2))) : 0;
+    incl.vx += (mx * 0.35 - incl.x) * 6 * dt; incl.vx *= 0.85; incl.x += incl.vx;
+    incl.vy += (my * 0.35 - incl.y) * 6 * dt; incl.vy *= 0.85; incl.y += incl.vy;
+    rotY += spin; spin *= 0.95;
 
     // Gira mais rápido quando há voz; inclina devagar.
     rotY += dt * (lento ? 0.12 : 0.28 + n * 1.6);
-    const rotX = 0.42 + Math.sin(t * 0.23) * 0.12;
-    const sy = Math.sin(rotY), cyR = Math.cos(rotY), sx = Math.sin(rotX), cxR = Math.cos(rotX);
+    const rotX = 0.42 + Math.sin(t * 0.23) * 0.12 + incl.y;
+    const rY = rotY + incl.x;
+    const sy = Math.sin(rY), cyR = Math.cos(rY), sx = Math.sin(rotX), cxR = Math.cos(rotX);
+    const curX = mouse.x * dpr, curY = mouse.y * dpr, raioRep = R * 0.35;
 
     // Núcleo e halo: a luz de dentro cresce com a voz.
     const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * 1.25);
@@ -182,13 +236,24 @@
       q.y = cy + y2 * R * f;
       q.z = z2;
       q.s = f;
+      q.b = 0;
+      // Perto do cursor: o ponto se afasta dele (até 0,12R, queda suave) e acende.
+      if (comMouse) {
+        const dx = q.x - curX, dy = q.y - curY, d = Math.hypot(dx, dy);
+        if (d < raioRep && d > 0.001) {
+          const k = 1 - d / raioRep, suave = k * k * (3 - 2 * k);
+          q.x += (dx / d) * suave * R * 0.12;
+          q.y += (dy / d) * suave * R * 0.12;
+          q.b = suave;
+        }
+      }
     }
     ordem.sort((a, b) => proj[a].z - proj[b].z);
     for (const i of ordem) {
       const q = proj[i];
       const prof = (q.z + 1) / 2; // 0 atrás … 1 na frente
-      const tam = (0.45 + prof * 1.25) * q.s * dpr * (1 + n * 0.35);
-      const a = (0.08 + prof * prof * 0.85) * opac;
+      const tam = (0.45 + prof * 1.25) * q.s * dpr * (1 + n * 0.35) * (1 + q.b * 0.8);
+      const a = Math.min(1, (0.08 + prof * prof * 0.85) * opac * (1 + q.b * 0.9));
       ctx.fillStyle = `rgba(${Math.min(255, cr + prof * 50)},${Math.min(255, cg + prof * 40)},${Math.min(255, cb + prof * 30)},${a})`;
       ctx.beginPath();
       ctx.arc(q.x, q.y, tam, 0, Math.PI * 2);
@@ -199,6 +264,16 @@
     ctx.strokeStyle = `rgba(${cr},${cg},${cb},${(0.12 + n * 0.3) * opac})`;
     ctx.lineWidth = 1.2 * dpr;
     ctx.beginPath(); ctx.arc(cx, cy, R * (1.32 + n * 0.08), 0, Math.PI * 2); ctx.stroke();
+
+    // Ondas do clique: um anel saindo de R até 2R em 600 ms.
+    for (let i = pulsos.length - 1; i >= 0; i--) {
+      const k = (agora - pulsos[i].t0) / 600;
+      if (k >= 1) { pulsos.splice(i, 1); continue; }
+      const e = 1 - Math.pow(1 - k, 3);
+      ctx.strokeStyle = `rgba(${cr},${cg},${cb},${(1 - k) * 0.7 * opac})`;
+      ctx.lineWidth = (2.5 - k * 1.8) * dpr;
+      ctx.beginPath(); ctx.arc(cx, cy, R * (1 + e), 0, Math.PI * 2); ctx.stroke();
+    }
 
     requestAnimationFrame(quadro);
   }
