@@ -6791,11 +6791,11 @@ vira gaveta; Início com **5 cards de fábrica** e o layout salvo resetado uma v
 ### Bloco 227 — entrega
 - **Desktop 2.9.0**: CI verde, release `v2.9.0` publicada (instalador assinado), instalado aqui
   e confirmado por `update.status` (`"pc":"2.9.0"`); o canal WS respondeu no app instalado.
-- **Celular: OTA** no canal `preview`, runtime `6bf8bf23…`. 🔴 Conferido dentro do APK publicado
-  (`assets/fingerprint` do `elysium-m-2.2.0.apk`): o 2.2.0 é **6bf8bf23…** — esta OTA chega. As
-  OTAs de 12/10 (esfera) e 13/10 (Renascença) saíram no runtime `4d91a161…` e **não chegavam**
-  ao aparelho; esta leva tudo junto. Para conferir o runtime de um APK:
-  `unzip -p <apk> assets/fingerprint`.
+- **Celular: OTA** no canal `preview`, runtime Android `6bf8bf23…` — o mesmo do APK 2.2.0
+  (conferido em `assets/fingerprint` dentro do `elysium-m-2.2.0.apk`: `unzip -p <apk> assets/fingerprint`).
+  ⚠️ O `eas update` publica DOIS grupos (Android e iOS); `4d91a161…` é o runtime do **iOS**, não
+  um runtime errado. (Uma primeira versão desta seção dizia que as OTAs de 12–13/10 não chegavam
+  por causa do 4d91 — estava errado: elas também tinham o grupo Android em 6bf8.)
 - Testes: desktop 408 (era 391), celular 137 (era 98).
 
 ### Para o Zak conferir
@@ -6817,3 +6817,33 @@ vira gaveta; Início com **5 cards de fábrica** e o layout salvo resetado uma v
   ele apaga até o ponto da mudança e redigita (correto, mas visível no PC).
 - Ideia: espelho da tela dentro do trackpad (miniatura ao fundo) e gesto de pinça = zoom
   (Ctrl+roda).
+
+### 41.1 — ajustes depois do teste do Zak (14/10/2026) — desktop 2.9.1, celular OTA
+**O que ele disse:** no PC a interação com a esfera estava exagerada e ele não quer que ela siga o
+mouse; no celular o Chat estava "todo quebrado", sugestões esquisitas e gigantes, a esfera não
+funcionava direito e ele não quer muita interação de toque nela; e pediu para tirar a "quantidade
+bizarra de informação inútil" que afogava o app.
+- **PC (`esfera.js`):** sem seguir o mouse (saíram a inclinação por mola, a repulsão/brilho perto
+  do cursor e o impulso de giro). O mouse só decide se o cursor está em cima (clique = pulso leve,
+  +0,25 e anel fino até 1,4R; duplo clique = ouvir). Tecla: +0,04 com teto 0,15 e onda 3× menor.
+  Arquivo arrastado: puxão de 0,05R. Nascer: pontos partem de 1,4 raio (eram 2,4), flash 0,12.
+  A mensagem enviada não inclina mais a esfera.
+- **Celular — por que as sugestões ficavam gigantes:** `ScrollView` horizontal no RN tem
+  `flexGrow: 1` por padrão; numa coluna ele cresce na VERTICAL e as fichas esticam. (Se voltar a
+  usar faixa rolável, `style={{ flexGrow: 0 }}`.)
+- **Celular — Chat:** saíram a bolha de boas-vindas (o chat vazio é só a esfera; conversas antigas
+  que guardaram a bolha `welcome` são filtradas ao abrir), as perguntas de partida
+  (`chat.starters` não é mais chamado), as sugestões depois da resposta, o `VozAoVivo` (a esfera
+  já mostra a voz), os gestos nas bolhas (o toque longo continua com Copiar/Ouvir/Refazer), o
+  "acordando o cérebro…" e o lacre de cera (volta a ser a legenda "reserva"). Faixas acima do
+  campo: só "/", voz em curso e modo ligado (no máximo 2).
+- **Celular — esfera:** `Esfera3D` voltou a ser só fundo (`pointerEvents="none"`), sem gestos,
+  sem "nascer", sem pulso de tecla/envio. Fica a reação à voz, o "pensando" e a calma da noite.
+  Vazia: 42% da altura, 0,95; com conversa: no meio, 0,3. `lib/esferaLogica.ts` e
+  `lib/bolota.ts` perderam o que ficou sem uso (testes ajustados).
+- **Celular — Hoje:** saíram clima (está na Início), ideia do dia, card ELYSIUM e manchetes; a
+  revisão da semana só aparece no domingo; avisos só os de nível erro.
+- Checks: desktop 408, celular 131. Desktop **2.9.1** publicado e instalado (`"pc":"2.9.1"`); OTA
+  Android `6bf8bf23…`.
+- Pendente/ideia: se o Zak quiser as sugestões de volta, só como texto pequeno numa linha (e com
+  `flexGrow: 0`).
