@@ -188,7 +188,13 @@
     requestAnimationFrame(quadro);
   }
 
+  // Um erro num quadro não pode parar a esfera para sempre (o `rodando` ficaria preso em true).
   function quadro(agora) {
+    try { passo(agora); }
+    catch (e) { console.error("[esfera] quadro falhou:", e); requestAnimationFrame(quadro); }
+  }
+
+  function passo(agora) {
     lerConfig();
     if (!visivel()) { rodando = false; ctx.clearRect(0, 0, canvas.width, canvas.height); return; }
     const dt = Math.min(0.05, (agora - ultimo) / 1000);
@@ -275,7 +281,7 @@
       }
       const x1 = x * cyR + z * sy, z1 = -x * sy + z * cyR;
       const y2 = y * cxR - z1 * sx, z2 = y * sx + z1 * cxR;
-      const f = 2.8 / (2.8 - z2);
+      const f = 2.8 / (2.8 - Math.min(2.2, z2)); // preso: no "nascer" os pontos partem de longe
       const q = proj[i];
       q.x = cx + x1 * R * f;
       q.y = cy + y2 * R * f;
@@ -307,8 +313,8 @@
     ordem.sort((a, b) => proj[a].z - proj[b].z);
     for (const i of ordem) {
       const q = proj[i];
-      const prof = (q.z + 1) / 2; // 0 atrás … 1 na frente
-      const tam = (0.45 + prof * 1.25) * q.s * dpr * (1 + n * 0.35) * (1 + q.b * 0.8);
+      const prof = Math.max(0, Math.min(1, (q.z + 1) / 2)); // 0 atrás … 1 na frente
+      const tam = Math.max(0.2, 0.45 + prof * 1.25) * q.s * dpr * (1 + n * 0.35) * (1 + q.b * 0.8);
       const a = Math.min(1, (0.08 + prof * prof * 0.85) * opac * (1 + q.b * 0.9));
       ctx.fillStyle = `rgba(${Math.min(255, cr + prof * 50)},${Math.min(255, cg + prof * 40)},${Math.min(255, cb + prof * 30)},${a})`;
       ctx.beginPath();
