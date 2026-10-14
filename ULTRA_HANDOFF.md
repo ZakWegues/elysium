@@ -6654,3 +6654,166 @@ girando e pulsando**. Não uma janela por cima de tudo.
     `AppBackground` com o mesmo damasco/vitruviano/espiral em SVG nativo), `Text` em serifa com
     títulos em itálico, opção em Ajustes → Aparência, esfera dourada parada. Só JS → OTA.
   - Visto no PC (Chat e Início); o celular, só no aparelho.
+
+## 41. Fase 22 — Renascença polida, celular "desktopizado", esfera viva e controle do PC de verdade (blocos 220–227, 13–14/10/2026) — desktop 2.9.0, celular OTA
+
+**Pedido do Zak (13/10):** polir HUD/UI/UX do tema Renascença; celular mais simples e bonito,
+imitando o desktop (sobretudo a esfera que se mexe com a fala); esfera reagindo ao mouse no PC e
+"pequenas interações que fazem toda a diferença"; e o controle do PC pelo celular, cujo trackpad
+estava "quase inútil". Decisões dele: celular com **4 abas (Início, Chat, PC, Hoje)**, Rotinas
+vira gaveta; Início com **5 cards de fábrica** e o layout salvo resetado uma vez.
+
+### Bloco 220 — Renascença polida (desktop)
+- `css/renascenca.css` (só acrescenta pele): `#status-badge` em versalete com a cor do estado
+  (ouro ouvindo, âmbar pensando, pigmento falando, `#8c1c13` no erro) e um ❦ que pulsa sob
+  `body.vivo`; `.vbar` em gradiente de ouro e `.voz-anel` em filete duplo; botões moeda
+  (`.mic-btn`, `.top-btn`, `#stop-btn`; `#live-btn[aria-pressed=true]` em pigmento com anel
+  pulsando); `#input-bar` como cartela (filete duplo + dois ❧); `.pop`, `#preset-pop`,
+  `#paleta`, `#gaveta`, `#tarefas-cheia`, `#toast-el` em pergaminho escuro; `.bubble.system` em
+  itálico entre filetes; `.chat-local` ("reserva") como lacre de cera carmim; `select[data-cfg]`
+  com seta dourada; `.cfg-switch` de alavanca; `.save-btn` moeda larga; `#vtab-thumb` vira
+  filete dourado; scrollbar nogueira/ouro; `#orbe` como **astrolábio** (graduação pontilhada 40 s
+  + constelações ao contrário 60 s, 4× sob `.vivo`); `.hoje-reator::before` com graduação;
+  `.hoje-acao`, vitais do PC, azulejos do PC (`.pc-grade > *`, `.pc-midia`) e de Ajustes
+  (`.aj-azulejo`) com moldura; `.cfg-grupo` com respiro (o texto encostava nas volutas);
+  `.theme-swatch` com cantos de 12 px; capitular também durante o streaming.
+- Tudo novo desliga com `prefers-reduced-motion` (salvo `data-movimento="sempre"`) e com
+  `data-movimento="nunca"`. Nenhum `::after` em `.send-btn`/`.save-btn` (é o brilho do `rich.css`).
+
+### Bloco 221 — esfera reage ao mouse (desktop)
+- `js/esfera.js`: `pointermove`/`pointerleave` no `#center` (canvas continua sem pegar clique);
+  ignora bolha, campo, botão, select, link e `.pop`. Inclinação por mola (k = 6, amortecimento
+  0,85) até ±0,35 rad na direção do cursor; pontos a menos de 0,35R do cursor se afastam até
+  0,12R (smoothstep) e acendem; velocidade do mouse dá impulso no giro (`spin`, decai 0,95).
+  Com o chat vazio: clique dentro de R = onda R→2R em 600 ms e `nivel += 0,6`; duplo clique =
+  `#mic-btn.click()`; cursor vira mãozinha (`#center.sobre-esfera`). Movimento reduzido desliga.
+
+### Bloco 222 — pequenas interações (desktop e celular)
+- **Lógica pura nos dois:** desktop `js/esfera-logica.js` (UMD: `window.EsferaLogica` no
+  dashboard, `module.exports` no vitest — `tests/esferaLogica.test.ts`); celular
+  `src/lib/esferaLogica.ts` (`tests/esferaLogica.test.ts`). Mesmos números: `RITMO_PENSANDO` 4
+  rad/s (ciclo 1571 ms), `NASCER_MS` 900, `easeOutCubic`, `fatorNoturno(hora)` (22h–6h: giro
+  0,6, brilho 0,75, respiração 0,6), `pulsoDeTecla` (+0,08, teto 0,35).
+- **A esfera nasce:** pontos espalhados convergem em 900 ms com flash do halo (desktop: primeiro
+  quadro visível; celular: ao montar e ao voltar ao Chat, `useAoReativar`).
+- **Sente a digitação:** desktop `#cmd-input` → `CustomEvent('ely:tecla')`; enviar →
+  `ely:enviou` (inclina para baixo e volta). Celular: `pulsoDaBolota()`/`inclinarBolota()` em
+  `lib/bolota.ts` (mutables `impulsoDaBolota`, `ondaTeclaDaBolota`, `chuteDaBolota`).
+- **Arquivo por cima do chat (desktop):** pontos puxados para o cursor; ao soltar, onda de
+  absorção 2R→R (o anexo continua pelo fluxo do `#soltar-aviso`).
+- **Bolhas:** celular — deslizar a da Ely para a esquerda = ouvir de novo (🔊 no arrasto,
+  háptica), toque duplo = copiar com ✓ por 1 s (`GestosDaBolha` no `ChatScreen`, Pan + Tap(2)).
+  Desktop — o botão copiar vira ✓ por 1 s e duplo clique na bolha da Ely copia.
+- **Atalhos do ícone (celular):** Falar com a Ely, **Trackpad**, **Modo live**, Resumo do dia
+  (foco e busca saíram da lista; os destinos antigos continuam tratados para atalho já fixado).
+- **"Pensando" no mesmo ritmo:** pontinhos da `BolhaPensando` e `voz-respira` do desktop com o
+  ciclo de 1571 ms da esfera.
+- **Espaço segurado = falar (desktop):** foco fora de campo, Chat à vista, sem paleta/gaveta.
+  `nx.segurarParaFalar()` → `voice:start {segurar:true}` (sem corte por silêncio, teto 30 s);
+  soltar → `voice:finish` → `finish-recording` no gravador (para e manda). Dica no `#chat-vazio`.
+
+### Bloco 223 — canal de input por WebSocket (desktop)
+- `src/services/inputCanal.ts` (puro, `tests/inputCanal.test.ts`): frame
+  `{"type":"input","ev":[["m",dx,dy],["w",dy,dx],["d"|"u"|"c",btn],["dc"],["k",[teclas]],["t",texto],["bs",n],["ping",t]]}`.
+  Limites: 64 eventos/frame, 120 frames/s por conexão, texto ≤ 500, bs ≤ 200; operação
+  desconhecida recusa o frame inteiro. `Acumulador` de subpixel (sem `-0`), `teclasParaVk`
+  (Win, F1–F12, setas, PgUp/PgDn, Home/End, Del, mídia, volume, letras, números). Movimentos
+  seguidos viram um só; a ordem até o host é a de chegada (o clique nunca passa na frente).
+- `server.ts`/`handleTextFrame`: `type:"input"` vai ao canal (um por conexão, criado no primeiro
+  frame, que registra o acesso uma vez); só o `ping` responde (`{type:"input.pong", t}`).
+- `inputHost.ts`: `SetProcessDpiAwarenessContext(-4)` no início; MOVE por `SendInput` relativo;
+  novos `WHEEL n`/`HWHEEL n` (1/120), `KEYS vk1,vk2` (aperta em ordem, solta ao contrário,
+  `EXTENDEDKEY` nas que precisam), `MEDIA op`, `VOLGET`/`VOLSET`/`VOLMUTE`/`VOLSTEP` com a
+  Core Audio compilada uma vez no host (C# em `actions/coreAudio.ts`, compartilhado). Respostas
+  `OK valor`. `media.control`, `volume.get/set` vão pelo host e caem no caminho antigo se falhar.
+- RPC novos (não destrutivos): `input.combo {keys}`, `input.hscroll {amount}`. Contrato
+  regenerado e copiado para `elysium-m/contracts/`. Os `input.*` antigos continuam.
+- Medido aqui: host sobe em ~0,9 s (com a Core Audio), `volGet` 18 ms, MOVE 6 ms; pelo WS do
+  app instalado, 20/20 pongs, mediana 0–1 ms.
+
+### Bloco 224 — trackpad novo (celular)
+- `src/lib/trackpad.ts` (puro, `tests/trackpad.test.ts`): `ganho(v) = base·(1 + 1,1·min(v,4)^0,8)`
+  (v em px/ms, base 0,6–3,0, padrão 1,4), `acelerar`, `Coalescedor`, `classificarToque`,
+  `ehDuplo`, `diffTexto` (por code point), `passoInercia` (0,92), `gestoTresDedos`.
+- `src/lib/inputCanal.ts`: WS próprio (mesmo endereço/token), `ping` ao abrir; com `input.pong`
+  em 1 s usa o frame por quadro (`requestAnimationFrame`); sem pong (PC antigo) cai no HTTP com
+  1 pedido em voo, deltas acumulados e ordem garantida. Ping a cada 20 s (o PC derruba WS
+  parado há 90 s).
+- `TrackpadFullscreen.tsx` reescrito com gesture-handler (com `GestureHandlerRootView` próprio
+  no Modal): 1 dedo move com aceleração; toque = clique (dois toques = duplo pelo próprio
+  Windows); segurar 350 ms e arrastar = arrastar com o botão preso; 2 dedos: toque = direito,
+  arrastar = rolagem vertical/horizontal com inércia; 3 dedos: toque = meio, cima = Win+Tab,
+  baixo = Win+D. Rastro do dedo, `CantosOrnamentados` na Renascença, barra E/D, abas
+  Teclado (ao vivo, sem enviar) / Atalhos (Alt+F4 pede um toque a mais) / Mídia
+  (`components/BarraMidia.tsx`, extraída da aba PC). Engrenagem: sensibilidade, inverter
+  rolagem, háptica (AsyncStorage `trackpad.ajustes`). Indicador "direto"/"modo compatível".
+- Aba PC: o cartão virou `components/MiniTrackpad.tsx` (botão grande + faixa que já move o
+  cursor; o canal abre no primeiro toque e fecha após 30 s parado).
+- **Paisagem não entrou:** o `app.json` fixa `orientation: portrait` (nativo → só com APK novo).
+
+### Bloco 225 — celular desktopizado e simplificado
+- **4 abas** (`TabBar.tsx`: Início, Chat, PC, Hoje). Rotinas abre em `GlassModal` (prop nova
+  `semRolagem`; `RotinasScreen naGaveta` sem cabeçalho) a partir do Hoje (cartão "Rotinas"), do
+  card Atalhos da Início e da busca; o link antigo `elysium://rotinas` abre o Hoje com a gaveta.
+  `lib/abas.ts` sem `rotinas` (+ teste).
+- **Chat no jeito do PC:** esfera centralizada a 32% da altura com o chat vazio (só a
+  boas-vindas) e 0,95; com conversa vai a 45% e 0,3. Com o chat vazio pega o dedo: toque =
+  pulso + háptica, segurar = falar (fluxo do mic), arrastar = inclina com mola, toque duplo =
+  modo live. Os três `useAnimatedProps` no topo do componente (fim do `camada()` que violava as
+  regras de hooks). A `FalaFlutuante` some dentro do Chat. No máximo **2 faixas** sobre o campo
+  (prioridade: "/", voz, modo, sugestões, perguntas de partida); sugestões e partidas numa linha
+  rolável (sugestões até 3). Barra: **"+"** (câmera, anexo, modos, presets), campo, mic e o
+  **botão LIVE** (aceso com anel; vira enviar quando há texto, parar enquanto responde). Os
+  presets saíram do cabeçalho do `ChatHub`.
+- **Início:** 5 cards de fábrica (`lib/layoutInicio.ts`: sugestões, hoje, computador, música,
+  atalhos) + migração única (`inicio.layoutV2Aplicado`) que descarta o layout salvo; os outros
+  cards nascem desligados e aparecem em **Personalizar** (botão no fim da grade; o editor saiu do
+  cabeçalho). Uma linha de estado só (PC · lembretes · clima). Teste `layoutInicio.test.ts`.
+- **Hoje:** seções recolhíveis (`lib/secoesHoje.ts` + teste; salvas em `hoje.secoes`). Abertas
+  por padrão: Amanhã, Lembretes/Tarefas, Agenda, Hábitos; as outras com contador no título.
+  Toque abre/fecha, toque longo continua ocultando.
+- **Ajustes:** Voz com "Ouvir Ely" e "Ler respostas" à vista e o resto em **Avançado**;
+  Notificações num cartão só (aviso local + push do PC).
+- **Visual:** troca de tela em 180 ms; na Renascença os `GlassCircle` viram moeda (borda de ouro
+  + filete interno), "reserva" vira lacre carmim e a TabBar ganha filete dourado com ❦.
+
+### Bloco 226 — verificação
+- Desktop em dev com a porta 9333, janela fora da tela e sem foco. Visto no tema Renascença:
+  Início (astrolábio), Chat vazio (esfera dourada), mouse sobre a esfera (inclina, pontos se
+  afastam e acendem, cursor mãozinha), pulso de tecla, toast, paleta Ctrl+K, Hoje, PC (molduras),
+  Ajustes e gaveta Voz. O tema salvo do Zak não foi trocado (o `applyTheme` foi só na sessão).
+- 🔴 Pego na captura: no "nascer" os pontos partem com z > 2,8 e a perspectiva dava raio
+  negativo → `arc()` lançava e a esfera morria para sempre (o `rodando` ficava `true`). Agora a
+  perspectiva é presa (`min(2.2, z2)`), tamanho com piso, e o quadro roda num `try/catch`.
+- Canal: teste unitário + script (só `ping` e `m 0 0`): 20/20 pongs, mediana ≤ 1 ms.
+- Celular: `npm run check` verde (tsc, 137 testes, export android). Telas só no aparelho.
+
+### Bloco 227 — entrega
+- **Desktop 2.9.0**: CI verde, release `v2.9.0` publicada (instalador assinado), instalado aqui
+  e confirmado por `update.status` (`"pc":"2.9.0"`); o canal WS respondeu no app instalado.
+- **Celular: OTA** no canal `preview`, runtime `6bf8bf23…`. 🔴 Conferido dentro do APK publicado
+  (`assets/fingerprint` do `elysium-m-2.2.0.apk`): o 2.2.0 é **6bf8bf23…** — esta OTA chega. As
+  OTAs de 12/10 (esfera) e 13/10 (Renascença) saíram no runtime `4d91a161…` e **não chegavam**
+  ao aparelho; esta leva tudo junto. Para conferir o runtime de um APK:
+  `unzip -p <apk> assets/fingerprint`.
+- Testes: desktop 408 (era 391), celular 137 (era 98).
+
+### Para o Zak conferir
+1. Celular: abrir o app duas vezes (baixa e aplica a OTA). Ver 4 abas; Rotinas pelo Hoje.
+2. Chat vazio: tocar, segurar (fala), arrastar e tocar duas vezes (live) na esfera; o "+" e o
+   botão LIVE; deslizar uma resposta da Ely para a esquerda (ouvir de novo) e tocar duas vezes
+   (copiar).
+3. Trackpad: 1/2/3 dedos, segurar e arrastar, teclado ao vivo, Win+D, volume na aba Mídia; o
+   selo "direto" no topo (se aparecer "modo compatível", o PC não está no 2.9.0).
+4. PC: passar o mouse na esfera, segurar Espaço no Chat, arrastar um arquivo sobre o chat.
+5. Início: os 5 cards novos (os outros em Personalizar); Hoje com seções recolhidas.
+
+### Pendências e ideias
+- Paisagem no trackpad: exige `orientation` diferente no `app.json` → próximo APK.
+- `npm run update` do celular continua quebrado de propósito (mexer em `scripts` muda o
+  fingerprint); o comando certo é `npx eas-cli update --channel preview --environment preview
+  --non-interactive --message "…"` — e conferir o runtime contra o APK antes de anunciar.
+- Teclado ao vivo usa backspace + texto: com corretor do Android mexendo no meio da palavra,
+  ele apaga até o ponto da mudança e redigita (correto, mas visível no PC).
+- Ideia: espelho da tela dentro do trackpad (miniatura ao fundo) e gesto de pinça = zoom
+  (Ctrl+roda).
