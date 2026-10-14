@@ -269,12 +269,32 @@ timeline.addEventListener("click", async (e) => {
     const clone = bolha.cloneNode(true);
     clone.querySelector(".bolha-acoes")?.remove();
     await copiarTexto(clone.innerText.trim());
+    // Fase 22: o próprio botão confirma (✓ por 1 s) — o toast fica para quem não olhou.
+    acao.innerHTML = ico("check", "ico-sm");
+    acao.classList.add("feito");
+    setTimeout(() => { acao.innerHTML = ico("copy", "ico-sm"); acao.classList.remove("feito"); }, 1000);
     showToast("Copiado.");
   } else if (acao.dataset.bolha === "refazer") {
     refazerUltima();
   } else if (acao.dataset.bolha === "editar") {
     editarUltima(bolha);
   }
+});
+
+// Fase 22: duplo clique na bolha da Ely copia a resposta (e um ✓ aparece nela por 1 s).
+timeline.addEventListener("dblclick", async (e) => {
+  const bolha = e.target.closest(".bubble.assistant");
+  if (!bolha || bolha.classList.contains("escrevendo") || e.target.closest("a, button, pre, code")) return;
+  const clone = bolha.cloneNode(true);
+  clone.querySelectorAll(".bolha-acoes, .bolha-ok").forEach(n => n.remove());
+  await copiarTexto(clone.innerText.trim());
+  window.getSelection()?.removeAllRanges();
+  bolha.querySelector(":scope > .bolha-ok")?.remove();
+  const ok = document.createElement("span");
+  ok.className = "bolha-ok"; ok.setAttribute("aria-hidden", "true"); ok.innerHTML = ico("check", "ico-sm");
+  bolha.appendChild(ok);
+  setTimeout(() => ok.remove(), 1000);
+  showToast("Copiado.");
 });
 
 async function copiarTexto(t) {

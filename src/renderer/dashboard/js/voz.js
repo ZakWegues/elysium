@@ -298,8 +298,12 @@ const micBtn   = document.getElementById("mic-btn");
 function sendText() {
   // Pergunta nova: as sugestões da resposta anterior já não servem (bloco 132).
   timeline.querySelectorAll(".chat-sugestoes").forEach(n => n.remove());
+  if (cmdInput.value.trim()) window.dispatchEvent(new CustomEvent("ely:enviou"));
   enviarMensagem();
 }
+
+// Fase 22: cada tecla no campo dá um micro-pulso na esfera (esfera.js).
+cmdInput.addEventListener("input", () => window.dispatchEvent(new CustomEvent("ely:tecla")));
 
 sendBtn.addEventListener("click", sendText);
 
@@ -314,7 +318,7 @@ window.nx.onLive?.((ligado) => {
 });
 cmdInput.addEventListener("keydown", (e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendText(); } });
 
-micBtn.addEventListener("click", () => {
+function abrirZonaDeVoz() {
   voiceActive = true;
   micBtn.classList.add("active");
   // O "pulo" do botão ao clicar; a zona de voz nasce com a própria animação (chat.css).
@@ -322,8 +326,36 @@ micBtn.addEventListener("click", () => {
   setTimeout(() => micBtn.classList.remove("mic-burst"), 560);
   voiceZone.classList.add("active");
   textZone.classList.add("hidden");
+}
+micBtn.addEventListener("click", () => {
+  abrirZonaDeVoz();
   window.nx.startListening();
 });
+
+// Fase 22: segurar Espaço no Chat = falar; soltar = mandar. Só com o foco fora de campo de
+// texto e com o Chat à vista; numa tecla de botão focado, o Espaço não aperta o botão.
+{
+  let segurando = false;
+  const ehCampo = (el) => !!el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName));
+  const chatVisivel = () => document.getElementById("center")?.offsetParent !== null;
+  const soltar = () => { if (!segurando) return; segurando = false; window.nx.soltarParaEnviar?.(); };
+  document.addEventListener("keydown", (e) => {
+    if (e.code !== "Space" || e.ctrlKey || e.altKey || e.metaKey || e.shiftKey) return;
+    if (ehCampo(e.target) || !chatVisivel()) return;
+    if (document.querySelector("#paleta-veu.aberto, #gaveta-veu.aberto")) return;
+    e.preventDefault();
+    if (e.repeat || segurando || appState !== "idle") return;
+    segurando = true;
+    abrirZonaDeVoz();
+    window.nx.segurarParaFalar?.();
+  });
+  document.addEventListener("keyup", (e) => {
+    if (e.code !== "Space" || !segurando) return;
+    e.preventDefault();
+    soltar();
+  });
+  window.addEventListener("blur", soltar);
+}
 
 // ─────────────────────────────────────────────────
 // MEDIA CONTROLS

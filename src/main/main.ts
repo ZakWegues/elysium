@@ -469,7 +469,7 @@ async function perguntarComoFoi(): Promise<void> {
 
 // ── recording flow ────────────────────────────────────────────────────────────
 
-async function startListening(opcoes: { esperarFalaMs?: number } = {}): Promise<void> {
+async function startListening(opcoes: { esperarFalaMs?: number; segurar?: boolean } = {}): Promise<void> {
   if (!recorderWin || recorderWin.isDestroyed()) {
     recorderWin = createRecorderWindow();
     await new Promise<void>((res) => recorderWin!.webContents.once("did-finish-load", res));
@@ -477,8 +477,9 @@ async function startListening(opcoes: { esperarFalaMs?: number } = {}): Promise<
   state.set("listening");
   const cfg = getConfig();
   recorderWin.webContents.send("start-recording", {
-    silenceMs:    cfg.silenceMs,
-    maxRecordMs:  cfg.maxRecordMs,
+    // Segurando o Espaço, quem decide o fim é ele: o silêncio não corta (o teto continua).
+    silenceMs:    opcoes.segurar ? Math.max(cfg.maxRecordMs, 30000) : cfg.silenceMs,
+    maxRecordMs:  opcoes.segurar ? Math.max(cfg.maxRecordMs, 30000) : cfg.maxRecordMs,
     esperarFalaMs: opcoes.esperarFalaMs ?? 0,
   });
 }
@@ -648,9 +649,12 @@ ipcMain.on("audio-level", (_event, level: number) => {
 
 // ── voice IPC ─────────────────────────────────────────────────────────────────
 
-ipcMain.on("voice:start", () => {
+ipcMain.on("voice:start", (_event, opcoes?: { segurar?: unknown }) => {
   if (!state.is("idle")) interruptAll();
-  startListening().catch((e) => console.error("[voz] não consegui começar a ouvir:", e));
+  startListening({ segurar: opcoes?.segurar === true }).catch((e) => console.error("[voz] não consegui começar a ouvir:", e));
+});
+ipcMain.on("voice:finish", () => {
+  if (recorderWin && !recorderWin.isDestroyed()) recorderWin.webContents.send("finish-recording");
 });
 
 // ── chat IPC ──────────────────────────────────────────────────────────────────

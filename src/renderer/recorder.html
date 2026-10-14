@@ -100,6 +100,8 @@
 
   // Fase 21: sair do modo live no meio da escuta — para sem mandar o áudio.
   window.elysium.onCancel?.(() => { descartar = true; stopRecording(); });
+  // Fase 22: Espaço solto no push-to-talk — para e manda.
+  window.elysium.onFinish?.(() => { stopRecording(); });
 
   function stopRecording() {
     clearTimeout(silenceTimer);

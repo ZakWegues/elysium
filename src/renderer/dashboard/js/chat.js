@@ -38,7 +38,8 @@ function mostrarChatVazio() {
     <div class="marca">EL</div>
     <h2 id="chat-vazio-saudacao">${saudacao()}.</h2>
     <p>Pergunte, peça, mande abrir. Fale com <kbd>${atalho}</kbd> de qualquer lugar,
-       escreva aqui embaixo, ou abra a paleta com <kbd>Ctrl+K</kbd>.</p>`;
+       escreva aqui embaixo, ou abra a paleta com <kbd>Ctrl+K</kbd>.</p>
+    <p class="dica-ptt">Segure <kbd>Espaço</kbd> para falar · <kbd>Ctrl+K</kbd> comandos</p>`;
   timeline.appendChild(div);
   // O nome vem da config (fase 13): dado pessoal mora nos dados do app, não no código.
   window.nx.getConfig().then((c) => {

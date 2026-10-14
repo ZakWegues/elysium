@@ -10,6 +10,9 @@ contextBridge.exposeInMainWorld("nx", {
   rpcMethods: () => ipcRenderer.invoke("rpc:methods"),
   // ── Voice ──────────────────────────────────────────────────────────────────
   startListening:  ()                       => ipcRenderer.send("voice:start"),
+  // Fase 22: Espaço segurado no chat. Começa sem corte por silêncio; soltar manda o áudio.
+  segurarParaFalar: ()                      => ipcRenderer.send("voice:start", { segurar: true }),
+  soltarParaEnviar: ()                      => ipcRenderer.send("voice:finish"),
   // Fase 21: modo live (conversa contínua).
   alternarLive:    ()                       => ipcRenderer.send("live:alternar"),
   onLive:          (cb: (ligado: boolean) => void) => { ipcRenderer.on("live:mudou", (_e, v) => cb(Boolean(v))); },

@@ -167,7 +167,7 @@ body.theme-renascenca #status-badge::before {
 body.theme-renascenca.vivo #status-badge::before { animation: ren-pulsa 1.6s ease-in-out infinite; }
 body.theme-renascenca #status-badge.listening { color: var(--ren-ouro-claro); border-color: var(--ren-ouro); background: linear-gradient(180deg, rgba(var(--purple-rgb), 0.3), rgba(var(--purple-rgb), 0.08)); }
 body.theme-renascenca #status-badge.processing { color: #e8a33c; border-color: rgba(232, 163, 60, 0.75); background: linear-gradient(180deg, rgba(232, 163, 60, 0.22), rgba(232, 163, 60, 0.05)); }
-body.theme-renascenca #status-badge.processing::before { color: #e8a33c; }
+body.theme-renascenca #status-badge.processing::before { color: #e8a33c; animation-duration: 1.571s; } /* ritmo do "pensando" da esfera */
 body.theme-renascenca #status-badge.speaking { color: var(--text); border-color: var(--cyan); background: linear-gradient(180deg, rgba(var(--cyan-rgb), 0.4), rgba(var(--cyan-rgb), 0.12)); }
 body.theme-renascenca #status-badge.error { color: #f3c7b8; border-color: #8c1c13; background: linear-gradient(180deg, rgba(140, 28, 19, 0.55), rgba(140, 28, 19, 0.2)); }
 body.theme-renascenca #status-badge.error::before { color: #e0705f; }
