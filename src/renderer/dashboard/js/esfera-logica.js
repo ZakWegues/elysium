@@ -26,10 +26,10 @@
     return noite ? { giro: 0.6, brilho: 0.75, respira: 0.6 } : { giro: 1, brilho: 1, respira: 1 };
   }
 
-  /** Cada tecla dá um micro-pulso: +0,08, sem passar de 0,35 (nunca abaixa quem já está alto). */
+  /** Cada tecla dá um micro-pulso: +0,04, sem passar de 0,15 (nunca abaixa quem já está alto). 22.1: era 0,08/0,35. */
   function pulsoDeTecla(nivel) {
     const n = Number(nivel) || 0;
-    return n >= 0.35 ? n : Math.min(0.35, n + 0.08);
+    return n >= 0.15 ? n : Math.min(0.15, n + 0.04);
   }
 
   const api = { RITMO_PENSANDO, NASCER_MS, easeOutCubic, fatorNoturno, pulsoDeTecla };

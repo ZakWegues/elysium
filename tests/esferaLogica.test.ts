@@ -25,9 +25,9 @@ describe("esfera — fator noturno", () => {
 });
 
 describe("esfera — pulso de tecla", () => {
-  it("soma 0,08 até o teto de 0,35", () => {
-    expect(L.pulsoDeTecla(0)).toBeCloseTo(0.08);
-    expect(L.pulsoDeTecla(0.3)).toBeCloseTo(0.35);
+  it("soma 0,04 até o teto de 0,15", () => {
+    expect(L.pulsoDeTecla(0)).toBeCloseTo(0.04);
+    expect(L.pulsoDeTecla(0.13)).toBeCloseTo(0.15);
   });
   it("não abaixa quem já está alto", () => {
     expect(L.pulsoDeTecla(0.8)).toBe(0.8);

@@ -30,7 +30,8 @@
   }
   const proj = pontos.map(() => ({ x: 0, y: 0, z: 0, s: 0, b: 0 }));
   // Fase 22: de onde cada ponto parte quando a esfera "nasce" (espalhados ao acaso).
-  const espalhado = pontos.map(() => ({ x: (Math.random() * 2 - 1) * 2.4, y: (Math.random() * 2 - 1) * 2.4, z: (Math.random() * 2 - 1) * 1.6 }));
+  // 22.1: partem de perto (eram 2,4 raios) — o nascer é um assentar, não uma explosão.
+  const espalhado = pontos.map(() => ({ x: (Math.random() * 2 - 1) * 1.4, y: (Math.random() * 2 - 1) * 1.4, z: (Math.random() * 2 - 1) * 0.9 }));
   const L = window.EsferaLogica;
   const ordem = pontos.map((_, i) => i);
 
@@ -54,13 +55,11 @@
   let rodando = false;
   let corDoTema = null, corDoTemaEm = 0;
 
-  // ── mouse (fase 22) ───────────────────────────────────────────────────────
-  // A esfera "olha" para o cursor: inclina na direção dele por mola, os pontos perto dele se
-  // afastam e acendem, e um movimento rápido dá um impulso no giro. O canvas continua sem
-  // pegar clique (pointer-events: none); quem ouve é o #center.
-  const mouse = { x: 0, y: 0, dentro: false, vx: 0, ultX: null };
-  const incl = { x: 0, y: 0, vx: 0, vy: 0 }; // offset de rotação (rad) e velocidade da mola
-  let spin = 0;
+  // ── mouse (fase 22; 22.1) ─────────────────────────────────────────────────
+  // A esfera NÃO segue mais o cursor (o Zak achou exagerado, 14/10): o mouse só serve para
+  // saber se ele está em cima dela — clique dá um pulso leve, duplo clique começa a ouvir.
+  // O canvas continua sem pegar clique (pointer-events: none); quem ouve é o #center.
+  const mouse = { x: 0, y: 0, dentro: false };
   let geom = { cx: 0, cy: 0, R: 1, dpr: 1 }; // do último quadro, em px do canvas
   const pulsos = []; // ondas: { t0, dentro } — clique sai de R a 2R; arquivo solto entra de 2R a R
 
@@ -74,8 +73,6 @@
     if (movimentoReduzido()) return;
     nivel = L.pulsoDeTecla(nivel); teclaAmp = 1; acordar();
   });
-  // Mensagem enviada: a esfera "olha" para baixo, para a mensagem nova, e a mola a traz de volta.
-  window.addEventListener("ely:enviou", () => { if (!movimentoReduzido()) incl.vy += 0.07; acordar(); });
   // Arquivo sendo arrastado sobre o chat: os pontos vão na direção do cursor; ao soltar, absorve.
   centro.addEventListener("dragover", (e) => {
     if (!e.dataTransfer?.types?.includes("Files")) return;
@@ -87,7 +84,7 @@
     if (!e.dataTransfer?.files?.length) return;
     arrastoAte = 0;
     if (!movimentoReduzido()) pulsos.push({ t0: performance.now(), dentro: true });
-    nivel = Math.min(1, nivel + 0.5);
+    nivel = Math.min(1, nivel + 0.25);
     acordar();
   });
 
@@ -103,19 +100,16 @@
     const r = centro.getBoundingClientRect();
     const x = e.clientX - r.left, y = e.clientY - r.top;
     if (ignorarAlvo(e.target)) { mouse.dentro = false; centro.classList.remove("sobre-esfera"); return; }
-    if (mouse.ultX !== null) mouse.vx = x - mouse.ultX;
-    mouse.ultX = x;
     mouse.x = x; mouse.y = y; mouse.dentro = true;
-    if (!movimentoReduzido()) spin = Math.max(-0.25, Math.min(0.25, spin + mouse.vx * 0.002));
     centro.classList.toggle("sobre-esfera", vazio && ligada && sobreEsfera());
   });
   centro.addEventListener("pointerleave", () => {
-    mouse.dentro = false; mouse.ultX = null; centro.classList.remove("sobre-esfera");
+    mouse.dentro = false; centro.classList.remove("sobre-esfera");
   });
   centro.addEventListener("click", (e) => {
     if (!vazio || !ligada || ignorarAlvo(e.target) || !sobreEsfera()) return;
     if (!movimentoReduzido()) pulsos.push({ t0: performance.now() });
-    nivel = Math.min(1, nivel + 0.6);
+    nivel = Math.min(1, nivel + 0.25);
     acordar();
   });
   // Duplo clique na esfera: começa a ouvir, pelo mesmo caminho do botão do microfone.
@@ -205,7 +199,7 @@
     const kNascer = nascerEm ? (agora - nascerEm) / L.NASCER_MS : 1;
     if (kNascer >= 1) nascerEm = 0;
     const eNascer = nascerEm ? L.easeOutCubic(kNascer) : 1;
-    const flash = nascerEm ? Math.sin(Math.PI * Math.min(1, kNascer)) * 0.35 : 0;
+    const flash = nascerEm ? Math.sin(Math.PI * Math.min(1, kNascer)) * 0.12 : 0;
     teclaAmp *= 0.9;
     const arrastando = agora < arrastoAte && !lento;
     t += dt * (lento ? 0.35 : 1);
@@ -244,20 +238,10 @@
     const R = base * (1 + 0.03 * Math.sin(t * 1.4 * noite.respira) + n * 0.14);
     geom = { cx, cy, R, dpr };
 
-    // Mola da inclinação: o alvo é a direção do cursor (até ±0,35 rad); sem cursor, volta a 0.
-    const comMouse = mouse.dentro && !lento;
-    const mx = comMouse ? Math.max(-1, Math.min(1, (mouse.x * dpr - cx) / (R * 2))) : 0;
-    const my = comMouse ? Math.max(-1, Math.min(1, (mouse.y * dpr - cy) / (R * 2))) : 0;
-    incl.vx += (mx * 0.35 - incl.x) * 6 * dt; incl.vx *= 0.85; incl.x += incl.vx;
-    incl.vy += (my * 0.35 - incl.y) * 6 * dt; incl.vy *= 0.85; incl.y += incl.vy;
-    rotY += spin; spin *= 0.95;
-
     // Gira mais rápido quando há voz; inclina devagar.
     rotY += dt * (lento ? 0.12 : 0.28 + n * 1.6) * noite.giro;
-    const rotX = 0.42 + Math.sin(t * 0.23) * 0.12 + incl.y;
-    const rY = rotY + incl.x;
-    const sy = Math.sin(rY), cyR = Math.cos(rY), sx = Math.sin(rotX), cxR = Math.cos(rotX);
-    const curX = mouse.x * dpr, curY = mouse.y * dpr, raioRep = R * 0.35;
+    const rotX = 0.42 + Math.sin(t * 0.23) * 0.12;
+    const sy = Math.sin(rotY), cyR = Math.cos(rotY), sx = Math.sin(rotX), cxR = Math.cos(rotX);
 
     // Núcleo e halo: a luz de dentro cresce com a voz.
     const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * 1.25);
@@ -272,7 +256,7 @@
       // A superfície: respiração lenta parada; ondas que correm por ela com a voz.
       const onda = 0.012 * Math.sin(4 * p.y * noite.respira + t * 1.8 * noite.respira)
         + n * (0.16 * Math.sin(3.1 * p.x + t * 5.3) * Math.sin(2.7 * p.y - t * 4.1) + 0.1 * Math.sin(5.3 * p.z + t * 7.2))
-        + (teclaAmp > 0.01 && p.y < 0 ? teclaAmp * 0.06 * p.y * p.y * Math.sin(9 * p.x + t * 12) : 0);
+        + (teclaAmp > 0.01 && p.y < 0 ? teclaAmp * 0.02 * p.y * p.y * Math.sin(9 * p.x + t * 12) : 0);
       const r = 1 + onda;
       let x = p.x * r, y = p.y * r, z = p.z * r;
       if (eNascer < 1) {
@@ -288,25 +272,15 @@
       q.z = z2;
       q.s = f;
       q.b = 0;
-      // Perto do cursor: o ponto se afasta dele (até 0,12R, queda suave) e acende.
-      if (comMouse) {
-        const dx = q.x - curX, dy = q.y - curY, d = Math.hypot(dx, dy);
-        if (d < raioRep && d > 0.001) {
-          const k = 1 - d / raioRep, suave = k * k * (3 - 2 * k);
-          q.x += (dx / d) * suave * R * 0.12;
-          q.y += (dy / d) * suave * R * 0.12;
-          q.b = suave;
-        }
-      }
-      // Arquivo por cima: a esfera "quer" o arquivo — os pontos vão até 0,15R na direção dele.
+      // Arquivo por cima: os pontos mais perto dele se inclinam de leve na direção dele.
       if (arrastando) {
         const ax = arrasto.x * dpr, ay = arrasto.y * dpr;
-        const dx = ax - q.x, dy = ay - q.y, d = Math.hypot(dx, dy), alcance = R * 1.1;
+        const dx = ax - q.x, dy = ay - q.y, d = Math.hypot(dx, dy), alcance = R * 0.8;
         if (d < alcance && d > 0.001) {
           const k = 1 - d / alcance, suave = k * k * (3 - 2 * k);
-          q.x += (dx / d) * suave * R * 0.15;
-          q.y += (dy / d) * suave * R * 0.15;
-          q.b = Math.max(q.b, suave * 0.7);
+          q.x += (dx / d) * suave * R * 0.05;
+          q.y += (dy / d) * suave * R * 0.05;
+          q.b = suave * 0.3;
         }
       }
     }
@@ -314,8 +288,8 @@
     for (const i of ordem) {
       const q = proj[i];
       const prof = Math.max(0, Math.min(1, (q.z + 1) / 2)); // 0 atrás … 1 na frente
-      const tam = Math.max(0.2, 0.45 + prof * 1.25) * q.s * dpr * (1 + n * 0.35) * (1 + q.b * 0.8);
-      const a = Math.min(1, (0.08 + prof * prof * 0.85) * opac * (1 + q.b * 0.9));
+      const tam = Math.max(0.2, 0.45 + prof * 1.25) * q.s * dpr * (1 + n * 0.35) * (1 + q.b * 0.4);
+      const a = Math.min(1, (0.08 + prof * prof * 0.85) * opac * (1 + q.b * 0.5));
       ctx.fillStyle = `rgba(${Math.min(255, cr + prof * 50)},${Math.min(255, cg + prof * 40)},${Math.min(255, cb + prof * 30)},${a})`;
       ctx.beginPath();
       ctx.arc(q.x, q.y, tam, 0, Math.PI * 2);
@@ -327,14 +301,14 @@
     ctx.lineWidth = 1.2 * dpr;
     ctx.beginPath(); ctx.arc(cx, cy, R * (1.32 + n * 0.08), 0, Math.PI * 2); ctx.stroke();
 
-    // Ondas: o clique sai de R até 2R em 600 ms; o arquivo solto entra de 2R até R.
+    // Ondas: o clique sai de R até 1,4R; o arquivo solto entra de 1,4R até R. Finas e apagadas.
     for (let i = pulsos.length - 1; i >= 0; i--) {
-      const k = (agora - pulsos[i].t0) / 600;
+      const k = (agora - pulsos[i].t0) / 700;
       if (k >= 1) { pulsos.splice(i, 1); continue; }
       const e = L.easeOutCubic(k);
-      const raio = pulsos[i].dentro ? R * (2 - e) : R * (1 + e);
-      ctx.strokeStyle = `rgba(${cr},${cg},${cb},${(1 - k) * 0.7 * opac})`;
-      ctx.lineWidth = (2.5 - k * 1.8) * dpr;
+      const raio = pulsos[i].dentro ? R * (1.4 - 0.4 * e) : R * (1 + 0.4 * e);
+      ctx.strokeStyle = `rgba(${cr},${cg},${cb},${(1 - k) * 0.3 * opac})`;
+      ctx.lineWidth = 1.2 * dpr;
       ctx.beginPath(); ctx.arc(cx, cy, raio, 0, Math.PI * 2); ctx.stroke();
     }
 
