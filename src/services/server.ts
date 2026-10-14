@@ -43,6 +43,8 @@ import { handleRpc, listRpcMethods, RpcError } from "./rpc";
 import { emitirEvento } from "./eventos";
 import { sintetizarMp3 } from "./tts";
 import { registrarAcesso } from "./aparelhos";
+import { criarCanal, CanalDeInput } from "./inputCanal";
+import { inputHost } from "./inputHost";
 import { estadoAtualizacao } from "./atualizacao";
 import * as fsAtualizacao from "node:fs";
 import { ehDoProprioPc, ExecutorMcp, responderMcp } from "./mcpElysium";
@@ -802,9 +804,26 @@ function handleUpgrade(
     return { reply: r.reply, fontes: r.fontes, local: r.local };
   };
 
+  // Fase 22: o trackpad pelo mesmo WebSocket (inputCanal.ts). Um canal por conexão, criado no
+  // primeiro frame de entrada — e é aí que o acesso do aparelho é registrado, uma vez só.
+  let canalInput: CanalDeInput | null = null;
+  let errosDeInput = 0;
+
   function handleTextFrame(text: string): void {
     try {
-      const msg = JSON.parse(text) as { type?: string; text?: string; canal?: string; refazer?: boolean };
+      const msg = JSON.parse(text) as { type?: string; text?: string; canal?: string; refazer?: boolean; ev?: unknown };
+      if (msg.type === "input") {
+        if (!canalInput) {
+          registrarAcesso(req, true);
+          canalInput = criarCanal(inputHost, (e) => {
+            // Um aviso por conexão a cada 50 falhas — o host caído não pode inundar o log.
+            if (errosDeInput++ % 50 === 0) console.warn("[WS] entrada remota falhou:", (e as Error)?.message ?? e);
+          });
+        }
+        const r = canalInput.tratar(msg.ev);
+        if (r.pong !== null) sendToClient(client, JSON.stringify({ type: "input.pong", t: r.pong }));
+        return;
+      }
       if (msg.type === "command" && msg.text) {
         // "Refazer" do celular (bloco 130): o turno anterior sai do histórico, como no dashboard.
         if (msg.refazer === true) desfazerUltimoTurno();

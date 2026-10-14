@@ -28,10 +28,21 @@
  *   KEY <sequência>       teclas especiais em sintaxe SendKeys, ex: {ENTER} ou ^c
  *   PING
  *
- * Resposta: `OK` ou `ERR <mensagem>`.
+ * Fase 22 (canal por WebSocket, ver inputCanal.ts):
+ *   WHEEL <n> / HWHEEL <n>  roda vertical/horizontal em unidades de 1/120 (rolagem suave)
+ *   KEYS <vk1,vk2,...>      combinação por tecla virtual: aperta em ordem, solta ao contrário
+ *                           (SendKeys não faz a tecla Windows)
+ *   MEDIA <op>              playpause | next | prev | mute | volup | voldown
+ *   VOLGET                  responde `OK <0-100>|<True/False>`
+ *   VOLSET <0-100>          define e desmuta       VOLMUTE <0|1>
+ *   VOLSTEP <±n>            soma n pontos (subir desmuta), responde `OK <nível>`
+ *
+ * Resposta: `OK [valor]` ou `ERR <mensagem>`.
  */
 
 import { spawn, ChildProcessWithoutNullStreams } from "node:child_process";
+import { CORE_AUDIO_CS } from "../actions/coreAudio";
+import { VK_ESTENDIDAS } from "./inputCanal";
 
 const HOST_SCRIPT = `
 $ErrorActionPreference = 'Stop'
@@ -54,6 +65,7 @@ public class NxInput {
   // passar -120 estoura com "Valor era muito grande ou muito pequeno para UInt32".
   [DllImport("user32.dll")] public static extern void mouse_event(uint f, uint dx, uint dy, int data, UIntPtr extra);
   [DllImport("user32.dll", SetLastError=true)] static extern uint SendInput(uint n, INPUT[] inputs, int size);
+  [DllImport("user32.dll")] static extern bool SetProcessDpiAwarenessContext(IntPtr v);
 
   [StructLayout(LayoutKind.Sequential)] public struct POINT { public int X; public int Y; }
   [StructLayout(LayoutKind.Sequential)] struct MOUSEINPUT { public int dx; public int dy; public uint mouseData; public uint dwFlags; public uint time; public IntPtr dwExtraInfo; }
@@ -64,9 +76,48 @@ public class NxInput {
   }
   [StructLayout(LayoutKind.Sequential)] struct INPUT { public uint type; public INPUTUNION u; }
 
+  const uint INPUT_MOUSE       = 0;
   const uint INPUT_KEYBOARD    = 1;
+  const uint KEYEVENTF_EXTENDEDKEY = 0x0001;
   const uint KEYEVENTF_KEYUP   = 0x0002;
   const uint KEYEVENTF_UNICODE = 0x0004;
+  const uint MOUSEEVENTF_MOVE  = 0x0001;
+  const uint MOUSEEVENTF_WHEEL = 0x0800;
+  const uint MOUSEEVENTF_HWHEEL = 0x1000;
+
+  // Fase 22: por monitor (V2). Sem isto, numa tela a 150% o Windows escalava o movimento
+  // e o cursor andava aos pulos.
+  public static void Dpi() { try { SetProcessDpiAwarenessContext(new IntPtr(-4)); } catch {} }
+
+  // Movimento relativo por SendInput (o mesmo caminho de um mouse de verdade), em vez de
+  // ler a posição e reposicionar.
+  public static void Move(int dx, int dy) {
+    INPUT[] i = new INPUT[1];
+    i[0].type = INPUT_MOUSE;
+    i[0].u.mi = new MOUSEINPUT { dx = dx, dy = dy, mouseData = 0, dwFlags = MOUSEEVENTF_MOVE, time = 0, dwExtraInfo = IntPtr.Zero };
+    SendInput(1, i, Marshal.SizeOf(typeof(INPUT)));
+  }
+
+  public static void Wheel(int n, bool horizontal) {
+    INPUT[] i = new INPUT[1];
+    i[0].type = INPUT_MOUSE;
+    i[0].u.mi = new MOUSEINPUT { dx = 0, dy = 0, mouseData = unchecked((uint)n), dwFlags = horizontal ? MOUSEEVENTF_HWHEEL : MOUSEEVENTF_WHEEL, time = 0, dwExtraInfo = IntPtr.Zero };
+    SendInput(1, i, Marshal.SizeOf(typeof(INPUT)));
+  }
+
+  // Combinação: aperta na ordem e solta ao contrário (Ctrl+Shift+Esc, Win+D).
+  public static void Keys(ushort[] vks, ushort[] estendidas) {
+    INPUT[] i = new INPUT[vks.Length * 2];
+    for (int k = 0; k < vks.Length; k++) {
+      uint ext = Array.IndexOf(estendidas, vks[k]) >= 0 ? KEYEVENTF_EXTENDEDKEY : 0;
+      i[k].type = INPUT_KEYBOARD;
+      i[k].u.ki = new KEYBDINPUT { wVk = vks[k], wScan = 0, dwFlags = ext, time = 0, dwExtraInfo = IntPtr.Zero };
+      int j = vks.Length * 2 - 1 - k;
+      i[j].type = INPUT_KEYBOARD;
+      i[j].u.ki = new KEYBDINPUT { wVk = vks[k], wScan = 0, dwFlags = ext | KEYEVENTF_KEYUP, time = 0, dwExtraInfo = IntPtr.Zero };
+    }
+    SendInput((uint)i.Length, i, Marshal.SizeOf(typeof(INPUT)));
+  }
 
   // Envia o codepoint literal via SendInput. SendKeys NAO serve aqui: ele traduz o
   // caractere para uma tecla virtual pelo layout ativo (VkKeyScan), e no ABNT
@@ -86,6 +137,16 @@ public class NxInput {
   }
 }
 "@
+
+[NxInput]::Dpi()
+$ESTENDIDAS = [uint16[]]@(__ESTENDIDAS__)
+$MEDIA = @{ playpause = 0xB3; next = 0xB0; prev = 0xB1; mute = 0xAD; volup = 0xAF; voldown = 0xAE }
+
+# Volume pela Core Audio, compilado UMA vez aqui (o volumeControl.ts abria um PowerShell e
+# recompilava a cada chamada). Se falhar, os comandos VOL* respondem ERR e quem chamou cai
+# no caminho antigo.
+$volOk = $true
+try { Add-Type -TypeDefinition '__CORE_AUDIO__' -Language CSharp } catch { $volOk = $false }
 
 $LEFTDOWN=0x02; $LEFTUP=0x04; $RIGHTDOWN=0x08; $RIGHTUP=0x10
 $MIDDLEDOWN=0x20; $MIDDLEUP=0x40; $WHEEL=0x0800
@@ -110,14 +171,47 @@ while ($true) {
     $cmd = $parts[0].ToUpperInvariant()
     $arg = if ($parts.Length -gt 1) { $parts[1] } else { '' }
 
+    $saida = ''
     switch ($cmd) {
       'PING' { }
 
       'MOVE' {
         $d = $arg.Split(' ')
-        $p = New-Object NxInput+POINT
-        [void][NxInput]::GetCursorPos([ref]$p)
-        [void][NxInput]::SetCursorPos($p.X + [int]$d[0], $p.Y + [int]$d[1])
+        [NxInput]::Move([int]$d[0], [int]$d[1])
+      }
+
+      'WHEEL'  { [NxInput]::Wheel([int]$arg, $false) }
+      'HWHEEL' { [NxInput]::Wheel([int]$arg, $true) }
+
+      'KEYS' {
+        $vks = [uint16[]]($arg.Split(',') | ForEach-Object { [uint16]$_ })
+        [NxInput]::Keys($vks, $ESTENDIDAS)
+      }
+
+      'MEDIA' {
+        $vk = $MEDIA[$arg.Trim().ToLowerInvariant()]
+        if ($null -eq $vk) { throw "midia desconhecida: $arg" }
+        [NxInput]::Keys([uint16[]]@($vk), $ESTENDIDAS)
+      }
+
+      'VOLGET' {
+        if (-not $volOk) { throw 'core audio indisponivel' }
+        $saida = '{0}|{1}' -f [int][Math]::Round([ElyVol]::Get() * 100), [ElyVol]::Muted()
+      }
+      'VOLSET' {
+        if (-not $volOk) { throw 'core audio indisponivel' }
+        [ElyVol]::Set([double]$arg / 100.0); [ElyVol]::Mute($false)
+      }
+      'VOLMUTE' {
+        if (-not $volOk) { throw 'core audio indisponivel' }
+        [ElyVol]::Mute($arg.Trim() -eq '1')
+      }
+      'VOLSTEP' {
+        if (-not $volOk) { throw 'core audio indisponivel' }
+        $n = [int]$arg
+        [ElyVol]::Set([ElyVol]::Get() + $n / 100.0)
+        if ($n -gt 0) { [ElyVol]::Mute($false) }
+        $saida = [string][int][Math]::Round([ElyVol]::Get() * 100)
       }
 
       'CLICK' {
@@ -156,7 +250,7 @@ while ($true) {
       default { throw "comando desconhecido: $cmd" }
     }
 
-    [Console]::Out.WriteLine('OK')
+    if ($saida -ne '') { [Console]::Out.WriteLine("OK $saida") } else { [Console]::Out.WriteLine('OK') }
   } catch {
     [Console]::Out.WriteLine("ERR $($_.Exception.Message -replace '\\r?\\n', ' ')")
   }
@@ -164,20 +258,28 @@ while ($true) {
 }
 `;
 
+/** O script com o C# da Core Audio e as teclas estendidas encaixados. */
+function scriptDoHost(): string {
+  return HOST_SCRIPT
+    .replace("__CORE_AUDIO__", () => CORE_AUDIO_CS)
+    .replace("__ESTENDIDAS__", () => VK_ESTENDIDAS.join(","));
+}
+
 export type MouseButton = "left" | "right" | "middle";
+export type MidiaDoHost = "playpause" | "next" | "prev" | "mute" | "volup" | "voldown";
 
 class InputHost {
   private proc: ChildProcessWithoutNullStreams | null = null;
   private buffer = "";
   /** Uma resposta por comando, na ordem — o host processa serialmente. */
-  private pending: { resolve: () => void; reject: (e: Error) => void }[] = [];
+  private pending: { resolve: (valor: string) => void; reject: (e: Error) => void }[] = [];
   private starting = false;
 
   private start(): void {
     if (this.proc || this.starting) return;
     this.starting = true;
 
-    const encoded = Buffer.from(HOST_SCRIPT, "utf16le").toString("base64");
+    const encoded = Buffer.from(scriptDoHost(), "utf16le").toString("base64");
     const proc = spawn("powershell.exe", [
       "-ExecutionPolicy", "Bypass", "-NoProfile", "-NonInteractive",
       "-WindowStyle", "Hidden", "-EncodedCommand", encoded,
@@ -221,7 +323,7 @@ class InputHost {
       if (!waiter) continue; // resposta órfã (host reiniciou) — descarta
 
       if (line.startsWith("ERR")) waiter.reject(new Error(line.slice(3).trim() || "falha no host de entrada"));
-      else waiter.resolve();
+      else waiter.resolve(line.slice(2).trim());
     }
   }
 
@@ -232,11 +334,16 @@ class InputHost {
   }
 
   private send(line: string): Promise<void> {
+    return this.pedir(line).then(() => undefined);
+  }
+
+  /** Como `send`, mas devolve o que vem depois do `OK` (VOLGET, VOLSTEP). */
+  private pedir(line: string): Promise<string> {
     this.start();
     const proc = this.proc;
     if (!proc) return Promise.reject(new Error("não foi possível iniciar o host de entrada"));
 
-    return new Promise<void>((resolve, reject) => {
+    return new Promise<string>((resolve, reject) => {
       // Sem timeout por comando: o host é serial e cada operação é sub-milissegundo.
       // Se ele travar, o `close` acima rejeita tudo que estiver pendente.
       this.pending.push({ resolve, reject });
@@ -275,6 +382,38 @@ class InputHost {
   }
   ping(): Promise<void> {
     return this.send("PING");
+  }
+
+  // ── fase 22 ──
+  /** Roda vertical em 1/120 de marca (positivo = para cima). */
+  wheel(unidades: number): Promise<void> {
+    return this.send(`WHEEL ${Math.trunc(unidades)}`);
+  }
+  /** Roda horizontal em 1/120 de marca (positivo = para a direita). */
+  hwheel(unidades: number): Promise<void> {
+    return this.send(`HWHEEL ${Math.trunc(unidades)}`);
+  }
+  /** Combinação por tecla virtual (inclui a tecla Windows, que o SendKeys não faz). */
+  keys(vks: number[]): Promise<void> {
+    const lista = vks.filter(v => Number.isInteger(v) && v > 0 && v < 256);
+    if (!lista.length) return Promise.reject(new Error("nenhuma tecla válida"));
+    return this.send(`KEYS ${lista.join(",")}`);
+  }
+  media(op: MidiaDoHost): Promise<void> {
+    return this.send(`MEDIA ${op}`);
+  }
+  async volGet(): Promise<{ nivel: number; mudo: boolean }> {
+    const [n, m] = (await this.pedir("VOLGET")).split("|");
+    return { nivel: Math.max(0, Math.min(100, Number(n) || 0)), mudo: /true/i.test(m ?? "") };
+  }
+  volSet(nivel: number): Promise<void> {
+    return this.send(`VOLSET ${Math.max(0, Math.min(100, Math.round(nivel)))}`);
+  }
+  volMute(mudo: boolean): Promise<void> {
+    return this.send(`VOLMUTE ${mudo ? 1 : 0}`);
+  }
+  async volStep(pontos: number): Promise<number> {
+    return Number(await this.pedir(`VOLSTEP ${Math.round(pontos)}`));
   }
 
   /** Encerra o host. Chamado no `before-quit` do app. */

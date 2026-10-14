@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { inputHost, MidiaDoHost } from "../services/inputHost";
 
 export type MediaOperation = "play" | "pause" | "skip" | "previous" | "volume_up" | "volume_down";
 
@@ -51,9 +52,15 @@ Start-Sleep -Milliseconds 30
   });
 }
 
+/** Fase 22: a mesma tecla pelo host de entrada, que já está vivo (sem PowerShell novo). */
+const NO_HOST: Record<MediaOperation, MidiaDoHost> = {
+  play: "playpause", pause: "playpause", skip: "next", previous: "prev", volume_up: "volup", volume_down: "voldown",
+};
+
 export async function mediaControl(operation: MediaOperation): Promise<string> {
   const vk = VK[operation];
   if (vk === undefined) return `Operação de mídia desconhecida: ${operation}.`;
-  await pressVirtualKey(vk);
+  try { await inputHost.media(NO_HOST[operation]); }
+  catch { await pressVirtualKey(vk); }
   return `Ok, ${REPLY[operation]}`;
 }

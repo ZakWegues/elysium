@@ -2,39 +2,8 @@ import { spawn } from "node:child_process";
 
 export type VolumeLevel = number | "up" | "down" | "mute" | "unmute";
 
-/**
- * Volume do Windows pela Core Audio (IAudioEndpointVolume), com LEITURA (bloco 86).
- *
- * Antes só "definir número" passava pela Core Audio; mudo, subir e descer eram teclas de
- * mídia por SendKeys. Dois defeitos disso: não havia como ler o volume (a aba PC e o card
- * "Tocando" mostravam chips 25/50/75/100 em vez de um controle honesto), e "desmutar" era a
- * MESMA tecla que mutar — pedido com o som ligado, ele mutava. Agora tudo é a interface,
- * com os métodos na ordem da vtable (IUnknown fica de fora; o resto tem que estar na
- * posição exata, por isso os nomes de preenchimento).
- */
-const CORE_AUDIO_CS = [
-  "using System; using System.Runtime.InteropServices;",
-  "[ComImport,Guid(\"5CDF2C82-841E-4546-9722-0CF74078229A\"),InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]",
-  "interface IAEV{int RegisterNotify(IntPtr p);int UnregisterNotify(IntPtr p);int GetChannelCount(out int n);",
-  "int SetMasterLevel(float f,ref Guid g);int SetMasterScalar(float f,ref Guid g);",
-  "int GetMasterLevel(out float f);int GetMasterScalar(out float f);",
-  "int SetChLevel(uint c,float f,ref Guid g);int SetChScalar(uint c,float f,ref Guid g);",
-  "int GetChLevel(uint c,out float f);int GetChScalar(uint c,out float f);",
-  "int SetMute([MarshalAs(UnmanagedType.Bool)]bool b,ref Guid g);int GetMute([MarshalAs(UnmanagedType.Bool)]out bool b);}",
-  "[ComImport,Guid(\"A95664D2-9614-4F35-A746-DE8DB63617E6\"),InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]",
-  "interface IMDE{int EnumAudioEndpoints(int f,int m,out IntPtr c);int GetDefaultAudioEndpoint(int f,int r,out IMMDev d);}",
-  "[ComImport,Guid(\"D666063F-1587-4E43-81F1-B948E807363F\"),InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]",
-  "interface IMMDev{int Activate(ref Guid i,int c,IntPtr p,[MarshalAs(UnmanagedType.IUnknown)]out object o);}",
-  "[ComImport,Guid(\"BCDE0395-E52F-467C-8E3D-C4579291692E\")] class MDE{}",
-  "public class ElyVol{",
-  "static IAEV EP(){var e=(IMDE)(object)new MDE();IMMDev d;Marshal.ThrowExceptionForHR(e.GetDefaultAudioEndpoint(0,1,out d));",
-  "var i=new Guid(\"5CDF2C82-841E-4546-9722-0CF74078229A\");object o;Marshal.ThrowExceptionForHR(d.Activate(ref i,0x17,IntPtr.Zero,out o));return(IAEV)o;}",
-  "public static float Get(){float f;EP().GetMasterScalar(out f);return f;}",
-  "public static bool Muted(){bool b;EP().GetMute(out b);return b;}",
-  "public static void Set(float f){var g=Guid.Empty;EP().SetMasterScalar(Math.Max(0f,Math.Min(1f,f)),ref g);}",
-  "public static void Mute(bool m){var g=Guid.Empty;EP().SetMute(m,ref g);}",
-  "}",
-].join(" ");
+import { CORE_AUDIO_CS } from "./coreAudio";
+import { inputHost } from "../services/inputHost";
 
 /** Roda o script com o tipo carregado e devolve o stdout (UTF-8, regra da §14). */
 function rodarPs(corpo: string): Promise<string> {
@@ -57,6 +26,9 @@ export interface EstadoDoVolume { nivel: number; mudo: boolean }
 
 /** Volume do dispositivo de saída padrão: 0–100 e se está mudo. */
 export async function lerVolume(): Promise<EstadoDoVolume> {
+  // Fase 22: pelo host de entrada (Core Audio já compilado, resposta em milissegundos);
+  // se ele falhar, o caminho antigo de um PowerShell avulso.
+  try { return await inputHost.volGet(); } catch { /* cai no avulso */ }
   const out = await rodarPs("$v=[ElyVol]::Get(); $m=[ElyVol]::Muted(); Write-Output ('{0}|{1}' -f [int][Math]::Round($v*100), $m)");
   const [n, m] = out.split(/\r?\n/).pop()!.split("|");
   return { nivel: Math.max(0, Math.min(100, Number(n) || 0)), mudo: /true/i.test(m ?? "") };
@@ -65,7 +37,26 @@ export async function lerVolume(): Promise<EstadoDoVolume> {
 /** Passo de "aumenta"/"diminui" sem número: 10 pontos, como as teclas de mídia em dobro. */
 const PASSO = 10;
 
+/** Fase 22: o mesmo pedido pelo host de entrada. `null` = o host não deu conta (usa o avulso). */
+async function volumePeloHost(level: VolumeLevel): Promise<string | null> {
+  try {
+    if (level === "mute") { await inputHost.volMute(true); return "Áudio mutado."; }
+    if (level === "unmute") { await inputHost.volMute(false); return "Som reativado."; }
+    if (level === "up" || level === "down") {
+      const n = await inputHost.volStep(level === "up" ? PASSO : -PASSO);
+      return Number.isFinite(n) ? `Volume em ${n}%.` : (level === "up" ? "Volume aumentado." : "Volume diminuído.");
+    }
+    const pct = Math.max(0, Math.min(100, Math.round(level)));
+    await inputHost.volSet(pct);
+    return `Volume em ${pct}%.`;
+  } catch {
+    return null;
+  }
+}
+
 export async function volumeControl(level: VolumeLevel): Promise<string> {
+  const rapido = await volumePeloHost(level);
+  if (rapido) return rapido;
   try {
     if (level === "mute") { await rodarPs("[ElyVol]::Mute($true)"); return "Áudio mutado."; }
     if (level === "unmute") { await rodarPs("[ElyVol]::Mute($false)"); return "Som reativado."; }

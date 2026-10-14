@@ -63,6 +63,7 @@ import { aguardarDownloads, estadoAtualizacao, instalarAtualizacaoDesktop, verif
 import { captureScreen, listScreens } from "./screenCapture";
 import { screenshot } from "../actions/screenshot";
 import { inputHost, MouseButton } from "./inputHost";
+import { teclasParaVk } from "./inputCanal";
 import { addFact, listFacts, removeFactById, editFact } from "./memoryStore";
 import { cancelReminder, createReminder, listAll, ReminderKind } from "./scheduler";
 import {
@@ -414,6 +415,27 @@ const METHODS: Record<string, MethodDef> = {
       const text = requireString(params, "text");
       if (text.length > 5000) throw new RpcError(400, "texto longo demais (máx 5000 caracteres)");
       await inputHost.type(text);
+      return { ok: true };
+    },
+  },
+  // Fase 22: combinação por tecla virtual (Win+D, Ctrl+Shift+Esc) e rolagem horizontal.
+  "input.combo": {
+    handler: async (params) => {
+      const keys = params["keys"];
+      if (!Array.isArray(keys) || keys.length === 0 || keys.length > 8 || !keys.every(k => typeof k === "string")) {
+        throw new RpcError(400, "keys deve ser uma lista de 1 a 8 nomes de tecla");
+      }
+      const vks = teclasParaVk(keys as string[]);
+      if (!vks) throw new RpcError(400, "tecla desconhecida");
+      await inputHost.keys(vks);
+      return { ok: true };
+    },
+  },
+  "input.hscroll": {
+    handler: async (params) => {
+      const amount = requireNumber(params, "amount");
+      if (Math.abs(amount) > 100) throw new RpcError(400, "amount fora do intervalo (±100 marcas)");
+      await inputHost.hwheel(Math.round(amount * 120));
       return { ok: true };
     },
   },
