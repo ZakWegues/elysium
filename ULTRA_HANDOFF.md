@@ -6847,3 +6847,14 @@ bizarra de informação inútil" que afogava o app.
   Android `6bf8bf23…`.
 - Pendente/ideia: se o Zak quiser as sugestões de volta, só como texto pequeno numa linha (e com
   `flexGrow: 0`).
+
+## 42. Fase 23 — EM ANDAMENTO (14/10/2026)
+Plano completo: encaixe da Início/Hoje, QR fora da bolinha, esfera viva, Central de controle (aba PC sai), Rotinas em botão próprio, painéis retráteis no Chat (vitais; tocando + volume), memória da Ely nos dois apps, atalho Ctrl+Shift+E sobre texto selecionado, Ely mais presente + micro-detalhes (designspells), celular com cara de PC (fundo vivo, animações), links clicáveis e copiar/compartilhar mensagens, compartilhar de qualquer app (APK 2.3.0), widget da esfera, busca e fixar conversas.
+
+**Feito (commitado, ainda não publicado):**
+- Esfera do PC com física local por ponto (`esfera.js`, lógica em `esfera-logica.js` + testes): mouse devagar abre espaço, rápido arremessa, clique espalha como fluido e volta; sem seguir/inclinar. A repulsão devagar ficou tímida na captura — subir `fracao` para ~0,24 e `alcance` para ~0,36.
+- Pesquisa na web pelo Hermes (`services/hermes/pesquisa.ts`, `pesquisarViaHermes` em `cerebro.ts`, sessão só de pesquisa): `searchWeb` tenta o Hermes e cai na Groq. Na conversa, a persona pede bloco `FONTES:`, filtrado do streaming e virado em chips.
+- Novidades do dia (`services/novidades.ts`): IA, cinema, em alta; 1x/dia (vira às 6h), cache `novidades`; entram no Hoje (PC) e no resumo falado.
+- Início: `align-items: stretch` na grade.
+
+**Falta:** todo o resto do plano (230 timer em mostrador e chip do clima abrindo detalhe; 231; 233; 234/234b; 235; 237–241 do celular). Verificar a pesquisa do Hermes ao vivo (`rpc.mjs web.search`). Publicar desktop 2.10.0 e APK 2.3.0 no fim.
