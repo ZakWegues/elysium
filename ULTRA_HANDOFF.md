@@ -6848,13 +6848,26 @@ bizarra de informação inútil" que afogava o app.
 - Pendente/ideia: se o Zak quiser as sugestões de volta, só como texto pequeno numa linha (e com
   `flexGrow: 0`).
 
-## 42. Fase 23 — EM ANDAMENTO (14/10/2026)
-Plano completo: encaixe da Início/Hoje, QR fora da bolinha, esfera viva, Central de controle (aba PC sai), Rotinas em botão próprio, painéis retráteis no Chat (vitais; tocando + volume), memória da Ely nos dois apps, atalho Ctrl+Shift+E sobre texto selecionado, Ely mais presente + micro-detalhes (designspells), celular com cara de PC (fundo vivo, animações), links clicáveis e copiar/compartilhar mensagens, compartilhar de qualquer app (APK 2.3.0), widget da esfera, busca e fixar conversas.
+## 42. Fase 23 — encaixe, Central de controle, esfera viva, celular 2.3.0 (14–15/10/2026)
+Desktop **2.10.0** publicado e instalado (`update.status` → 2.10.0). Celular **APK 2.3.0** (runtime novo: compartilhar nativo + widget). Plano: `~/.claude/plans/pasted-content-id-56e3-guia-economizar-hashed-rivest.md`.
 
-**Feito (commitado, ainda não publicado):**
-- Esfera do PC com física local por ponto (`esfera.js`, lógica em `esfera-logica.js` + testes): mouse devagar abre espaço, rápido arremessa, clique espalha como fluido e volta; sem seguir/inclinar. A repulsão devagar ficou tímida na captura — subir `fracao` para ~0,24 e `alcance` para ~0,36.
-- Pesquisa na web pelo Hermes (`services/hermes/pesquisa.ts`, `pesquisarViaHermes` em `cerebro.ts`, sessão só de pesquisa): `searchWeb` tenta o Hermes e cai na Groq. Na conversa, a persona pede bloco `FONTES:`, filtrado do streaming e virado em chips.
-- Novidades do dia (`services/novidades.ts`): IA, cinema, em alta; 1x/dia (vira às 6h), cache `novidades`; entram no Hoje (PC) e no resumo falado.
-- Início: `align-items: stretch` na grade.
+**Desktop**
+- **Esfera viva** (`esfera.js`, lógica em `esfera-logica.js` + testes): física por ponto com mola. Mouse devagar abre espaço (`aceleracaoRepulsao`, fração 0,24 de R, alcance 0,36 R), rápido (> 900 px/s) arremessa, clique espalha como fluido (mola mole por 1,3 s). Sem seguir/inclinar.
+- **Pesquisa na web pelo Hermes** (`services/hermes/pesquisa.ts`, `pesquisarViaHermes` em `cerebro.ts`, sessão própria renovada a cada 10 min/8 turnos). `searchWeb` tenta o Hermes e cai na Groq. Bloco `FONTES:` filtrado do streaming e virado em chips. `web.search` (tela/celular) roda em canal **texto** e devolve `fontes`. Ao vivo: ~14 s, 2 fontes.
+- **Novidades do dia** (`services/novidades.ts`): IA, cinema, em alta; 1x/dia (vira às 6h), cache `novidades`; Hoje (seção "Novidades do dia", classe `hoje-noticias`) e resumo falado.
+- **Início:** grade `stretch`; timer em mostrador SVG (`timer-dial`, `stroke-dashoffset`); chip do tempo abre gaveta "Lá fora" com "Trocar cidade"; a bolinha `#orbe` saiu — virou `#home-celular` (texto "Celular conectado"/"Conectar celular" sob a saudação) que abre Ajustes → Celular; paleta "Conectar celular". CSS do orbe nos temas removido.
+- **Hoje:** grade `stretch` + `dense`; botões do cabeçalho à direita (`.hoje-painel .hoje-painel-topo > h3 { margin-right:auto }`); padding maior na Renascença; negrito nas notas da versão; resumo sem `**`.
+- **Central de controle e Rotinas** (`js/central.js`): botões `#nav-central`/`#nav-rotinas` ao lado da lupa; as abas PC/Rotinas saíram (`switchView("pc"|"rotinas")` abre a gaveta). A gaveta pega `#view-pc`/`#view-rotinas` inteiras (com os ouvintes). Favoritos em localStorage (`elysium_apps_favoritos`, sugestão = abertos + catálogo). Painel aberto de dentro da Central / formulário de rotina volta para a mãe ao fechar (`voltarPara` + `agendarVolta` chamado no `fecharGaveta`).
+- **Cantos do Chat** (`js/cantos.js`): alças nas bordas; esquerda vitais (CPU/RAM com faísca, disco, ligado há), direita tocando agora + volume. Estado em `elysium_cantos_chat`; música lida a cada 10 s só com o canto aberto e o Chat na tela.
+- **O que a Ely sabe:** azulejo em Ajustes (`abrir` → painel Memória da Central), paleta, card da Início renomeado.
+- **Ctrl+Shift+E** (`src/main/selecao.ts`, `selecao.html`, `preload-selecao.ts`; config `atalhoSelecao`): host de entrada ganhou `UP` (solta Shift/E) antes do Ctrl+C sintético; guarda e devolve a área de transferência; janelinha perto do cursor com `comandos.list`/`comandos.run`, Copiar e Colar de volta. **Não testado ao vivo** (manda Ctrl+C na máquina) — o Zak testa.
+- **Ely e micro-detalhes:** placeholder "Converse com a Ely…"; `estourar()`/`fogos()`/`dobrarESumir()` em `nucleo.js` (hábito, tarefa, fogos com todos os hábitos, tarefa apagada); menu de botão direito nas bolhas (Copiar, Mandar pro celular, Refazer/Editar).
+- Teste novo `tests/dashboardSintaxe.test.ts` compila cada script do dashboard (um erro de sintaxe derrubava `inicio.js` inteiro em silêncio).
 
-**Falta:** todo o resto do plano (230 timer em mostrador e chip do clima abrindo detalhe; 231; 233; 234/234b; 235; 237–241 do celular). Verificar a pesquisa do Hermes ao vivo (`rpc.mjs web.search`). Publicar desktop 2.10.0 e APK 2.3.0 no fim.
+**Celular**
+- Links clicáveis em todas as bolhas (`lib/links.ts` + `TextoComLinks`); copiar e compartilhar (`Share.share`) no chat da Ely e na Caixa (Caixa: Copiar/Compartilhar/Mais…, porque o Alert do Android mostra 3 botões).
+- "O que a Ely sabe" em Ajustes (reusa `PainelMemoria` da aba PC). Conversas com estrela ficam fixadas no topo (busca já existia).
+- Esfera: cor interpolada entre estados (450 ms), um passe por quadro para as três camadas, sem `toFixed`. Fundo: `BrilhoVivo` acende quando a Ely ouve/pensa/fala.
+- **APK 2.3.0:** `expo-share-intent@8.0.1` (SDK 57; `androidIntentFilters` text/image, `disableIOS`). Compartilhar de qualquer app → "Mandar para…" Ely (vira pergunta) ou PC (Caixa; imagem até 5 MB). Widget **Esfera** (2×2, `svgDaEsfera` em `esferaLogica.ts`, toque = falar com a Ely).
+
+**Ideias / pendências:** atalho de seleção configurável na UI de Ajustes; "Ouvir" no menu da bolha do PC; imagem compartilhada direto para a Ely (chat com anexo).
