@@ -267,7 +267,7 @@ const CARDS = {
   },
 
   memoria: {
-    titulo: "O que ele lembra", icone: "bookmark", span: 1, precisa: ["memoria"],
+    titulo: "O que a Ely sabe", icone: "bookmark", span: 1, precisa: ["memoria"],
     render: (d) => {
       const l = (d.memoria ?? []).slice(0, 6);
       if (!l.length) return vazio("Nada guardado. Diga \"lembre que…\" no chat.");

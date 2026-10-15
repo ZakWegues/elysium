@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' file: 'unsafe-inline'; style-src 'self' file: 'unsafe-inline'; connect-src 'none'; object-src 'none'; base-uri 'none'">
+<title>Ely</title>
+<!-- Fase 23: janelinha do atalho de seleção (Ctrl+Shift+E). Ver src/main/selecao.ts. -->
+<style>
+  :root { --bg: #15121a; --surface: #201b27; --border: rgba(201,161,74,0.28); --text: #ece6da; --muted: #a39a8a; --accent: #c9a14a; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font: 13px/1.5 "Segoe UI", system-ui, sans-serif; overflow: hidden; }
+  body { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: 10px; }
+  header { display: flex; align-items: center; gap: 8px; padding: 10px 12px 6px; -webkit-app-region: drag; }
+  header b { font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); }
+  header span { color: var(--muted); font-size: 11.5px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  header button { -webkit-app-region: no-drag; }
+  .x { width: 24px; height: 24px; border-radius: 50%; border: 0; background: transparent; color: var(--muted); cursor: pointer; font-size: 16px; line-height: 1; }
+  .x:hover { background: rgba(255,255,255,0.06); color: var(--text); }
+  textarea { margin: 0 12px; height: 70px; resize: none; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font: inherit; }
+  textarea:focus { outline: 1px solid var(--accent); }
+  .cmds { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 12px; }
+  .cmds button, .acoes button { padding: 5px 11px; border-radius: 999px; border: 1px solid var(--border); background: rgba(201,161,74,0.08); color: var(--text); font: inherit; font-size: 12px; cursor: pointer; transition: background 0.12s, transform 0.12s; }
+  .cmds button:hover, .acoes button:hover { background: rgba(201,161,74,0.2); }
+  .cmds button:active, .acoes button:active { transform: scale(0.96); }
+  .cmds button:disabled { opacity: 0.5; cursor: progress; }
+  #saida { flex: 1; margin: 0 12px; padding: 8px 10px; border-radius: 8px; background: var(--surface); overflow-y: auto; white-space: pre-wrap; display: none; }
+  #saida.ok { display: block; }
+  #saida.esperando { display: block; color: var(--muted); font-style: italic; }
+  .acoes { display: none; gap: 6px; justify-content: flex-end; padding: 8px 12px 12px; }
+  .acoes.ok { display: flex; }
+  .acoes .principal { background: var(--accent); color: #1a1408; border-color: var(--accent); font-weight: 600; }
+</style>
+</head>
+<body>
+  <header><b>Ely</b><span id="dica">O que faço com este texto?</span><button class="x" id="fechar" title="Fechar (Esc)">×</button></header>
+  <textarea id="texto" placeholder="Selecione um texto antes do atalho, ou cole aqui." spellcheck="false"></textarea>
+  <div class="cmds" id="cmds"></div>
+  <div id="saida" aria-live="polite"></div>
+  <div class="acoes" id="acoes">
+    <button id="copiar">Copiar</button>
+    <button id="colar" class="principal">Colar de volta</button>
+  </div>
+<script>
+  const $ = (id) => document.getElementById(id);
+  let resultado = "";
+  window.sel.aoTexto((t) => { $("texto").value = t || ""; if (!t) $("texto").focus(); });
+  $("fechar").onclick = () => window.sel.fechar();
+  addEventListener("keydown", (e) => { if (e.key === "Escape") window.sel.fechar(); });
+
+  async function rodar(cmd, botao) {
+    const texto = $("texto").value.trim();
+    if (!texto) { $("texto").focus(); return; }
+    document.querySelectorAll(".cmds button").forEach(b => b.disabled = true);
+    $("saida").className = "esperando"; $("saida").textContent = `A Ely está fazendo: ${botao.textContent.toLowerCase()}…`;
+    $("acoes").className = "acoes";
+    try {
+      const r = await window.sel.rpc("comandos.run", { comando: cmd, texto });
+      if (r.error) throw new Error(r.error);
+      resultado = r.result?.resultado ?? "";
+      $("saida").className = "ok"; $("saida").textContent = resultado;
+      $("acoes").className = "acoes ok";
+      $("colar").focus();
+    } catch (err) {
+      $("saida").className = "ok"; $("saida").textContent = `Não deu: ${err.message || err}`;
+    } finally {
+      document.querySelectorAll(".cmds button").forEach(b => b.disabled = false);
+    }
+  }
+
+  $("copiar").onclick = async () => { await window.sel.copiar(resultado); $("copiar").textContent = "Copiado"; setTimeout(() => $("copiar").textContent = "Copiar", 1200); };
+  $("colar").onclick = () => window.sel.colar(resultado);
+
+  window.sel.rpc("comandos.list").then((r) => {
+    const lista = r.result?.comandos ?? [];
+    $("cmds").innerHTML = "";
+    for (const c of lista.slice(0, 10)) {
+      const b = document.createElement("button");
+      b.textContent = c.nome;
+      b.title = c.instrucao;
+      b.onclick = () => rodar(c.id, b);
+      $("cmds").appendChild(b);
+    }
+  });
+</script>
+</body>
+</html>

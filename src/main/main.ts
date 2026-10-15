@@ -27,6 +27,7 @@ import { getConfig, getApiKey, setApiKey, hasApiKey, setOverride, getOrCreateSer
 import { limparCacheClima } from "../services/clima";
 import { getLocalIPv4, getAllLocalIPv4 } from "./network";
 import { inputHost } from "../services/inputHost";
+import { aoAtalhoDeSelecao, registrarIpcSelecao } from "./selecao";
 import { startScheduler, stopScheduler } from "../services/scheduler";
 import { sendPush, type PushCategory } from "../services/push";
 import { lerSaidaDeSom, problemaDeSom } from "../services/saidaDeSom";
@@ -1347,6 +1348,11 @@ app.on("ready", async () => {
   // Atalho e palavra ANTES das esperas do Registro (fase 20): cada `reg.exe` pode levar
   // segundos num PC carregado logo depois do login, e o atalho não respondia nesse meio-tempo.
   const ok = globalShortcut.register(cfg.shortcut, handleShortcut);
+  // Fase 23: Ctrl+Shift+E — texto selecionado → comandos de IA numa janelinha.
+  registrarIpcSelecao();
+  if (cfg.atalhoSelecao && !globalShortcut.register(cfg.atalhoSelecao, () => { void aoAtalhoDeSelecao(); })) {
+    console.warn(`[selecao] atalho ${cfg.atalhoSelecao} ocupado por outro programa`);
+  }
   if (cfg.palavraDeAtivacao) ligarPalavraDeAtivacao(acordarPorVoz);
   // O PowerShell da escuta é filho do app; sem isto ele ficaria órfão escutando depois
   // de "Sair" na bandeja.

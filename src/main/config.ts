@@ -19,6 +19,8 @@ export interface UiLayout {
 
 export interface AppConfig {
   shortcut: string;
+  /** Fase 23: atalho global que leva o texto selecionado aos comandos de IA. Vazio = desligado. */
+  atalhoSelecao: string;
   autoLaunch: boolean;
   silenceMs: number;
   maxRecordMs: number;
@@ -201,6 +203,7 @@ export interface AppConfig {
 
 const DEFAULTS: AppConfig = {
   shortcut: "Control+Shift+J",
+  atalhoSelecao: "Control+Shift+E",
   autoLaunch: true,
   silenceMs: 2500,
   maxRecordMs: 120000,

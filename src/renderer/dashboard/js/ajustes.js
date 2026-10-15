@@ -161,6 +161,9 @@ const SECOES_AJUSTES = [
     resumo: (c) => c.climaCidade || "Cidade não definida" },
   { id: "conversa", titulo: "Conversa", icone: "message-circle", nos: ["[data-secao='conversa']"],
     resumo: (c) => `${c.chatHistoryTurns ?? 8} turnos na memória` },
+  // Fase 23: a memória ganha lugar em Ajustes — é o painel de Memória da Central, com nome de gente.
+  { id: "memoria", titulo: "O que a Ely sabe", icone: "bookmark", abrir: () => abrirPainelPc("memoria"),
+    resumo: () => "Fatos e conversas que ela lembra" },
   { id: "celular", titulo: "Celular", icone: "smartphone", nos: ["#orbe-pop > .pop-corpo"],
     resumo: () => "QR, token e acesso de fora", aoAbrir: () => loadPairing() },
   { id: "sistema", titulo: "Sistema", icone: "power", nos: ["[data-secao='sistema']"],
@@ -282,6 +285,7 @@ function desenharHub() {
 function abrirSecao(id) {
   const def = SECOES_AJUSTES.find(s => s.id === id);
   if (!def) return;
+  if (def.abrir) { def.abrir(); return; }
   secaoAberta = def;
   abrirGaveta({
     titulo: def.titulo, icone: def.icone, nos: def.nos, classe: "gaveta-ajustes",

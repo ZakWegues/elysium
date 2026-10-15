@@ -32,6 +32,7 @@
  *   WHEEL <n> / HWHEEL <n>  roda vertical/horizontal em unidades de 1/120 (rolagem suave)
  *   KEYS <vk1,vk2,...>      combinação por tecla virtual: aperta em ordem, solta ao contrário
  *                           (SendKeys não faz a tecla Windows)
+ *   UP <vk1,vk2,...>        só solta as teclas (fase 23: antes do Ctrl+C do atalho de seleção)
  *   MEDIA <op>              playpause | next | prev | mute | volup | voldown
  *   VOLGET                  responde `OK <0-100>|<True/False>`
  *   VOLSET <0-100>          define e desmuta       VOLMUTE <0|1>
@@ -103,6 +104,17 @@ public class NxInput {
     i[0].type = INPUT_MOUSE;
     i[0].u.mi = new MOUSEINPUT { dx = 0, dy = 0, mouseData = unchecked((uint)n), dwFlags = horizontal ? MOUSEEVENTF_HWHEEL : MOUSEEVENTF_WHEEL, time = 0, dwExtraInfo = IntPtr.Zero };
     SendInput(1, i, Marshal.SizeOf(typeof(INPUT)));
+  }
+
+  // Fase 23: só solta (o atalho Ctrl+Shift+E ainda está com Shift e E apertados quando o
+  // Ctrl+C sintético sai — sem soltar, o programa veria Ctrl+Shift+C).
+  public static void Up(ushort[] vks) {
+    INPUT[] i = new INPUT[vks.Length];
+    for (int k = 0; k < vks.Length; k++) {
+      i[k].type = INPUT_KEYBOARD;
+      i[k].u.ki = new KEYBDINPUT { wVk = vks[k], wScan = 0, dwFlags = KEYEVENTF_KEYUP, time = 0, dwExtraInfo = IntPtr.Zero };
+    }
+    SendInput((uint)i.Length, i, Marshal.SizeOf(typeof(INPUT)));
   }
 
   // Combinação: aperta na ordem e solta ao contrário (Ctrl+Shift+Esc, Win+D).
@@ -186,6 +198,11 @@ while ($true) {
       'KEYS' {
         $vks = [uint16[]]($arg.Split(',') | ForEach-Object { [uint16]$_ })
         [NxInput]::Keys($vks, $ESTENDIDAS)
+      }
+
+      'UP' {
+        $vks = [uint16[]]($arg.Split(',') | ForEach-Object { [uint16]$_ })
+        [NxInput]::Up($vks)
       }
 
       'MEDIA' {
@@ -398,6 +415,12 @@ class InputHost {
     const lista = vks.filter(v => Number.isInteger(v) && v > 0 && v < 256);
     if (!lista.length) return Promise.reject(new Error("nenhuma tecla válida"));
     return this.send(`KEYS ${lista.join(",")}`);
+  }
+  /** Solta teclas (só keyup) — fase 23, atalho de seleção. */
+  soltar(vks: number[]): Promise<void> {
+    const lista = vks.filter(v => Number.isInteger(v) && v > 0 && v < 256);
+    if (!lista.length) return Promise.resolve();
+    return this.send(`UP ${lista.join(",")}`);
   }
   media(op: MidiaDoHost): Promise<void> {
     return this.send(`MEDIA ${op}`);
