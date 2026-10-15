@@ -8,6 +8,10 @@ const L = require("../src/renderer/dashboard/js/esfera-logica.js") as {
   easeOutCubic(k: number): number;
   fatorNoturno(h: number): { giro: number; brilho: number; respira: number };
   pulsoDeTecla(n: number): number;
+  quedaSuave(d: number, r: number): number;
+  passoMola(o: number, v: number, k: number, c: number, a: number, dt: number): [number, number];
+  VEL_RAPIDA: number;
+  aceleracaoRepulsao(d: number, R: number, k: number, fracao?: number, alcance?: number): number;
 };
 
 describe("esfera — fator noturno", () => {
@@ -44,5 +48,32 @@ describe("esfera — curva e constantes", () => {
   it("ritmo do pensando e tempo de nascer", () => {
     expect(L.RITMO_PENSANDO).toBe(4);
     expect(L.NASCER_MS).toBe(900);
+  });
+});
+
+describe("esfera — física dos pontos (fase 23)", () => {
+  it("queda suave: 1 no centro, 0 na borda e fora", () => {
+    expect(L.quedaSuave(0, 10)).toBe(1);
+    expect(L.quedaSuave(10, 10)).toBe(0);
+    expect(L.quedaSuave(20, 10)).toBe(0);
+    expect(L.quedaSuave(5, 10)).toBeCloseTo(0.5);
+    expect(L.quedaSuave(1, 0)).toBe(0);
+  });
+  it("a mola traz o ponto de volta e não explode", () => {
+    let o = 50, v = 0;
+    for (let i = 0; i < 240; i++) [o, v] = L.passoMola(o, v, 55, 11, 0, 1 / 60);
+    expect(Math.abs(o)).toBeLessThan(0.5);
+  });
+  it("com repulsão constante, o ponto assenta a ~18% de R no centro do cursor", () => {
+    const R = 100, k = 55;
+    let o = 0, v = 0;
+    for (let i = 0; i < 600; i++) [o, v] = L.passoMola(o, v, k, 11, L.aceleracaoRepulsao(0, R, k), 1 / 60);
+    expect(o).toBeCloseTo(18, 0);
+  });
+  it("repulsão some longe do cursor", () => {
+    expect(L.aceleracaoRepulsao(50, 100, 55)).toBe(0);
+  });
+  it("limiar de mouse rápido", () => {
+    expect(L.VEL_RAPIDA).toBe(900);
   });
 });

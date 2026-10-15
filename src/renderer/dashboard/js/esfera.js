@@ -55,11 +55,15 @@
   let rodando = false;
   let corDoTema = null, corDoTemaEm = 0;
 
-  // ── mouse (fase 22; 22.1) ─────────────────────────────────────────────────
-  // A esfera NÃO segue mais o cursor (o Zak achou exagerado, 14/10): o mouse só serve para
-  // saber se ele está em cima dela — clique dá um pulso leve, duplo clique começa a ouvir.
-  // O canvas continua sem pegar clique (pointer-events: none); quem ouve é o #center.
-  const mouse = { x: 0, y: 0, dentro: false };
+  // ── mouse (fase 23) ───────────────────────────────────────────────────────
+  // A esfera NÃO segue nem inclina para o cursor. O que ele faz é mexer nos pontos, um a um, como
+  // num fluido: devagar, os pontos perto do cursor se afastam (abre um "buraco" que fecha quando
+  // ele sai); rápido, os do caminho são jogados na direção do movimento; clique espalha todos e
+  // eles voltam a formar a esfera. Cada ponto tem deslocamento e velocidade próprios, presos ao
+  // lugar por uma mola. O canvas continua sem pegar clique; quem ouve é o #center.
+  const mouse = { x: 0, y: 0, dentro: false, vx: 0, vy: 0, t: 0, dx: 0, dy: 0 };
+  const fox = new Float32Array(N), foy = new Float32Array(N), fvx = new Float32Array(N), fvy = new Float32Array(N);
+  let fluidoAte = 0, explodir = false, fisicaViva = false;
   let geom = { cx: 0, cy: 0, R: 1, dpr: 1 }; // do último quadro, em px do canvas
   const pulsos = []; // ondas: { t0, dentro } — clique sai de R a 2R; arquivo solto entra de 2R a R
 
@@ -100,16 +104,26 @@
     const r = centro.getBoundingClientRect();
     const x = e.clientX - r.left, y = e.clientY - r.top;
     if (ignorarAlvo(e.target)) { mouse.dentro = false; centro.classList.remove("sobre-esfera"); return; }
+    // Velocidade do cursor (px/s), suavizada; o deslocamento acumula até o próximo quadro.
+    const agora = performance.now(), dtm = Math.max(1, agora - (mouse.t || agora - 16)) / 1000;
+    if (mouse.dentro) {
+      const ddx = x - mouse.x, ddy = y - mouse.y;
+      mouse.dx += ddx; mouse.dy += ddy;
+      mouse.vx = mouse.vx * 0.5 + (ddx / dtm) * 0.5;
+      mouse.vy = mouse.vy * 0.5 + (ddy / dtm) * 0.5;
+    }
+    mouse.t = agora;
     mouse.x = x; mouse.y = y; mouse.dentro = true;
     centro.classList.toggle("sobre-esfera", vazio && ligada && sobreEsfera());
   });
   centro.addEventListener("pointerleave", () => {
-    mouse.dentro = false; centro.classList.remove("sobre-esfera");
+    mouse.dentro = false; mouse.vx = mouse.vy = 0; centro.classList.remove("sobre-esfera");
   });
   centro.addEventListener("click", (e) => {
     if (!vazio || !ligada || ignorarAlvo(e.target) || !sobreEsfera()) return;
-    if (!movimentoReduzido()) pulsos.push({ t0: performance.now() });
-    nivel = Math.min(1, nivel + 0.25);
+    // Clique: espalha como fluido (o impulso sai no próximo quadro, que sabe onde cada ponto está).
+    if (!movimentoReduzido()) { explodir = true; fluidoAte = performance.now() + 1300; }
+    nivel = Math.min(1, nivel + 0.15);
     acordar();
   });
   // Duplo clique na esfera: começa a ouvir, pelo mesmo caminho do botão do microfone.
@@ -243,6 +257,20 @@
     const rotX = 0.42 + Math.sin(t * 0.23) * 0.12;
     const sy = Math.sin(rotY), cyR = Math.cos(rotY), sx = Math.sin(rotX), cxR = Math.cos(rotX);
 
+    // Física dos pontos (fase 23). Mola firme normalmente; mole por ~1,3 s depois do clique.
+    const fluido = agora < fluidoAte;
+    const kMola = fluido ? 14 : 55, cMola = fluido ? 3.2 : 11;
+    const dtF = Math.min(dt, 1 / 30);
+    const comMouse = mouse.dentro && vazio && !lento;
+    const curX = mouse.x * dpr, curY = mouse.y * dpr;
+    const velX = mouse.vx * dpr, velY = mouse.vy * dpr;
+    const rapido = Math.hypot(mouse.vx, mouse.vy) > L.VEL_RAPIDA && (Math.abs(mouse.dx) + Math.abs(mouse.dy) > 0);
+    mouse.dx = 0; mouse.dy = 0;
+    if (!comMouse) { mouse.vx *= 0.8; mouse.vy *= 0.8; }
+    const explodirAgora = explodir && !lento; explodir = false;
+    const fisica = !lento && (comMouse || fluido || explodirAgora || fisicaViva);
+    let energia = 0;
+
     // Núcleo e halo: a luz de dentro cresce com a voz.
     const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * 1.25);
     g.addColorStop(0, `rgba(${cr},${cg},${cb},${Math.min(1, (0.22 + n * 0.4 + flash) * opac)})`);
@@ -272,6 +300,40 @@
       q.z = z2;
       q.s = f;
       q.b = 0;
+      if (fisica) {
+        const bx = q.x, by = q.y;
+        let axp = 0, ayp = 0;
+        if (explodirAgora) {
+          // Para fora do centro, com um redemoinho e um pouco de acaso por ponto.
+          const rx = bx - cx, ry = by - cy, rd = Math.hypot(rx, ry) || 1;
+          const forca = R * (2.2 + ((i * 7919) % 100) / 100 * 2.4);
+          const giro = R * 1.4 * Math.sin(i * 2.399);
+          fvx[i] += (rx / rd) * forca - (ry / rd) * giro;
+          fvy[i] += (ry / rd) * forca + (rx / rd) * giro;
+        }
+        if (comMouse) {
+          const px = bx + fox[i], py = by + foy[i];
+          const dx = px - curX, dy = py - curY, d = Math.hypot(dx, dy) || 0.001;
+          if (rapido) {
+            // Rápido: quem está no caminho é jogado na direção do movimento.
+            const kq = L.quedaSuave(d, R * 0.38);
+            if (kq > 0) { fvx[i] += velX * 0.55 * kq; fvy[i] += velY * 0.55 * kq; }
+          } else {
+            const a = L.aceleracaoRepulsao(d, R, kMola);
+            axp = (dx / d) * a; ayp = (dy / d) * a;
+            q.b = Math.max(q.b, L.quedaSuave(d, R * 0.32) * 0.6);
+          }
+        }
+        const [nox, nvx] = L.passoMola(fox[i], fvx[i], kMola, cMola, axp, dtF);
+        const [noy, nvy] = L.passoMola(foy[i], fvy[i], kMola, cMola, ayp, dtF);
+        // Teto: ninguém foge mais que 1,3R do lugar.
+        const lim = R * 1.3, m = Math.hypot(nox, noy);
+        const esc = m > lim ? lim / m : 1;
+        fox[i] = nox * esc; foy[i] = noy * esc; fvx[i] = nvx; fvy[i] = nvy;
+        q.x += fox[i]; q.y += foy[i];
+        const afast = Math.min(1, m / (R * 0.5));
+        if (afast > q.b) q.b = afast * 0.5;
+      }
       // Arquivo por cima: os pontos mais perto dele se inclinam de leve na direção dele.
       if (arrastando) {
         const ax = arrasto.x * dpr, ay = arrasto.y * dpr;
@@ -284,6 +346,9 @@
         }
       }
     }
+    // Enquanto algum ponto estiver fora do lugar, a física continua mesmo sem mouse.
+    if (fisica) { for (let i = 0; i < N; i += 7) energia += Math.abs(fox[i]) + Math.abs(foy[i]) + Math.abs(fvx[i]) * 0.02; fisicaViva = energia > 0.5; }
+    else if (lento && fisicaViva) { fox.fill(0); foy.fill(0); fvx.fill(0); fvy.fill(0); fisicaViva = false; }
     ordem.sort((a, b) => proj[a].z - proj[b].z);
     for (const i of ordem) {
       const q = proj[i];

@@ -32,7 +32,26 @@
     return n >= 0.15 ? n : Math.min(0.15, n + 0.04);
   }
 
-  const api = { RITMO_PENSANDO, NASCER_MS, easeOutCubic, fatorNoturno, pulsoDeTecla };
+  // ── física dos pontos (fase 23) ──
+  /** Queda suave (smoothstep invertido): 1 no centro, 0 a partir de `raio`. */
+  function quedaSuave(d, raio) {
+    if (!(raio > 0) || d >= raio) return 0;
+    const k = 1 - Math.max(0, d) / raio;
+    return k * k * (3 - 2 * k);
+  }
+  /** Um passo de mola amortecida: devolve [posição, velocidade]. `a` = aceleração externa. */
+  function passoMola(o, v, k, c, a, dt) {
+    const v2 = v + (a - k * o - c * v) * dt;
+    return [o + v2 * dt, v2];
+  }
+  /** Acima disto (px de tela por segundo) o mouse "joga" os pontos em vez de só abrir espaço. */
+  const VEL_RAPIDA = 900;
+  /** Força de repulsão: aceleração que, com a mola `k`, segura o ponto a `fracao·R` do lugar. */
+  function aceleracaoRepulsao(d, R, k, fracao = 0.18, alcance = 0.32) {
+    return k * fracao * R * quedaSuave(d, alcance * R);
+  }
+
+  const api = { RITMO_PENSANDO, NASCER_MS, easeOutCubic, fatorNoturno, pulsoDeTecla, quedaSuave, passoMola, VEL_RAPIDA, aceleracaoRepulsao };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else raiz.EsferaLogica = api;
 })(typeof window !== "undefined" ? window : globalThis);
