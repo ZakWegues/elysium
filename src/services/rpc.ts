@@ -56,7 +56,7 @@ import { revisaoDaSemana } from "./revisaoSemana";
 import { cancelarTimer, criarTimer, listarTimers } from "./timers";
 import { apagarComando, listarComandos, rodarComando, salvarComando } from "./comandosIa";
 import { resumirLink } from "./leitorDeLink";
-import { comContexto } from "./contextoComando";
+import { comContexto, fontesDoPedido } from "./contextoComando";
 import { comecarFoco, estadoFoco, pararFoco, salvarListaFoco } from "./foco";
 import { abrirNoPc, AlvoAbrir, AlvoLimpeza, lerArmazenamento, limpar } from "../actions/armazenamento";
 import { aguardarDownloads, estadoAtualizacao, instalarAtualizacaoDesktop, verificarAtualizacoes } from "./atualizacao";
@@ -528,7 +528,8 @@ const METHODS: Record<string, MethodDef> = {
     }),
   },
   "web.search": {
-    handler: async (params) => ({ answer: await searchWeb(requireString(params, "query")) }),
+    // Fase 23: pedido por tela é texto (sem números por extenso) e devolve as fontes do Hermes.
+    handler: async (params) => comContexto("texto", async () => ({ answer: await searchWeb(requireString(params, "query")), fontes: fontesDoPedido() })),
   },
 
   /**
