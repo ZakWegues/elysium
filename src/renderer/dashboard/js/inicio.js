@@ -1173,7 +1173,7 @@ document.getElementById("view-inicio")?.addEventListener("click", async (e) => {
   const sd = alvo("[data-saude-tipo]");
   if (sd) {
     const { saudeTipo: tipo, saudeValor: valor } = sd.dataset;
-    if (tipo === "painel") { switchView("pc"); setTimeout(() => abrirPainelPc(valor), 60); return; }
+    if (tipo === "painel") { abrirPainelPc(valor); return; }
     sd.disabled = true;
     try {
       const r = tipo === "rpc" ? await window.nx.rpc(valor) : await window.nx.rpc("system.saude.consertar", { item: valor });
@@ -1185,7 +1185,7 @@ document.getElementById("view-inicio")?.addEventListener("click", async (e) => {
   }
 
   const painel = alvo("[data-painel]");
-  if (painel) { switchView("pc"); setTimeout(() => abrirPainelPc(painel.dataset.painel), 60); return; }
+  if (painel) { abrirPainelPc(painel.dataset.painel); return; }
 
   const conv = alvo("[data-conversa]");
   if (conv) { switchView("chat"); switchChatMode("ai"); openConversation(conv.dataset.conversa); return; }

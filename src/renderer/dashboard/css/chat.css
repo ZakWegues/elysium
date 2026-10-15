@@ -464,3 +464,48 @@ body.com-esfera #chat-vazio .marca { display: none; }
   animation: pop-in 0.18s ease-out; pointer-events: none;
 }
 body.com-esfera #chat-vazio { padding-top: min(40vh, 340px); }
+
+/* ── Cantos do Chat (fase 23) ─────────────────────────────
+   Vitais do PC à esquerda, tocando agora + volume à direita. Fechados, são uma alça fina
+   na borda; abertos, um cartão de vidro que não empurra a conversa. */
+.canto { position: absolute; top: 14px; z-index: 6; display: flex; align-items: flex-start; gap: 6px; pointer-events: none; }
+.canto-esq { left: 10px; }
+.canto-dir { right: 10px; flex-direction: row-reverse; }
+.canto > * { pointer-events: auto; }
+.canto-alca {
+  width: 26px; height: 54px; border-radius: 13px; display: grid; place-items: center;
+  border: 1px solid var(--border); background: var(--surface); backdrop-filter: var(--glass-blur);
+  color: var(--muted); cursor: pointer; opacity: 0.7;
+  transition: opacity var(--mov-micro) var(--mov-curva), color var(--mov-micro) var(--mov-curva);
+}
+.canto-alca:hover, .canto.aberto .canto-alca { opacity: 1; color: var(--purple-bright); }
+.canto-corpo {
+  width: 196px; padding: 12px 14px; border-radius: var(--radius-10);
+  border: 1px solid var(--border); background: var(--surface); backdrop-filter: var(--glass-blur);
+  box-shadow: var(--shadow-card, none);
+  display: none; transform-origin: top left;
+}
+.canto-dir .canto-corpo { transform-origin: top right; }
+.canto.aberto .canto-corpo { display: block; animation: canto-entra var(--mov-base) var(--mov-suave); }
+@keyframes canto-entra { from { opacity: 0; transform: scale(0.94); } }
+.canto-titulo { font-size: 10.5px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 8px; }
+.canto-vital { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--muted); margin-top: 6px; }
+.canto-vital b { color: var(--text); font-variant-numeric: tabular-nums; font-weight: 600; }
+.canto .vital-faisca { display: block; width: 100%; height: 22px; margin-top: 3px; }
+.canto-vazio { font-size: 12px; color: var(--muted); font-style: italic; }
+.canto-faixa { display: flex; gap: 9px; align-items: center; min-width: 0; }
+.canto-faixa img { width: 40px; height: 40px; border-radius: 6px; object-fit: cover; flex-shrink: 0; }
+.canto-faixa div { min-width: 0; display: flex; flex-direction: column; }
+.canto-faixa b, .canto-faixa span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12.5px; }
+.canto-faixa span { color: var(--muted); font-size: 11.5px; }
+.canto-ctrl { margin: 10px 0 6px; gap: 8px; }
+.canto-ctrl button { width: 30px; height: 30px; }
+.canto-ctrl button.principal { width: 36px; height: 36px; }
+.canto .canto-vol { min-width: 0; width: 100%; }
+.canto-vol input { flex: 1; min-width: 0; }
+#center.modo-self .canto { display: none; }
+@media (max-width: 760px) { .canto { display: none; } }
+.canto .vital-faisca { position: static; inset: auto; opacity: 0.9; }
+.canto-vol { gap: 6px; }
+.canto-vol #canto-vol-num { width: 34px; text-align: right; font-size: 11px; font-variant-numeric: tabular-nums; }
+.canto-vol button { flex-shrink: 0; }

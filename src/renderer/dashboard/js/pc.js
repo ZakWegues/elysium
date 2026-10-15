@@ -144,7 +144,8 @@ function desenharVitais() {
 /** Só os números, sem redesenhar (a faísca é redesenhada, é barata). */
 function pulsarVitais(t) {
   registrarTelemetria(t);
-  if (layoutEl.getAttribute("data-view") !== "pc") return;
+  // Fase 23: a aba virou a Central de controle (gaveta) — vale estar aberta lá.
+  if (!document.querySelector("#gaveta-corpo #view-pc")) return;
   desenharVitais();
 }
 

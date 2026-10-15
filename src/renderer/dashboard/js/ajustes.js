@@ -235,6 +235,8 @@ function fecharGaveta(silencioso = false) {
   for (const m of g.movidos) m.pai.insertBefore(m.no, m.proximo);
   g.controle?.abort();
   g.aoFechar?.();
+  // Fase 23: painel aberto de dentro da Central (ou formulário das Rotinas) devolve a mãe.
+  if (typeof agendarVolta === "function") agendarVolta();
   if (!silencioso) {
     document.getElementById("gaveta-veu").classList.remove("aberto");
     // O foco volta para quem abriu: sem isto quem usa teclado caía no começo da página.

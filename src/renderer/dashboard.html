@@ -172,8 +172,6 @@
   <button class="vtab active" data-view="inicio"  role="tab" aria-selected="true"><span class="vtab-ico"><svg class="ico" aria-hidden="true"><use href="#i-home"/></svg></span><span class="vtab-label">Início</span><span class="vtab-dot"></span></button>
   <button class="vtab"        data-view="chat"    role="tab" aria-selected="false"><span class="vtab-ico"><svg class="ico" aria-hidden="true"><use href="#i-message-circle"/></svg></span><span class="vtab-label">Chat</span><span class="vtab-dot"></span></button>
   <button class="vtab"        data-view="hoje"    role="tab" aria-selected="false"><span class="vtab-ico"><svg class="ico" aria-hidden="true"><use href="#i-sun"/></svg></span><span class="vtab-label">Hoje</span><span class="vtab-dot"></span></button>
-  <button class="vtab"        data-view="pc" role="tab" aria-selected="false"><span class="vtab-ico"><svg class="ico" aria-hidden="true"><use href="#i-monitor"/></svg></span><span class="vtab-label">PC</span><span class="vtab-dot"></span></button>
-  <button class="vtab"        data-view="rotinas" role="tab" aria-selected="false"><span class="vtab-ico"><svg class="ico" aria-hidden="true"><use href="#i-calendar"/></svg></span><span class="vtab-label">Rotinas</span><span class="vtab-dot"></span></button>
   <!-- A lupa do Ctrl+K, sempre à vista. Não é um campo de verdade: clicar (ou começar a
        digitar com ela focada) abre a paleta, que já tem o índice e o teclado prontos. Um
        segundo campo com busca própria seria a mesma paleta escrita duas vezes. -->
@@ -182,6 +180,9 @@
     <span class="nav-busca-texto">Buscar ou comandar…</span>
     <kbd>Ctrl K</kbd>
   </button>
+  <!-- Fase 23: PC virou a Central de controle e Rotinas virou gaveta — botões próprios. -->
+  <button class="nav-ico" id="nav-central" type="button" title="Central de controle" aria-label="Central de controle"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-sliders"/></svg></button>
+  <button class="nav-ico" id="nav-rotinas" type="button" title="Rotinas" aria-label="Rotinas"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-calendar"/></svg></button>
   <!-- Aparece só quando uma versão nova terminou de baixar (bloco 95). -->
   <button id="nav-atualizar" type="button" hidden title="Uma versão nova está pronta para instalar">
     <svg class="ico ico-sm" aria-hidden="true"><use href="#i-rotate"/></svg><span>Atualizar</span>
@@ -658,6 +659,8 @@
 <script src="dashboard/js/presets.js"></script>
 <script src="dashboard/js/pc.js"></script>
 <script src="dashboard/js/rotinas.js"></script>
+<script src="dashboard/js/central.js"></script>
+<script src="dashboard/js/cantos.js"></script>
 <script src="dashboard/js/hoje.js"></script>
 <script src="dashboard/js/tarefas.js"></script>
 <script src="dashboard/js/inicio.js"></script>

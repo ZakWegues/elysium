@@ -298,3 +298,59 @@
 #nav-atualizar[hidden] { display: none; }
 #nav-atualizar:hover { background: rgba(var(--purple-rgb), 0.26); }
 #nav-atualizar .ico { color: var(--purple-bright); }
+
+/* ── CENTRAL DE CONTROLE e ROTINAS (fase 23) ──────────────
+   Botões redondos ao lado da lupa; cada um abre a sua gaveta (js/central.js). */
+.nav-ico {
+  align-self: center; width: 30px; height: 30px; margin-right: 6px; flex-shrink: 0;
+  display: grid; place-items: center; border-radius: 50%;
+  border: 1px solid var(--border); background: rgba(var(--purple-rgb), 0.06);
+  color: var(--purple-bright); cursor: pointer;
+  transition: background var(--mov-micro) var(--mov-curva), transform var(--mov-micro) var(--mov-curva);
+}
+.nav-ico:hover, .nav-ico:focus-visible { background: rgba(var(--purple-rgb), 0.16); outline: none; }
+.nav-ico:active { transform: scale(0.94); }
+
+/* As views emprestadas: dentro da gaveta elas aparecem, sem o padding de aba. */
+#layout[data-view] #gaveta-corpo #view-pc,
+#layout[data-view] #gaveta-corpo #view-rotinas,
+#gaveta-corpo > #view-pc, #gaveta-corpo > #view-rotinas { display: block; opacity: 1; transform: none; padding: 0; overflow: visible; }
+.gaveta-rotinas #view-rotinas .pc-topo h2 { display: none; }
+.gaveta-rotinas .rot-colunas { grid-template-columns: 1fr; }
+#gaveta:has(.gaveta-central), #gaveta:has(.gaveta-rotinas) { width: min(640px, 94%); }
+
+.cc-secao { margin-bottom: 18px; }
+.cc-cab { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.cc-cab h4 { margin: 0; font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.cc-mini { display: inline-flex; align-items: center; gap: 6px; background: none; border: 0; color: var(--muted); font: inherit; font-size: 11.5px; cursor: pointer; }
+.cc-mini:hover { color: var(--text); }
+.cc-favs { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 8px; }
+.cc-app {
+  display: flex; flex-direction: column; align-items: center; gap: 7px; padding: 12px 6px 10px;
+  border-radius: var(--radius-10); border: 1px solid var(--border); background: var(--surface);
+  color: var(--text); font: inherit; cursor: pointer; min-width: 0;
+  transition: transform var(--mov-micro) var(--mov-curva), border-color var(--mov-micro) var(--mov-curva);
+}
+.cc-app:hover { transform: translateY(-2px); border-color: var(--border2); }
+.cc-app:active { transform: scale(0.96); }
+.cc-app-letra {
+  width: 36px; height: 36px; border-radius: 11px; display: grid; place-items: center;
+  background: rgba(var(--purple-rgb), 0.16); color: var(--purple-bright); font-weight: 700; font-size: 16px;
+}
+.cc-app.aberto .cc-app-letra { box-shadow: 0 0 0 2px var(--green, #4caf7a); }
+.cc-app-nome { font-size: 11.5px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-transform: capitalize; }
+.cc-favs-edit { display: flex; flex-wrap: wrap; gap: 6px; }
+.cc-favs-edit .pilula.aceso { background: rgba(var(--purple-rgb), 0.22); color: var(--purple-bright); border-color: var(--border2); }
+.cc-azulejos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.cc-azulejo {
+  display: flex; align-items: center; gap: 9px; padding: 12px; min-height: 52px; text-align: left;
+  border-radius: var(--radius-10); border: 1px solid var(--border); background: var(--surface);
+  color: var(--text); font: inherit; font-size: 12.5px; cursor: pointer;
+  transition: background var(--mov-micro) var(--mov-curva), transform var(--mov-micro) var(--mov-curva);
+}
+.cc-azulejo .ico { color: var(--purple-bright); flex-shrink: 0; }
+.cc-azulejo:hover { background: rgba(var(--purple-rgb), 0.12); }
+.cc-azulejo:active { transform: scale(0.97); }
+.cc-azulejo.aceso { background: rgba(var(--purple-rgb), 0.24); border-color: var(--border2); }
+.cc-azulejo:disabled { opacity: 0.6; cursor: progress; }
+@media (max-width: 560px) { .cc-azulejos { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

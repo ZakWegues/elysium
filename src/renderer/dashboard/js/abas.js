@@ -47,6 +47,10 @@ new ResizeObserver(moverPolegar).observe(document.getElementById("viewtabs"));
  */
 function switchView(view) {
   // Trocar de aba com a gaveta aberta devolve o que estava nela (o QR ao popover, etc.).
+  // Fase 23: PC e Rotinas saíram da barra e viraram gavetas (central.js). Quem ainda pede a
+  // aba (paleta antiga, atalho da Início) ganha a gaveta por cima da aba atual.
+  if (view === "pc" || view === "rotinas") { setTimeout(view === "pc" ? abrirCentral : abrirRotinas, 0); return; }
+  if (typeof voltarPara !== "undefined") voltarPara = null;
   if (typeof fecharGaveta === "function") fecharGaveta();
   layoutEl.setAttribute("data-view", view);
   vtabs.forEach(b => {
@@ -65,8 +69,6 @@ function switchView(view) {
   // A Caixa deixou de ser aba: virou o lado direito do switch, dentro do Chat.
 
   if (view === "chat") { requestAnimationFrame(moverPolegar); carregarBolhasChat(); }
-  if (view === "pc") carregarPc();
-  if (view === "rotinas") carregarRotinas();
   if (view === "hoje") carregarHoje();
   if (view === "inicio") atualizarInicio().then(ligarArrasto);
   // Os canvas nascem dentro de um painel oculto, e elemento em `display:none` mede zero.
