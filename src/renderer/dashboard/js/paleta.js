@@ -145,6 +145,7 @@ async function montarIndicePaleta() {
     { grupo: "acao", icone: "star", texto: "Nova meta", chaves: ["meta", "objetivo"], executar: () => { switchView("hoje"); formMeta(); } },
     { grupo: "nav", icone: "plus", texto: "Nova rotina", executar: () => { switchView("rotinas"); setTimeout(() => abrirFormRotina(), 80); } },
     { grupo: "nav", icone: "settings", texto: "Ajustes", executar: () => switchView("ajustes") },
+    { grupo: "acao", icone: "smartphone", texto: "Conectar celular", sub: "QR e token", chaves: ["parear", "qr", "celular", "pareamento"], executar: () => abrirCelular() },
     { grupo: "nav", icone: "edit", texto: "Nova conversa", executar: () => { switchView("chat"); switchChatMode("ai"); startNewConversation(); } },
 
     // `chaves` são sinônimos que a busca também aceita — inglês e o jeito falado.

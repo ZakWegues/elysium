@@ -71,22 +71,6 @@ body.theme-stark .rot-card {
 body.theme-stark .home-card:hover,
 body.theme-stark .hoje-painel:hover { border-color: rgba(var(--purple-rgb), 0.4); box-shadow: 0 0 0 1px rgba(var(--purple-rgb), 0.08), 0 0 22px rgba(var(--purple-rgb), 0.08); }
 
-/* ── orbe → reator ──
-   Dois anéis: um tracejado girando devagar, outro fino no sentido contrário. Acelera
-   quando ela ouve/pensa/fala (`body.vivo`, o mesmo sinal que acelera o fundo). */
-body.theme-stark #orbe {
-  width: 42px; height: 42px; border-color: rgba(var(--purple-rgb), 0.45);
-  background: radial-gradient(circle, rgba(var(--purple-rgb), 0.35) 0%, rgba(var(--purple-rgb), 0.08) 45%, transparent 70%);
-  box-shadow: 0 0 18px rgba(var(--purple-rgb), 0.35), inset 0 0 10px rgba(var(--purple-rgb), 0.35);
-}
-body.theme-stark #orbe::before,
-body.theme-stark #orbe::after {
-  content: ""; position: absolute; border-radius: 50%; pointer-events: none;
-}
-body.theme-stark #orbe::before { inset: -6px; border: 1.5px dashed rgba(var(--purple-rgb), 0.55); animation: stark-gira 14s linear infinite; }
-body.theme-stark #orbe::after { inset: 5px; border: 1px solid rgba(var(--purple-rgb), 0.6); border-left-color: transparent; border-right-color: transparent; animation: stark-gira 6s linear infinite reverse; }
-body.theme-stark.vivo #orbe::before { animation-duration: 3s; }
-body.theme-stark.vivo #orbe::after { animation-duration: 1.4s; }
 @keyframes stark-gira { to { transform: rotate(360deg); } }
 
 /* O anel de hábitos da aba Hoje ganha o mesmo anel externo do reator. */
@@ -104,7 +88,5 @@ body.theme-stark ::selection { background: rgba(var(--purple-rgb), 0.35); }
 
 @media (prefers-reduced-motion: reduce) {
   body.theme-stark #bg-tracos::after,
-  body.theme-stark #orbe::before,
-  body.theme-stark #orbe::after,
   body.theme-stark .hoje-reator::before { animation: none; }
 }

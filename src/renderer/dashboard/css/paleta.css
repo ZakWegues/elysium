@@ -227,35 +227,32 @@
 .pop-form-acoes button.primario { background: rgba(var(--purple-rgb),0.22); color: var(--purple-bright); border-color: rgba(var(--purple-rgb),0.4); }
 .pop-form-acoes button:hover { background: rgba(var(--purple-rgb),0.14); color: var(--text); }
 
-/* ── ORBE DE CONEXÃO ──────────────────────────────────────
-   O estado do celular ao lado da saudação. Verde alcançável, cinza não. O anel pulsa
-   devagar enquanto está conectado — é a única animação em laço do app, e existe porque
-   "vivo" precisa se distinguir de "parado numa cor". */
+/* ── CELULAR NA SAUDAÇÃO (fase 23) ───────────────────────
+   Era a bolinha "orbe" com o QR num popover; virou uma linha discreta sob a saudação.
+   Verde alcançável, cinza não. Clicar leva a Ajustes → Celular. */
 .home-saudacao { display: flex; align-items: center; gap: 13px; min-width: 0; }
-#orbe {
-  width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0;
-  display: flex; align-items: center; justify-content: center;
-  background: rgba(var(--purple-rgb),0.08); border: 1px solid var(--border);
-  cursor: pointer; position: relative;
-  transition: background var(--mov-micro) var(--mov-curva);
+.home-celular {
+  display: inline-flex; align-items: center; gap: 7px; margin-top: 6px; padding: 2px 0;
+  background: none; border: none; color: var(--muted); font: inherit; font-size: 11.5px; cursor: pointer;
+  transition: color var(--mov-micro) var(--mov-curva);
 }
-#orbe:hover { background: rgba(var(--purple-rgb),0.20); }
+.home-celular[hidden] { display: none; }
+.home-celular:hover { color: var(--text); }
 .orbe-ponto {
-  width: 10px; height: 10px; border-radius: 50%;
+  width: 7px; height: 7px; border-radius: 50%; position: relative;
   background: var(--dim, #5a5d7a);
   transition: background var(--mov-base) var(--mov-curva);
 }
-#orbe.online .orbe-ponto { background: var(--green); }
-/* O anel é um pseudo-elemento para não custar um nó a mais; só existe quando online. */
-#orbe.online::after {
+.home-celular.online .orbe-ponto { background: var(--green); }
+.home-celular.online .orbe-ponto::after {
   content: ""; position: absolute; inset: -1px; border-radius: 50%;
   border: 1px solid var(--green);
   animation: orbe-pulso 2.4s var(--mov-suave) infinite;
 }
 @keyframes orbe-pulso {
   0%   { transform: scale(1);    opacity: 0.5; }
-  70%  { transform: scale(1.35); opacity: 0; }
-  100% { transform: scale(1.35); opacity: 0; }
+  70%  { transform: scale(2.2);  opacity: 0; }
+  100% { transform: scale(2.2);  opacity: 0; }
 }
 
 /* ── AJUSTES à direita ────────────────────────────────────

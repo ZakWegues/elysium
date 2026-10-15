@@ -635,7 +635,7 @@ const PAINEIS_PC = {
             <button data-rede="parear">${ico("smartphone", "ico-sm")}<span>Abrir o QR de pareamento</span></button>
             <button data-rede="ping">${ico("phone-call", "ico-sm")}<span>Mandar "oi" pro celular</span></button>
           </div>
-          <p class="gp-nota">O QR está também no orbe da Início e em Ajustes → Celular. Fora de casa, o acesso vai pelo túnel (Ajustes → Celular).</p>
+          <p class="gp-nota">O QR fica em Ajustes → Celular (e na paleta: "Conectar celular"). Fora de casa, o acesso vai pelo túnel (Ajustes → Celular).</p>
         </div>`;
     },
     async clique(e) {

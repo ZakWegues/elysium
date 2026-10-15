@@ -83,10 +83,14 @@
 .notas-rodape button:hover { background: rgba(var(--purple-rgb),0.14); }
 
 /* Timer. */
-.timer-visor { font-size: 40px; font-weight: 700; text-align: center; font-variant-numeric: tabular-nums; color: var(--text); line-height: 1; margin: 6px 0 10px; }
-.timer-visor.rodando { color: var(--purple-bright); }
-.timer-anel { height: 5px; border-radius: 3px; background: rgba(var(--purple-rgb),0.14); overflow: hidden; margin-bottom: 12px; }
-.timer-anel > i { display: block; height: 100%; background: var(--purple); transform-origin: left center; transition: transform 1s linear; }
+.timer-dial { position: relative; width: 128px; aspect-ratio: 1; margin: 2px auto 12px; display: grid; place-items: center; }
+.timer-dial svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
+.timer-trilho, .timer-progresso { fill: none; stroke-width: 7; }
+.timer-trilho { stroke: rgba(var(--purple-rgb),0.13); }
+.timer-progresso { stroke: var(--purple); stroke-linecap: round; stroke-dasharray: 100; transition: stroke-dashoffset 1s linear, stroke 0.3s; }
+.timer-dial.rodando .timer-progresso { stroke: var(--purple-bright); filter: drop-shadow(0 0 6px rgba(var(--purple-rgb),0.45)); }
+.timer-visor { position: relative; font-size: 28px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text); line-height: 1; }
+.timer-dial.rodando .timer-visor { color: var(--purple-bright); }
 .timer-presets { display: flex; gap: 6px; justify-content: center; margin-bottom: 10px; }
 .timer-presets button { padding: 5px 10px; border-radius: var(--radius-20); border: 1px solid var(--border); background: rgba(var(--purple-rgb),0.08); color: var(--text); font-family: inherit; font-size: 11px; cursor: pointer; }
 .timer-presets button.aceso, .timer-presets button:hover { background: rgba(var(--purple-rgb),0.22); color: var(--purple-bright); }

@@ -118,34 +118,12 @@ const drawerBackdrop = document.getElementById("drawer-backdrop");
 // inteira de Ajustes — que ninguém abre por vontade própria depois do primeiro dia, e que
 // mesmo assim ocupava metade da barra de navegação de lá.
 
-const orbe = document.getElementById("orbe");
-const orbePop = document.getElementById("orbe-pop");
+// Fase 23: a bolinha com o QR num popover saiu. O pareamento mora em Ajustes → Celular (o
+// `#orbe-pop > .pop-corpo` é só o depósito do conteúdo que a gaveta pega) e na paleta.
+const orbe = document.getElementById("home-celular");
 
-function abrirOrbe(abrir) {
-  if (!orbePop) return;
-  const estaAberto = orbePop.classList.contains("aberto");
-  const alvo = abrir ?? !estaAberto;
-  if (alvo === estaAberto) return;
-
-  if (alvo) {
-    const r = orbe.getBoundingClientRect();
-    orbePop.style.top = `${r.bottom + 10}px`;
-    orbePop.style.left = `${r.left}px`;
-    orbePop.classList.add("aberto");
-    loadPairing();
-    orbe.setAttribute("aria-expanded", "true");
-  } else {
-    orbePop.classList.remove("aberto");
-    orbe.setAttribute("aria-expanded", "false");
-  }
-}
-
-orbe?.addEventListener("click", (e) => { e.stopPropagation(); abrirOrbe(); });
-orbePop?.addEventListener("click", (e) => e.stopPropagation());
-document.addEventListener("click", () => abrirOrbe(false));
-document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape" && orbePop?.classList.contains("aberto")) { e.stopPropagation(); abrirOrbe(false); }
-}, true);
+function abrirCelular() { switchView("ajustes"); setTimeout(() => abrirSecao("celular"), 80); }
+orbe?.addEventListener("click", abrirCelular);
 
 /**
  * O ponto verde. "Pareado" não basta: o token pode estar gravado e o celular fora de
@@ -156,10 +134,11 @@ async function atualizarOrbe() {
   if (!orbe) return;
   try {
     const r = await window.nx.rpc("pairing.endpoints");
-    orbe.classList.toggle("online", (r.result?.conectados ?? 0) > 0);
-    orbe.title = (r.result?.conectados ?? 0) > 0
-      ? "Celular conectado"
-      : "Celular fora de alcance — clique para parear";
+    const on = (r.result?.conectados ?? 0) > 0;
+    orbe.hidden = false;
+    orbe.classList.toggle("online", on);
+    document.getElementById("home-celular-txt").textContent = on ? "Celular conectado" : "Conectar celular";
+    orbe.title = on ? "QR, token e acesso de fora" : "Abre o QR para parear o celular";
   } catch { orbe.classList.remove("online"); }
 }
 

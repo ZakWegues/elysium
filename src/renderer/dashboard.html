@@ -201,14 +201,12 @@
          o mesmo dado do card, sem consulta extra. -->
     <header class="home-topo">
       <div class="home-saudacao">
-        <!-- Verde quando o celular está pareado e alcançável. Clicar abre o QR, o token e
-             o acesso de fora de casa — que era uma sub-aba inteira de Ajustes. -->
-        <button id="orbe" title="Conexão com o celular" aria-haspopup="dialog" aria-expanded="false">
-          <span class="orbe-ponto"></span>
-        </button>
         <div>
           <div class="home-greet" id="home-greet">Olá</div>
           <div class="home-sub" id="home-sub">O seu dia, de relance.</div>
+          <!-- Fase 23: o estado do celular virou texto discreto (era a bolinha "orbe" com o QR
+               num popover). Clicar abre Ajustes → Celular, onde ficam o QR e o token. -->
+          <button class="home-celular" id="home-celular" hidden><span class="orbe-ponto"></span><span id="home-celular-txt">Celular</span></button>
         </div>
       </div>
       <div class="home-relance">

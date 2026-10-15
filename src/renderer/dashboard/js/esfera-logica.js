@@ -47,7 +47,7 @@
   /** Acima disto (px de tela por segundo) o mouse "joga" os pontos em vez de só abrir espaço. */
   const VEL_RAPIDA = 900;
   /** Força de repulsão: aceleração que, com a mola `k`, segura o ponto a `fracao·R` do lugar. */
-  function aceleracaoRepulsao(d, R, k, fracao = 0.18, alcance = 0.32) {
+  function aceleracaoRepulsao(d, R, k, fracao = 0.24, alcance = 0.36) {
     return k * fracao * R * quedaSuave(d, alcance * R);
   }
 

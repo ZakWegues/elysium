@@ -317,27 +317,6 @@ body.theme-renascenca #vtab-thumb::after {
 }
 body.theme-renascenca ::-webkit-scrollbar-track { background: #1a1109 !important; }
 
-/* ── orbe → astrolábio ──
-   Graduação pontilhada girando devagar e um anel de constelações no sentido contrário.
-   Os dois andam 4× mais rápido enquanto ela está viva. Mesmo padrão do reator do Stark. */
-body.theme-renascenca #orbe {
-  width: 40px; height: 40px; border-color: var(--ren-linha);
-  background: radial-gradient(circle, rgba(var(--purple-rgb), 0.3) 0%, rgba(60, 38, 12, 0.5) 60%, rgba(0, 0, 0, 0.3) 100%);
-  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.4), inset 0 0 0 3px rgba(var(--purple-rgb), 0.35), 0 0 14px rgba(var(--purple-rgb), 0.18);
-}
-body.theme-renascenca #orbe::before,
-body.theme-renascenca #orbe::after { content: ""; position: absolute; border-radius: 50%; pointer-events: none; }
-body.theme-renascenca #orbe::before {
-  inset: -7px; border: 2px dotted rgba(var(--purple-rgb), 0.6);
-  animation: ren-gira 40s linear infinite;
-}
-body.theme-renascenca #orbe::after {
-  inset: -2px; border: none; opacity: 0.8;
-  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 44' fill='%23c9a14a' stroke='%23c9a14a' stroke-width='0.5'%3E%3Ccircle cx='22' cy='3' r='1.3'/%3E%3Ccircle cx='35' cy='8' r='0.9'/%3E%3Ccircle cx='41' cy='22' r='1.2'/%3E%3Ccircle cx='9' cy='36' r='1'/%3E%3Ccircle cx='3' cy='22' r='0.8'/%3E%3Ccircle cx='30' cy='39' r='1.1'/%3E%3Cpath fill='none' d='M22 3 35 8M41 22 30 39M9 36 3 22'/%3E%3C/svg%3E") center / 100% 100% no-repeat;
-  animation: ren-gira 60s linear infinite reverse;
-}
-body.theme-renascenca.vivo #orbe::before { animation-duration: 10s; }
-body.theme-renascenca.vivo #orbe::after { animation-duration: 15s; }
 @keyframes ren-gira { to { transform: rotate(360deg); } }
 
 /* Hoje e PC: o anel de hábitos ganha a graduação; ações e vitais, moldura simples. */
@@ -387,8 +366,6 @@ body.theme-renascenca .bubble.assistant:not(:has(> p))::first-letter {
 @media (prefers-reduced-motion: reduce) {
   :root:not([data-movimento="sempre"]) body.theme-renascenca #status-badge::before,
   :root:not([data-movimento="sempre"]) body.theme-renascenca #live-btn[aria-pressed="true"],
-  :root:not([data-movimento="sempre"]) body.theme-renascenca #orbe::before,
-  :root:not([data-movimento="sempre"]) body.theme-renascenca #orbe::after,
   :root:not([data-movimento="sempre"]) body.theme-renascenca .hoje-reator::before { animation: none; }
   :root:not([data-movimento="sempre"]) body.theme-renascenca .mic-btn,
   :root:not([data-movimento="sempre"]) body.theme-renascenca .top-btn,
@@ -396,6 +373,4 @@ body.theme-renascenca .bubble.assistant:not(:has(> p))::first-letter {
 }
 :root[data-movimento="nunca"] body.theme-renascenca #status-badge::before,
 :root[data-movimento="nunca"] body.theme-renascenca #live-btn[aria-pressed="true"],
-:root[data-movimento="nunca"] body.theme-renascenca #orbe::before,
-:root[data-movimento="nunca"] body.theme-renascenca #orbe::after,
 :root[data-movimento="nunca"] body.theme-renascenca .hoje-reator::before { animation: none; }

@@ -64,14 +64,14 @@ describe("esfera — física dos pontos (fase 23)", () => {
     for (let i = 0; i < 240; i++) [o, v] = L.passoMola(o, v, 55, 11, 0, 1 / 60);
     expect(Math.abs(o)).toBeLessThan(0.5);
   });
-  it("com repulsão constante, o ponto assenta a ~18% de R no centro do cursor", () => {
+  it("com repulsão constante, o ponto assenta a ~24% de R no centro do cursor", () => {
     const R = 100, k = 55;
     let o = 0, v = 0;
     for (let i = 0; i < 600; i++) [o, v] = L.passoMola(o, v, k, 11, L.aceleracaoRepulsao(0, R, k), 1 / 60);
-    expect(o).toBeCloseTo(18, 0);
+    expect(o).toBeCloseTo(24, 0);
   });
   it("repulsão some longe do cursor", () => {
-    expect(L.aceleracaoRepulsao(50, 100, 55)).toBe(0);
+    expect(L.aceleracaoRepulsao(60, 100, 55)).toBe(0);
   });
   it("limiar de mouse rápido", () => {
     expect(L.VEL_RAPIDA).toBe(900);

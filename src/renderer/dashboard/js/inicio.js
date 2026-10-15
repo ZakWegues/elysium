@@ -293,8 +293,13 @@ const CARDS = {
         <div class="home-item">${ico("clock", "ico-sm")}<div class="home-item-txt"><span>${escHtml(x.nome || "Timer")}</span><em>acaba às ${hora(x.fimEm)}</em></div>
           <button data-timer-cancelar="${escHtml(x.id)}" title="Cancelar">${ico("x", "ico-sm")}</button></div>`).join("")}</div>` : "";
       const resta = t.fim ? Math.max(0, t.fim - Date.now()) : t.restaMs;
-      return `<div class="timer-visor${t.fim ? " rodando" : ""}" id="timer-visor">${msParaTempo(resta)}</div>
-      <div class="timer-anel"><i id="timer-anel" style="transform:scaleX(${t.totalMs ? (resta / t.totalMs).toFixed(3) : 1})"></i></div>
+      // Fase 23: mostrador redondo (anel que esvazia + tempo grande no meio), como um timer físico.
+      const frac = t.totalMs ? resta / t.totalMs : 1;
+      return `<div class="timer-dial${t.fim ? " rodando" : ""}">
+        <svg viewBox="0 0 120 120" aria-hidden="true"><circle class="timer-trilho" cx="60" cy="60" r="52"/>
+          <circle class="timer-progresso" id="timer-anel" cx="60" cy="60" r="52" pathLength="100" style="stroke-dashoffset:${(100 - frac * 100).toFixed(2)}"/></svg>
+        <div class="timer-visor" id="timer-visor">${msParaTempo(resta)}</div>
+      </div>
       <div class="timer-presets">${[5, 15, 25, 50].map(m => `<button data-timer-min="${m}" class="${t.totalMs === m * 60000 ? "aceso" : ""}">${m} min</button>`).join("")}</div>
       <div class="home-quick" style="justify-content:center">
         <button data-timer="${t.fim ? "pausar" : "iniciar"}">${ico(t.fim ? "pause" : "play", "ico-sm")}<span>${t.fim ? "Pausar" : "Iniciar"}</span></button>
@@ -706,7 +711,7 @@ async function timerIniciar() {
     const anel = document.getElementById("timer-anel");
     const resta = Math.max(0, t.fim - Date.now());
     if (v) v.textContent = msParaTempo(resta);
-    if (anel) anel.style.transform = `scaleX(${(resta / t.totalMs).toFixed(3)})`;
+    if (anel) anel.style.strokeDashoffset = (100 - (resta / t.totalMs) * 100).toFixed(2);
     if (resta <= 0) {
       clearInterval(timerTick);
       t.fim = null; t.restaMs = t.totalMs; t.lembreteId = null;
@@ -1207,7 +1212,19 @@ document.getElementById("view-inicio")?.addEventListener("click", async (e) => {
   }
 
   const chip = alvo("#home-clima-chip");
-  if (chip) { document.querySelector('[data-card="clima"]')?.scrollIntoView({ behavior: "smooth", block: "center" }); return; }
+  // Fase 23: o chip abre o tempo inteiro numa gaveta (agora, próximas horas, amanhã) e dá para
+  // trocar a cidade dali — antes ele só rolava até o card, que nem sempre está na tela.
+  if (chip) {
+    abrirGaveta({
+      titulo: "Lá fora", icone: "cloud", classe: "gaveta-clima",
+      html: `<div class="home-card-corpo">${CARDS.clima.render(dadosInicio)}</div>
+        <div class="home-quick" style="margin-top:14px"><button data-gaveta-clima-cidade>${ico("globe", "ico-sm")}<span>Trocar cidade</span></button></div>`,
+      aoAbrir: (corpo, signal) => corpo.addEventListener("click", (ev) => {
+        if (ev.target.closest("[data-gaveta-clima-cidade]")) abrirSecao("clima");
+      }, { signal }),
+    });
+    return;
+  }
 
   const login = alvo("button[data-spotify]");
   if (login) {

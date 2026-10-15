@@ -90,7 +90,7 @@ export function montarResumo(f: FatosResumo): string {
   }
   if (f.alertas.length) partes.push(`Atenção: ${f.alertas.slice(0, 3).join("; ")}.`);
   if (f.versaoNova) partes.push(`A versão ${f.versaoNova} do ELYSIUM está pronta para instalar.`);
-  else if (f.elysium?.novidade) partes.push(`No ELYSIUM ${f.elysium.versao}: ${f.elysium.novidade.replace(/[.!]?$/, ".")}${f.elysium.paraTestar ? ` Tem ${f.elysium.paraTestar === 1 ? "um item" : `${f.elysium.paraTestar} itens`} para testar no Hoje.` : ""}`);
+  else if (f.elysium?.novidade) partes.push(`No ELYSIUM ${f.elysium.versao}: ${f.elysium.novidade.replace(/\*\*|__|`/g, "").replace(/[.!]?$/, ".")}${f.elysium.paraTestar ? ` Tem ${f.elysium.paraTestar === 1 ? "um item" : `${f.elysium.paraTestar} itens`} para testar no Hoje.` : ""}`);
   if (f.ideia) partes.push(`Uma ideia para hoje: ${f.ideia.replace(/[.!?]?$/, ".")}`);
   if (f.novidades) partes.push(`Novidades do dia — ${f.novidades}`);
 
