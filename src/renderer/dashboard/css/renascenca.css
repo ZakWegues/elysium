@@ -116,6 +116,8 @@ body.theme-renascenca .hoje-painel:hover {
   border-color: rgba(var(--purple-rgb), 0.85);
   box-shadow: inset 0 0 0 3px rgba(0, 0, 0, 0.35), inset 0 0 0 4px rgba(var(--purple-rgb), 0.45), 0 0 26px rgba(var(--purple-rgb), 0.16);
 }
+/* Fase 23: o texto não encosta nas volutas dos cantos (26 px). */
+body.theme-renascenca .hoje-painel { padding: 18px 24px 22px; }
 /* Bolha da Ely: papel envelhecido escuro, com respiro para os cantos. */
 body.theme-renascenca .bubble.assistant { padding: 14px 18px; line-height: 1.6; }
 body.theme-renascenca .bubble.user {

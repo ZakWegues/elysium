@@ -214,11 +214,11 @@ function desenharNovidadesHoje(lista) {
     sec.className = "hoje-painel hoje-largo";
     sec.id = "hoje-sec-novidades";
     sec.dataset.secao = "novidades";
-    sec.innerHTML = `<div class="hoje-painel-topo"><h3>Novidades do dia</h3></div><div id="hoje-novidades" class="hoje-novidades"></div>`;
+    sec.innerHTML = `<div class="hoje-painel-topo"><h3>Novidades do dia</h3></div><div id="hoje-novidades" class="hoje-noticias"></div>`;
     grade.appendChild(sec);
   }
   sec.querySelector("#hoje-novidades").innerHTML = lista.map(n =>
-    `<div class="hoje-novidade"><span class="hoje-rotulo">${escHtml(n.tema)}</span>${n.topicos.map(t => `<p>${escHtml(t)}</p>`).join("")}</div>`).join("");
+    `<div class="hoje-noticia"><span class="hoje-rotulo">${escHtml(n.tema)}</span>${n.topicos.map(t => `<p>${escHtml(t)}</p>`).join("")}</div>`).join("");
 }
 
 /** "Meu amanhã": depois das 18h, um painel com o que vem amanhã e o clima. */
@@ -333,7 +333,7 @@ function desenharElysiumHoje(e) {
   document.getElementById("hoje-versao").textContent = `v${e.versao}`;
   const pronta = e.atualizacaoPronta ? `<div class="hoje-alerta aviso">${ico("download", "ico-sm")}<span>A versão <b>${escHtml(e.atualizacaoPronta)}</b> está pronta para instalar.</span></div>` : "";
   const novidades = e.novidades.length
-    ? `<h4 class="hoje-sub">O que veio nesta versão</h4><ul class="hoje-novidades">${e.novidades.slice(0, 6).map(n => `<li>${escHtml(n)}</li>`).join("")}</ul>`
+    ? `<h4 class="hoje-sub">O que veio nesta versão</h4><ul class="hoje-novidades">${e.novidades.slice(0, 6).map(n => `<li>${escHtml(n).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>")}</li>`).join("")}</ul>`
     : `<div class="hoje-vazio">Sem notas desta versão.</div>`;
   const testar = e.paraTestar.length
     ? `<h4 class="hoje-sub">Para testar ${e.paraTestar.filter(t => t.feito).length}/${e.paraTestar.length}</h4>${e.paraTestar.map(t => `<label class="hoje-testar${t.feito ? " feito" : ""}"><input type="checkbox" data-hoje-testar="${escHtml(t.item)}"${t.feito ? " checked" : ""}><span>${escHtml(t.item)}</span></label>`).join("")}`
