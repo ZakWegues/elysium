@@ -152,6 +152,7 @@ function desenharHoje() {
   el.querySelector("#hoje-ideia").innerHTML = p.ideia ? `<p>${escHtml(p.ideia)}</p>` : `<div class="hoje-vazio">Sem ideia agora — toque em Outra.</div>`;
   desenharElysiumHoje(p.elysium);
   desenharAmanhaHoje(p.amanha ?? null);
+  desenharNovidadesHoje(p.novidades ?? null);
   aplicarSecoesOcultas(p.ocultos ?? []);
   const alertas = el.querySelector("#hoje-alertas");
   alertas.innerHTML = p.alertas.map(a => `<div class="hoje-alerta ${a.nivel}">${ico("alert", "ico-sm")}<span><b>${escHtml(a.titulo)}</b> — ${escHtml(a.detalhe)}</span></div>`).join("");
@@ -197,6 +198,27 @@ function aplicarSecoesOcultas(ocultos) {
     el.querySelector(".hoje-grade")?.after(rodape);
   }
   rodape.innerHTML = escondidos ? `<button class="hoje-acao" data-hoje-mostrar-ocultos="1">${ico("eye", "ico-sm")}<span>Mostrar ${escondidos} seç${escondidos === 1 ? "ão oculta" : "ões ocultas"}</span></button>` : "";
+}
+
+/**
+ * Fase 23: novidades do dia (IA, cinema, em alta), pesquisadas uma vez por dia pelo PC. Some
+ * enquanto ainda não chegaram (ou sem rede).
+ */
+function desenharNovidadesHoje(lista) {
+  const grade = hojeEl()?.querySelector(".hoje-grade");
+  if (!grade) return;
+  let sec = grade.querySelector("#hoje-sec-novidades");
+  if (!lista || !lista.length) { sec?.remove(); return; }
+  if (!sec) {
+    sec = document.createElement("section");
+    sec.className = "hoje-painel hoje-largo";
+    sec.id = "hoje-sec-novidades";
+    sec.dataset.secao = "novidades";
+    sec.innerHTML = `<div class="hoje-painel-topo"><h3>Novidades do dia</h3></div><div id="hoje-novidades" class="hoje-novidades"></div>`;
+    grade.appendChild(sec);
+  }
+  sec.querySelector("#hoje-novidades").innerHTML = lista.map(n =>
+    `<div class="hoje-novidade"><span class="hoje-rotulo">${escHtml(n.tema)}</span>${n.topicos.map(t => `<p>${escHtml(t)}</p>`).join("")}</div>`).join("");
 }
 
 /** "Meu amanhã": depois das 18h, um painel com o que vem amanhã e o clima. */

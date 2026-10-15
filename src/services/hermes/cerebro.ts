@@ -8,6 +8,8 @@ import { acharHermes, encerrarArvore, garantirMcp, garantirPerfil, subirServidor
 import { contextoDoTurno } from "./persona";
 import { FimDoTurno, PRAZO_SINAL_FRIO_MS, PRAZO_SINAL_QUENTE_MS, rodarTurno } from "./sessao";
 import { descricaoDaAprovacao, falaDoEsclarecimento, respostaDeRecusa, respostasDoEsclarecimento, tipoDaPergunta } from "./aprovacoes";
+import { limparParaVoz, promptDePesquisa, separarFontes } from "./pesquisa";
+import type { Fonte } from "../contextoComando";
 
 /**
  * O Hermes como cérebro da Ely (fase 21, bloco 213): o servidor, a sessão e a ponte com o
@@ -46,6 +48,9 @@ const s = {
   esclarecimento: null as Pendente | null,
   ultimaLatenciaMs: null as number | null,
   urlMcp: null as string | null,
+  /** Fase 23: sessão só de pesquisa (a conversa não fica poluída) e quantas estão rodando. */
+  sessaoPesquisa: null as { id: string; ultimoUso: number; turnos: number } | null,
+  pesquisando: 0,
 };
 
 export function estadoHermes(): { estado: EstadoHermes; erro: string | null; modelo: string | null; perfil: string; latenciaMs: number | null; ligado: boolean } {
@@ -157,6 +162,8 @@ export function novaSessaoHermes(): void {
 }
 
 async function tratarPedido(metodo: string, params: Record<string, unknown>): Promise<unknown> {
+  // Pesquisa não pede aprovação de nada: pergunta do servidor fora de um turno da conversa é recusada.
+  if (s.pesquisando > 0 && !s.pedido) return respostaDeRecusa(metodo);
   const fn = s.aguardando;
   if (!fn || tipoDaPergunta(metodo) === "recusar") return respostaDeRecusa(metodo);
   return new Promise((resolver) => {
@@ -250,6 +257,47 @@ export async function responderEsclarecimentoHermes(texto: string): Promise<stri
   p.responder(respostasDoEsclarecimento(p.params, texto));
   const r = await tratarFim(await p.resto, false);
   return r?.reply ?? null;
+}
+
+/**
+ * Pesquisa na web pelo Hermes (fase 23). `null` = não deu (fora do ar, demorou, sem resposta):
+ * quem chama cai na busca de sempre. A sessão de pesquisa é renovada a cada 10 min ou 8 pesquisas.
+ */
+export async function pesquisarViaHermes(pergunta: string, canal: Canal, prazoMs = 75_000): Promise<{ texto: string; fontes: Fonte[] } | null> {
+  if (!hermesPronto()) return null;
+  const con = s.con!;
+  try {
+    const sp = s.sessaoPesquisa;
+    if (!sp || Date.now() - sp.ultimoUso > 600_000 || sp.turnos >= 8) {
+      if (sp) void con.chamar("session.close", { session_id: sp.id }, 5_000).catch(() => {});
+      const r = await con.chamar<{ session_id: string }>("session.create", { title: "ELYSIUM — pesquisa", hidden: true }, 30_000);
+      s.sessaoPesquisa = { id: r.session_id, ultimoUso: Date.now(), turnos: 0 };
+    }
+  } catch (e) {
+    console.warn("[hermes] sem sessão de pesquisa:", e instanceof Error ? e.message : e);
+    return null;
+  }
+  const sessao = s.sessaoPesquisa!;
+  sessao.turnos++;
+  sessao.ultimoUso = Date.now();
+  s.pesquisando++;
+  const t0 = Date.now();
+  try {
+    const fim = await rodarTurno(con, sessao.id, promptDePesquisa(pergunta, canal), {
+      prazoSinalMs: PRAZO_SINAL_FRIO_MS, prazoTurnoMs: prazoMs, prazoSilencioMs: 40_000,
+    }, { aguardar: () => {} });
+    if (fim.tipo !== "resposta") {
+      console.warn(`[hermes] pesquisa sem resposta: ${fim.tipo === "erro" ? fim.motivo : "pergunta do servidor"}`);
+      if (fim.tipo === "pergunta") fim.responder(respostaDeRecusa(fim.metodo));
+      s.sessaoPesquisa = null;
+      return null;
+    }
+    const r = separarFontes(fim.texto);
+    console.log(`[hermes] pesquisa em ${Date.now() - t0} ms, ${r.fontes.length} fonte(s)`);
+    return { texto: canal === "voz" ? limparParaVoz(r.texto) : r.texto, fontes: r.fontes };
+  } finally {
+    s.pesquisando--;
+  }
 }
 
 /** A fala foi cortada ("Ely, para", atalho): o turno do Hermes para junto. */

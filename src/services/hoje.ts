@@ -11,6 +11,7 @@ import { listarTarefas, type Tarefa } from "./tarefas";
 import { callChat } from "./llm";
 import { getApiKey } from "../main/config";
 import { ideiaDoDia, testesFeitos } from "./ideiasDoDia";
+import { Novidade, novidadesEmCache } from "./novidades";
 import { estadoAtualizacao, notasDaVersaoAtual, secoesDasNotas } from "./atualizacao";
 import { app } from "electron";
 
@@ -45,6 +46,8 @@ export interface PainelHoje {
   elysium: { versao: string; novidades: string[]; paraTestar: { item: string; feito: boolean }[]; atualizacaoPronta: string | null };
   /** "Algo legal para fazer hoje" (renova: `hoje.ideia`). */
   ideia: string | null;
+  /** Fase 23: novidades do dia (IA, cinema, em alta). `null` = ainda buscando ou sem rede. */
+  novidades: Novidade[] | null;
   /** Fase 18: "Meu amanhã" — depois das 18h, o que vem amanhã e o clima. */
   amanha: { tarefas: Tarefa[]; clima: { max: number; min: number; icone: string } | null } | null;
   /** Seções escondidas pelo dono (cada app esconde a sua). */
@@ -98,7 +101,7 @@ async function seguro<T>(fn: () => Promise<T> | T, padrao: T): Promise<T> {
 let cacheHumano: { chave: string; frase: string; em: number } | null = null;
 
 /** Os fatos em linhas curtas, do mais importante ao menos. Pura, para teste. */
-export function fatosDoDia(p: Omit<PainelHoje, "frase" | "geradoEm" | "ideia" | "elysium" | "amanha" | "ocultos" | "acompanhamentos">, agora = new Date()): string[] {
+export function fatosDoDia(p: Omit<PainelHoje, "frase" | "geradoEm" | "ideia" | "novidades" | "elysium" | "amanha" | "ocultos" | "acompanhamentos">, agora = new Date()): string[] {
   const f: string[] = [];
   const hora = (ms: number) => new Date(ms).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
   const amanha = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate() + 1).getTime();
@@ -122,7 +125,7 @@ export function fatosDoDia(p: Omit<PainelHoje, "frase" | "geradoEm" | "ideia" | 
   return f;
 }
 
-async function fraseHumana(p: Omit<PainelHoje, "frase" | "geradoEm" | "ideia" | "elysium" | "amanha" | "ocultos" | "acompanhamentos">, reserva: string, tratamento: string, agora: Date): Promise<string> {
+async function fraseHumana(p: Omit<PainelHoje, "frase" | "geradoEm" | "ideia" | "novidades" | "elysium" | "amanha" | "ocultos" | "acompanhamentos">, reserva: string, tratamento: string, agora: Date): Promise<string> {
   const fatos = fatosDoDia(p, agora);
   const chave = `${agora.getHours() < 12 ? "m" : agora.getHours() < 18 ? "t" : "n"}|${tratamento}|${fatos.join("|")}`;
   if (cacheHumano && cacheHumano.chave === chave && Date.now() - cacheHumano.em < 20 * 60_000) return cacheHumano.frase;
@@ -204,7 +207,7 @@ export async function montarPainelHoje(agora = new Date()): Promise<PainelHoje> 
     seguro(() => ideiaDoDia(fatos, false, agora), null),
     cardElysium(),
   ]);
-  return { ...base, frase, ideia, elysium, amanha: meuAmanha(tarefas, clima, agora), ocultos: cfg.hojeOcultos ?? [], acompanhamentos: pendentesDeAcompanhamento(agora.getTime()), geradoEm: Date.now() };
+  return { ...base, frase, ideia, elysium, novidades: novidadesEmCache(agora), amanha: meuAmanha(tarefas, clima, agora), ocultos: cfg.hojeOcultos ?? [], acompanhamentos: pendentesDeAcompanhamento(agora.getTime()), geradoEm: Date.now() };
 }
 
 /**

@@ -8,6 +8,7 @@ import { verificarSaude } from "./saude";
 import { estadoAtualizacao } from "./atualizacao";
 import { eventosDoDia } from "./agenda";
 import { ideiaDoDia } from "./ideiasDoDia";
+import { frasesDasNovidades, novidadesEmCache } from "./novidades";
 import { listarTarefas } from "./tarefas";
 import { notasDaVersaoAtual, secoesDasNotas } from "./atualizacao";
 
@@ -40,6 +41,8 @@ export interface FatosResumo {
   /** Uma frase sobre a última atualização do ELYSIUM e quantos itens há para testar. */
   elysium?: { versao: string; novidade: string | null; paraTestar: number } | null;
   ideia?: string | null;
+  /** Fase 23: novidades do dia (IA, cinema, em alta) — só se já estiverem no cache. */
+  novidades?: string;
 }
 
 function hhmm(ms: number): string {
@@ -89,6 +92,7 @@ export function montarResumo(f: FatosResumo): string {
   if (f.versaoNova) partes.push(`A versão ${f.versaoNova} do ELYSIUM está pronta para instalar.`);
   else if (f.elysium?.novidade) partes.push(`No ELYSIUM ${f.elysium.versao}: ${f.elysium.novidade.replace(/[.!]?$/, ".")}${f.elysium.paraTestar ? ` Tem ${f.elysium.paraTestar === 1 ? "um item" : `${f.elysium.paraTestar} itens`} para testar no Hoje.` : ""}`);
   if (f.ideia) partes.push(`Uma ideia para hoje: ${f.ideia.replace(/[.!?]?$/, ".")}`);
+  if (f.novidades) partes.push(`Novidades do dia — ${f.novidades}`);
 
   if (partes.length === 1 || (partes.length === 2 && f.clima)) partes.push("Nada marcado para hoje.");
   return partes.join(" ");
@@ -157,5 +161,6 @@ async function extrasFase18(agora: Date): Promise<Partial<FatosResumo>> {
     tarefasAtrasadas: atrasadas,
     elysium: notas && secoes?.novidades.length ? { versao: notas.versao, novidade: secoes.novidades[0], paraTestar: secoes.paraTestar.length } : null,
     ideia,
+    novidades: frasesDasNovidades(novidadesEmCache(agora) ?? []) || undefined,
   };
 }

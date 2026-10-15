@@ -1,6 +1,7 @@
 import { isoLocal } from "../hora";
 import { blocoDeInstrucoes, Canal, estiloValido, regrasDaConversa } from "../estiloResposta";
 import { linhaDoHumor, lerHumor } from "../humor";
+import { regraDeFontes } from "./pesquisa";
 import { blocoDoModo, Modo } from "../modos";
 
 /**
@@ -39,6 +40,7 @@ export function contextoDoTurno(pedido: string, canal: Canal, d: DadosDaPersona,
   linhas.push(`Agora: ${data}, ${hora} (ISO local ${isoLocal(agora)}).`);
   linhas.push(canal === "voz" ? "Canal: VOZ." : "Canal: TEXTO (chat).");
   linhas.push(regrasDaConversa(canal, estiloValido(d.estilo)));
+  linhas.push(regraDeFontes(canal));
   const humor = linhaDoHumor(lerHumor(pedido));
   if (humor) linhas.push(humor.trim());
   const modo = blocoDoModo(d.modo, canal).trim();

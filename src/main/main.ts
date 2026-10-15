@@ -72,6 +72,7 @@ import { iniciarRotinas, pararRotinas, enfileirarEntrega, type Entrega } from ".
 import { avaliarCondicao, executarComPolitica } from "../services/agente";
 import { definicoesDeFerramentas } from "../services/ferramentas";
 import { definirUrlDoMcp, iniciarHermes, interromperHermes, pararHermes, pedidoDoHermes, aplicarConfigHermes } from "../services/hermes/cerebro";
+import { buscarNovidades } from "../services/novidades";
 import { emitirEvento, MARCOS_OCIOSO } from "../services/eventos";
 import { getRunningApps } from "../actions/systemInfo";
 import { baseDoOllama, ollamaDisponivel } from "../services/llm";
@@ -1211,6 +1212,9 @@ app.on("ready", async () => {
   });
   definirUrlDoMcp(`http://127.0.0.1:${cfg.serverPort ?? 4200}/mcp/${mcpToken}`);
   void iniciarHermes();
+  // Fase 23: as novidades do dia (IA, cinema, em alta) — depois que o Hermes subiu; vira às 6h.
+  setTimeout(() => { void buscarNovidades().catch(() => {}); }, 90_000).unref?.();
+  setInterval(() => { void buscarNovidades().catch(() => {}); }, 3600_000).unref?.();
   iniciarAtualizacoes({ sair: () => quit("atualizando"), ocupado: () => state.get() !== "idle" });
   // Cérebro local: se o Ollama estiver parado, sobe já — antes do primeiro pedido pagar a espera.
   // "auto" (fase 16) também usa o local para a conversa curta.

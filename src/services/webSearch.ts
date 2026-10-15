@@ -68,6 +68,17 @@ export function limparCitacoes(texto: string): string {
 
 export async function searchWeb(query: string): Promise<string> {
   const canal = canalAtual();
+  // Fase 23: com o Hermes como cérebro, ele pesquisa (busca + navegador dele, fontes de verdade).
+  // Fora do ar, lento ou sem resposta → a busca de sempre, pela Groq.
+  if (getConfig().cerebro !== "elysium") {
+    try {
+      const { pesquisarViaHermes } = await import("./hermes/cerebro");
+      const r = await pesquisarViaHermes(query, canal);
+      if (r && r.texto) { registrarFontes(r.fontes); return r.texto; }
+    } catch (e) {
+      console.warn("[busca] pesquisa pelo Hermes falhou, indo pela Groq:", e instanceof Error ? e.message : e);
+    }
+  }
   const apiKey = getApiKey();
   if (!apiKey) throw apiKeyError();
   const cfg = getConfig();

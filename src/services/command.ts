@@ -6,8 +6,9 @@ import { routeAction } from "../actions/router";
 import { trackUsage } from "./history";
 import { getConfig } from "../main/config";
 import type { Canal } from "./estiloResposta";
-import { comContexto, Fonte, fontesDoPedido, marcarReserva, usouReserva } from "./contextoComando";
+import { comContexto, Fonte, fontesDoPedido, marcarReserva, registrarFontes, usouReserva } from "./contextoComando";
 import { agirViaHermes, responderEsclarecimentoHermes } from "./hermes/cerebro";
+import { criarFiltroDeFontes, separarFontes } from "./hermes/pesquisa";
 import { ehEntradaDoLive } from "./live";
 import { responderConfirmacao } from "./confirmacao";
 import { responderRevisao, semMarcas } from "./cartoes";
@@ -112,9 +113,13 @@ async function executarNoContexto(
   if (!shortcut && getConfig().cerebro === "hermes") {
     registrarTurnoUsuario(text);
     turnoRegistrado = true;
-    const h = await agirViaHermes(text, { canal: ganchos.canal, onToken: ganchos.onToken });
+    // Fase 23: o bloco "FONTES:" do Hermes não aparece no streaming; vira os chips de fonte.
+    const filtro = criarFiltroDeFontes(ganchos.onToken);
+    const h = await agirViaHermes(text, { canal: ganchos.canal, onToken: filtro.empurrar });
     if (h) {
-      const reply = semMarcas(h.reply);
+      const { texto: semFontes, fontes } = separarFontes(h.reply);
+      if (fontes.length) registrarFontes(fontes);
+      const reply = semMarcas(semFontes);
       recordAssistantReply(reply);
       trackUsage(text, { action: "chat" });
       return { actions: [{ action: "chat" }], reply, atalho: false };

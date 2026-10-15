@@ -250,3 +250,7 @@ button.hoje-habito-nome:hover, button.hoje-meta-nome:hover { text-decoration: un
 .est-verso { font-size: 15px; color: var(--cyan); margin: 0; padding-top: 12px; border-top: 1px dashed var(--border2); }
 .est-botoes { justify-content: center; margin-top: 12px; }
 .est-fim b { font-size: 28px; color: var(--text); }
+
+/* Fase 23: novidades do dia — três colunas curtas (IA, cinema, em alta). */
+.hoje-novidades { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+.hoje-novidade p { margin: 6px 0 0; font-size: 12.5px; line-height: 1.5; color: var(--text); }
