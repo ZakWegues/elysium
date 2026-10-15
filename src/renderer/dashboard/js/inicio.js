@@ -248,7 +248,7 @@ const CARDS = {
     titulo: "Conversas recentes", icone: "message-circle", span: 1, precisa: ["conversas"],
     render: (d) => {
       const l = (d.conversas ?? []).slice(0, 5);
-      if (!l.length) return vazio("Nenhuma conversa ainda. Pergunte algo no Chat.") + `<button class="home-ver-tudo" data-ir="chat">Abrir o chat →</button>`;
+      if (!l.length) return vazio("Nenhuma conversa ainda. Converse com a Ely no Chat.") + `<button class="home-ver-tudo" data-ir="chat">Abrir o chat →</button>`;
       return `<div class="home-list mov-lista">` + l.map(s =>
         `<div class="home-item clicavel" data-conversa="${escHtml(s.id)}">${ico(s.favorite ? "star" : "message-circle", "ico-sm")}
           <div class="home-item-txt"><span>${escHtml(s.title || "Conversa")}</span><em>${s.messages?.length ?? 0} mensagens · ${escHtml(quandoTexto(s.updatedAt ?? s.createdAt))}</em></div></div>`).join("") + `</div>`;

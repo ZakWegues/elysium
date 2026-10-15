@@ -219,7 +219,7 @@ function switchChatMode(mode) {
   timeline.classList.toggle("hidden", mode !== "ai");
   timelineSelf.classList.toggle("hidden", mode !== "self");
   cmdInput.placeholder = mode === "ai"
-    ? "Digite um comando ou pergunta…"
+    ? "Converse com a Ely…"
     : "Recado pra você mesmo (aparece no celular)…";
   micBtn.classList.toggle("hidden", mode !== "ai");
   if (mode === "self") {

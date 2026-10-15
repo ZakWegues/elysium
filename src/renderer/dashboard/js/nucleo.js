@@ -64,6 +64,45 @@ function movimentoLigado() {
   return !matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
+// ── Micro-detalhes (fase 23, inspirados no designspells.com) ──
+/** Estouro de partículas saindo de um elemento (check concluído, estilo Strava). */
+function estourar(el, n = 14) {
+  if (!el || !movimentoLigado()) return;
+  const r = el.getBoundingClientRect();
+  const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+  for (let i = 0; i < n; i++) {
+    const p = document.createElement("i");
+    p.className = "faisca-p";
+    p.style.left = `${cx}px`; p.style.top = `${cy}px`;
+    document.body.appendChild(p);
+    const ang = (i / n) * Math.PI * 2 + Math.random() * 0.4;
+    const dist = 22 + Math.random() * 26;
+    p.animate([
+      { transform: "translate(-50%,-50%) scale(1)", opacity: 1 },
+      { transform: `translate(calc(-50% + ${Math.cos(ang) * dist}px), calc(-50% + ${Math.sin(ang) * dist}px)) scale(0.2)`, opacity: 0 },
+    ], { duration: 520 + Math.random() * 200, easing: "cubic-bezier(.2,.7,.3,1)" }).onfinish = () => p.remove();
+  }
+}
+/** Fogos discretos: três estouros grandes no alto da janela (todos os hábitos do dia, estilo Chrome). */
+function fogos() {
+  if (!movimentoLigado()) return;
+  const W = innerWidth;
+  [[0.3, 0.28, 0], [0.62, 0.2, 180], [0.48, 0.34, 360]].forEach(([fx, fy, atraso]) => setTimeout(() => {
+    const alvo = { getBoundingClientRect: () => ({ left: W * fx, top: innerHeight * fy, width: 0, height: 0 }) };
+    estourar(alvo, 26);
+  }, atraso));
+}
+/** Item que se dobra e some antes de sair da lista (estilo Things). Resolve quando acabou. */
+function dobrarESumir(el) {
+  if (!el || !movimentoLigado()) return Promise.resolve();
+  const a = el.animate([
+    { transform: "perspective(500px) rotateX(0)", opacity: 1, maxHeight: `${el.offsetHeight}px` },
+    { transform: "perspective(500px) rotateX(-70deg)", opacity: 0, maxHeight: "0px" },
+  ], { duration: 280, easing: "cubic-bezier(.4,0,.6,1)", fill: "forwards" });
+  el.style.transformOrigin = "top center"; el.style.overflow = "hidden";
+  return a.finished.catch(() => {});
+}
+
 function escHtml(s) {
   // String(): número ou undefined chegavam aqui e quebravam o .replace (08/10).
   return String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");

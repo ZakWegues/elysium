@@ -112,7 +112,9 @@ function concluirTarefaComRessalva(t, depois) {
         e.preventDefault();
         const r = await window.nx.rpc("tarefas.concluir", { id: t.id, ressalva: f.ressalva.value.trim() || undefined });
         if (r.error) { showToast(r.error, true); return; }
-        fecharGaveta(); showToast("Concluída."); (depois ?? carregarHoje)();
+        fecharGaveta(); showToast("Concluída.");
+        estourar(document.querySelector(`[data-tarefa-check="${CSS.escape(t.id)}"]`));
+        (depois ?? carregarHoje)();
       });
     },
   });
@@ -478,7 +480,13 @@ hojeEl()?.addEventListener("click", async (e) => {
     marcar.disabled = true;
     const r = await window.nx.rpc("habitos.marcar", { id: marcar.dataset.hojeMarcar, feito: !marcar.dataset.feito });
     if (r.error) showToast(r.error, true);
-    else if (!marcar.dataset.feito) showToast(`${r.result.habito.nome}: ${r.result.habito.sequencia} 🔥`);
+    else if (!marcar.dataset.feito) {
+      showToast(`${r.result.habito.nome}: ${r.result.habito.sequencia} 🔥`);
+      estourar(marcar);
+      // Era o último do dia? Fogos (uma vez — só quando este clique fecha a conta).
+      const hs = painelHoje?.habitos ?? [];
+      if (hs.length > 1 && hs.every(h => h.feitoHoje || h.id === marcar.dataset.hojeMarcar)) setTimeout(fogos, 250);
+    }
     carregarHoje();
     return;
   }
@@ -502,7 +510,7 @@ hojeEl()?.addEventListener("click", async (e) => {
   if (tx) {
     const r = await window.nx.rpc("tarefas.delete", { id: tx.dataset.tarefaApagar });
     if (r.cancelado) return;
-    if (r.error) showToast(r.error, true); else { showToast("Tarefa apagada."); carregarHoje(); }
+    if (r.error) showToast(r.error, true); else { await dobrarESumir(tx.closest(".hoje-tarefa, .tarefa, li, .hoje-linha")); showToast("Tarefa apagada."); carregarHoje(); }
     return;
   }
   if (alvo("[data-hoje-gerenciar]")) { gerenciarHabitos(); return; }

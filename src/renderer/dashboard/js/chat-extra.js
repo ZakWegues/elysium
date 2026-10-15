@@ -281,6 +281,47 @@ timeline.addEventListener("click", async (e) => {
   }
 });
 
+// Fase 23: botão direito numa bolha abre um menu (estilo Pinterest): Copiar, Mandar pro
+// celular e, quando vale, Refazer/Editar — as mesmas ações da barrinha do hover.
+function textoDaBolha(bolha) {
+  const clone = bolha.cloneNode(true);
+  clone.querySelectorAll(".bolha-acoes, .bolha-ok").forEach(n => n.remove());
+  return clone.innerText.trim();
+}
+function fecharMenuBolha() { document.getElementById("bolha-menu")?.remove(); }
+timeline.addEventListener("contextmenu", (e) => {
+  const bolha = e.target.closest(".bubble.user, .bubble.assistant");
+  if (!bolha || bolha.classList.contains("escrevendo") || window.getSelection()?.toString()) return;
+  e.preventDefault();
+  fecharMenuBolha();
+  const ultima = bolha === ultimaBolha(bolha.classList.contains("user") ? "user" : "assistant");
+  const livre = !ocupado();
+  const itens = [["copiar", "copy", "Copiar"], ["celular", "smartphone", "Mandar pro celular"]];
+  if (chatMode === "ai" && ultima && livre && bolha.classList.contains("assistant") && ultimaBolha("user")) itens.push(["refazer", "refresh", "Refazer a resposta"]);
+  if (chatMode === "ai" && ultima && livre && bolha.classList.contains("user")) itens.push(["editar", "edit", "Editar a pergunta"]);
+  const m = document.createElement("div");
+  m.id = "bolha-menu"; m.className = "bolha-menu"; m.setAttribute("role", "menu");
+  m.innerHTML = itens.map(([id, ic, nome]) => `<button role="menuitem" data-menu-bolha="${id}">${ico(ic, "ico-sm")}<span>${nome}</span></button>`).join("");
+  document.body.appendChild(m);
+  const L = m.offsetWidth, A = m.offsetHeight;
+  m.style.left = `${Math.min(e.clientX, innerWidth - L - 8)}px`;
+  m.style.top = `${Math.min(e.clientY, innerHeight - A - 8)}px`;
+  m.querySelector("button")?.focus();
+  m.addEventListener("click", async (ev) => {
+    const b = ev.target.closest("[data-menu-bolha]");
+    if (!b) return;
+    fecharMenuBolha();
+    const t = textoDaBolha(bolha);
+    if (b.dataset.menuBolha === "copiar") { await copiarTexto(t); showToast("Copiado."); }
+    else if (b.dataset.menuBolha === "celular") { try { await window.nx.mailboxSend(t); showToast("Mandado para o celular."); } catch { showToast("Não consegui mandar.", true); } }
+    else if (b.dataset.menuBolha === "refazer") refazerUltima();
+    else if (b.dataset.menuBolha === "editar") editarUltima(bolha);
+  });
+});
+document.addEventListener("pointerdown", (e) => { if (!e.target.closest("#bolha-menu")) fecharMenuBolha(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") fecharMenuBolha(); });
+timeline.addEventListener("scroll", fecharMenuBolha, { passive: true });
+
 // Fase 22: duplo clique na bolha da Ely copia a resposta (e um ✓ aparece nela por 1 s).
 timeline.addEventListener("dblclick", async (e) => {
   const bolha = e.target.closest(".bubble.assistant");
@@ -342,7 +383,7 @@ function editarUltima(bolha) {
 function sairDaEdicao() {
   bolhaEmEdicao?.classList.remove("editando");
   bolhaEmEdicao = null;
-  cmdInput.placeholder = chatMode === "ai" ? "Digite um comando ou pergunta…" : cmdInput.placeholder;
+  cmdInput.placeholder = chatMode === "ai" ? "Converse com a Ely…" : cmdInput.placeholder;
 }
 
 cmdInput.addEventListener("keydown", (e) => {

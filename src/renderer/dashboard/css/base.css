@@ -303,3 +303,8 @@ button, input, .home-card, .chart-wrap, .home-item {
 }
 
 html, body { height: 100vh; overflow: hidden; background: var(--bg); color: var(--text); font-family: "Segoe UI", system-ui, sans-serif; font-size: 13px; }
+
+/* Fase 23: partícula do estouro (nucleo.js → estourar). */
+.faisca-p { position: fixed; z-index: 9999; width: 6px; height: 6px; border-radius: 50%; pointer-events: none; background: var(--purple-bright); box-shadow: 0 0 6px rgba(var(--purple-rgb), 0.7); }
+.faisca-p:nth-child(3n) { background: var(--green, #4caf7a); }
+.faisca-p:nth-child(5n) { width: 4px; height: 4px; }
