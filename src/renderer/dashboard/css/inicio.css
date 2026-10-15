@@ -158,7 +158,7 @@
 .home-grid {
   display: grid; gap: 14px;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  align-items: start;
+  align-items: stretch; /* fase 23: cards da mesma linha com a mesma altura — sem buracos */
   /* `dense` porque os cards têm larguras diferentes: sem ele, um card de duas colunas
      que não cabe no resto da linha deixa o buraco aberto e desce inteiro. */
   grid-auto-flow: dense;
