@@ -652,10 +652,6 @@ export function hasApiKey(): boolean {
   return getApiKey().length > 0;
 }
 
-export function userDataPath(): string {
-  return app.getPath("userData");
-}
-
 /**
  * Fase 21: o token do MCP que o Hermes usa para chamar as ferramentas do ELYSIUM. Separado do
  * `serverToken` de propósito: não abre o RPC inteiro, só a lista permitida do `mcpElysium.ts`, e

@@ -95,8 +95,6 @@
 #layout[data-view="chat"] > #center { top: 52px; }
 #layout[data-view="inicio"]  #view-inicio  { display: block; opacity: 1; transform: none; }
 #layout[data-view="chat"]    #center       { display: flex;  opacity: 1; transform: none; }
-#layout[data-view="pc"] #view-pc { display: block; opacity: 1; transform: none; }
-#layout[data-view="rotinas"] #view-rotinas { display: block; opacity: 1; transform: none; }
 #layout[data-view="hoje"] #view-hoje { display: block; opacity: 1; transform: none; }
 #layout[data-view="ajustes"] #drawer-right { display: flex;  opacity: 1; transform: none; }
 

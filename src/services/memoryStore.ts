@@ -113,10 +113,6 @@ export function removeFactByText(query: string): MemoryFact | null {
   return hit;
 }
 
-export function clearFacts(): void {
-  store.set("facts", []);
-}
-
 /**
  * Bloco pronto para injetar no system prompt. String vazia quando não há nada — não
  * vale gastar tokens com um cabeçalho sem conteúdo.

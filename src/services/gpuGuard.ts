@@ -100,9 +100,3 @@ export async function quemOcupaGpu(): Promise<string | null> {
     return null;
   }
 }
-
-/** Para testes e para a tela de configuração forçarem uma releitura. */
-export function limparCacheGpu(): void {
-  cache = null;
-  lista = null;
-}

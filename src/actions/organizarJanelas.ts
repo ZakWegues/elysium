@@ -125,15 +125,6 @@ export async function salvarLayout(nome: string): Promise<string> {
   return `Layout ${chave} salvo com ${itens.length} ${itens.length === 1 ? "janela" : "janelas"}.`;
 }
 
-export function apagarLayout(nome: string): boolean {
-  const todos = { ...store.get("layouts") };
-  const chave = nome.trim().toLowerCase();
-  if (!todos[chave]) return false;
-  delete todos[chave];
-  store.set("layouts", todos);
-  return true;
-}
-
 export async function aplicarLayout(nome: string): Promise<string> {
   const chave = nome.trim().toLowerCase();
   const itens = store.get("layouts")[chave];

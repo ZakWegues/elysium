@@ -244,8 +244,6 @@ body.vivo .ely-shaft { animation-duration: 12s, 4s; }
 @starting-style {
   #layout[data-view="inicio"]    #view-inicio,
   #layout[data-view="chat"]      #center,
-  #layout[data-view="pc"] #view-pc,
-  #layout[data-view="rotinas"] #view-rotinas,
   #layout[data-view="ajustes"]   #drawer-right { opacity: 0; transform: translateY(14px) scale(0.992); }
 }
 

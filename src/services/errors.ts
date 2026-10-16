@@ -33,23 +33,9 @@ export const networkError = (detail = "") =>
     "Estou sem conexão com o servidor agora. Tente de novo em instantes."
   );
 
-export const micError = (detail = "") =>
-  new ElysiumError(
-    "mic",
-    `Microfone indisponível: ${detail}`,
-    "Não consegui acessar o microfone. Verifique se ele está conectado e liberado."
-  );
-
 export const appNotFoundError = (name: string) =>
   new ElysiumError(
     "app_not_found",
     `Programa não encontrado: ${name}`,
     `Não encontrei o programa ${name} aqui no computador.`
-  );
-
-export const genericError = (detail = "") =>
-  new ElysiumError(
-    "generic",
-    `Erro: ${detail}`,
-    "Tive um problema ao processar isso, mas já voltei ao normal."
   );
