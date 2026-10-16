@@ -297,6 +297,7 @@ timeline.addEventListener("contextmenu", (e) => {
   const ultima = bolha === ultimaBolha(bolha.classList.contains("user") ? "user" : "assistant");
   const livre = !ocupado();
   const itens = [["copiar", "copy", "Copiar"], ["celular", "smartphone", "Mandar pro celular"]];
+  if (bolha.classList.contains("assistant")) itens.push(["ouvir", "volume", "Ouvir"]);
   if (chatMode === "ai" && ultima && livre && bolha.classList.contains("assistant") && ultimaBolha("user")) itens.push(["refazer", "refresh", "Refazer a resposta"]);
   if (chatMode === "ai" && ultima && livre && bolha.classList.contains("user")) itens.push(["editar", "edit", "Editar a pergunta"]);
   const m = document.createElement("div");
@@ -314,6 +315,7 @@ timeline.addEventListener("contextmenu", (e) => {
     const t = textoDaBolha(bolha);
     if (b.dataset.menuBolha === "copiar") { await copiarTexto(t); showToast("Copiado."); }
     else if (b.dataset.menuBolha === "celular") { try { await window.nx.mailboxSend(t); showToast("Mandado para o celular."); } catch { showToast("Não consegui mandar.", true); } }
+    else if (b.dataset.menuBolha === "ouvir") window.nx.falarTexto?.(t);
     else if (b.dataset.menuBolha === "refazer") refazerUltima();
     else if (b.dataset.menuBolha === "editar") editarUltima(bolha);
   });

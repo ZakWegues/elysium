@@ -56,6 +56,7 @@ contextBridge.exposeInMainWorld("nx", {
   // ── System ─────────────────────────────────────────────────────────────────
   mediaControl:    (op: string)                 => ipcRenderer.send("media:direct", op),
   stopTts:         ()                           => ipcRenderer.send("tts:stop"),
+  falarTexto:      (texto: string)              => ipcRenderer.send("tts:falar", texto),
   onFalando:       (cb: (f: boolean) => void)   => { ipcRenderer.on("tts:falando", (_e, f) => cb(f)); },
   // Fase 21: o tempo de cada palavra da fala da Ely — a esfera do Chat se mexe com ele.
   onElyFala:       (cb: (f: { envelope: number[]; passoMs: number }) => void) => { ipcRenderer.on("ely:fala", (_e, f) => cb(f)); },

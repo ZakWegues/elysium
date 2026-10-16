@@ -752,6 +752,13 @@ ipcMain.handle("history:get", () => getTopHistory(8));
 
 aoInterromperFala(() => { interruptAll(); state.set("idle"); });
 
+// Fase 23.2: "Ouvir" no menu da bolha — lê de novo uma resposta na voz da Ely.
+ipcMain.on("tts:falar", (_e, texto: unknown) => {
+  if (typeof texto !== "string" || !texto.trim()) return;
+  interruptAll();
+  void speak(texto.slice(0, 4000)).catch(() => {});
+});
+
 ipcMain.on("tts:stop", () => {
   interruptAll();
   state.set("idle");
