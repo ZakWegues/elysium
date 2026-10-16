@@ -318,6 +318,12 @@ export async function executarComPolitica(nome: string, args: Record<string, unk
     return { resultado: decisao.mensagem };
   }
   const f = ferramenta(nome);
+  // Fase 23.2: ação de alto impacto depois de ler conteúdo de fora — pergunta antes, mesmo
+  // que a ferramenta não tenha confirmação própria.
+  if (decisao.tipo === "confirmar" && !f?.confirmar) {
+    const resumo = Object.entries(args ?? {}).filter(([, v]) => typeof v === "string" || typeof v === "number").map(([k, v]) => `${k}: ${String(v).slice(0, 80)}`).join(", ");
+    return { resultado: pedirConfirmacao(`Isso veio depois de eu ler conteúdo de fora: ${nome.replace(/_/g, " ")}${resumo ? ` (${resumo})` : ""}.`, () => executarFerramenta(nome, args)), pergunta: true };
+  }
   if (f?.confirmar) {
     try {
       const c = await f.confirmar(normalizarArgs(nome, args ?? {}));

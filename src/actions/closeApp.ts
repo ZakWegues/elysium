@@ -33,12 +33,18 @@ const PROCESS_MAP: Record<string, string[]> = {
   "explorador de arquivos": ["explorer"],
 };
 
+/** Segurança (23.2): processos do sistema que nunca são mortos por nome (o Windows cai junto). */
+const PROTEGIDOS = new Set(["explorer", "csrss", "winlogon", "wininit", "lsass", "services", "smss", "svchost", "dwm", "system", "registry", "fontdrvhost", "elysium", "electron"]);
+const livre = (nomes: string[]) => nomes.filter(n => !PROTEGIDOS.has(n.toLowerCase().replace(/\.exe$/, "")));
+
 export function deriveProcessNames(appName: string): string[] {
   const key = appName.toLowerCase().trim();
-  if (PROCESS_MAP[key]) return PROCESS_MAP[key];
-  for (const [k, v] of Object.entries(PROCESS_MAP)) {
-    if (k.includes(key) || key.includes(k)) return v;
+  if (PROCESS_MAP[key]) return livre(PROCESS_MAP[key]);
+  // Parcial só com 3+ letras: "o" casava com "discord" e matava o programa errado.
+  if (key.length >= 3) for (const [k, v] of Object.entries(PROCESS_MAP)) {
+    if (k.includes(key) || key.includes(k)) return livre(v);
   }
+  if (!livre([key, key.replace(/\s+/g, "")]).length) return [];
   // Fallback: try appName directly and appName without spaces
   return [appName, appName.replace(/\s+/g, "")];
 }

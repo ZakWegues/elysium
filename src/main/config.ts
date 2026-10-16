@@ -1,5 +1,6 @@
 import { app, safeStorage } from "electron";
 import Store from "electron-store";
+import { enderecoPermitido } from "../services/redeSegura";
 import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -524,6 +525,31 @@ export function getConfig(): AppConfig {
 /** Só o que o usuário mudou (sem os padrões) — é o que o backup leva (bloco 96). */
 export function getOverrides(): Partial<AppConfig> {
   return { ...store.get("overrides", {} as Partial<AppConfig>) };
+}
+
+/**
+ * Fase 23.2 (blindagem): o que vem da tela de Ajustes passa por aqui antes de gravar. O
+ * endereço do Ollama só pode ser deste PC ou da rede privada — senão um script na página
+ * mandaria todas as conversas para um servidor de fora — e a porta tem que ser válida.
+ * Pura: devolve o patch sem o que não presta.
+ */
+export function patchDeConfigSeguro(patch: Partial<AppConfig>): Partial<AppConfig> {
+  if (!patch || typeof patch !== "object" || Array.isArray(patch)) return {};
+  const limpo: Partial<AppConfig> = { ...patch };
+  if ("ollamaBaseUrl" in limpo) {
+    let ok = false;
+    try {
+      const u = new URL(String(limpo.ollamaBaseUrl));
+      const host = u.hostname.replace(/^\[|\]$/g, "");
+      ok = (u.protocol === "http:" || u.protocol === "https:") && (host === "localhost" || enderecoPermitido(host));
+    } catch { ok = false; }
+    if (!ok) delete limpo.ollamaBaseUrl;
+  }
+  if ("serverPort" in limpo) {
+    const p = Number(limpo.serverPort);
+    if (!Number.isInteger(p) || p < 1024 || p > 65535) delete limpo.serverPort;
+  }
+  return limpo;
 }
 
 export function setOverride(patch: Partial<AppConfig>): void {

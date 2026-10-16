@@ -443,6 +443,8 @@ const METHODS: Record<string, MethodDef> = {
     handler: async (params) => {
       const sequence = requireString(params, "sequence");
       if (sequence.length > 200) throw new RpcError(400, "sequência longa demais");
+      // Segurança (23.2): o host lê uma linha por comando — quebra de linha aqui injetava outro.
+      if (/[ -]/.test(sequence)) throw new RpcError(400, "sequência com caractere de controle");
       await inputHost.key(sequence);
       return { ok: true };
     },

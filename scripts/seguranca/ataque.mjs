@@ -66,6 +66,16 @@ const sondas = [
     const r = await req(`${BASE}/api/health`, { headers: { ...auth, Origin: "https://mal.example" } });
     return { ok: !r.headers.get("access-control-allow-origin"), det: `HTTP ${r.status}` };
   }),
+  // ── DNS rebinding: domínio de fora apontando para o PC ──
+  // Socket cru: o fetch do Node ignora um Host forjado.
+  sonda("Host de domínio de fora → 421", async () => {
+    const resp = await cru(hostLocal, `GET /api/health HTTP/1.1\r\nHost: mal.example:4200\r\nAuthorization: Bearer ${TOKEN}\r\nConnection: close\r\n\r\n`);
+    return { ok: /^HTTP\/1\.1 421/.test(resp), det: resp.split("\r\n")[0] || "(fechou)" };
+  }),
+  sonda("Host vazio → recusado", async () => {
+    const resp = await cru(hostLocal, "GET /api/health HTTP/1.0\r\n\r\n");
+    return { ok: !/^HTTP\/1\.[01] 200/.test(resp), det: resp.split("\r\n")[0] || "(fechou)" };
+  }),
   // ── corpo e parser ──
   sonda("corpo de 9 MB → 413", () => status(`${BASE}/api/rpc`, { method: "POST", headers: { ...auth, "Content-Type": "application/json" }, body: "x".repeat(9 * 1024 * 1024) }, 413)),
   sonda("JSON malformado → 400", () => status(`${BASE}/api/rpc`, { method: "POST", headers: { ...auth, "Content-Type": "application/json" }, body: "{\"method\":" }, 400)),
@@ -109,7 +119,7 @@ const sondas = [
   }),
   sonda("cabeçalho torto não derruba", async () => {
     const resp = await cru(hostLocal, "GET /api/health HTTP/1.1\r\nHost: x\r\nAuthorization: Bearer ééé\r\n\r\n");
-    return { ok: /^HTTP\/1\.1 (400|401)/.test(resp), det: resp.split("\r\n")[0] || "(fechou)" };
+    return { ok: /^HTTP\/1\.1 (400|401|421)/.test(resp), det: resp.split("\r\n")[0] || "(fechou)" };
   }),
 ];
 

@@ -83,6 +83,8 @@ export interface Ferramenta extends DefinicaoDeFerramenta {
 
 const str = (a: Record<string, unknown>, k: string, padrao = ""): string => (typeof a[k] === "string" ? (a[k] as string).trim() : padrao);
 const num = (a: Record<string, unknown>, k: string): number | undefined => (typeof a[k] === "number" && Number.isFinite(a[k] as number) ? (a[k] as number) : undefined);
+/** Fase 23.2: desligar/reiniciar pelo modelo sempre deixam pelo menos 15 s para cancelar. */
+export const atrasoSeguro = (a: Record<string, unknown>): number => Math.max(15, Math.min(24 * 3600, Math.round(num(a, "atraso_segundos") ?? 30)));
 /** Lista de strings de um argumento — aceita também uma string com vírgulas (o 7B às vezes manda assim). */
 const arr = (a: Record<string, unknown>, k: string): string[] => {
   const v = a[k];
@@ -424,8 +426,18 @@ export const FERRAMENTAS: Ferramenta[] = [
     name: "energia",
     description: "Bloqueia a tela, suspende, reinicia ou desliga o PC, ou cancela um desligamento agendado. Desligar e reiniciar dão 30 s para cancelar.",
     parameters: obj({ operacao: s("Operação", { enum: ["lock", "sleep", "restart", "shutdown", "cancel"] }), atraso_segundos: { type: "integer", description: "Só para shutdown/restart: daqui a quantos segundos" } }, ["operacao"]),
-    executar: a => acao({ action: "power_control", operation: str(a, "operacao") as never, delay_seconds: num(a, "atraso_segundos") }),
-    acao: a => ({ action: "power_control", operation: str(a, "operacao") as never, delay_seconds: num(a, "atraso_segundos") }),
+    executar: a => acao({ action: "power_control", operation: str(a, "operacao") as never, delay_seconds: atrasoSeguro(a) }),
+    acao: a => ({ action: "power_control", operation: str(a, "operacao") as never, delay_seconds: atrasoSeguro(a) }),
+    // Fase 23.2 (auditoria): desligar/reiniciar SEMPRE perguntam — fora do modelo. Um texto
+    // lido (página, convite da agenda) não desliga o PC sozinho.
+    confirmar: async (a) => {
+      const op = str(a, "operacao");
+      if (op !== "shutdown" && op !== "restart") return null;
+      return {
+        descricao: `Vou ${op === "shutdown" ? "desligar" : "reiniciar"} o PC em ${atrasoSeguro(a)} segundos.`,
+        executar: () => acao({ action: "power_control", operation: op as never, delay_seconds: atrasoSeguro(a) }),
+      };
+    },
   },
   {
     name: "modo_foco",
@@ -841,6 +853,12 @@ export const FERRAMENTAS: Ferramenta[] = [
       celular: { type: "boolean", description: "Entregar também no celular" },
       falar: { type: "boolean", description: "Falar a resposta no PC" },
     }, ["nome", "texto", "hora"]),
+    // Fase 23.2 (auditoria): a rotina guarda um pedido que roda depois, sem ninguém olhando —
+    // criar sempre pergunta, mostrando o pedido inteiro.
+    confirmar: async (a) => ({
+      descricao: `Vou criar a rotina "${str(a, "nome")}" às ${str(a, "hora")}, que pede: "${str(a, "texto").slice(0, 200)}".`,
+      executar: () => ferramenta("criar_rotina")!.executar(a),
+    }),
     executar: async (a) => {
       const r = salvarRotina({
         nome: str(a, "nome"), texto: str(a, "texto"), hora: str(a, "hora"),

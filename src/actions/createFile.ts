@@ -1,5 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { semSobrescrever } from "./writeText";
 import { app, shell } from "electron";
 
 /** Extensões que a Ely pode criar (bloco 199). Tudo de texto, nada que o Windows execute. */
@@ -28,11 +29,11 @@ export async function createFile(
   description: string
 ): Promise<string> {
   const safe = nomeSeguro(filename);
-  const filePath = path.join(app.getPath("desktop"), safe);
+  const filePath = semSobrescrever(path.join(app.getPath("desktop"), safe));
 
   fs.writeFileSync(filePath, content, "utf-8");
   // Texto abre no editor padrão; a extensão já foi garantida acima.
   void shell.openPath(filePath);
 
-  return `Pronto! ${description} salvo como "${safe}" na Área de Trabalho.`;
+  return `Pronto! ${description} salvo como "${path.basename(filePath)}" na Área de Trabalho.`;
 }

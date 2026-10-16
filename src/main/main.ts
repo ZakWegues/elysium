@@ -2,6 +2,8 @@
 // de módulo, ou seja, no momento do require — se a migração do perfil NEUROAXIS → ELYSIUM
 // rodasse depois, o primeiro store já teria criado o arquivo novo vazio e a cópia seria
 // descartada pela própria guarda dela. Ver src/main/migrateUserData.ts.
+// Fase 23.2: antes de qualquer ipcMain.handle — todo canal confere a origem (ver ipcSeguro.ts).
+import { dentroDoApp } from "./ipcSeguro";
 import "./migrateUserData";
 import { migrarLembretesParaTarefas } from "../actions/memoryActions";
 import { app, BrowserWindow, globalShortcut, ipcMain, clipboard, nativeImage, dialog, shell, powerMonitor } from "electron";
@@ -23,7 +25,7 @@ import { aplicarBackup, lerBackup, montarBackup } from "../services/backup";
 import { montarDiagnostico } from "../services/diagnostico";
 import { esquecerAparelhos, listarAparelhos } from "../services/aparelhos";
 import * as QRCode from "qrcode";
-import { getConfig, getApiKey, setApiKey, hasApiKey, setOverride, getOrCreateServerToken, getOrCreateMcpToken, regenerateServerToken, AppConfig, getGithubToken, setGithubToken, setGoogleCliente } from "./config";
+import { getConfig, getApiKey, setApiKey, hasApiKey, setOverride, patchDeConfigSeguro, getOrCreateServerToken, getOrCreateMcpToken, regenerateServerToken, AppConfig, getGithubToken, setGithubToken, setGoogleCliente } from "./config";
 import { limparCacheClima } from "../services/clima";
 import { getLocalIPv4, getAllLocalIPv4 } from "./network";
 import { inputHost } from "../services/inputHost";
@@ -145,6 +147,7 @@ function createRecorderWindow(): BrowserWindow {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      devTools: !app.isPackaged,
     },
   });
   win.loadFile(path.join(__dirname, "../renderer/recorder.html"));
@@ -178,6 +181,7 @@ function openDashboard(): void {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      devTools: !app.isPackaged,
     },
   });
   dashWin.setMenu(null);
@@ -252,6 +256,7 @@ function openConfigWindow(): void {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      devTools: !app.isPackaged,
     },
   });
   configWin.setMenu(null);
@@ -791,8 +796,9 @@ ipcMain.handle("brain:ollama-status", async (_e, modelo?: string) => {
   const cfg = getConfig();
   return ollamaDisponivel(modelo || cfg.ollamaRouterModel);
 });
-ipcMain.handle("config:set-all", async (_e, patch: Partial<AppConfig>) => {
+ipcMain.handle("config:set-all", async (_e, patchBruto: Partial<AppConfig>) => {
   const prev = getConfig();
+  const patch = patchDeConfigSeguro(patchBruto);
   setOverride(patch);
 
   // Trocar a cidade tem que valer AGORA. O cache do clima guarda até uma hora, e guarda
@@ -1133,12 +1139,17 @@ app.on("web-contents-created", (_e, wc) => {
     return { action: "deny" };
   });
   wc.on("will-navigate", (ev, url) => {
-    if (!url.startsWith("file://")) {
+    // Fase 23.2: só as telas do próprio app — antes qualquer file:// do disco carregava aqui
+    // (e herdava o preload).
+    if (!dentroDoApp(url)) {
       ev.preventDefault();
       if (/^https?:\/\//i.test(url)) void shell.openExternal(url).catch(() => {});
     }
   });
   wc.on("will-attach-webview", (ev) => ev.preventDefault());
+  // Fase 23.2: permissões do navegador negadas por padrão; só o microfone/câmera (o gravador e
+  // a foto do chat) passam.
+  wc.session.setPermissionRequestHandler((_wc, permissao, ok) => ok(permissao === "media" || permissao === "clipboard-sanitized-write"));
 });
 
 app.on("ready", async () => {

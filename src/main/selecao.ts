@@ -1,4 +1,4 @@
-import { BrowserWindow, clipboard, ipcMain, screen } from "electron";
+import { app, BrowserWindow, clipboard, ipcMain, screen } from "electron";
 import * as path from "node:path";
 import { inputHost } from "../services/inputHost";
 
@@ -49,7 +49,7 @@ function abrirJanela(texto: string): void {
     show: false, transparent: false, backgroundColor: "#15121a", title: "Ely",
     webPreferences: {
       preload: path.join(__dirname, "../renderer/preload-selecao.js"),
-      contextIsolation: true, nodeIntegration: false, sandbox: true,
+      contextIsolation: true, nodeIntegration: false, sandbox: true, devTools: !app.isPackaged,
     },
   });
   janela.setMenu(null);

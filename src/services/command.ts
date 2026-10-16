@@ -10,7 +10,7 @@ import { comContexto, Fonte, fontesDoPedido, marcarReserva, registrarFontes, uso
 import { agirViaHermes, responderEsclarecimentoHermes } from "./hermes/cerebro";
 import { criarFiltroDeFontes, separarFontes } from "./hermes/pesquisa";
 import { ehEntradaDoLive } from "./live";
-import { responderConfirmacao } from "./confirmacao";
+import { pedirConfirmacao, responderConfirmacao } from "./confirmacao";
 import { responderRevisao, semMarcas } from "./cartoes";
 
 export type ResultadoComando = {
@@ -203,6 +203,12 @@ export async function resolveAction(
   onToken?: (token: string) => void,
   canal: Canal = "voz",
 ): Promise<string> {
+  // Segurança (23.2): o roteador clássico também não desliga nem reinicia o PC sem um "sim" —
+  // o prompt dele inclui o histórico, que pode trazer o resumo de uma página.
+  if (action.action === "power_control" && (action.operation === "shutdown" || action.operation === "restart")) {
+    const atraso = Math.max(15, Math.round(action.delay_seconds ?? 30));
+    return pedirConfirmacao(`Vou ${action.operation === "shutdown" ? "desligar" : "reiniciar"} o PC em ${atraso} segundos.`, () => routeAction({ ...action, delay_seconds: atraso }));
+  }
   if (action.action !== "chat") return routeAction(action);
 
   const composed = await composeChatReply(userText, onToken, canal);

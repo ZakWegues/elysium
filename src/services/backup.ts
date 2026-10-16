@@ -1,7 +1,7 @@
 import { importarTarefas, listarTarefasTodas, Tarefa } from "./tarefas";
 import { exportarCorpo, importarCorpo, listarTreinos } from "./corpo";
 import { app } from "electron";
-import { AppConfig, getOverrides, setOverride } from "../main/config";
+import { AppConfig, getOverrides, patchDeConfigSeguro, setOverride } from "../main/config";
 import { addFact, listFacts } from "./memoryStore";
 import { createReminder, listPending, Reminder } from "./scheduler";
 import { getAllPresets, PresetEntry, PresetsMap, savePreset } from "./presetsStore";
@@ -202,7 +202,7 @@ export function aplicarBackup(b: Backup): ResumoImportacao {
   const ajustes = { ...b.ajustes } as Record<string, unknown>;
   for (const k of AJUSTES_LOCAIS) delete ajustes[k];
   resumo.ajustes = Object.keys(ajustes).length;
-  if (resumo.ajustes) setOverride(ajustes as Partial<AppConfig>);
+  if (resumo.ajustes) setOverride(patchDeConfigSeguro(ajustes as Partial<AppConfig>));
 
   return resumo;
 }

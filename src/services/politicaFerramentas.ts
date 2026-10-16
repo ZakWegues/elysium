@@ -22,6 +22,21 @@ export const FONTES_EXTERNAS = new Set([
   // (qualquer um manda um convite), título de aba do navegador, nome de música, e as conversas
   // lembradas (que trazem o que uma página disse dias atrás).
   "agenda", "programas_abertos", "tocando_agora", "lembrar_conversa",
+  // Fase 23.2 (auditoria): os resumos também carregam texto de terceiros — o título de um
+  // convite entra no "bom dia" — e a memória/rotinas/lembretes podem ter sido envenenados por
+  // uma página lida antes. Tratados como conteúdo de fora.
+  "resumo_do_dia", "painel_do_dia", "revisao_da_semana", "memoria", "rotinas", "lembretes",
+]);
+
+/**
+ * Fase 23.2: ações de alto impacto. Depois de ler conteúdo de fora, mesmo quando o pedido
+ * parece pedir aquilo (a regex de intenção é larga: "bloqueador de anúncios" casa "bloque"),
+ * elas não rodam direto — viram "Confirma? Diga sim.". A decisão final fica com a pessoa,
+ * fora do modelo.
+ */
+const ALTO_IMPACTO = new Set([
+  "energia", "fechar_programa", "lembrar_fato", "esquecer_fato", "criar_rotina", "apagar_rotina",
+  "rodar_rotina", "escrever_texto", "criar_arquivo", "abrir_programa", "rodar_preset",
 ]);
 
 /** Ferramentas que fazem o PC acessar um endereço — o jeito clássico de vazar dado numa URL. */
@@ -107,7 +122,7 @@ function sem(t: string): string {
   return semAcento(t);
 }
 
-export type Decisao = { tipo: "executar" } | { tipo: "bloquear"; mensagem: string };
+export type Decisao = { tipo: "executar" } | { tipo: "confirmar" } | { tipo: "bloquear"; mensagem: string };
 
 /**
  * Pode chamar `nome` agora? `contaminado` = este pedido já leu conteúdo de fora. Ações que não
@@ -123,7 +138,16 @@ export function decidirChamada(nome: string, contaminado: boolean, pedido: strin
   }
   const intencao = INTENCAO[nome];
   if (!contaminado || !intencao) return { tipo: "executar" };
-  if (intencao.test(sem(pedido))) return { tipo: "executar" };
+  if (intencao.test(sem(pedido))) {
+    if (!ALTO_IMPACTO.has(nome)) return { tipo: "executar" };
+    // O alvo está nas palavras do próprio pedido ("se a calculadora estiver aberta, fecha" →
+    // fechar "calculadora"): foi ele quem pediu, executa. Alvo que só existe no que foi lido
+    // (o fato a guardar, o texto a escrever, o programa que a página citou) → pergunta.
+    const p = sem(pedido).toLowerCase();
+    const alvos = Object.values(args ?? {}).filter((v): v is string => typeof v === "string" && v.trim().length >= 3);
+    if (alvos.length && alvos.every(v => p.includes(sem(v).toLowerCase().trim()))) return { tipo: "executar" };
+    return { tipo: "confirmar" };
+  }
   return {
     tipo: "bloquear",
     mensagem: "Não fiz isso: a ideia veio do conteúdo que eu li (página, tela ou texto copiado), não do seu pedido. Se quiser, peça de novo com as suas palavras.",

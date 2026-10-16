@@ -354,7 +354,7 @@ function desenharAtualizacao() {
   let situacao, acao = "";
   if (e.verificando) situacao = "Procurando versão nova…";
   else if (e.semToken) situacao = "Sem acesso às releases: cole um token do GitHub abaixo, ou entre com o gh neste PC.";
-  else if (e.erro) situacao = `Não consegui verificar: ${e.erro}`;
+  else if (e.erro) situacao = `Não consegui verificar: ${escHtml(e.erro)}`;
   else if (!e.desktop) situacao = `Você está na versão mais nova (${e.atual}).`;
   else if (!e.desktop.pronto) situacao = `Baixando a versão ${e.desktop.versao}… ${Math.round(e.desktop.progresso * 100)}%`;
   else {

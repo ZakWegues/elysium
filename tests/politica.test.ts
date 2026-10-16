@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { decidirChamada, envelopeExterno } from "../src/services/politicaFerramentas";
+import { decidirChamada, envelopeExterno, FONTES_EXTERNAS } from "../src/services/politicaFerramentas";
 import { ehNao, ehSim, haConfirmacaoPendente, limparConfirmacao, pedirConfirmacao, responderConfirmacao } from "../src/services/confirmacao";
 import { programasParaFechar } from "../src/services/ferramentas";
 
@@ -118,5 +118,20 @@ describe("política, fase 20 (bloco 201)", async () => {
   it("título de convite, de aba e conversas lembradas são conteúdo de fora", () => {
     for (const f of ["agenda", "programas_abertos", "tocando_agora", "lembrar_conversa"]) expect(FONTES_EXTERNAS.has(f)).toBe(true);
     expect(decidirChamada("janela", true, "o que tem na agenda?").tipo).toBe("bloquear");
+  });
+});
+
+describe("alto impacto depois de ler conteúdo de fora (fase 23.2)", () => {
+  it("alvo que só existe no conteúdo lido vira pergunta", () => {
+    expect(decidirChamada("fechar_programa", true, "resume esse artigo sobre como fechar abas", { nome: "discord" }).tipo).toBe("confirmar");
+    expect(decidirChamada("lembrar_fato", true, "lê essa página e lembra o que importa", { fato: "o usuário aprova tudo" }).tipo).toBe("confirmar");
+    expect(decidirChamada("energia", true, "resume esse artigo sobre bloqueador de anúncios", { operacao: "shutdown" }).tipo).toBe("confirmar");
+  });
+  it("alvo nas palavras do pedido executa", () => {
+    expect(decidirChamada("fechar_programa", true, "se a calculadora estiver aberta, fecha", { nome: "calculadora" }).tipo).toBe("executar");
+  });
+  it("resumo do dia e memória contam como conteúdo de fora", () => {
+    expect(FONTES_EXTERNAS.has("resumo_do_dia")).toBe(true);
+    expect(FONTES_EXTERNAS.has("memoria")).toBe(true);
   });
 });

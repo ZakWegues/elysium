@@ -33,6 +33,9 @@ export function mascarar(texto: string): string {
     .replace(/GOCSPX-[A-Za-z0-9_-]{10,}/g, "GOCSPX-[oculto]")
     .replace(/\b(gh[pousr]_|github_pat_)[A-Za-z0-9_]{16,}/g, "$1[oculto]")
     .replace(/\b[a-f0-9]{64}\b/gi, "[token oculto]")
+    // Fase 23.2: o token do MCP tem 48 hex e vai no caminho /mcp/<token>.
+    .replace(/\b[a-f0-9]{48}\b/gi, "[token oculto]")
+    .replace(/\/mcp\/[^\s"'/]+/g, "/mcp/[oculto]")
     .replace(/(Bearer\s+)[A-Za-z0-9._-]{16,}/gi, "$1[oculto]");
 }
 

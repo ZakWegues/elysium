@@ -363,6 +363,9 @@ class InputHost {
     return new Promise<string>((resolve, reject) => {
       // Sem timeout por comando: o host é serial e cada operação é sub-milissegundo.
       // Se ele travar, o `close` acima rejeita tudo que estiver pendente.
+      // Segurança (23.2): uma linha = um comando. Texto com quebra de linha (de qualquer
+      // chamador) viraria um segundo comando escondido; o TYPE já vai em base64.
+      if (/[\r\n]/.test(line)) { reject(new Error("comando do host com quebra de linha")); return; }
       this.pending.push({ resolve, reject });
       proc.stdin.write(line + "\n", err => {
         if (err) {
