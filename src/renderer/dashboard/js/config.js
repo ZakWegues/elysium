@@ -33,33 +33,39 @@ async function loadHistory() {
 // SHORTCUT CAPTURE
 // ─────────────────────────────────────────────────
 const shortcutInput = document.getElementById("shortcut-input");
-const shortcutHint  = document.getElementById("shortcut-hint");
+const atalhoSelecaoInput = document.getElementById("atalho-selecao-input");
 
-shortcutInput.addEventListener("focus", () => {
-  shortcutInput.value = "";
-  shortcutHint.textContent = "Pressione a combinação de teclas…";
-});
-shortcutInput.addEventListener("blur", () => {
-  shortcutHint.textContent = "Clique e pressione a combinação";
-});
-shortcutInput.addEventListener("keydown", async (e) => {
-  e.preventDefault();
-  if (e.key === "Escape") { shortcutInput.blur(); return; }
-  const parts = [];
-  if (e.ctrlKey)  parts.push("Control");
-  if (e.shiftKey) parts.push("Shift");
-  if (e.altKey)   parts.push("Alt");
-  const k = e.key;
-  if (!["Control","Shift","Alt","Meta"].includes(k)) {
-    parts.push(k.length === 1 ? k.toUpperCase() : k);
-  }
-  if (parts.length < 2) return;
-  const combo = parts.join("+");
-  shortcutInput.value = combo;
-  shortcutInput.blur();
-  shortcutHint.textContent = "Salvo: " + combo;
-  try { await window.nx.setConfig({ shortcut: combo }); } catch { /* ignore */ }
-});
+/** Captura de combinação de teclas num campo e grava na chave do config (fase 23.2: dois campos). */
+function ligarCapturaDeAtalho(input, hint, chave) {
+  if (!input) return;
+  input.addEventListener("focus", () => {
+    input.value = "";
+    hint.textContent = "Pressione a combinação de teclas…";
+  });
+  input.addEventListener("blur", () => {
+    hint.textContent = "Clique e pressione a combinação";
+  });
+  input.addEventListener("keydown", async (e) => {
+    e.preventDefault();
+    if (e.key === "Escape") { input.blur(); return; }
+    const parts = [];
+    if (e.ctrlKey)  parts.push("Control");
+    if (e.shiftKey) parts.push("Shift");
+    if (e.altKey)   parts.push("Alt");
+    const k = e.key;
+    if (!["Control","Shift","Alt","Meta"].includes(k)) {
+      parts.push(k.length === 1 ? k.toUpperCase() : k);
+    }
+    if (parts.length < 2) return;
+    const combo = parts.join("+");
+    input.value = combo;
+    input.blur();
+    hint.textContent = "Salvo: " + combo;
+    try { await window.nx.setConfig({ [chave]: combo }); } catch { /* ignore */ }
+  });
+}
+ligarCapturaDeAtalho(shortcutInput, document.getElementById("shortcut-hint"), "shortcut");
+ligarCapturaDeAtalho(atalhoSelecaoInput, document.getElementById("atalho-selecao-hint"), "atalhoSelecao");
 
 // ─────────────────────────────────────────────────
 // API KEY
@@ -95,6 +101,7 @@ async function loadConfig() {
     const cidade = document.getElementById("clima-atual");
     if (cidade) cidade.textContent = cfg.climaCidade || "não definida";
     if (cfg.shortcut) shortcutInput.value = cfg.shortcut;
+    if (atalhoSelecaoInput && cfg.atalhoSelecao) atalhoSelecaoInput.value = cfg.atalhoSelecao;
     applyTheme(cfg.theme);
   } catch {
     applyTheme(FALLBACK_THEME);

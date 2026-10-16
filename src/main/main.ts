@@ -809,9 +809,18 @@ ipcMain.handle("config:set-all", async (_e, patchBruto: Partial<AppConfig>) => {
   }
 
   if (patch.shortcut && patch.shortcut !== prev.shortcut) {
-    globalShortcut.unregisterAll();
+    // Fase 23.2: só o atalho que mudou — o unregisterAll derrubava também o de seleção.
+    try { globalShortcut.unregister(prev.shortcut); } catch { /* não estava registrado */ }
     const ok = globalShortcut.register(patch.shortcut, handleShortcut);
     if (!ok) notify("ELYSIUM — Aviso", `Atalho "${patch.shortcut}" não pôde ser registrado.`);
+  }
+
+  // Fase 23.2: o atalho de seleção (Ctrl+Shift+E) também é configurável.
+  if (patch.atalhoSelecao !== undefined && patch.atalhoSelecao !== prev.atalhoSelecao) {
+    try { if (prev.atalhoSelecao) globalShortcut.unregister(prev.atalhoSelecao); } catch { /* não estava registrado */ }
+    if (patch.atalhoSelecao && !globalShortcut.register(patch.atalhoSelecao, () => { void aoAtalhoDeSelecao(); })) {
+      notify("ELYSIUM — Aviso", `Atalho "${patch.atalhoSelecao}" não pôde ser registrado.`);
+    }
   }
 
   if (patch.palavraDeAtivacao !== undefined && patch.palavraDeAtivacao !== prev.palavraDeAtivacao) {
