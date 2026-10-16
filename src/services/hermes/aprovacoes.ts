@@ -35,8 +35,12 @@ export function descricaoDaAprovacao(params: Record<string, unknown>): string {
   const desc = typeof params.description === "string" ? params.description.trim() : "";
   const cmd = typeof params.command === "string" ? params.command.trim() : "";
   const ferramenta = typeof params.tool_name === "string" ? params.tool_name.trim() : "";
+  // Segurança (23.2): a descrição é escrita pelo próprio modelo — uma página com injeção podia
+  // pedir licença para "limpar o cache" e rodar outra coisa. O comando de verdade vai sempre
+  // junto, e inteiro até 300 caracteres.
+  if (desc && cmd) return `Preciso da sua licença para isto: ${curto(desc)}. O comando é: ${curto(cmd, 300)}.`.replace(/\.\.$/, ".");
   if (desc) return `Preciso da sua licença para isto: ${curto(desc)}.`.replace(/\.\.$/, ".");
-  if (cmd) return `Preciso rodar um comando no PC: ${curto(cmd, 120)}.`;
+  if (cmd) return `Preciso rodar um comando no PC: ${curto(cmd, 300)}.`;
   if (ferramenta) return `Preciso da sua licença para usar ${ferramenta}.`;
   return "Preciso da sua licença para continuar.";
 }

@@ -60,10 +60,19 @@ function abrirJanela(texto: string): void {
   janela.on("closed", () => { janela = null; });
 }
 
-/** O que o atalho faz. Sem seleção, abre do mesmo jeito com o campo vazio para colar. */
+/**
+ * O que o atalho faz. Sem seleção, abre do mesmo jeito com o campo vazio para colar.
+ * Atalho apertado de novo durante a captura é ignorado: a segunda captura guardaria como
+ * "conteúdo anterior" a área de transferência que a primeira acabou de esvaziar — e o que o
+ * usuário tinha copiado se perderia.
+ */
+let capturando = false;
 export async function aoAtalhoDeSelecao(): Promise<void> {
+  if (capturando) return;
+  capturando = true;
   let texto = "";
   try { texto = await capturarSelecao(); } catch (e) { console.warn("[selecao] não copiei:", e instanceof Error ? e.message : e); }
+  finally { capturando = false; }
   abrirJanela(texto.slice(0, 20_000));
 }
 

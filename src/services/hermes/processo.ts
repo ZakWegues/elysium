@@ -40,11 +40,18 @@ export function portaLivre(): Promise<number> {
   });
 }
 
+/** Esconde o token do MCP (`/mcp/<token>`) de qualquer texto que vá para log. Pura. */
+export function mascararTokenMcp(t: string): string {
+  return t.replace(/\/mcp\/[^\s"'/]+/g, "/mcp/***");
+}
+
 /** Roda um comando do Hermes e devolve a saída (sem shell: argumentos vão separados). */
 export function rodarHermes(exe: string, args: string[], prazoMs = 60_000): Promise<string> {
   return new Promise((ok, erro) => {
     execFile(exe, args, { timeout: prazoMs, windowsHide: true, maxBuffer: 4 * 1024 * 1024 }, (e, stdout, stderr) => {
-      if (e) erro(new Error(`${args.slice(0, 3).join(" ")}: ${String(stderr || e.message).slice(0, 300)}`));
+      // Segurança (23.2): a mensagem do execFile traz a linha de comando inteira, e o `config set`
+      // do MCP leva o token no caminho da URL — mascara antes de virar log.
+      if (e) erro(new Error(mascararTokenMcp(`${args.slice(0, 3).join(" ")}: ${String(stderr || e.message).slice(0, 300)}`)));
       else ok(String(stdout));
     });
   });

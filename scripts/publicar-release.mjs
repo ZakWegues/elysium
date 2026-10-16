@@ -75,12 +75,15 @@ sh("git", ["push", "-q", "origin", tag]);
     `if ($s.SignerCertificate.Thumbprint -ne '${impressao}') {`,
     // Carimbo de tempo: a assinatura continua valendo depois que o certificado vencer (2036).
     `  try { $null = Set-AuthenticodeSignature -LiteralPath '${alvo}' -Certificate $c -HashAlgorithm SHA256 -TimestampServer 'http://timestamp.digicert.com' -ErrorAction Stop }`,
-    `  catch { $null = Set-AuthenticodeSignature -LiteralPath '${alvo}' -Certificate $c -HashAlgorithm SHA256 }`,
+    // Segurança (23.2): sem carimbo a assinatura morre junto com o certificado. Tenta um segundo
+    // servidor de carimbo e, se nenhum responder, RECUSA publicar em vez de assinar sem carimbo.
+    `  catch { try { $null = Set-AuthenticodeSignature -LiteralPath '${alvo}' -Certificate $c -HashAlgorithm SHA256 -TimestampServer 'http://timestamp.sectigo.com' -ErrorAction Stop } catch { 'SEM_CARIMBO'; exit 0 } }`,
     "}",
     `$v = Get-AuthenticodeSignature -LiteralPath '${alvo}'`,
     '"$($v.Status)|$($v.SignerCertificate.Thumbprint)"',
   ].join("\n");
   const saida = String(execFileSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-EncodedCommand", Buffer.from(ps, "utf16le").toString("base64")], { encoding: "utf8" })).trim();
+  if (saida.includes("SEM_CARIMBO")) falhar("nenhum servidor de carimbo de tempo respondeu — tente de novo em alguns minutos");
   if (saida === "SEM_CERTIFICADO") falhar(`o certificado ${impressao} não está em Cert:\\CurrentUser\\My — restaure o .pfx do backup (scripts/backup-chaves.ps1)`);
   const [status, lida] = saida.split("|");
   if (lida !== impressao || !["Valid", "UnknownError"].includes(status)) falhar(`a assinatura não conferiu depois de assinar (${saida})`);

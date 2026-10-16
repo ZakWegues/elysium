@@ -47,6 +47,7 @@ import { criarCanal, CanalDeInput } from "./inputCanal";
 import { inputHost } from "./inputHost";
 import { estadoAtualizacao } from "./atualizacao";
 import * as fsAtualizacao from "node:fs";
+import { enderecoPermitido, hostPermitido } from "./redeSegura";
 import { ehDoProprioPc, ExecutorMcp, responderMcp } from "./mcpElysium";
 
 const WS_MAGIC = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
@@ -442,6 +443,10 @@ function makeHandler(
     // nunca precisou de preflight. Manter Access-Control-Allow-Origin:* deixava
     // qualquer página aberta em qualquer máquina da rede chamar esta API de dentro
     // do browser — e agora ela desliga o PC, lê o clipboard e mata processos.
+    // Fase 23.2: só rede privada (ou o próprio PC), e o Host tem que ser um IP/o nome deste PC
+    // — fecha a porta para a internet (port-forward esquecido) e para DNS rebinding.
+    if (!enderecoPermitido(req.socket.remoteAddress)) { req.socket.destroy(); return; }
+    if (!hostPermitido(req.headers.host)) { sendJson(res, 421, { error: "Host não aceito" }); return; }
     if (req.method === "OPTIONS") { res.writeHead(204); res.end(); return; }
 
     if (rateLimited(req)) {
@@ -508,7 +513,7 @@ function makeHandler(
       res.writeHead(200, {
         "Content-Type": "application/vnd.android.package-archive",
         "Content-Length": fsAtualizacao.statSync(cel.arquivo).size,
-        "Content-Disposition": `attachment; filename="elysium-m-${cel.versao}.apk"`,
+        "Content-Disposition": `attachment; filename="elysium-m-${String(cel.versao).replace(/[^0-9A-Za-z.-]/g, "")}.apk"`,
         "Cache-Control": "no-store",
       });
       fsAtualizacao.createReadStream(cel.arquivo).pipe(res);
@@ -669,7 +674,8 @@ function makeHandler(
     // POST /api/mailbox/messages/:id/ack — celular confirma que leu uma mensagem from:"pc"
     const msgAckMatch = url.match(/^\/api\/mailbox\/messages\/([^/]+)\/ack$/);
     if (req.method === "POST" && msgAckMatch) {
-      for await (const _chunk of req) { /* drain body, ignored */ }
+      // O corpo é ignorado, mas lido com teto (antes era um for-await sem limite).
+      try { await readBody(req); } catch { sendJson(res, 413, { error: "Body too large" }); return; }
       const ok = ackMessage(msgAckMatch[1]);
       if (!ok) {
         res.writeHead(404, { "Content-Type": "application/json; charset=utf-8" });
@@ -698,6 +704,8 @@ function handleUpgrade(
   socket: Socket,
   head: Buffer,
 ): void {
+  // Fase 23.2: mesma barreira de rede do HTTP.
+  if (!enderecoPermitido(req.socket.remoteAddress) || !hostPermitido(req.headers.host)) { socket.destroy(); return; }
   // Bloco 200: o upgrade também passa pelo limite (antes só o HTTP passava).
   if (rateLimited(req) || recusasDemais(req)) {
     socket.write("HTTP/1.1 429 Too Many Requests\r\nConnection: close\r\n\r\n");
@@ -714,7 +722,7 @@ function handleUpgrade(
   }
 
   const wsKey = req.headers["sec-websocket-key"];
-  if (!wsKey || req.headers["upgrade"]?.toLowerCase() !== "websocket") {
+  if (!wsKey || req.headers["upgrade"]?.toLowerCase() !== "websocket" || req.headers["sec-websocket-version"] !== "13") {
     socket.destroy();
     return;
   }
@@ -907,6 +915,11 @@ export function startServer(
 ): void {
   activeToken = token;
   const server = http.createServer(makeHandler(processCommand));
+  // Fase 23.2: teto de conexões e prazos curtos — milhares de sockets parados (slowloris)
+  // esgotavam o processo principal; os padrões do Node só cortavam em 60 s/300 s.
+  server.maxConnections = 200;
+  server.headersTimeout = 15_000;
+  server.requestTimeout = 120_000;   // anexo de 5 MB num Wi-Fi ruim ainda cabe
 
   server.on("upgrade", (req, socket, head) => {
     if (req.url?.startsWith("/api/stream")) {
