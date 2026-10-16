@@ -11,7 +11,7 @@ describe("aparelhos que usaram o token (bloco 98)", () => {
 
   it("normaliza o endereço (IPv4 mapeado e loopback IPv6)", () => {
     const req = (ip: string) => ({ socket: { remoteAddress: ip } }) as never;
-    expect(ipDe(req("::ffff:192.168.15.29"))).toBe("192.168.15.29");
+    expect(ipDe(req("::ffff:192.168.0.29"))).toBe("192.168.0.29");
     expect(ipDe(req("::1"))).toBe("127.0.0.1");
   });
 });

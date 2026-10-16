@@ -64,7 +64,7 @@ describe("o que a Ely pode criar e abrir (bloco 199)", () => {
   it("abrir programa: nome sim, caminho e link não", () => {
     expect(nomeDeProgramaAceito("Discord")).toBe(true);
     expect(nomeDeProgramaAceito("Epic Games Launcher")).toBe(true);
-    expect(nomeDeProgramaAceito("C:\\Users\\Zak\\Downloads\\x.exe")).toBe(false);
+    expect(nomeDeProgramaAceito("C:\\Users\\usuario\\Downloads\\x.exe")).toBe(false);
     expect(nomeDeProgramaAceito("file:///C:/x.exe")).toBe(false);
     expect(nomeDeProgramaAceito("search-ms:query=x")).toBe(false);
     expect(nomeDeProgramaAceito("x’; calc")).toBe(false);

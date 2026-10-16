@@ -12,7 +12,7 @@ describe("cérebro fora do ar (fase 12)", () => {
   it("só tenta subir Ollama local e só por falha de conexão", () => {
     expect(enderecoLocal("http://127.0.0.1:11434")).toBe(true);
     expect(enderecoLocal("http://localhost:11434")).toBe(true);
-    expect(enderecoLocal("http://192.168.15.40:11434")).toBe(false);
+    expect(enderecoLocal("http://192.168.0.40:11434")).toBe(false);
     expect(falhaDeConexao(new TypeError("fetch failed"))).toBe(true);
     expect(falhaDeConexao(new Error("HTTP 404 model not found"))).toBe(false);
   });

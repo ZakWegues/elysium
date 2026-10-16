@@ -20,7 +20,7 @@ describe("leitor de link (bloco 138)", async () => {
 
   it("só página pública: nada de rede local, localhost ou outro esquema", () => {
     expect(urlPermitida("https://g1.globo.com/x")).toBe(true);
-    for (const u of ["http://localhost:4200/api", "http://127.0.0.1/", "http://192.168.15.1/", "http://10.0.0.5", "http://172.20.1.1", "http://100.64.0.1", "file:///C:/x", "ftp://a.com", "http://[::1]/", "http://roteador.local/"]) {
+    for (const u of ["http://localhost:4200/api", "http://127.0.0.1/", "http://192.168.0.1/", "http://10.0.0.5", "http://172.20.1.1", "http://100.64.0.1", "file:///C:/x", "ftp://a.com", "http://[::1]/", "http://roteador.local/"]) {
       expect(urlPermitida(u), u).toBe(false);
     }
   });

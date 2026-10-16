@@ -12,3 +12,27 @@ scripts/bench-resultados/
 
 # Capturas de tela soltas na raiz (scripts/shot.mjs, testes de tela): nunca vão para o repo.
 /*.png
+
+# Segurança (fase 23.2): segredos, chaves e arquivos de ferramenta nunca vão para o repositório.
+.env
+.env.*
+!.env.example
+elysium-config.json
+auth.json
+credentials.json
+google-services.json
+*.jks
+*.keystore
+*.pfx
+*.p12
+*.p8
+*.pem
+*.key
+*.apk
+*.aab
+coverage/
+.claude/
+CLAUDE.md
+AGENTS.md
+ULTRA_HANDOFF.md
+HANDOFF.md

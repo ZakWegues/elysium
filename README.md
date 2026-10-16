@@ -2,11 +2,8 @@
 
 Assistente de voz desktop para Windows. Roda em segundo plano na bandeja do sistema, ativado por atalho de teclado global. Entende comandos em português do Brasil e executa ações reais no computador.
 
-> Este README cobre instalar, configurar e resolver problemas de uso. Para arquitetura,
-> contrato com o app mobile, decisões técnicas e armadilhas, leia o
-> [`ULTRA_HANDOFF.md`](ULTRA_HANDOFF.md).
->
-> "Jarvis PC" era o nome do projeto na especificação original (`CLAUDE.md`).
+> Este README cobre instalar, configurar e resolver problemas de uso. Para relatar uma falha
+> de segurança, veja o [`SECURITY.md`](SECURITY.md).
 
 ## Pré-requisitos
 

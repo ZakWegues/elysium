@@ -47,7 +47,7 @@ export function listFacts(): MemoryFact[] {
 
 /**
  * Guarda um fato novo. Devolve o fato criado, ou o existente quando já havia um
- * equivalente — repetir "lembra que eu moro em Curitiba" não deve gerar duplicata.
+ * equivalente — repetir "lembra que eu moro em Recife" não deve gerar duplicata.
  */
 export function addFact(text: string): { fact: MemoryFact; created: boolean } {
   const clean = text.trim().slice(0, MEMORY_MAX_TEXT_LENGTH);
@@ -96,7 +96,7 @@ export function removeFactById(id: string): boolean {
 
 /**
  * Remove por trecho de texto — é assim que o comando de voz chega ("esquece que eu
- * moro em Curitiba"). Casa por substring nos dois sentidos, como `findPresetKey`.
+ * moro em Recife"). Casa por substring nos dois sentidos, como `findPresetKey`.
  */
 export function removeFactByText(query: string): MemoryFact | null {
   const q = query.trim().toLowerCase();

@@ -216,6 +216,6 @@ describe("MCP do ELYSIUM para o Hermes", () => {
   it("só atende o próprio PC", () => {
     expect(ehDoProprioPc("127.0.0.1")).toBe(true);
     expect(ehDoProprioPc("::ffff:127.0.0.1")).toBe(true);
-    expect(ehDoProprioPc("192.168.15.22")).toBe(false);
+    expect(ehDoProprioPc("192.168.0.22")).toBe(false);
   });
 });

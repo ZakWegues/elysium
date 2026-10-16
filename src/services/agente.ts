@@ -133,7 +133,7 @@ function alegaAcao(texto: string): boolean {
  * Depois de só LER, o texto do modelo vale como resposta? Não quando ele nega o que a
  * ferramenta devolveu ("não achei" com a lista cheia), fala de "ferramenta"/"função", ou
  * devolve JSON solto (`{"name": "CHAT"}` do 8B). Fora isso, o texto é dele: "onde minha
- * irmã mora?" depois de ler a memória tem que ser "Em Curitiba", não a lista de fatos.
+ * irmã mora?" depois de ler a memória tem que ser "Em Recife", não a lista de fatos.
  */
 function textoConfiavel(content: string, leituras: { resultado: string }[]): boolean {
   if (/^\s*[{[]/.test(content)) return false;
