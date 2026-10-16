@@ -2,7 +2,7 @@ import { shell } from "electron";
 import Store from "electron-store";
 import * as crypto from "node:crypto";
 import * as http from "node:http";
-import { getGoogleCliente } from "../main/config";
+import { cifrarTexto, decifrarTexto, getGoogleCliente } from "../main/config";
 
 /**
  * Google Agenda, só leitura (fase 13, bloco 120).
@@ -71,7 +71,7 @@ export async function conectarAgenda(): Promise<{ ok: boolean; mensagem: string 
         });
         const j = await r.json() as { refresh_token?: string; access_token?: string; expires_in?: number; id_token?: string; error?: string };
         if (!r.ok || !j.refresh_token || !j.access_token) { fim(false, `Troca do código falhou (${j.error ?? r.status}).`); return; }
-        store.set("refreshToken", j.refresh_token);
+        store.set("refreshToken", cifrarTexto(j.refresh_token));
         acesso = { token: j.access_token, ate: Date.now() + (j.expires_in ?? 3000) * 1000 - 60_000 };
         // O e-mail da conta só para a tela dizer "conectado como…"; vem no id_token (JWT).
         try { store.set("conta", String(JSON.parse(Buffer.from((j.id_token ?? "").split(".")[1] ?? "", "base64").toString()).email ?? "")); } catch { /* sem e-mail */ }
@@ -95,7 +95,10 @@ export async function conectarAgenda(): Promise<{ ok: boolean; mensagem: string 
 async function tokenDeAcesso(): Promise<string | null> {
   if (acesso && acesso.ate > Date.now()) return acesso.token;
   const { id, segredo } = getGoogleCliente();
-  const refresh = store.get("refreshToken");
+  const refreshGravado = store.get("refreshToken");
+  const refresh = decifrarTexto(refreshGravado);
+  // Fase 23.2: token antigo em texto puro vira cifrado na primeira leitura.
+  if (refresh && !refreshGravado.startsWith("enc:")) store.set("refreshToken", cifrarTexto(refresh));
   if (!id || !segredo || !refresh) return null;
   const r = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",

@@ -597,6 +597,23 @@ function lerSegredo(chave: ChaveSecreta): string {
   return bruto;
 }
 
+/**
+ * Fase 23.2 (blindagem): a mesma cifra para segredos que moram em OUTRO store (os refresh
+ * tokens do Spotify e da Agenda ficavam em texto puro). `decifrarTexto` aceita o valor antigo
+ * sem prefixo — quem chama regrava cifrado na próxima vez.
+ */
+export function cifrarTexto(valor: string): string {
+  const v = (valor || "").trim();
+  if (!v || v.startsWith(PREFIXO_CIFRA) || !cifraDisponivel()) return v;
+  try { return PREFIXO_CIFRA + safeStorage.encryptString(v).toString("base64"); } catch { return v; }
+}
+export function decifrarTexto(bruto: string | null | undefined): string {
+  const b = (bruto || "").trim();
+  if (!b.startsWith(PREFIXO_CIFRA)) return b;
+  try { return safeStorage.decryptString(Buffer.from(b.slice(PREFIXO_CIFRA.length), "base64")).trim(); }
+  catch { console.warn("[config] não consegui decifrar um token (outra conta do Windows?) — conecte de novo."); return ""; }
+}
+
 function gravarSegredo(chave: ChaveSecreta, valor: string): void {
   const v = (valor || "").trim();
   if (v && cifraDisponivel()) {

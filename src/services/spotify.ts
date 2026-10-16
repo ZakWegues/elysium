@@ -1,7 +1,7 @@
 import * as crypto from "node:crypto";
 import { shell } from "electron";
 import Store from "electron-store";
-import { getConfig } from "../main/config";
+import { cifrarTexto, decifrarTexto, getConfig } from "../main/config";
 
 /**
  * Spotify Web API.
@@ -135,14 +135,14 @@ export async function completeLogin(code: string, state: string): Promise<void> 
 
   accessToken = data.access_token;
   accessTokenExpiresAt = Date.now() + (data.expires_in ?? 3600) * 1000;
-  store.set("spotify", { refreshToken: data.refresh_token });
+  store.set("spotify", { refreshToken: cifrarTexto(data.refresh_token) });
 }
 
 async function ensureAccessToken(): Promise<string> {
   // 60 s de folga: um token que expira no meio do voo devolve 401 e perde a ação.
   if (accessToken && Date.now() < accessTokenExpiresAt - 60_000) return accessToken;
 
-  const refreshToken = store.get("spotify").refreshToken;
+  const refreshToken = decifrarTexto(store.get("spotify").refreshToken);
   if (!refreshToken) throw new Error("Spotify não conectado");
 
   const res = await fetch(TOKEN_URL, {
@@ -170,7 +170,9 @@ async function ensureAccessToken(): Promise<string> {
   accessToken = data.access_token;
   accessTokenExpiresAt = Date.now() + (data.expires_in ?? 3600) * 1000;
   // O Spotify às vezes rotaciona o refresh token; guardar o novo evita perder a sessão.
-  if (data.refresh_token) store.set("spotify", { refreshToken: data.refresh_token });
+  if (data.refresh_token) store.set("spotify", { refreshToken: cifrarTexto(data.refresh_token) });
+  // Fase 23.2: o token antigo (texto puro) é regravado cifrado.
+  else if (!String(store.get("spotify").refreshToken ?? "").startsWith("enc:")) store.set("spotify", { refreshToken: cifrarTexto(refreshToken) });
 
   return accessToken;
 }
