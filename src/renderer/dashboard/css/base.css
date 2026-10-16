@@ -54,8 +54,8 @@
 /* ── LIQUID GLASS THEME (claro, linguagem do ELYSIUM-M) ── */
 body.theme-lg {
   --radius-3: 8px;  --radius-4: 10px; --radius-5: 12px; --radius-6: 14px;
-  --radius-7: 16px; --radius-8: 18px; --radius-9: 20px; --radius-10: 22px;
-  --radius-12: 22px; --radius-14: 28px; --radius-20: 999px;
+  --radius-7: 18px; --radius-8: 20px; --radius-9: 22px; --radius-10: 24px;
+  --radius-12: 26px; --radius-14: 32px; --radius-20: 999px;
   --text:    #16161d;
   --muted:   #6b7280;
   --border:  rgba(17,17,26,0.07);
@@ -83,9 +83,9 @@ body.theme-lg {
    Renomear atingiria centenas de usos em quase 3000 linhas sem ganho funcional nenhum;
    não é descuido, é escolha. */
 body.theme-ely {
-  --radius-3: 7px;  --radius-4: 9px;  --radius-5: 11px; --radius-6: 13px;
-  --radius-7: 15px; --radius-8: 16px; --radius-9: 18px; --radius-10: 20px;
-  --radius-12: 20px; --radius-14: 24px; --radius-20: 999px;
+  --radius-3: 9px;  --radius-4: 11px; --radius-5: 13px; --radius-6: 15px;
+  --radius-7: 17px; --radius-8: 19px; --radius-9: 21px; --radius-10: 24px;
+  --radius-12: 24px; --radius-14: 30px; --radius-20: 999px;
   --border:  rgba(var(--purple-rgb),0.16);
   --border2: rgba(var(--cyan-rgb),0.12);
   --glass-blur: blur(20px) saturate(140%);
@@ -196,11 +196,13 @@ body.vivo .ely-shaft { animation-duration: 12s, 4s; }
        cada quadro e engasga junto com o resto do app.
    O interruptor de acessibilidade no fim do bloco zera tudo de uma vez. */
 :root {
-  --mov-micro: 120ms;   /* hover, foco, toggle */
-  --mov-base: 220ms;    /* troca de aba, card entrando */
-  --mov-saida: 140ms;   /* saída é sempre mais rápida que entrada */
-  --mov-curva: cubic-bezier(0.2, 0, 0.2, 1);
-  --mov-suave: cubic-bezier(0.2, 0.8, 0.2, 1);
+  /* Fase 23.2 ("mais fluidez"): durações um pouco maiores e a curva de entrada vira um
+     ease-out longo (quint) — chega rápido e assenta devagar, sem parecer lento. */
+  --mov-micro: 140ms;   /* hover, foco, toggle */
+  --mov-base: 260ms;    /* troca de aba, card entrando */
+  --mov-saida: 160ms;   /* saída é sempre mais rápida que entrada */
+  --mov-curva: cubic-bezier(0.25, 0.1, 0.25, 1);
+  --mov-suave: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 /* Entradas em CSS puro: sem classe adicionada por JS, sem requestAnimationFrame. */

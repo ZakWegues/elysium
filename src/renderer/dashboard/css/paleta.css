@@ -354,3 +354,16 @@
 .cc-azulejo.aceso { background: rgba(var(--purple-rgb), 0.24); border-color: var(--border2); }
 .cc-azulejo:disabled { opacity: 0.6; cursor: progress; }
 @media (max-width: 560px) { .cc-azulejos { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* Fase 23.2 ("mais fluidez"): o conteúdo da Central entra escalonado, como os cards da Início —
+   antes aparecia tudo de uma vez quando a gaveta abria. */
+@keyframes cc-entra { from { opacity: 0; transform: translateY(8px) scale(0.97); } }
+.gaveta-central .cc-app, .gaveta-central .cc-azulejo { animation: cc-entra var(--mov-base) var(--mov-suave) both; }
+.gaveta-central .cc-app:nth-child(2), .gaveta-central .cc-azulejo:nth-child(2) { animation-delay: 30ms; }
+.gaveta-central .cc-app:nth-child(3), .gaveta-central .cc-azulejo:nth-child(3) { animation-delay: 60ms; }
+.gaveta-central .cc-app:nth-child(4), .gaveta-central .cc-azulejo:nth-child(4) { animation-delay: 90ms; }
+.gaveta-central .cc-app:nth-child(5), .gaveta-central .cc-azulejo:nth-child(5) { animation-delay: 120ms; }
+.gaveta-central .cc-app:nth-child(6), .gaveta-central .cc-azulejo:nth-child(6) { animation-delay: 150ms; }
+.gaveta-central .cc-app:nth-child(n+7) { animation-delay: 180ms; }
+@media (prefers-reduced-motion: reduce) { :root:not([data-movimento="sempre"]) .gaveta-central .cc-app, :root:not([data-movimento="sempre"]) .gaveta-central .cc-azulejo { animation: none; } }
+:root[data-movimento="nunca"] .gaveta-central .cc-app, :root[data-movimento="nunca"] .gaveta-central .cc-azulejo { animation: none; }

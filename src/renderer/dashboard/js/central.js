@@ -47,7 +47,7 @@ function htmlFavoritos() {
     return `<div class="cc-favs-edit">${todos.map(n =>
       `<button class="pilula${favs.includes(n) ? " aceso" : ""}" data-fav-alternar="${escHtml(n)}">${escHtml(n)}</button>`).join("")}</div>`;
   }
-  if (!favs.length) return `<div class="home-empty">Nenhum programa no catálogo ainda.</div>`;
+  if (!favs.length) return progCatalogo.length ? `<div class="home-empty">Nenhum favorito. Toque em Editar.</div>` : `<div class="home-empty">Carregando os programas…</div>`;
   return `<div class="cc-favs">${favs.map(n => {
     const aberto = (progAbertos ?? []).includes(n);
     return `<button class="cc-app${aberto ? " aberto" : ""}" data-cc-abrir="${escHtml(n)}" title="Abrir ${escHtml(n)}">
@@ -144,7 +144,9 @@ function abrirCentral() {
         const ac = e.target.closest("[data-cc-acao]");
         if (ac) acaoCentral(ac.dataset.ccAcao, ac);
       }, { signal });
+      // O catálogo pode chegar depois (carregarPc já em andamento volta na hora): redesenha quando ele vier.
       carregarPc().then(desenharFavoritos);
+      garantirCatalogo().then(() => lerAbertos()).then(desenharFavoritos).catch(() => {});
     },
     aoFechar: () => { editandoFavoritos = false; },
   });

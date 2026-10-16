@@ -55,6 +55,8 @@ body.theme-stark .hoje-painel,
 body.theme-stark .rotina,
 body.theme-stark .rot-card {
   border-color: var(--stark-linha);
+  /* Fase 23.2: o resto do app arredondou; o HUD fica em 16 px para as cantoneiras aparecerem. */
+  border-radius: 16px;
   background-image:
     linear-gradient(var(--purple-bright), var(--purple-bright)),
     linear-gradient(var(--purple-bright), var(--purple-bright)),
