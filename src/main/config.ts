@@ -1,6 +1,7 @@
 import { app, safeStorage } from "electron";
 import Store from "electron-store";
 import { enderecoPermitido } from "../services/redeSegura";
+import { perfilValido } from "../services/voiceStudio";
 import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -131,6 +132,10 @@ export interface AppConfig {
   falaAntecipada: boolean;
   /** Fase 19: velocidade da fala, de −10 a +10 (por cento, por cima do ajuste de cada voz). */
   velocidadeFala: number;
+  /** 17/10: quem gera a voz — "edge" (internet) ou "voicestudio" (local, ver `voiceStudio.ts`). */
+  motorVoz: "edge" | "voicestudio";
+  /** Nome (ou ID) do perfil de voz no VoiceStudio. Vazio = a voz padrão do motor ativo lá. */
+  voiceStudioVoz: string;
   /**
    * Acompanhar o acesso de fora de casa (Tailscale) no card Saúde, no resumo e na faixa do
    * celular (bloco 122). Desligado por padrão desde o bloco 128: o Zak não quer o Tailscale
@@ -257,6 +262,8 @@ const DEFAULTS: AppConfig = {
   somDeEscuta: true,
   falaAntecipada: true,
   velocidadeFala: 0,
+  motorVoz: "edge",
+  voiceStudioVoz: "",
   acessoRemotoNaSaude: false,
   estiloResposta: "equilibrado",
   tratamento: "chefe",
@@ -549,6 +556,8 @@ export function patchDeConfigSeguro(patch: Partial<AppConfig>): Partial<AppConfi
     const p = Number(limpo.serverPort);
     if (!Number.isInteger(p) || p < 1024 || p > 65535) delete limpo.serverPort;
   }
+  if ("motorVoz" in limpo && limpo.motorVoz !== "edge" && limpo.motorVoz !== "voicestudio") delete limpo.motorVoz;
+  if ("voiceStudioVoz" in limpo && !perfilValido(limpo.voiceStudioVoz)) delete limpo.voiceStudioVoz;
   return limpo;
 }
 
