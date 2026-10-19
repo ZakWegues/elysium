@@ -17,11 +17,29 @@ describe("palavra de ativação — o que acorda", () => {
 
 describe("interromper a fala dizendo Elysium (fase 12)", async () => {
   const { podeInterromper } = await import("../src/services/palavraAtivacao");
-  it("só com confiança alta", () => {
+  it("confiança alta ou média (19/10)", () => {
     expect(podeInterromper("High", "Em São Paulo, 22 graus.")).toBe(true);
-    expect(podeInterromper("Medium", "Em São Paulo, 22 graus.")).toBe(false);
+    expect(podeInterromper("Medium", "Em São Paulo, 22 graus.")).toBe(true);
   });
   it("nunca quando a própria fala diz o nome", () => {
     expect(podeInterromper("High", "Eu sou o ELYSIUM, seu assistente.")).toBe(false);
+  });
+  it("nunca quando a palavra ouvida está na fala dela (eco da caixa de som)", () => {
+    expect(podeInterromper("High", "Separei isso para você.", "para")).toBe(false);
+    expect(podeInterromper("High", "Separei isso para você.", "chega")).toBe(true);
+    expect(podeInterromper("High", "Separei isso para você.", "ely para")).toBe(true);
+  });
+});
+
+describe("o que o reconhecedor ouviu (19/10)", async () => {
+  const { lerLinha } = await import("../src/services/palavraAtivacao");
+  it("acordar, parar e voz", () => {
+    expect(lerLinha("OUVI|High|ei ely")).toEqual({ tipo: "acordar", confianca: "High", texto: "ei ely" });
+    expect(lerLinha("OUVI|Medium|ely para")?.tipo).toBe("parar");
+    expect(lerLinha("OUVI|High|chega\r")?.tipo).toBe("parar");
+    expect(lerLinha("OUVI|Rejected|")).toEqual({ tipo: "voz" });
+    expect(lerLinha("VOZ|")).toEqual({ tipo: "voz" });
+    expect(lerLinha("PRONTO")).toBeNull();
+    expect(lerLinha("ERRO|x")).toBeNull();
   });
 });

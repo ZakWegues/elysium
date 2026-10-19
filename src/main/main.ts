@@ -53,7 +53,7 @@ import { createTray, refreshTray, updateLastCommand, buildIcon as iconePadrao, a
 import { transcribe } from "../services/stt";
 import { clearHistory, desfazerUltimoTurno, registrarFalaDaEly } from "../services/brain";
 import { modelosDaGroq } from "../services/catalogoGroq";
-import { Confianca, desligarPalavraDeAtivacao, ligarPalavraDeAtivacao, podeInterromper } from "../services/palavraAtivacao";
+import { desligarPalavraDeAtivacao, escutarDuranteFala, ligarPalavraDeAtivacao, Ouvido, podeInterromper } from "../services/palavraAtivacao";
 
 // O log em arquivo entra antes de tudo que escreve no console (bloco 97).
 iniciarLogEmArquivo();
@@ -98,6 +98,7 @@ import { logAnomaly, getAnomalyHistory, getInsights } from "../services/telemetr
 import { getAllPresets } from "../services/presetsStore";
 import { fraseDeArranque, fraseDeEspera, fraseDeHabito, fraseDeLembrete, fraseDeTimer } from "../services/falasVivas";
 import { criarFatiador, restoParaFalar } from "../services/fatiadorDeFrases";
+import { dosarTratamento, vocativoPermitido } from "../services/vocativo";
 import { anexoAbreDireto } from "../services/anexos";
 import { marcarAcompanhado, pendentesDeAcompanhamento } from "../services/acompanhamento";
 import { lerHumor, type Humor } from "../services/humor";
@@ -276,6 +277,8 @@ let appQuitting = false;
 aoMudarFala((f) => {
   marcarFalaNaBandeja(f);
   enviarAoDash("tts:falando", f);
+  // 19/10: o reconhecedor offline escuta enquanto ela fala, para dar para cortar pela voz.
+  escutarDuranteFala(f && getConfig().interromperFalando !== false, acordarPorVoz);
 });
 // Fase 21: o áudio começou de verdade — a esfera do chat pulsa palavra por palavra.
 aoTocarAudio((a) => enviarAoDash("ely:fala", { envelope: envelopeDasPalavras(a.palavras, a.durMs, 33), passoMs: 33 }));
@@ -595,8 +598,11 @@ ipcMain.on("audio-data", async (_event, buffer: Buffer) => {
     // ÚLTIMA delas acabar de tocar — senão o ícone voltava a "ocioso" com ela ainda falando.
     const falas: Promise<void>[] = [];
     const espera = setTimeout(() => { if (turnoAtual() === meuToken && !falas.length) void speak(fraseDeEspera(text)).catch(() => {}); }, 2500);
-    const falarFrase = (frase: string) => {
-      if (turnoAtual() !== meuToken || !frase) return;
+    const falarFrase = (bruta: string) => {
+      if (turnoAtual() !== meuToken || !bruta) return;
+      // A mesma régua do texto final (command.ts): vocativo só na primeira frase, se sorteado.
+      const frase = dosarTratamento(bruta, getConfig().tratamento ?? "", vocativoPermitido(), !jaFalado);
+      if (!frase) return;
       clearTimeout(espera);
       jaFalado += ` ${frase}`;
       // O estado continua "processing" até o pedido terminar: "speaking" é interrompível pelo
@@ -1098,18 +1104,25 @@ state.on("change", (s) => { if (s === "idle") ultimoOcioso = Date.now(); });
 /** Quando a palavra de ativação abriu o microfone pela última vez (bloco 116). */
 let acordadoPorVozEm = 0;
 
-function acordarPorVoz(confianca: Confianca): void {
+function acordarPorVoz(o: Ouvido): void {
   if (!hasApiKey()) return;
-  acordadoPorVozEm = Date.now();
-  // Barge-in (fase 12): "Elysium" no meio da fala corta a fala e já começa a ouvir.
-  if (state.is("speaking")) {
-    if (!podeInterromper(confianca, falaAtual())) return;
-    console.log("[palavra] interrompendo a fala.");
+  // Barge-in (fase 12; 19/10): no meio da fala, "Ely"/"Elysium" corta e já começa a ouvir;
+  // "para", "chega", "espera" só cortam; e, com a opção de fone, qualquer fala corta e ouve.
+  // `estaFalando()` e não o estado "speaking": com a fala antecipada ela fala ainda em
+  // "processing", e antes disso a interrupção simplesmente não acontecia.
+  if (estaFalando()) {
+    if (o.tipo === "voz") {
+      if (!getConfig().interromperComQualquerFala) return;
+    } else if (!podeInterromper(o.confianca, falaAtual(), o.texto)) return;
+    console.log(`[palavra] interrompendo a fala (${o.tipo}).`);
     interruptAll();
+    interromperHermes();
     state.set("idle");
-    startListening().catch((e) => console.error("[palavra] não consegui começar a ouvir:", e));
+    if (o.tipo !== "parar") startListening().catch((e) => console.error("[palavra] não consegui começar a ouvir:", e));
     return;
   }
+  if (o.tipo !== "acordar" || !getConfig().palavraDeAtivacao) return;
+  acordadoPorVozEm = Date.now();
   if (!state.is("idle")) return;
   if (Date.now() - ultimoOcioso < 2500) return;
   startListening().catch((e) => console.error("[palavra] não consegui começar a ouvir:", e));

@@ -38,7 +38,7 @@ $asTask = ([System.WindowsRuntimeSystemExtensions].GetMethods() | Where-Object {
 function Await($op, [Type]$tipo) { $t = $asTask.MakeGenericMethod($tipo).Invoke($null, @($op)); $t.Wait(-1) | Out-Null; $t.Result }
 try {
   $rec = New-Object Windows.Media.SpeechRecognition.SpeechRecognizer (New-Object Windows.Globalization.Language 'pt-BR')
-  $c = [Windows.Media.SpeechRecognition.SpeechRecognitionListConstraint]::new([string[]]@('ely', 'ei ely', 'oi ely', 'ok ely', 'elysium', 'ei elysium', 'ok elysium', 'oi elysium'), 'acordar')
+  $c = [Windows.Media.SpeechRecognition.SpeechRecognitionListConstraint]::new([string[]]@('ely', 'ei ely', 'oi ely', 'ok ely', 'elysium', 'ei elysium', 'ok elysium', 'oi elysium', 'ely para', 'para ely', 'para', 'chega', 'espera', 'espera ai', 'silencio', 'para de falar', 'pode parar'), 'acordar')
   $tl = [System.Collections.Generic.ICollection[Windows.Media.SpeechRecognition.ISpeechRecognitionConstraint]]
   $tl.GetMethod('Add').Invoke($rec.Constraints, @($c)) | Out-Null
   $comp = Await ($rec.CompileConstraintsAsync()) ([Windows.Media.SpeechRecognition.SpeechRecognitionCompilationResult])
@@ -52,20 +52,46 @@ while ($true) {
   try {
     $r = Await ($rec.RecognizeAsync()) ([Windows.Media.SpeechRecognition.SpeechRecognitionResult])
     if ($r.Status -eq 'Success' -and $r.Text) { [Console]::Out.WriteLine(("OUVI|{0}|{1}" -f $r.Confidence, $r.Text)); [Console]::Out.Flush() }
+    elseif ($r.Status -eq 'Success') { [Console]::Out.WriteLine("VOZ|"); [Console]::Out.Flush() }
   } catch { [Console]::Out.WriteLine("ERRO|" + $_.Exception.Message); [Console]::Out.Flush(); Start-Sleep -Seconds 3 }
 }
 `;
 
 let processo: ChildProcess | null = null;
-let ligado = false;
+/** Ligado pela palavra de ativação (Ajustes) — microfone aberto o tempo todo. */
+let porPalavra = false;
+/** 19/10: ligado só enquanto a Ely fala, para dar para interromper sem a palavra de ativação. */
+let porFala = false;
 let tentativas: number[] = [];
 export type Confianca = "High" | "Medium";
-let aoOuvirAtual: ((confianca: Confianca) => void) | null = null;
+export type Ouvido =
+  | { tipo: "acordar"; confianca: Confianca; texto: string }
+  | { tipo: "parar"; confianca: Confianca; texto: string }
+  | { tipo: "voz" };
+let aoOuvirAtual: ((o: Ouvido) => void) | null = null;
+
+function querendoEscutar(): boolean { return porPalavra || porFala; }
 
 /** "OUVI|High|elysium" → true quando vale acordar. Exportado para os testes. */
 export function linhaAcorda(linha: string): boolean {
   const [tipo, confianca, texto] = linha.trim().split("|");
   return tipo === "OUVI" && (confianca === "High" || confianca === "Medium") && /\bely(sium)?\b/i.test(texto ?? "");
+}
+
+/**
+ * Uma linha do reconhecedor vira o que foi ouvido (19/10). "Ely"/"Elysium" = acordar; "para",
+ * "chega", "espera", "silêncio" = parar; qualquer fala fora da lista (o reconhecedor devolve
+ * "rejeitado" ou confiança baixa) = voz. Pura.
+ */
+export function lerLinha(linha: string): Ouvido | null {
+  const [tipo, confianca, bruto] = linha.trim().split("|");
+  if (tipo === "VOZ") return { tipo: "voz" };
+  if (tipo !== "OUVI") return null;
+  const texto = (bruto ?? "").trim();
+  if (confianca !== "High" && confianca !== "Medium") return { tipo: "voz" };
+  if (/\b(para|chega|espera|silencio|parar)\b/i.test(texto)) return { tipo: "parar", confianca, texto };
+  if (/\bely(sium)?\b/i.test(texto)) return { tipo: "acordar", confianca, texto };
+  return null;
 }
 
 function subir(): void {
@@ -78,51 +104,77 @@ function subir(): void {
     const linhas = resto.split(/\r?\n/);
     resto = linhas.pop() ?? "";
     for (const l of linhas) {
-      if (l.startsWith("ERRO|")) console.warn(`[palavra] ${l.slice(5)}`);
-      else if (l === "PRONTO") console.log("[palavra] escutando \"Elysium\" (offline)");
-      else if (linhaAcorda(l)) { console.log(`[palavra] ${l}`); aoOuvirAtual?.(l.split("|")[1] as Confianca); }
+      if (l.startsWith("ERRO|")) { console.warn(`[palavra] ${l.slice(5)}`); continue; }
+      if (l === "PRONTO") { console.log("[palavra] escutando (offline)"); continue; }
+      const o = lerLinha(l);
+      if (!o) continue;
+      if (o.tipo !== "voz") console.log(`[palavra] ${l}`);
+      aoOuvirAtual?.(o);
     }
   });
   ps.on("exit", (code) => {
     if (processo === ps) processo = null;
-    if (!ligado) return;
+    if (!querendoEscutar()) return;
     // Caiu sozinho (microfone sumiu, serviço de fala reiniciou): sobe de novo, mas no
     // máximo 5 vezes em 10 minutos — um defeito permanente não pode virar um laço de
     // PowerShell subindo e morrendo a cada segundo.
     const agora = Date.now();
     tentativas = tentativas.filter(t => agora - t < 10 * 60_000);
-    if (tentativas.length >= 5) { console.error(`[palavra] caiu 5 vezes em 10 min (último código ${code}); desisti até religar em Ajustes.`); ligado = false; return; }
+    if (tentativas.length >= 5) { console.error(`[palavra] caiu 5 vezes em 10 min (último código ${code}); desisti até religar em Ajustes.`); porPalavra = false; porFala = false; return; }
     tentativas.push(agora);
-    setTimeout(() => { if (ligado && !processo) subir(); }, 3000);
+    setTimeout(() => { if (querendoEscutar() && !processo) subir(); }, 3000);
   });
 }
 
-/**
- * Interromper a fala dizendo "Elysium" (C4 do catálogo, fase 12). Com a caixa de som
- * tocando, o reconhecedor ouve o próprio ELYSIUM: só vale confiança ALTA (a média, que
- * basta com a sala em silêncio, pegaria palavra parecida no meio da fala), e nunca quando a
- * frase que está sendo falada contém "Elysium" — ele se interromperia ao dizer o nome.
- */
-export function podeInterromper(confianca: Confianca, falando: string): boolean {
-  // A fala da resposta que contém o próprio nome ("Ely", "ELYSIUM") não pode se interromper.
-  return confianca === "High" && !/\bely/i.test(falando);
+function acertarProcesso(): void {
+  if (querendoEscutar() && !processo) subir();
+  else if (!querendoEscutar() && processo) { processo.kill(); processo = null; }
 }
 
-export function ligarPalavraDeAtivacao(aoOuvir: (confianca: Confianca) => void): void {
+function semAcentoMin(s: string): string {
+  return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
+/**
+ * Interromper a fala pela voz (C4 do catálogo, fase 12; 19/10 mais solto). Com a caixa de som
+ * tocando, o reconhecedor ouve o próprio ELYSIUM — então nunca vale quando a frase ouvida está
+ * na fala que está saindo ("para" no meio da resposta dela não a corta). Fora isso, confiança
+ * alta ou média servem. Pura.
+ */
+export function podeInterromper(confianca: Confianca, falando: string, ouvido = "ely"): boolean {
+  const f = semAcentoMin(falando);
+  const o = semAcentoMin(ouvido).trim();
+  const escapado = o.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  if (o && new RegExp(`\\b${escapado}\\b`).test(f)) return false;
+  // O nome ("Ely", "ELYSIUM") na fala dela: o reconhecedor confunde um com o outro.
+  if (/\bely/.test(o) && /\bely/.test(f)) return false;
+  return confianca === "High" || confianca === "Medium";
+}
+
+export function ligarPalavraDeAtivacao(aoOuvir: (o: Ouvido) => void): void {
   aoOuvirAtual = aoOuvir;
-  if (ligado) return;
-  ligado = true;
+  if (porPalavra) return;
+  porPalavra = true;
   tentativas = [];
-  subir();
+  acertarProcesso();
 }
 
 export function desligarPalavraDeAtivacao(): void {
-  ligado = false;
-  aoOuvirAtual = null;
-  processo?.kill();
-  processo = null;
+  porPalavra = false;
+  acertarProcesso();
+}
+
+/**
+ * 19/10: escutar só enquanto a Ely fala (sem a palavra de ativação ligada) — o microfone abre na
+ * fala dela e fecha quando ela termina. O reconhecimento é o mesmo, local e offline.
+ */
+export function escutarDuranteFala(falando: boolean, aoOuvir: (o: Ouvido) => void): void {
+  aoOuvirAtual = aoOuvir;
+  porFala = falando;
+  if (falando) tentativas = [];
+  acertarProcesso();
 }
 
 export function palavraDeAtivacaoLigada(): boolean {
-  return ligado;
+  return porPalavra;
 }

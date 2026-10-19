@@ -2,7 +2,7 @@ import { getConfig, nomeDoUsuario } from "../../main/config";
 import type { Canal } from "../estiloResposta";
 import { modoAtivo } from "../modos";
 import { buildMemoryBlock } from "../memoryStore";
-import { pedirConfirmacao } from "../confirmacao";
+import { liberacaoAtiva, pedirConfirmacao } from "../confirmacao";
 import { ConexaoHermes } from "./conexao";
 import { acharHermes, encerrarArvore, garantirMcp, garantirPerfil, subirServidor, ServidorHermes, PERFIL_PADRAO } from "./processo";
 import { contextoDoTurno } from "./persona";
@@ -141,7 +141,7 @@ export function aplicarConfigHermes(): void {
 async function abrirSessao(): Promise<{ id: string; ultimoUso: number; turnos: number }> {
   const con = s.con;
   if (!con) throw new Error("sem conexão");
-  const r = await con.chamar<{ session_id: string; info?: { model?: string } }>("session.create", { title: "ELYSIUM", hidden: true }, 30_000);
+  const r = await con.chamar<{ session_id: string; info?: { model?: string } }>("session.create", { title: "ELYSIUM", hidden: false }, 30_000);
   s.modelo = r.info?.model ?? s.modelo;
   s.sessao = { id: r.session_id, ultimoUso: Date.now(), turnos: 0 };
   return s.sessao;
@@ -224,10 +224,18 @@ async function tratarFim(fim: FimDoTurno, noTurno: boolean): Promise<RespostaHer
     return tratarFim(await fim.resto, noTurno);
   }
   if (tipo === "aprovacao") {
+    // 19/10: "pode tudo" vale 15 min — a tarefa segue sem perguntar de novo. E o "sim" vale para a
+    // sessão (`session`): o mesmo tipo de comando não volta a pedir licença na mesma conversa. O
+    // Hermes já roda no modo "smart" (o de baixo risco nem chega aqui) e os bloqueios fixos dele
+    // valem em qualquer resposta.
+    if (liberacaoAtiva()) {
+      fim.responder({ choice: "session" });
+      return tratarFim(await fim.resto, noTurno);
+    }
     const pergunta = pedirConfirmacao(
-      descricaoDaAprovacao(fim.params),
+      `${descricaoDaAprovacao(fim.params)} (Se for uma tarefa longa, diga "pode tudo" e eu não pergunto de novo.)`,
       async () => {
-        fim.responder({ choice: "once" });
+        fim.responder({ choice: "session" });
         const r = await tratarFim(await fim.resto, false);
         return r?.reply ?? "Feito.";
       },

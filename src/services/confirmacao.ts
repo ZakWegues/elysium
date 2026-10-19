@@ -29,10 +29,44 @@ function sem(t: string): string {
   return semAcento(t).replace(/[^\w\s]/g, " ").replace(/\s+/g, " ").trim();
 }
 
-/** "sim", "pode", "confirma"… (frase inteira, com ou sem "Ely"). Pura. */
+/**
+ * "sim", "pode", "confirma"… Pura.
+ *
+ * 19/10: antes só valia a frase inteira, e "sim, pode baixar tudo" virava pedido novo — o modelo
+ * tentava de novo, pedia licença de novo, e o Zak ficou num laço de permissões baixando arquivos
+ * do Classroom. Agora:
+ *  - "sim…" vale com o que vier depois ("sim, pode baixar"), menos "sim, mas antes…";
+ *  - "pode…", "manda…", "ok…" valem com até duas palavras depois ("pode baixar", "pode sim"), ou
+ *    com "tudo"/"continua"/"segue" — "pode abrir o Spotify" é outro pedido;
+ *  - "não" em qualquer lugar nunca é sim.
+ */
 export function ehSim(texto: string): boolean {
-  return /^(?:ely )?(sim|s|isso|isso mesmo|confirmo|confirma|confirmado|pode|pode sim|pode ir|pode fazer|pode fechar|pode apagar|manda|manda ver|claro|com certeza|fechado|ok|okay|beleza|bora|faz|faca|faz isso|sim pode|sim por favor)(?: ely)?$/.test(sem(texto));
+  const t = sem(texto).toLowerCase().replace(/^(?:(?:ei|oi) )?ely /, "").replace(/ ely$/, "");
+  if (/\bnao\b/.test(t)) return false;
+  if (/^(sim|s)\b/.test(t)) return !/\b(mas|antes|primeiro|depois)\b/.test(t);
+  const m = /^(isso|confirmo|confirma|confirmado|pode|manda|claro|com certeza|fechado|ok|okay|beleza|bora|faz|faca|libera|liberado|autorizo|autorizado|vai|segue|continua|aprovado|aprovo)\b(.*)$/.exec(t);
+  if (!m) return false;
+  const resto = m[2].trim();
+  return !resto || resto.split(" ").length <= 2 || /\b(tudo|continua|segue|pode ir)\b/.test(resto);
 }
+
+/** "sim, pode tudo", "libera tudo", "não precisa perguntar"… — licença para o resto da tarefa. Pura. */
+export function ehLiberaTudo(texto: string): boolean {
+  const t = sem(texto).toLowerCase();
+  return /\b(pra|para) tudo\b|\b(libera|liberado|pode|autoriz\w*) tudo\b|\btudo liberado\b|\bsem (me )?perguntar\b|\bnao (precisa|pergunt\w*)\b.*\bpergunt|\bnao pergunt\w* mais\b|\bpara sempre\b/.test(t);
+}
+
+/**
+ * 19/10: licença ampla por 15 min — durante uma tarefa longa (baixar vários arquivos), as
+ * aprovações do Hermes e as perguntas de "conteúdo de fora" passam sem perguntar. Desligar,
+ * reiniciar e o que apaga continuam perguntando sempre (quem decide é cada ferramenta).
+ */
+export const LIBERACAO_MS = 15 * 60_000;
+let liberadoAte = 0;
+
+export function liberar(agora = Date.now()): void { liberadoAte = agora + LIBERACAO_MS; }
+export function liberacaoAtiva(agora = Date.now()): boolean { return liberadoAte > agora; }
+export function encerrarLiberacao(): void { liberadoAte = 0; }
 
 /** "não", "cancela", "deixa"… Pura. */
 export function ehNao(texto: string): boolean {
@@ -77,7 +111,8 @@ export async function responderConfirmacao(texto: string, agora = Date.now()): P
   pendente = null;
   const cancelar = () => { try { p.cancelar?.(); } catch { /* */ } };
   if (p.expiraEm <= agora) { cancelar(); return null; }
-  if (ehSim(texto)) {
+  if (ehSim(texto) || ehLiberaTudo(texto) && !ehNao(texto)) {
+    if (ehLiberaTudo(texto)) liberar(agora);
     try { return (await p.executar()).trim() || "Feito."; }
     catch (e) { return `Não consegui: ${e instanceof Error ? e.message : String(e)}`; }
   }

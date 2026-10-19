@@ -2,8 +2,9 @@
  * As perguntas que o Hermes faz ao cliente, na língua da Ely (fase 21, bloco 213). Puro.
  *
  * - `approval`: o agente quer rodar um comando que pede licença. Vira "Vou rodar … Confirma?
- *   Diga sim." pelo `pedirConfirmacao` de sempre; "sim" = `once` (só desta vez), qualquer outra
- *   coisa = `deny`. Nunca `always`/`session`: a licença não fica valendo para depois.
+ *   Diga sim." pelo `pedirConfirmacao` de sempre; "sim" = `session` (19/10: o mesmo tipo de
+ *   comando não pergunta de novo nesta conversa), qualquer outra coisa = `deny`. Nunca `always`:
+ *   a licença não fica valendo para depois da sessão.
  * - `clarify`: o agente precisa de uma resposta (com ou sem opções). A Ely faz a pergunta e o
  *   próximo pedido do dono é a resposta.
  * - `sudo`, `secret`, `vault.*` e o resto: recusados sem perguntar. Senha e segredo não passam

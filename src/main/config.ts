@@ -132,6 +132,10 @@ export interface AppConfig {
   falaAntecipada: boolean;
   /** Fase 19: velocidade da fala, de −10 a +10 (por cento, por cima do ajuste de cada voz). */
   velocidadeFala: number;
+  /** 19/10: enquanto a Ely fala, o reconhecedor offline escuta "Ely", "para", "chega"… para cortar. */
+  interromperFalando: boolean;
+  /** 19/10: qualquer fala corta a Ely (só faz sentido com fone — na caixa de som ela se ouviria). */
+  interromperComQualquerFala: boolean;
   /** 17/10: quem gera a voz — "edge" (internet) ou "voicestudio" (local, ver `voiceStudio.ts`). */
   motorVoz: "edge" | "voicestudio";
   /** Nome (ou ID) do perfil de voz no VoiceStudio. Vazio = a voz padrão do motor ativo lá. */
@@ -249,7 +253,8 @@ const DEFAULTS: AppConfig = {
   // Fase 21: decisão do Zak (09/10) — o Hermes responde tudo que não é atalho. Sem o Hermes
   // instalado, o estado fica "sem-hermes" e tudo segue pelo cérebro de sempre.
   cerebro: "hermes",
-  hermesPerfil: "ely",
+  // 19/10: um perfil só — o mesmo Hermes que o Zak usa direto (sessões e memória em comum).
+  hermesPerfil: "default",
   hermesContextoPessoal: false,
   // Decisão do Zak (12/10): a esfera mora no Chat, parada no fundo, e se mexe quando alguém fala.
   esferaChat: true,
@@ -262,6 +267,8 @@ const DEFAULTS: AppConfig = {
   somDeEscuta: true,
   falaAntecipada: true,
   velocidadeFala: 0,
+  interromperFalando: true,
+  interromperComQualquerFala: false,
   motorVoz: "edge",
   voiceStudioVoz: "",
   acessoRemotoNaSaude: false,
@@ -510,7 +517,9 @@ export function getConfig(): AppConfig {
     ollamaRouterModel: healOllama(merged.ollamaRouterModel, DEFAULTS.ollamaRouterModel, "ollamaRouterModel"),
     ollamaChatModel:   healOllama(merged.ollamaChatModel,   DEFAULTS.ollamaChatModel,   "ollamaChatModel"),
     cerebro: merged.cerebro === "elysium" ? "elysium" : "hermes",
-    hermesPerfil: /^[a-z0-9][a-z0-9_-]{0,31}$/.test(String(merged.hermesPerfil ?? "")) ? merged.hermesPerfil : DEFAULTS.hermesPerfil,
+    // 19/10: o perfil separado `ely` acabou — o ELYSIUM usa o perfil do dono. Quem tinha "ely"
+    // gravado passa para o "default".
+    hermesPerfil: /^[a-z0-9][a-z0-9_-]{0,31}$/.test(String(merged.hermesPerfil ?? "")) && merged.hermesPerfil !== "ely" ? merged.hermesPerfil : DEFAULTS.hermesPerfil,
   };
 
   // A cura vai para o disco quando o modelo morto era uma escolha do USUÁRIO: sem isso o

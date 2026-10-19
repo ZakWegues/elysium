@@ -10,13 +10,17 @@ import * as path from "node:path";
  * Por que um servidor PRÓPRIO, e não o que o Zak já usa: o WebSocket do `hermes serve` só aceita
  * o token de sessão do processo (`HERMES_DASHBOARD_SESSION_TOKEN`, ou um aleatório por partida),
  * e esse token só o processo conhece. Subindo o nosso, o token é nosso; e o `--isolated` com
- * `-p ely` prende tudo ao perfil `ely` — sessões, memória e MCP separados do Hermes de uso normal.
+ * `-p default` usa o perfil do próprio dono (19/10): sessões e memória em comum com o Hermes dele.
  *
  * Medido em 09/10/2026: o servidor leva 9–14 s para subir; por isso ele sobe uma vez, na partida
  * do app, e fica de pé até o "Sair".
  */
 
-export const PERFIL_PADRAO = "ely";
+/**
+ * 19/10: o perfil do próprio dono ("default"), não mais um `ely` separado — o Zak quer um Hermes
+ * só, com as conversas do ELYSIUM e as dele no mesmo lugar.
+ */
+export const PERFIL_PADRAO = "default";
 
 /** Onde o instalador oficial do Hermes põe o executável no Windows. */
 export function acharHermes(env: NodeJS.ProcessEnv = process.env): string | null {
@@ -67,6 +71,8 @@ export function perfilNaLista(saida: string, perfil: string): boolean {
  * a chave) e desliga a memória do Hermes nele — a memória pessoal mora só no ELYSIUM.
  */
 export async function garantirPerfil(exe: string, perfil = PERFIL_PADRAO): Promise<void> {
+  // O perfil do dono sempre existe e é DELE: nada de criar nem de desligar a memória.
+  if (perfil === PERFIL_PADRAO) return;
   const lista = await rodarHermes(exe, ["profile", "list"]);
   if (perfilNaLista(lista, perfil)) return;
   console.log(`[hermes] criando o perfil "${perfil}"`);

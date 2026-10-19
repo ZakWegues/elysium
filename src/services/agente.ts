@@ -1,7 +1,7 @@
 import { getApiKey, getConfig, nomeDoUsuario } from "../main/config";
 import { blocoDasConversasAnteriores } from "./episodios";
 import { decidirChamada, envelopeExterno, FONTES_EXTERNAS } from "./politicaFerramentas";
-import { pedirConfirmacao } from "./confirmacao";
+import { liberacaoAtiva, pedirConfirmacao } from "./confirmacao";
 import { isoLocal } from "./hora";
 import { blocoDeInstrucoes, Canal, regraDoAgente } from "./estiloResposta";
 import { linhaDoAgente, modoAtivo } from "./modos";
@@ -61,7 +61,7 @@ export interface ResultadoAgente {
  */
 function linhaDoTratamento(): string {
   const t = (getConfig().tratamento ?? "chefe").trim();
-  return t ? ` Pode chamá-lo de "${t}" de vez em quando, nunca em toda resposta.` : "";
+  return t ? ` Quase sempre sem vocativo (só "você"); raramente "${t}".` : "";
 }
 
 /** Exportado para a bancada (`scripts/bench-agente.mjs`) medir com o prompt de produção. */
@@ -320,7 +320,9 @@ export async function executarComPolitica(nome: string, args: Record<string, unk
   const f = ferramenta(nome);
   // Fase 23.2: ação de alto impacto depois de ler conteúdo de fora — pergunta antes, mesmo
   // que a ferramenta não tenha confirmação própria.
-  if (decisao.tipo === "confirmar" && !f?.confirmar) {
+  // 19/10: com o "pode tudo" valendo, segue sem perguntar (desligar e o que apaga continuam
+  // perguntando pelo `confirmar` da própria ferramenta, logo abaixo).
+  if (decisao.tipo === "confirmar" && !f?.confirmar && !liberacaoAtiva()) {
     const resumo = Object.entries(args ?? {}).filter(([, v]) => typeof v === "string" || typeof v === "number").map(([k, v]) => `${k}: ${String(v).slice(0, 80)}`).join(", ");
     return { resultado: pedirConfirmacao(`Isso veio depois de eu ler conteúdo de fora: ${nome.replace(/_/g, " ")}${resumo ? ` (${resumo})` : ""}.`, () => executarFerramenta(nome, args)), pergunta: true };
   }

@@ -59,6 +59,24 @@ describe("confirmação falada (bloco 192)", () => {
     for (const t of ["não", "Não, obrigado", "cancela", "deixa pra lá"]) expect(ehNao(t)).toBe(true);
     expect(ehNao("não, abre o chrome")).toBe(false);
   });
+
+  it("sim com complemento vale — o laço de permissões do Classroom (19/10)", () => {
+    for (const t of ["sim, pode baixar tudo", "Sim pode", "pode baixar", "pode, continua baixando tudo", "ok, segue", "ei Ely, pode sim"]) expect(ehSim(t)).toBe(true);
+    for (const t of ["sim, mas não apaga nada", "pode não", "pode abrir o spotify agora"]) expect(ehSim(t)).toBe(false);
+  });
+
+  it("\"pode tudo\" libera a tarefa por 15 min", async () => {
+    const { ehLiberaTudo, liberacaoAtiva, encerrarLiberacao } = await import("../src/services/confirmacao");
+    for (const t of ["pode tudo", "sim, libera tudo", "sim pra tudo", "não precisa me perguntar", "não pergunta mais"]) expect(ehLiberaTudo(t)).toBe(true);
+    expect(ehLiberaTudo("sim")).toBe(false);
+    encerrarLiberacao();
+    const agora = Date.now();
+    pedirConfirmacao("X.", async () => "feito", agora);
+    expect(await responderConfirmacao("pode tudo", agora)).toBe("feito");
+    expect(liberacaoAtiva(agora + 60_000)).toBe(true);
+    expect(liberacaoAtiva(agora + 16 * 60_000)).toBe(false);
+    encerrarLiberacao();
+  });
 });
 
 describe("'fecha tudo menos X' (bloco 192)", () => {

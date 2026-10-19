@@ -12,6 +12,7 @@ import { criarFiltroDeFontes, separarFontes } from "./hermes/pesquisa";
 import { ehEntradaDoLive } from "./live";
 import { pedirConfirmacao, responderConfirmacao } from "./confirmacao";
 import { responderRevisao, semMarcas } from "./cartoes";
+import { decidirVocativo, dosarTratamento } from "./vocativo";
 
 export type ResultadoComando = {
   actions: BrainAction[];
@@ -52,8 +53,11 @@ export type GanchosComando = {
 export function executarComando(text: string, ganchos: GanchosComando = {}): Promise<ResultadoComando> {
   // Bloco 131: o pedido inteiro roda dentro de um contexto com o canal e as fontes.
   return comContexto(ganchos.canal ?? "voz", async () => {
+    // 19/10: o "chefe" na medida — sorteado por resposta, só na primeira frase (vocativo.ts).
+    const permitido = decidirVocativo();
     const r = await executarNoContexto(text, ganchos);
-    return { ...r, fontes: fontesDoPedido(), ...(usouReserva() ? { local: true } : {}) };
+    const reply = dosarTratamento(r.reply, getConfig().tratamento ?? "", permitido);
+    return { ...r, reply, fontes: fontesDoPedido(), ...(usouReserva() ? { local: true } : {}) };
   }, text);
 }
 
