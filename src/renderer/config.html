@@ -360,7 +360,7 @@
       <div class="field">
         <div class="label-row">
           <label for="chatIdleResetMs">Reset por inatividade</label>
-          <span class="label-val" id="idleResetVal">5min</span>
+          <span class="label-val" id="idleResetVal">30min</span>
         </div>
         <input type="range" id="chatIdleResetMs" min="60000" max="3600000" step="60000"/>
       </div>
@@ -559,7 +559,7 @@
       setSlider("silenceMs",       cfg.silenceMs       ?? 2500);
       setSlider("maxRecordMs",     cfg.maxRecordMs     ?? 120000);
       setSlider("chatHistoryTurns",cfg.chatHistoryTurns ?? 6);
-      setSlider("chatIdleResetMs", cfg.chatIdleResetMs ?? 300000);
+      setSlider("chatIdleResetMs", cfg.chatIdleResetMs ?? 1800000);
       setSelect("sttModel",   cfg.sttModel   ?? "whisper-large-v3");
       setSelect("brainModel", cfg.brainModel ?? "openai/gpt-oss-120b");
       setSelect("routerModel", cfg.routerModel ?? "openai/gpt-oss-120b");
@@ -722,7 +722,7 @@
       }
       const defaults = await window.elysiumConfig.resetDefaults();
       applyConfig({
-        silenceMs: 2500, maxRecordMs: 120000, chatHistoryTurns: 6, chatIdleResetMs: 300000,
+        silenceMs: 2500, maxRecordMs: 120000, chatHistoryTurns: 6, chatIdleResetMs: 1800000,
         sttModel: "whisper-large-v3", brainModel: "openai/gpt-oss-120b",
         routerModel: "openai/gpt-oss-120b",
         autoLaunch: true, shortcut: "Control+Shift+J",

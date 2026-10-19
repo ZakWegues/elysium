@@ -93,6 +93,8 @@ const AJUSTES = [
         dica: "Na primeira volta ao PC entre 6 e 11 h (depois de 1 h parado ou ao destravar a tela), ele fala clima, lembretes, rotinas e o que pede atenção. Uma vez por dia. A qualquer hora: diga “bom dia” ou “resumo do dia”." },
       { chave: "palavraDeAtivacao", rotulo: "Acordar ao ouvir “Ely”", tipo: "bool",
         dica: "Diga “Ely” (ou “ei Ely”; “Elysium” também vale) e ela começa a ouvir, sem o atalho. Reconhecimento do próprio Windows, offline: nenhum áudio sai do PC. Deixa o microfone aberto o tempo todo (~0,3% de CPU)." },
+      { chave: "continuarConversa", rotulo: "Responder sem chamar de novo", tipo: "bool",
+        dica: "Quando ela termina com uma pergunta (“Qual pasta?”, “Confirma?”), o microfone abre por uns 7 segundos: é só responder, sem dizer “Ely”. Ninguém falou, fecha sozinho." },
       { chave: "interromperFalando", rotulo: "Cortar a Ely pela voz", tipo: "bool",
         dica: "Enquanto ela fala, diga “Ely”, “ei Ely”, “para”, “chega” ou “espera” e ela para na hora (com “Ely”, já começa a te ouvir). O microfone só abre durante a fala dela; o reconhecimento é do Windows, offline." },
       { chave: "interromperComQualquerFala", rotulo: "Qualquer fala corta (de fone)", tipo: "bool",

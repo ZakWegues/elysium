@@ -23,6 +23,14 @@ export function vocativoPermitido(): boolean {
   return permitidoAgora;
 }
 
+/**
+ * Para as frases fixas (arranque, modo live): o tratamento pela mesma régua do sorteio, ou "".
+ */
+export function tratamentoSorteado(tratamento: string, sorteio: () => number = Math.random): string {
+  const t = tratamento.trim();
+  return t && decidirVocativo(sorteio) ? t : "";
+}
+
 /** Só para os testes. */
 export function zerarVocativo(): void {
   historico = [];

@@ -136,6 +136,8 @@ export interface AppConfig {
   interromperFalando: boolean;
   /** 19/10: qualquer fala corta a Ely (só faz sentido com fone — na caixa de som ela se ouviria). */
   interromperComQualquerFala: boolean;
+  /** 19/10: quando a resposta falada termina em pergunta, o microfone abre uns segundos sozinho. */
+  continuarConversa: boolean;
   /** 17/10: quem gera a voz — "edge" (internet) ou "voicestudio" (local, ver `voiceStudio.ts`). */
   motorVoz: "edge" | "voicestudio";
   /** Nome (ou ID) do perfil de voz no VoiceStudio. Vazio = a voz padrão do motor ativo lá. */
@@ -269,6 +271,7 @@ const DEFAULTS: AppConfig = {
   velocidadeFala: 0,
   interromperFalando: true,
   interromperComQualquerFala: false,
+  continuarConversa: true,
   motorVoz: "edge",
   voiceStudioVoz: "",
   acessoRemotoNaSaude: false,
@@ -280,7 +283,8 @@ const DEFAULTS: AppConfig = {
   avisosProativosPorDia: 6,
   spotifyClientId: "042904fef8cc41f0bf05b7abeda2d66f",
   chatHistoryTurns: 6,
-  chatIdleResetMs: 300000,
+  // 19/10: 30 min — com o Hermes único (memória e compactação dele), 5 min fazia a Ely esquecer no meio.
+  chatIdleResetMs: 1800000,
   serverPort: 4200,
   theme: "stark",
   layout: { order: ["perf", "storage", "taskmgr"], hidden: [] },

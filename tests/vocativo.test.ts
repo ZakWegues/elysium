@@ -29,3 +29,13 @@ describe("o \"chefe\" na medida (19/10)", () => {
     expect(decidirVocativo(() => 0.9)).toBe(false);
   });
 });
+
+describe("frases fixas com o tratamento sorteado (19/10)", async () => {
+  const { tratamentoSorteado } = await import("../src/services/vocativo");
+  it("só às vezes, nunca seguido", () => {
+    zerarVocativo();
+    expect(tratamentoSorteado("chefe", () => 0)).toBe("chefe");
+    expect(tratamentoSorteado("chefe", () => 0)).toBe("");
+    expect(tratamentoSorteado("", () => 0)).toBe("");
+  });
+});

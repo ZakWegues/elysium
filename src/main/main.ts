@@ -61,7 +61,7 @@ import { getTopHistory } from "../services/history";
 import { registrarPergunta, bolhasDoChat } from "../services/perguntas";
 import { aoTocarAudio, ehNoite } from "../services/tts";
 import { aoTerminarInstalacao } from "../actions/instalarApp";
-import { ehAlucinacaoDoWhisper, ehEntradaDoLive, ehSaidaDoLive, SILENCIO_LIVE_MS } from "../services/live";
+import { ehAlucinacaoDoWhisper, ehEntradaDoLive, ehSaidaDoLive, JANELA_RESPOSTA_MS, pedeResposta, SILENCIO_LIVE_MS } from "../services/live";
 import { envelopeDasPalavras } from "../services/bolota";
 import { aoMudarFala, estaFalando, falaAtual, falar as speak, interromperTudo as interruptAll, novoTurno, turnoAtual } from "./fala";
 import { habitosParaLembrar } from "../services/habitos";
@@ -98,7 +98,7 @@ import { logAnomaly, getAnomalyHistory, getInsights } from "../services/telemetr
 import { getAllPresets } from "../services/presetsStore";
 import { fraseDeArranque, fraseDeEspera, fraseDeHabito, fraseDeLembrete, fraseDeTimer } from "../services/falasVivas";
 import { criarFatiador, restoParaFalar } from "../services/fatiadorDeFrases";
-import { dosarTratamento, vocativoPermitido } from "../services/vocativo";
+import { dosarTratamento, tratamentoSorteado, vocativoPermitido } from "../services/vocativo";
 import { anexoAbreDireto } from "../services/anexos";
 import { marcarAcompanhado, pendentesDeAcompanhamento } from "../services/acompanhamento";
 import { lerHumor, type Humor } from "../services/humor";
@@ -506,7 +506,7 @@ function ligarLive(): void {
   console.log("[live] ligado");
   enviarAoDash("live:mudou", true);
   notify("ELYSIUM — modo live", "Pode falar. Diga “tchau” (ou use o botão do live) para sair.");
-  const t = (getConfig().tratamento ?? "").trim();
+  const t = tratamentoSorteado(getConfig().tratamento ?? "");
   void speak(`Modo live ligado${t ? `, ${t}` : ""}. Pode falar.`).catch(() => {}).finally(() => ouvirNoLive(400));
 }
 
@@ -541,13 +541,18 @@ ipcMain.on("live:alternar", () => {
 });
 
 ipcMain.on("recorder-nada", () => {
+  abriuSozinho = false;
   state.set("idle");
   if (liveLigado) desligarLive("Fiquei um minuto sem ouvir nada. Saí do modo live.");
 });
 
+/** O microfone desta escuta abriu sozinho (janela de resposta), não por pedido dele. */
+let abriuSozinho = false;
+
 ipcMain.on("audio-data", async (_event, buffer: Buffer) => {
   const meuToken = novoTurno();
   state.set("processing");
+  let perguntou = false;
   try {
     const audio = new Uint8Array(buffer);
     const text  = await transcribe(audio);
@@ -561,9 +566,13 @@ ipcMain.on("audio-data", async (_event, buffer: Buffer) => {
       acordadoPorVozEm = 0;
     }
 
-    if (!text || (liveLigado && ehAlucinacaoDoWhisper(text))) {
+    // Janela de resposta (19/10): o microfone abriu sozinho, então ruído também é descartado
+    // em silêncio, como no live.
+    const semPedirAntes = liveLigado || abriuSozinho;
+    abriuSozinho = false;
+    if (!text || (semPedirAntes && ehAlucinacaoDoWhisper(text))) {
       // No live, áudio sem pedido só volta a ouvir — sem balão a cada vez.
-      if (!liveLigado) notify("ELYSIUM", "Não entendi o áudio. Tente novamente.");
+      if (!semPedirAntes) notify("ELYSIUM", "Não entendi o áudio. Tente novamente.");
       state.set("idle");
       return;
     }
@@ -572,7 +581,7 @@ ipcMain.on("audio-data", async (_event, buffer: Buffer) => {
 
     // Fase 21: entrar e sair do modo live são do PC (microfone), não do cérebro.
     if (liveLigado && ehSaidaDoLive(text)) {
-      const t = (getConfig().tratamento ?? "").trim();
+      const t = tratamentoSorteado(getConfig().tratamento ?? "");
       desligarLive(`Até mais${t ? `, ${t}` : ""}.`);
       state.set("idle");
       return;
@@ -633,6 +642,7 @@ ipcMain.on("audio-data", async (_event, buffer: Buffer) => {
     fatiador.fim();
     falas.push(speak(restoParaFalar(combined, jaFalado), humor));
     await Promise.all(falas);
+    perguntou = pedeResposta(combined);
   } catch (err) {
     if (turnoAtual() !== meuToken) return;
     const msg = err instanceof ElysiumError ? err.spoken : "Tive um problema, mas já voltei ao normal.";
@@ -644,8 +654,19 @@ ipcMain.on("audio-data", async (_event, buffer: Buffer) => {
     if (turnoAtual() === meuToken) state.set("idle");
     // Modo live: terminou o turno (ou não tinha pedido) — volta a ouvir.
     if (liveLigado) ouvirNoLive();
+    // 19/10: ela perguntou algo — o microfone abre uns segundos para a resposta, sem "Ely".
+    else if (perguntou && turnoAtual() === meuToken && getConfig().continuarConversa !== false) ouvirResposta();
   }
 });
+
+/** Janela curta de escuta depois de uma pergunta da Ely (19/10). Ninguém falou → fecha calado. */
+function ouvirResposta(): void {
+  setTimeout(() => {
+    if (liveLigado || !state.is("idle") || estaFalando()) return;
+    abriuSozinho = true;
+    startListening({ esperarFalaMs: JANELA_RESPOSTA_MS }).catch((e) => { abriuSozinho = false; console.error("[voz] não consegui abrir a resposta:", e); });
+  }, 350);
+}
 
 ipcMain.on("recorder-error", (_event, msg: string) => {
   notify("ELYSIUM — Microfone", msg);
@@ -1408,7 +1429,7 @@ app.on("ready", async () => {
 
   notify("ELYSIUM", "Sistemas no ar. Ctrl+Shift+J para falar.");
   // Fase 16, a persona FRIDAY: a fala de arranque é um status curto, com o tratamento.
-  const tratamento = (getConfig().tratamento ?? "").trim();
+  const tratamento = tratamentoSorteado(getConfig().tratamento ?? "");
   // Em desenvolvimento o app reinicia toda hora: falar a cada arranque só incomoda.
   if (app.isPackaged) speak(fraseDeArranque(tratamento, new Date().getHours())).catch(() => { /* best-effort */ });
 });

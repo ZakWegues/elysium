@@ -14,6 +14,24 @@ import { semAcento } from "./texto";
 
 export const SILENCIO_LIVE_MS = 60_000;
 
+/**
+ * 19/10: quando a resposta falada termina numa pergunta, o microfone abre sozinho por este tempo
+ * — dá para responder sem dizer "Ely" de novo. Ninguém falou, fecha calado.
+ */
+export const JANELA_RESPOSTA_MS = 7_000;
+
+/**
+ * A resposta pede uma resposta dele? Termina em pergunta (a última frase, ignorando aspas e
+ * espaço) ou é o "Confirma? Diga sim." da confirmação. Uma "?" no meio de um nome de arquivo ou
+ * citação não conta. Pura.
+ */
+export function pedeResposta(reply: string): boolean {
+  const t = reply.trim().replace(/["'”’»)\]\s]+$/u, "");
+  if (!t) return false;
+  if (/Confirma\? Diga sim\.?$/.test(t)) return true;
+  return t.endsWith("?");
+}
+
 function norm(t: string): string {
   return semAcento(t).toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, " ").replace(/\s+/g, " ").trim().replace(/^(ely|elysium) /, "").replace(/ (ely|elysium)$/, "");
 }
