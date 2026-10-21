@@ -48,6 +48,8 @@ const SAEM_PARA_URL = new Set(["resumir_link", "abrir_site", "abrir_programa"]);
  */
 const INTENCAO: Record<string, RegExp> = {
   mandar_para_o_celular: /\b(celular|telefone|manda|mande|envia|envie)\b/,
+  // 21/10: arquivo para o celular — depois de ler conteúdo de fora, só se o pedido pediu.
+  mandar_arquivo_para_o_celular: /\b(celular|telefone|manda|mande|envia|envie|passa)\b/,
   escrever_texto: /\b(escrev|digit|cola|redij|redig)/,
   criar_arquivo: /\b(arquivo|salva|salve|grava|documento|txt)\b/,
   lembrar_fato: /\b(lembr|guard|memoriz|anot|grav)/,

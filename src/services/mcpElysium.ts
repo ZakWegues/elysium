@@ -29,7 +29,7 @@ export const FERRAMENTAS_DO_HERMES = new Set([
   "adicionar_na_lista", "concluir_tarefa", "adiar_tarefa", "editar_tarefa", "anotar_varias", "marcar_item",
   "limpar_feitos", "marcar_habito", "avancar_meta", "marcar_treino", "registrar_corrida", "registrar_peso",
   "criar_timer", "cancelar_timer", "criar_lembrete", "cancelar_lembrete", "pomodoro", "guardar_cartao",
-  "plano_de_estudo", "rodar_preset", "rodar_rotina", "pausar_rotina", "mandar_para_o_celular",
+  "plano_de_estudo", "rodar_preset", "rodar_rotina", "pausar_rotina", "mandar_para_o_celular", "mandar_arquivo_para_o_celular",
   // Bancada de 10/10: sem estas, o Hermes improvisava — fechava os programas UM POR UM (sem a
   // pergunta do fechar_tudo_menos) e pausava a rotina que era para apagar. As duas pedem "sim".
   "fechar_tudo_menos", "apagar_rotina", "criar_rotina",

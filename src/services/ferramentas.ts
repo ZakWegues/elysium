@@ -6,7 +6,10 @@ import { acharHabito, avancarMeta, listarHabitos, listarMetas, marcarHabito, res
 import { montarPainelHoje } from "./hoje";
 import { revisaoDaSemana } from "./revisaoSemana";
 import { marcarTreinoFalado, metaFalada, registrarCorridaFalada, registrarPesoFalado, treinoDeHojeFalado } from "./corpoFalado";
-import { clipboard } from "electron";
+import { app, clipboard } from "electron";
+import * as path from "node:path";
+import { escolherArquivo, procurarArquivos } from "./acharArquivo";
+import { sendFileToMobile } from "../actions/sendToMobile";
 import { limparFeitos, marcarItem, normalizarNomeLista } from "./listas";
 import { calcular, formatarNumero } from "./calculadora";
 import { falaDaNota, notaNecessaria } from "./notas";
@@ -913,6 +916,31 @@ export const FERRAMENTAS: Ferramenta[] = [
     parameters: obj({ conteudo: s("Texto ou link") }, ["conteudo"]),
     executar: a => acao({ action: "send_to_mobile", content: str(a, "conteudo") }),
     acao: a => ({ action: "send_to_mobile", content: str(a, "conteudo") }),
+  },
+  {
+    // 21/10: "me manda aquele PDF / a foto / o vídeo" — arquivo de verdade, até 500 MB.
+    name: "mandar_arquivo_para_o_celular",
+    description: "Manda um ARQUIVO do PC (foto, vídeo, PDF, documento, planilha, áudio, zip…) para o celular do usuário. Procura pelo nome (ou pedaço dele) em Área de Trabalho, Documentos, Imagens, Vídeos, Músicas e Downloads; também aceita o caminho completo. Se houver mais de um, devolve as opções para perguntar qual.",
+    parameters: obj({ arquivo: s("Nome, pedaço do nome ou caminho completo do arquivo"), mensagem: s("Recado opcional junto do arquivo") }, ["arquivo"]),
+    executar: async (a) => {
+      const pedido = str(a, "arquivo");
+      if (!pedido) return "Qual arquivo?";
+      const pastas = (["desktop", "documents", "pictures", "videos", "music", "downloads"] as const).map(p => { try { return app.getPath(p); } catch { return ""; } }).filter(Boolean);
+      const proibidas = [app.getPath("userData"), app.getAppPath()];
+      const ehCaminho = /^[a-z]:[\\/]/i.test(pedido) || pedido.startsWith("\\\\");
+      const escolha = escolherArquivo(pedido, ehCaminho ? [] : procurarArquivos(pedido, pastas, proibidas), proibidas);
+      if (escolha.tipo === "proibido") return "Esse caminho eu não mando: é pasta do sistema ou do próprio ELYSIUM.";
+      if (escolha.tipo === "nenhum") return `Não achei arquivo com "${pedido}" na Área de Trabalho, Documentos, Imagens, Vídeos, Músicas nem Downloads.`;
+      if (escolha.tipo === "varios") {
+        return `Achei ${escolha.opcoes.length} arquivos parecidos: ${escolha.opcoes.map(o => `${o.nome} (${path.dirname(o.caminho)})`).join("; ")}. Pergunte ao usuário qual deles e chame de novo com o caminho completo.`;
+      }
+      try {
+        const r = await sendFileToMobile(escolha.caminho, str(a, "mensagem") || undefined);
+        return `Mandei "${r.nome}" (${formatarBytes(r.sizeBytes)}) para a Caixa do celular.`;
+      } catch (e) {
+        return `Não consegui mandar: ${e instanceof Error ? e.message : String(e)}.`;
+      }
+    },
   },
   {
     name: "escrever_texto",

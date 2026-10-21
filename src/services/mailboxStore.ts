@@ -29,7 +29,31 @@ import { EventEmitter } from "node:events";
 export type MailboxKind = "link" | "note" | "file";
 export type MailboxSender = "pc" | "mobile";
 
+/** Anexo que chega em base64 (do celular, dentro do corpo de 8 MB do servidor). */
 export const MAILBOX_MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024;
+/**
+ * 21/10: arquivo que sai do PC por caminho (a Ely, o arrastar do dashboard) é copiado em disco,
+ * sem passar por base64 — vídeo e PDF grande cabem. O celular baixa pela rota `/raw`, em stream.
+ */
+export const MAILBOX_MAX_FILE_BYTES = 500 * 1024 * 1024;
+
+const MIME_POR_EXTENSAO: Record<string, string> = {
+  pdf: "application/pdf", doc: "application/msword", docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  xls: "application/vnd.ms-excel", xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  ppt: "application/vnd.ms-powerpoint", pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  odt: "application/vnd.oasis.opendocument.text", ods: "application/vnd.oasis.opendocument.spreadsheet", rtf: "application/rtf",
+  txt: "text/plain", md: "text/markdown", csv: "text/csv", json: "application/json",
+  jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", gif: "image/gif", webp: "image/webp", bmp: "image/bmp", heic: "image/heic", heif: "image/heif", svg: "image/svg+xml",
+  mp4: "video/mp4", mkv: "video/x-matroska", mov: "video/quicktime", avi: "video/x-msvideo", webm: "video/webm", "3gp": "video/3gpp",
+  mp3: "audio/mpeg", m4a: "audio/mp4", aac: "audio/aac", wav: "audio/wav", ogg: "audio/ogg", opus: "audio/ogg", flac: "audio/flac",
+  zip: "application/zip", rar: "application/vnd.rar", "7z": "application/x-7z-compressed", epub: "application/epub+zip",
+};
+
+/** O tipo do arquivo pelo nome; desconhecido = octet-stream. Pura. */
+export function mimePorNome(nome: string): string {
+  const ext = path.extname(nome).slice(1).toLowerCase();
+  return MIME_POR_EXTENSAO[ext] ?? "application/octet-stream";
+}
 
 export class AttachmentTooLargeError extends Error {}
 
@@ -107,6 +131,8 @@ export interface NewMailboxItemInput {
   kind: MailboxKind;
   text?: string | null;
   attachment?: { name: string; mimeType: string; base64: string } | null;
+  /** 21/10: anexo já gravado em disco (ver `addFileMessage`). Só uso interno. */
+  anexoPronto?: MailboxAttachmentStored | null;
   /** Sem isso, o recado cai na conversa aberta agora. */
   sessionId?: string | null;
 }
@@ -249,7 +275,7 @@ export function addMessage(from: MailboxSender, input: NewMailboxItemInput): { i
   garantirSessoes();
   const id = crypto.randomUUID();
   const createdAt = Date.now();
-  const attachment = input.attachment ? saveAttachment(id, input.attachment) : null;
+  const attachment = input.anexoPronto ?? (input.attachment ? saveAttachment(id, input.attachment) : null);
   const sessionId = resolverSessao(input.sessionId ?? null);
   const item: MailboxMessageStored = {
     id, from, kind: input.kind,
@@ -264,6 +290,38 @@ export function addMessage(from: MailboxSender, input: NewMailboxItemInput): { i
   // processo principal (main.ts encaminha pro renderer via IPC), nunca sai por HTTP.
   mailboxEvents.emit("new-message", toDesktopMeta(item));
   return { id, createdAt, sessionId };
+}
+
+/**
+ * 21/10: manda um arquivo do disco para a conversa, por cópia (sem base64, até 500 MB). Quem
+ * chama é o processo do PC — a Ely e o arrastar do dashboard. O id do recado nasce antes, para o
+ * nome do arquivo copiado já sair com ele.
+ */
+export async function addFileMessage(from: MailboxSender, caminho: string, opts: { text?: string | null; sessionId?: string | null } = {}): Promise<{ id: string; createdAt: number; sessionId: string; nome: string; sizeBytes: number }> {
+  const st = await fs.promises.stat(caminho);
+  if (!st.isFile()) throw new Error("não é um arquivo");
+  if (st.size > MAILBOX_MAX_FILE_BYTES) throw new AttachmentTooLargeError("arquivo maior que 500 MB");
+  const nome = path.basename(caminho);
+  const temporario = crypto.randomUUID();
+  const destino = path.join(attachmentsDir(), `${temporario}-${sanitizeFileName(nome)}`);
+  await fs.promises.copyFile(caminho, destino);
+  const anexo: MailboxAttachmentStored = { name: nome, mimeType: mimePorNome(nome), sizeBytes: st.size, filePath: destino };
+  try {
+    const r = addMessage(from, { kind: "file", text: opts.text ?? null, sessionId: opts.sessionId ?? null, anexoPronto: anexo });
+    return { ...r, nome, sizeBytes: st.size };
+  } catch (e) {
+    fs.rmSync(destino, { force: true });
+    throw e;
+  }
+}
+
+/** O arquivo de um anexo, para a rota `/raw` mandar em stream. undefined = sem anexo ou sumiu. */
+export function getAttachmentFile(id: string): { filePath: string; name: string; mimeType: string; sizeBytes: number } | undefined {
+  const item = store.get("messages").find(i => i.id === id);
+  if (!item?.attachment || !isKnownAttachmentPath(item.attachment.filePath)) return undefined;
+  if (!fs.existsSync(item.attachment.filePath)) return undefined;
+  const mime = !item.attachment.mimeType || item.attachment.mimeType === "application/octet-stream" ? mimePorNome(item.attachment.name) : item.attachment.mimeType;
+  return { filePath: item.attachment.filePath, name: item.attachment.name, mimeType: mime, sizeBytes: item.attachment.sizeBytes };
 }
 
 export function listMessages(sessionId?: string | null): MailboxMessageMeta[] {
@@ -289,7 +347,11 @@ export function getMessageContent(id: string): MailboxMessageContent | undefined
   let attachment: (MailboxAttachmentMeta & { base64: string }) | null = null;
   if (item.attachment) {
     let base64 = "";
-    try { base64 = fs.readFileSync(item.attachment.filePath).toString("base64"); } catch { /* anexo sumiu do disco */ }
+    // Arquivo grande (vídeo, PDF pesado) não vira base64: o app novo baixa pela rota `/raw`;
+    // o antigo recebe vazio e mostra que não deu, em vez de o PC carregar 500 MB na memória.
+    if (item.attachment.sizeBytes <= MAILBOX_MAX_ATTACHMENT_BYTES) {
+      try { base64 = fs.readFileSync(item.attachment.filePath).toString("base64"); } catch { /* anexo sumiu do disco */ }
+    }
     attachment = { ...toAttachmentMeta(item.attachment)!, base64 };
   }
   return { id: item.id, from: item.from, kind: item.kind, text: item.text, attachment };

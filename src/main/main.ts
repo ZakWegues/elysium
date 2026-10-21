@@ -104,7 +104,7 @@ import { anexoAbreDireto } from "../services/anexos";
 import { marcarAcompanhado, pendentesDeAcompanhamento } from "../services/acompanhamento";
 import { lerHumor, type Humor } from "../services/humor";
 import {
-  checkAndMarkUnseenFromMobile, addMessage, listMessagesForDesktop, inferKind, mailboxEvents,
+  checkAndMarkUnseenFromMobile, addMessage, addFileMessage, listMessagesForDesktop, inferKind, mailboxEvents,
   isKnownAttachmentPath, listMailboxSessions, createMailboxSession, renameMailboxSession,
   toggleMailboxSessionFavorite, deleteMailboxSession, deleteMailboxMessage,
   getActiveMailboxSessionId, setActiveMailboxSession,
@@ -958,6 +958,16 @@ ipcMain.handle("mailbox:send-file", (_e, texto: string, anexo: { name: string; m
   const { id } = addMessage("pc", { kind: "file", text: (texto ?? "").trim() || null, attachment: anexo, sessionId: sessionId ?? null });
   broadcastMailboxEvent("toMobile", id);
   return { id };
+});
+
+// 21/10: arquivo arrastado/escolhido no dashboard vai pelo CAMINHO (cópia em disco, até 500 MB),
+// não por base64 — vídeo e PDF grande cabem. Só arquivo comum; pasta e o resto, recusa.
+ipcMain.handle("mailbox:send-path", async (_e, texto: unknown, caminho: unknown, sessionId?: unknown) => {
+  if (typeof caminho !== "string" || !path.isAbsolute(caminho)) throw new Error("caminho inválido");
+  const r = await addFileMessage("pc", caminho, { text: typeof texto === "string" ? texto.trim() || null : null, sessionId: typeof sessionId === "string" ? sessionId : null });
+  broadcastMailboxEvent("toMobile", r.id);
+  void sendPush("mailbox", "Chegou um arquivo do PC", r.nome, { tipo: "caixa", id: r.id }).catch(() => { /* best-effort */ });
+  return { id: r.id };
 });
 
 // Link clicado numa resposta do chat (bloco 84). Só http(s): o markdown vem do modelo, e um

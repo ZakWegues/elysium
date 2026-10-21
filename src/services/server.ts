@@ -35,7 +35,7 @@ import type { Socket } from "node:net";
 import { transcribe } from "./stt";
 import { getSystemTelemetry } from "../actions/systemInfo";
 import {
-  addMessage, listMessages, getMessageContent, ackMessage,
+  addMessage, listMessages, getMessageContent, ackMessage, getAttachmentFile,
   AttachmentTooLargeError, MailboxKind,
 } from "./mailboxStore";
 import { completeLogin as completeSpotifyLogin } from "./spotify";
@@ -49,6 +49,7 @@ import { estadoAtualizacao } from "./atualizacao";
 import * as fsAtualizacao from "node:fs";
 import { enderecoPermitido, hostPermitido } from "./redeSegura";
 import { ehDoProprioPc, ExecutorMcp, responderMcp } from "./mcpElysium";
+import { abrirPedido, idValido, parar, pedaco, retomar, soltarDestino, terminar } from "./retomada";
 
 const WS_MAGIC = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
@@ -671,6 +672,25 @@ function makeHandler(
       return;
     }
 
+    // GET /api/mailbox/messages/:id/raw — 21/10: o arquivo cru, em stream (vídeo, PDF grande).
+    // Mesma autenticação de todo o /api; o caminho em disco vem do store, nunca do pedido.
+    const msgRawMatch = url.match(/^\/api\/mailbox\/messages\/([A-Za-z0-9-]{8,64})\/raw$/);
+    if (req.method === "GET" && msgRawMatch) {
+      const arq = getAttachmentFile(msgRawMatch[1]);
+      if (!arq) { sendJson(res, 404, { error: "Not found" }); return; }
+      const nomeSeguro = arq.name.replace(/[^\w.\- ]/g, "_").slice(0, 120) || "arquivo";
+      res.writeHead(200, {
+        "Content-Type": arq.mimeType,
+        "Content-Length": String(arq.sizeBytes),
+        "Content-Disposition": `attachment; filename="${nomeSeguro}"; filename*=UTF-8''${encodeURIComponent(arq.name)}`,
+        "X-Content-Type-Options": "nosniff",
+      });
+      const leitura = fsAtualizacao.createReadStream(arq.filePath);
+      leitura.on("error", () => res.destroy());
+      leitura.pipe(res);
+      return;
+    }
+
     // POST /api/mailbox/messages/:id/ack — celular confirma que leu uma mensagem from:"pc"
     const msgAckMatch = url.match(/^\/api\/mailbox\/messages\/([^/]+)\/ack$/);
     if (req.method === "POST" && msgAckMatch) {
@@ -797,11 +817,14 @@ function handleUpgrade(
    * uma resposta que ninguém leu (07/10).
    */
   let fechado = false;
-  socket.on("close", () => { fechado = true; });
+  // 21/10: quem manda os frames deste cliente. O pedido com id (retomada.ts) guarda esta
+  // função; o socket caindo só a solta — o pedido segue e outro socket pode retomar.
+  const enviarAqui = (t: string) => sendToClient(client, t);
+  socket.on("close", () => { fechado = true; soltarDestino(enviarAqui); });
 
-  const executar = async (texto: string, canal: "voz" | "texto" = "voz"): Promise<{ reply: string; fontes?: Fonte[]; local?: boolean }> => {
+  const executar = async (texto: string, canal: "voz" | "texto" = "voz", aoPedaco?: (t: string) => void): Promise<{ reply: string; fontes?: Fonte[]; local?: boolean }> => {
     if (!processStream) return { reply: await processCommand(texto, canal) };
-    const r = await processStream(texto, (token) => sendToClient(client, JSON.stringify({ type: "chunk", text: token })), canal);
+    const r = await processStream(texto, aoPedaco ?? ((token) => sendToClient(client, JSON.stringify({ type: "chunk", text: token }))), canal);
     // Bloco 132: as sugestões chegam DEPOIS do reply, numa mensagem própria — o celular já
     // fechou a bolha; app antigo ignora o tipo que não conhece.
     if (deveSugerir(r.actions, canal) && !fechado) {
@@ -819,7 +842,34 @@ function handleUpgrade(
 
   function handleTextFrame(text: string): void {
     try {
-      const msg = JSON.parse(text) as { type?: string; text?: string; canal?: string; refazer?: boolean; ev?: unknown };
+      const msg = JSON.parse(text) as { type?: string; text?: string; canal?: string; refazer?: boolean; ev?: unknown; id?: unknown };
+      // 21/10: batimento do celular — sem resposta em 2 tentativas ele reabre o socket.
+      if (msg.type === "ping") { sendToClient(client, JSON.stringify({ type: "pong" })); return; }
+      if (msg.type === "retomar") {
+        if (!idValido(msg.id) || !retomar(msg.id, enviarAqui)) sendToClient(client, JSON.stringify({ type: "retomada_falhou", id: idValido(msg.id) ? msg.id : null }));
+        return;
+      }
+      if (msg.type === "parar") {
+        const p = idValido(msg.id) ? parar(msg.id) : null;
+        if (p && p.final && typeof p.final.reply === "string") desfazerTurno(p.texto, p.final.reply);
+        return;
+      }
+      if (msg.type === "command" && msg.text && idValido(msg.id)) {
+        // Pedido com id: a resposta fica guardada para retomar se o socket cair.
+        if (msg.refazer === true) desfazerUltimoTurno();
+        const p = abrirPedido(msg.id, msg.text, enviarAqui);
+        if (!p) { retomar(msg.id, enviarAqui); return; } // o mesmo pedido chegou de novo: só reconecta
+        executar(msg.text, msg.canal === "texto" ? "texto" : "voz", (t) => pedaco(p, t))
+          .then(({ reply, fontes, local }) => {
+            if (p.parado) { desfazerTurno(p.texto, reply); return; }
+            terminar(p, { type: "reply", reply, ...(fontes?.length ? { fontes } : {}), ...(local ? { local } : {}) });
+          })
+          .catch(err => {
+            console.error("[WS] falha ao processar comando de texto:", err);
+            terminar(p, { type: "error", error: mensagemDeErro(err) });
+          });
+        return;
+      }
       if (msg.type === "input") {
         if (!canalInput) {
           registrarAcesso(req, true);

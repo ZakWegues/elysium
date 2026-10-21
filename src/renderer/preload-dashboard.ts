@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from "electron";
+import { contextBridge, ipcRenderer, webUtils } from "electron";
 
 contextBridge.exposeInMainWorld("nx", {
   /**
@@ -95,6 +95,9 @@ contextBridge.exposeInMainWorld("nx", {
   // ── Mailbox self-chat (PC ↔ celular) ─────────────────────────────────────────
   getMailboxThread:     (sessionId?: string | null)  => ipcRenderer.invoke("mailbox:get-thread", sessionId ?? null),
   mailboxSend:          (text: string, sessionId?: string | null) => ipcRenderer.send("mailbox:send", text, sessionId ?? null),
+  // 21/10: arquivo pelo caminho (até 500 MB) — `caminhoDoArquivo` lê o caminho do File arrastado.
+  caminhoDoArquivo:     (f: File) => { try { return webUtils.getPathForFile(f) || ""; } catch { return ""; } },
+  mailboxSendPath:      (text: string, caminho: string, sessionId?: string | null) => ipcRenderer.invoke("mailbox:send-path", text, caminho, sessionId ?? null),
   mailboxSendFile:      (text: string, anexo: { name: string; mimeType: string; base64: string }, sessionId?: string | null) => ipcRenderer.invoke("mailbox:send-file", text, anexo, sessionId ?? null),
   abrirLink:            (url: string) => ipcRenderer.send("link:abrir", url),
   modelosGroq:          (forcar?: boolean) => ipcRenderer.invoke("groq:modelos", forcar),

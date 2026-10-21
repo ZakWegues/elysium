@@ -16,9 +16,14 @@ let anexosPendentes = [];
 const chatAnexos = document.getElementById("chat-anexos");
 const anexoInput = document.getElementById("anexo-input");
 
-/** Tetos: 12 mil caracteres (~4 mil tokens) é o que sobra no contexto de 8192 depois do prompt do agente; a Caixa aceita até 5 MB por anexo. */
+/**
+ * Tetos: 12 mil caracteres (~4 mil tokens) é o que sobra no contexto de 8192 depois do prompt do
+ * agente. 21/10: arquivo com caminho (arrastado, escolhido no clipe) vai para a Caixa por cópia em
+ * disco, até 500 MB; sem caminho (imagem colada) continua em base64, até 5 MB.
+ */
 const TETO_TEXTO = 12_000;
 const TETO_ARQUIVO = 5 * 1024 * 1024;
+const TETO_ARQUIVO_CAMINHO = 500 * 1024 * 1024;
 const EXT_TEXTO = /\.(txt|md|markdown|json|csv|tsv|log|ini|cfg|conf|yaml|yml|xml|html?|css|js|mjs|cjs|ts|tsx|jsx|py|java|c|cpp|h|cs|go|rs|rb|php|sh|ps1|bat|sql|toml)$/i;
 
 function tipoDoArquivo(f) {
@@ -38,14 +43,20 @@ function lerComo(f, modo) {
 
 async function adicionarArquivos(lista) {
   for (const f of lista) {
-    if (f.size > TETO_ARQUIVO) { showToast(`${f.name}: maior que 5 MB`, true); continue; }
+    const caminho = window.nx.caminhoDoArquivo?.(f) || "";
+    if (f.size > (caminho ? TETO_ARQUIVO_CAMINHO : TETO_ARQUIVO)) { showToast(`${f.name}: maior que ${caminho ? "500" : "5"} MB`, true); continue; }
     const tipo = tipoDoArquivo(f);
     try {
-      const item = { nome: f.name || "colado.png", tipo, mime: f.type || "application/octet-stream", tamanho: f.size };
-      if (tipo === "texto") {
+      const item = { nome: f.name || "colado.png", tipo, mime: f.type || "application/octet-stream", tamanho: f.size, caminho };
+      if (tipo === "texto" && f.size > TETO_ARQUIVO * 4) {
+        // Texto enorme: só a Caixa (pelo caminho) — para a Ely não cabe mesmo.
+        item.texto = ""; item.cortado = true;
+      } else if (tipo === "texto") {
         const t = String(await lerComo(f, "texto"));
         item.texto = t.length > TETO_TEXTO ? t.slice(0, TETO_TEXTO) : t;
         item.cortado = t.length > TETO_TEXTO;
+      } else if (caminho && (tipo !== "imagem" || f.size > TETO_ARQUIVO)) {
+        // Vídeo, PDF, imagem grande: nada é lido aqui — o PC copia pelo caminho.
       } else {
         item.dataUrl = String(await lerComo(f, "dataUrl"));
         item.base64 = item.dataUrl.split(",")[1] ?? "";
@@ -64,7 +75,7 @@ function desenharAnexos() {
   chatAnexos.hidden = !anexosPendentes.length;
   chatAnexos.innerHTML = anexosPendentes.map((a, i) => `
     <span class="anexo-chip" title="${escHtml(a.nome)}">
-      ${a.tipo === "imagem" ? `<img src="${a.dataUrl}" alt="">` : ico(a.tipo === "texto" ? "file-text" : "paperclip", "ico-sm")}
+      ${a.tipo === "imagem" && a.dataUrl ? `<img src="${a.dataUrl}" alt="">` : ico(a.tipo === "texto" ? "file-text" : "paperclip", "ico-sm")}
       <span class="anexo-nome">${escHtml(a.nome)}</span>
       <button type="button" data-tirar-anexo="${i}" title="Tirar">${ico("x", "ico-sm")}</button>
     </span>`).join("");
@@ -139,9 +150,9 @@ async function enviarMensagem() {
 
   if (chatMode === "self") return enviarParaCaixa(texto, anexos);
 
-  const imagens = anexos.filter(a => a.tipo === "imagem");
+  const imagens = anexos.filter(a => a.tipo === "imagem" && a.base64);
   const textos = anexos.filter(a => a.tipo === "texto");
-  const outros = anexos.filter(a => a.tipo === "arquivo");
+  const outros = anexos.filter(a => a.tipo === "arquivo" || (a.tipo === "imagem" && !a.base64));
   if (outros.length) showToast(`${outros.map(a => a.nome).join(", ")}: aqui só imagem e texto — mande pelo lado Celular.`, true);
 
   const refazer = Boolean(bolhaEmEdicao);
@@ -204,9 +215,10 @@ async function enviarParaCaixa(texto, anexos) {
   const sessao = typeof mailboxSessionId !== "undefined" ? mailboxSessionId : null;
   let primeiro = true;
   for (const a of anexos) {
-    const base64 = a.base64 ?? btoa(unescape(encodeURIComponent(a.texto ?? "")));
     try {
-      await window.nx.mailboxSendFile(primeiro ? texto : "", { name: a.nome, mimeType: a.mime, base64 }, sessao);
+      // Com caminho: o arquivo inteiro, por cópia (até 500 MB; texto não é cortado).
+      if (a.caminho && window.nx.mailboxSendPath) await window.nx.mailboxSendPath(primeiro ? texto : "", a.caminho, sessao);
+      else await window.nx.mailboxSendFile(primeiro ? texto : "", { name: a.nome, mimeType: a.mime, base64: a.base64 ?? btoa(unescape(encodeURIComponent(a.texto ?? ""))) }, sessao);
       primeiro = false;
     } catch (e) {
       showToast(`${a.nome}: não foi (${e?.message ?? e})`, true);

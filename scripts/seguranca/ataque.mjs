@@ -107,6 +107,10 @@ const sondas = [
     if (j?.id) await req(`${BASE}/api/rpc`, { method: "POST", headers: { ...auth, "Content-Type": "application/json", "x-elysium-confirm": "1" }, body: JSON.stringify({ method: "mailbox.messages.delete", params: { id: j.id } }) }).catch(() => {});
     return { ok: !fora && !/[\\/]/.test(nome), det: `HTTP ${r.status} nome=${JSON.stringify(nome)} fora=${fora}` };
   }),
+  // 21/10: arquivo cru da Caixa.
+  sonda("arquivo cru sem token → 401", () => status(`${BASE}/api/mailbox/messages/00000000-0000-0000-0000-000000000000/raw`, {}, 401)),
+  sonda("arquivo cru com id forjado → 404", () => status(`${BASE}/api/mailbox/messages/..%2F..%2Felysium-config/raw`, { headers: auth }, 404)),
+  sonda("arquivo cru com id inexistente → 404", () => status(`${BASE}/api/mailbox/messages/00000000-0000-0000-0000-000000000000/raw`, { headers: auth }, 404)),
   sonda("kind inválido → 400", () => status(`${BASE}/api/mailbox/messages`, { method: "POST", headers: { ...auth, "Content-Type": "application/json" }, body: JSON.stringify({ kind: "exec", text: "x" }) }, 400)),
   // ── WebSocket e MCP ──
   sonda("WebSocket sem token é recusado", async () => {
