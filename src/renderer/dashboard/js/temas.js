@@ -45,6 +45,10 @@ const THEMES = {
 
   lg:          { name: "Vidro Líquido", family: "lg", purple: "#6d4aff", purpleBright: "#7c5cff", cyan: "#22b8cf", cyanDark: "#0e9bb3", bg: "#f2f1f7", surface: "rgba(255,255,255,0.78)", surface2: "rgba(255,255,255,0.6)", glassInk: "243,241,252", blobs: ["#cbb9ff", "#b8ecf3", "#ded7ff"] },
   "lg-tide":   { name: "Vidro — Maré",  family: "lg", purple: "#1e7fd4", purpleBright: "#3d97e6", cyan: "#17b8a6", cyanDark: "#0e9384", bg: "#eef4f9", surface: "rgba(255,255,255,0.78)", surface2: "rgba(255,255,255,0.6)", glassInk: "237,244,251", blobs: ["#b6d8f7", "#b3ecdf", "#cfe6f5"] },
+  // Minimal (20/10): as cores são montadas na hora a partir do Windows (claro/escuro + cor de
+  // destaque) — `paletaMinimal` no main, aplicada por `applyTheme`. Estes valores são só o
+  // ponto de partida antes de o sistema responder.
+  minimal:     { name: "Minimal — do sistema", family: "lg", minimal: true, purple: "#0078d4", purpleBright: "#005a9e", cyan: "#52525b", cyanDark: "#3f3f46", bg: "#ffffff", surface: "#f6f6f7", surface2: "#efeff1", glassInk: "246,246,247" },
   "lg-amber":  { name: "Vidro — Âmbar", family: "lg", purple: "#c2602c", purpleBright: "#dd7a41", cyan: "#c9971f", cyanDark: "#a67c12", bg: "#f8f3ec", surface: "rgba(255,255,255,0.78)", surface2: "rgba(255,255,255,0.6)", glassInk: "251,245,236", blobs: ["#f7d4b3", "#f2e2b0", "#f6e3d2"] },
 };
 
@@ -100,7 +104,8 @@ function applyTheme(id) {
   }
 
   const t = THEMES[id] ? id : FALLBACK_THEME;
-  const p = THEMES[t];
+  // Minimal: a paleta do sistema, quando já chegou; senão o ponto de partida da tabela.
+  const p = t === "minimal" && coresDoSistema ? { ...THEMES.minimal, ...coresDoSistema.paleta } : THEMES[t];
   currentTheme = t;
   const root = document.documentElement.style;
   root.setProperty("--purple", p.purple);
@@ -136,6 +141,7 @@ function applyTheme(id) {
   }
   document.body.classList.toggle("theme-stark", !!p.stark);
   document.body.classList.toggle("theme-renascenca", !!p.renascenca);
+  document.body.classList.toggle("theme-minimal", !!p.minimal);
   // Classe comum às duas famílias. Carrega só o que é movimento — molas, entradas de modal
   // e bolha, brilho nos botões, a camada de blobs — que é idêntico entre elas.
   document.body.classList.add("theme-rich");
@@ -148,7 +154,7 @@ function renderThemeSwatches() {
   if (!wrap) return;
   wrap.innerHTML = "";
   const grades = {};
-  for (const [fam, rotulo] of [["stark", "Stark — HUD"], ["renascenca", "Renascença — ouro e afresco"], ["ely", "ELYSIUM — noite"], ["lg", "Vidro Líquido — dia"]]) {
+  for (const [fam, rotulo] of [["stark", "Stark — HUD"], ["renascenca", "Renascença — ouro e afresco"], ["ely", "ELYSIUM — noite"], ["lg", "Vidro Líquido — dia"], ["minimal", "Minimal — segue o Windows"]]) {
     const bloco = document.createElement("div");
     bloco.innerHTML = `<div class="theme-familia">${rotulo}</div><div class="theme-grade"></div>`;
     wrap.appendChild(bloco);
@@ -169,9 +175,20 @@ function renderThemeSwatches() {
       cfgAtual.theme = id;
       window.nx.setConfig({ theme: id }).catch(() => {});
     });
-    grades[t.stark ? "stark" : t.renascenca ? "renascenca" : t.family].appendChild(div);
+    grades[t.minimal ? "minimal" : t.stark ? "stark" : t.renascenca ? "renascenca" : t.family].appendChild(div);
   });
 }
+
+// Tema Minimal: as cores do Windows chegam depois da abertura e a cada troca de modo ou de cor
+// de destaque. Com outro tema ligado, só ficam guardadas.
+var coresDoSistema = null; // `var`: o applyTheme pode rodar antes desta linha.
+function receberCoresDoSistema(c) {
+  if (!c || !c.paleta) return;
+  coresDoSistema = c;
+  if (currentTheme === "minimal") applyTheme("minimal");
+}
+window.nx?.sistemaCores?.().then(receberCoresDoSistema).catch(() => {});
+window.nx?.onSistemaCores?.(receberCoresDoSistema);
 
 // Os insights do sistema e a faixa de estabilidade de 24 h saíram daqui: os primeiros
 // viraram card da tela Início, a segunda foi removida junto com a gaveta de sistema no

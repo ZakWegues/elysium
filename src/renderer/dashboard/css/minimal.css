@@ -1,0 +1,52 @@
+/* dashboard/css/minimal.css — tema Minimal (20/10).
+ *
+ * O Zak pediu "um tema 100% minimalista, seguindo a cor padrão do dispositivo". As cores vêm do
+ * Windows (`paletaMinimal`, aplicada em `applyTheme`): fundo claro ou escuro conforme o modo do
+ * sistema, superfícies neutras e um acento só, a cor de destaque. Este arquivo tira todo o resto:
+ * vidro e desfoque, manchas, aurora, feixes, traços, poeira, esfera, brilhos e sombras de efeito.
+ * Carregado por último, então empata e ganha na cascata. */
+
+body.theme-minimal {
+  background: var(--bg) !important;
+  --glass-blur: none;
+  --blur-barra: none;
+  --blur-gaveta: none;
+  --blur-painel: none;
+  /* Vidro vira superfície sólida — a "tinta" do vidro já é a cor da superfície. */
+  --vidro-card: var(--surface);
+  --vidro-barra: var(--bg);
+  --vidro-gaveta: var(--bg);
+  --vidro-painel: var(--bg);
+}
+
+/* Camadas de fundo e a esfera do Chat: decoração pura. */
+body.theme-minimal #bg-aurora,
+body.theme-minimal #lg-blob-bg,
+body.theme-minimal #bg-tracos,
+body.theme-minimal #bg-poeira,
+body.theme-minimal #ely-shafts,
+body.theme-minimal #esfera {
+  display: none !important;
+}
+
+/* Sem desfoque, sem brilho de texto, sem sombra de efeito. O foco do teclado usa `outline`
+ * e continua visível. */
+body.theme-minimal *,
+body.theme-minimal *::before,
+body.theme-minimal *::after {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  text-shadow: none !important;
+  box-shadow: none !important;
+}
+
+/* O brilho do anel de hábitos e dos ícones vem de `filter: drop-shadow`. */
+body.theme-minimal svg,
+body.theme-minimal svg * {
+  filter: none !important;
+}
+
+body.theme-minimal :focus-visible {
+  outline: 2px solid var(--purple) !important;
+  outline-offset: 2px;
+}

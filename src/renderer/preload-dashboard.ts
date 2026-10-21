@@ -38,6 +38,9 @@ contextBridge.exposeInMainWorld("nx", {
   onRotinaExecutada: (cb: (r: unknown) => void) => { ipcRenderer.on("rotina:executada", (_e, r) => cb(r)); },
   getHistory:      ()                           => ipcRenderer.invoke("history:get"),
   chatStarters:    ()                           => ipcRenderer.invoke("chat:starters"),
+  // 20/10: tema Minimal — claro/escuro e destaque do Windows.
+  sistemaCores:    ()                           => ipcRenderer.invoke("sistema:cores"),
+  onSistemaCores:  (cb: (c: unknown) => void)   => { ipcRenderer.on("sistema:cores", (_e, c) => cb(c)); },
   minimizar:       ()                           => ipcRenderer.send("window:minimize"),
 
   // ── Config ─────────────────────────────────────────────────────────────────

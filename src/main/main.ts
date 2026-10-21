@@ -6,7 +6,8 @@
 import { dentroDoApp } from "./ipcSeguro";
 import "./migrateUserData";
 import { migrarLembretesParaTarefas } from "../actions/memoryActions";
-import { app, BrowserWindow, globalShortcut, ipcMain, clipboard, nativeImage, dialog, shell, powerMonitor } from "electron";
+import { app, BrowserWindow, globalShortcut, ipcMain, clipboard, nativeImage, dialog, shell, powerMonitor, nativeTheme, systemPreferences } from "electron";
+import { paletaMinimal } from "../services/paletaMinimal";
 import { paraFala } from "../services/estiloResposta";
 import { ouvirTimers, retomarTimers } from "../services/timers";
 import { deveSugerir, sugerirContinuacoes } from "../services/continuacoes";
@@ -772,6 +773,17 @@ ipcMain.on("chat:clear", () => {
 
 /** Bolhas de partida do chat — ver `perguntas.ts`. */
 ipcMain.handle("chat:starters", () => bolhasDoChat(4));
+
+// 20/10: tema Minimal — claro/escuro e cor de destaque do Windows, com aviso quando mudam.
+function coresDoSistema(): { escuro: boolean; paleta: ReturnType<typeof paletaMinimal> } {
+  let destaque: string | undefined;
+  try { destaque = systemPreferences.getAccentColor(); } catch { /* fora do Windows */ }
+  const escuro = nativeTheme.shouldUseDarkColors;
+  return { escuro, paleta: paletaMinimal(escuro, destaque) };
+}
+ipcMain.handle("sistema:cores", () => coresDoSistema());
+nativeTheme.on("updated", () => enviarAoDash("sistema:cores", coresDoSistema()));
+systemPreferences.on("accent-color-changed", () => enviarAoDash("sistema:cores", coresDoSistema()));
 
 ipcMain.handle("history:get", () => getTopHistory(8));
 
