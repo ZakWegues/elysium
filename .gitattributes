@@ -1,0 +1,2 @@
+# Renderer das telas: gerado, vai como está (o autocrlf mexeria no JS embutido).
+ui-render/dist/* -text

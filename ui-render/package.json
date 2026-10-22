@@ -1,0 +1,29 @@
+{
+  "name": "elysium-ui-render",
+  "private": true,
+  "type": "module",
+  "description": "Renderer isolado das telas inteligentes da Ely (OpenUI Lang 1.0), para iframe/WebView sandbox.",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "galeria": "node scripts/build.mjs --galeria && node scripts/servir.mjs",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@openuidev/lang-core": "1.0.1",
+    "@openuidev/react-lang": "1.0.1",
+    "katex": "0.16.47",
+    "lucide-react": "0.562.0",
+    "maplibre-gl": "6.15.0",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "esbuild": "0.25.12",
+    "typescript": "^5",
+    "vitest": "^3"
+  }
+}

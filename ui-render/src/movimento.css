@@ -1,0 +1,52 @@
+/*
+ * Movimento das telas (Fase 1). Mesmo vocabulário do app: curto, nada acima de 400 ms, nada em
+ * loop (exceto o brilho de "carregando" da própria biblioteca). Com "reduzir movimento" (do
+ * sistema ou mandado pelo host em `data-reduzir`), só fade curto.
+ */
+:root {
+  --iui-dur-micro: 140ms;
+  --iui-dur-base: 220ms;
+  --iui-dur-lento: 320ms;
+  --iui-curva: cubic-bezier(.2, .8, .2, 1);
+}
+
+/* Entrada: a tela sobe 8 px com fade e os blocos de cima entram em cascata de 40 ms. */
+@keyframes tela-entra { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+#tela.entrando > * > * { animation: tela-entra var(--iui-dur-lento) var(--iui-curva) both; }
+#tela.entrando > * > :nth-child(2) { animation-delay: 40ms; }
+#tela.entrando > * > :nth-child(3) { animation-delay: 80ms; }
+#tela.entrando > * > :nth-child(4) { animation-delay: 120ms; }
+#tela.entrando > * > :nth-child(5) { animation-delay: 160ms; }
+#tela.entrando > * > :nth-child(6) { animation-delay: 200ms; }
+#tela.entrando > * > :nth-child(n+7) { animation-delay: 240ms; }
+
+/* Flashcard: o flip em 320 ms (era 450). */
+.iui-flashcard-inner { transition-duration: var(--iui-dur-lento); transition-timing-function: var(--iui-curva); }
+
+/* Gráfico: na 1ª pintura as barras crescem do eixo e as linhas se desenham (400 ms). Depois,
+   quando um controle muda o valor, só a transição suave dos atributos. */
+@keyframes barra-cresce { from { transform: scaleY(0); } }
+@keyframes linha-desenha { from { stroke-dashoffset: 1; } }
+#tela.entrando .iui-chart-plot rect:not(.iui-chart-hover) { transform-box: fill-box; transform-origin: bottom; animation: barra-cresce 400ms var(--iui-curva) both; }
+#tela.entrando .iui-chart-plot path[fill="none"] { stroke-dasharray: 1; stroke-dashoffset: 0; animation: linha-desenha 400ms var(--iui-curva) both; }
+.iui-chart-plot rect, .iui-chart-plot circle { transition: y var(--iui-dur-base) var(--iui-curva), height var(--iui-dur-base) var(--iui-curva), cy var(--iui-dur-base) var(--iui-curva); }
+
+/* Controles: 140 ms. */
+#tela input[type="range"], #tela input[type="checkbox"], #tela button { transition-duration: var(--iui-dur-micro); }
+
+/* Número que acabou de mudar (contagem no render.tsx): um realce curto. */
+.contando { transition: color var(--iui-dur-base) var(--iui-curva); }
+
+:root[data-reduzir] #tela.entrando > * > *, :root[data-reduzir] #tela.entrando .iui-chart-plot rect, :root[data-reduzir] #tela.entrando .iui-chart-plot path {
+  animation: tela-fade var(--iui-dur-micro) linear both !important; animation-delay: 0ms !important;
+}
+:root[data-reduzir] .iui-flashcard-inner { transition-duration: 0ms; }
+@keyframes tela-fade { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  #tela.entrando > * > *, #tela.entrando .iui-chart-plot rect, #tela.entrando .iui-chart-plot path { animation: tela-fade var(--iui-dur-micro) linear both !important; animation-delay: 0ms !important; }
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; background: transparent; overflow: hidden; }
+body { font-family: var(--iui-font); color: var(--iui-ink); }
+#tela { padding: 2px; }

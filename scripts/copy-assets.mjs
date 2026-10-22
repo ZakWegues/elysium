@@ -30,4 +30,9 @@ cpSync("src/renderer/selecao.html",      "dist/renderer/selecao.html");
 // O CSS e o JS do dashboard moram em pasta própria desde o bloco 76.
 cpSync("src/renderer/dashboard", "dist/renderer/dashboard", { recursive: true });
 
+// Telas inteligentes (22/10): o renderer isolado, pronto (gerado em ui-render/ com `npm run build`).
+mkdirSync("dist/renderer/ui", { recursive: true });
+cpSync("ui-render/dist/render.html", "dist/renderer/ui/render.html");
+cpSync("ui-render/dist/protocolo.js", "dist/renderer/ui/protocolo.js");
+
 console.log("Assets copiados para dist/");

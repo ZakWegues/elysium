@@ -36,3 +36,8 @@ CLAUDE.md
 AGENTS.md
 ULTRA_HANDOFF.md
 HANDOFF.md
+
+# Telas inteligentes: o renderer pronto vai versionado (o app e o celular copiam daqui; o build dele
+# precisa das deps do ui-render). A galeria é só de dev.
+!ui-render/dist/
+ui-render/dist/galeria.html
