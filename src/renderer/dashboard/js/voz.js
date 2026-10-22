@@ -239,10 +239,30 @@ function anexarExtras(x) {
     // Fase 21: "reserva" cobre os dois casos — o Hermes não respondeu, ou a nuvem caiu e o local respondeu.
     rodape.insertAdjacentHTML("afterbegin", `<div class="chat-local" title="O cérebro principal não respondeu a tempo; quem respondeu foi a reserva — pode ser menos preciso.">reserva</div>`);
   }
+  // 22/10: respostas rápidas — Sim/Não/opções dela + as prontas + "Outra resposta…".
+  if (x?.rapidas) {
+    rodape.querySelector(".chat-rapidas")?.remove();
+    const r = x.rapidas;
+    const botoes = [];
+    if (r.sim) botoes.push(["Sim", "sim", "forte"]);
+    if (r.nao) botoes.push(["Não", "não", "forte"]);
+    for (const o of r.opcoes ?? []) botoes.push([o, o, "forte"]);
+    // Com pergunta, as sugestões de continuação saem: uma linha só.
+    if (r.pergunta) rodape.querySelector(".chat-sugestoes")?.remove();
+    for (const p of r.prontas ?? []) botoes.push([p, p, ""]);
+    if (r.pergunta) botoes.push(["Outra resposta…", "", "outra"]);
+    if (botoes.length) {
+      rodape.insertAdjacentHTML("beforeend", `<div class="chat-rapidas">${botoes.map(([rot, val, tipo], i) =>
+        `<button type="button" class="${tipo}" data-rapida="${escHtml(val)}"${tipo === "outra" ? " data-outra=\"1\"" : ""}${i < 4 && tipo === "forte" ? ` title="Alt+${i + 1}"` : ""}>${escHtml(rot)}</button>`).join("")}</div>`);
+    }
+  }
   if (x?.sugestoes?.length) {
     rodape.querySelector(".chat-sugestoes")?.remove();
-    rodape.insertAdjacentHTML("beforeend", `<div class="chat-sugestoes">${x.sugestoes.map(s =>
-      `<button type="button" data-sugestao="${escHtml(s)}">${escHtml(s)}</button>`).join("")}</div>`);
+    const html = x.sugestoes.map(s => `<button type="button" data-sugestao="${escHtml(s)}">${escHtml(s)}</button>`).join("");
+    // Já tem a linha das respostas prontas: as sugestões entram no começo dela (uma linha só).
+    const linha = rodape.querySelector(".chat-rapidas");
+    if (linha) linha.insertAdjacentHTML("afterbegin", html);
+    else rodape.insertAdjacentHTML("beforeend", `<div class="chat-sugestoes">${html}</div>`);
   }
   if (isAtBottom()) scrollToBottom();
 }
@@ -252,14 +272,35 @@ window.nx.onChatExtras?.(anexarExtras);
 timeline.addEventListener("click", (e) => {
   const f = e.target.closest("button[data-fonte]");
   if (f) { window.nx.abrirLink(f.dataset.fonte); return; }
+  const rap = e.target.closest("button[data-rapida]");
+  if (rap) { responderRapida(rap); return; }
   const s = e.target.closest("button[data-sugestao]");
   if (!s) return;
   const texto = s.dataset.sugestao;
-  timeline.querySelectorAll(".chat-sugestoes").forEach(n => n.remove());
+  tirarLinhasDeResposta();
   addBubble("user", texto);
   recordMessage("me", texto);
   window.nx.chatSend(texto);
 });
+
+/** As linhas de chips da resposta anterior somem (com fade curto) quando ele responde. */
+function tirarLinhasDeResposta() {
+  timeline.querySelectorAll(".chat-sugestoes, .chat-rapidas").forEach(n => {
+    n.classList.add("saindo");
+    setTimeout(() => n.remove(), 140);
+  });
+}
+
+/** Clique numa resposta rápida: vira mensagem normal; "Outra resposta…" só foca o campo. */
+function responderRapida(btn) {
+  if (btn.dataset.outra) { cmdInput.focus(); return; }
+  const texto = btn.dataset.rapida;
+  if (!texto) return;
+  tirarLinhasDeResposta();
+  addBubble("user", texto);
+  recordMessage("me", texto);
+  window.nx.chatSend(texto);
+}
 
 window.nx.onReply(finalizarResposta);
 
@@ -297,7 +338,7 @@ const micBtn   = document.getElementById("mic-btn");
 // o lado "Celular" com arquivos. Aqui fica só o ponto de entrada que os ouvintes já usam.
 function sendText() {
   // Pergunta nova: as sugestões da resposta anterior já não servem (bloco 132).
-  timeline.querySelectorAll(".chat-sugestoes").forEach(n => n.remove());
+  tirarLinhasDeResposta();
   if (cmdInput.value.trim()) window.dispatchEvent(new CustomEvent("ely:enviou"));
   enviarMensagem();
 }
@@ -306,6 +347,16 @@ function sendText() {
 cmdInput.addEventListener("input", () => window.dispatchEvent(new CustomEvent("ely:tecla")));
 
 sendBtn.addEventListener("click", sendText);
+
+// 22/10: Alt+1…4 toca os primeiros botões de resposta (Sim, Não, opções) da última resposta.
+cmdInput.addEventListener("keydown", (e) => {
+  if (!e.altKey || e.ctrlKey || !/^[1-4]$/.test(e.key)) return;
+  const linhas = timeline.querySelectorAll(".chat-rapidas:not(.saindo)");
+  const btn = linhas[linhas.length - 1]?.querySelectorAll("button.forte")[Number(e.key) - 1];
+  if (!btn) return;
+  e.preventDefault();
+  responderRapida(btn);
+});
 
 // Fase 21: modo live — um clique liga a conversa contínua, outro desliga. O botão acende
 // enquanto ele está ligado (venha de onde vier: voz, bolota ou aqui).

@@ -111,7 +111,32 @@ const sondas = [
   sonda("arquivo cru sem token → 401", () => status(`${BASE}/api/mailbox/messages/00000000-0000-0000-0000-000000000000/raw`, {}, 401)),
   sonda("arquivo cru com id forjado → 404", () => status(`${BASE}/api/mailbox/messages/..%2F..%2Felysium-config/raw`, { headers: auth }, 404)),
   sonda("arquivo cru com id inexistente → 404", () => status(`${BASE}/api/mailbox/messages/00000000-0000-0000-0000-000000000000/raw`, { headers: auth }, 404)),
-  sonda("kind inválido → 400", () => status(`${BASE}/api/mailbox/messages`, { method: "POST", headers: { ...auth, "Content-Type": "application/json" }, body: JSON.stringify({ kind: "exec", text: "x" }) }, 400)),
+  // 22/10: upload grande da Caixa (PUT em stream).
+  sonda("upload sem token → 401", () => status(`${BASE}/api/mailbox/upload?nome=x.bin`, { method: "PUT", body: "x" }, 401)),
+  sonda("upload acima de 500 MB → 413 sem ler o corpo", async () => {
+    const r = await cru(hostLocal, `PUT /api/mailbox/upload?nome=grande.bin HTTP/1.1\r\nHost: ${hostLocal}:${porta}\r\nAuthorization: Bearer ${TOKEN}\r\nContent-Length: ${600 * 1024 * 1024}\r\n\r\nxxxx`);
+    return { ok: /^HTTP\/1\.1 413/.test(r), det: r.split("\r\n")[0] || "(nada)" };
+  }),
+  sonda("upload sem Content-Length → recusado", async () => {
+    const r = await cru(hostLocal, `PUT /api/mailbox/upload?nome=x.bin HTTP/1.1\r\nHost: ${hostLocal}:${porta}\r\nAuthorization: Bearer ${TOKEN}\r\nTransfer-Encoding: chunked\r\n\r\n4\r\nxxxx\r\n0\r\n\r\n`);
+    return { ok: /^HTTP\/1\.1 (411|400)/.test(r), det: r.split("\r\n")[0] || "(nada)" };
+  }),
+  sonda("upload com nome de caminho não sai da pasta", async () => {
+    const r = await req(`${BASE}/api/mailbox/upload?nome=${encodeURIComponent("..\\..\\..\\sonda-upload.txt")}`, { method: "PUT", headers: { ...auth, "Content-Length": "1" }, body: "x" });
+    const j = await r.json().catch(() => ({}));
+    const fora = fs.existsSync(path.join(process.env.APPDATA ?? "", "sonda-upload.txt")) || fs.existsSync(path.join(process.env.APPDATA ?? "", "elysium", "sonda-upload.txt"));
+    if (j?.id) await req(`${BASE}/api/rpc`, { method: "POST", headers: { ...auth, "Content-Type": "application/json", "x-elysium-confirm": "1" }, body: JSON.stringify({ method: "mailbox.messages.delete", params: { id: j.id } }) }).catch(() => {});
+    return { ok: r.status === 201 && !fora && !/[\\/]/.test(j?.nome ?? ""), det: `HTTP ${r.status} nome=${JSON.stringify(j?.nome)} fora=${fora}` };
+  }),
+  sonda("upload que cai no meio não deixa lixo", async () => {
+    const pasta = path.join(process.env.APPDATA ?? "", "elysium", "mailbox-attachments");
+    const antes = fs.existsSync(pasta) ? fs.readdirSync(pasta).length : 0;
+    await cru(hostLocal, `PUT /api/mailbox/upload?nome=corte.bin HTTP/1.1\r\nHost: ${hostLocal}:${porta}\r\nAuthorization: Bearer ${TOKEN}\r\nContent-Length: 1000000\r\n\r\n${"x".repeat(1000)}`, 800);
+    await new Promise((r) => setTimeout(r, 1500));
+    const depois = fs.existsSync(pasta) ? fs.readdirSync(pasta).length : 0;
+    return { ok: depois === antes, det: `anexos antes=${antes} depois=${depois}` };
+  }),
+  sonda("kind inválido → 400",() => status(`${BASE}/api/mailbox/messages`, { method: "POST", headers: { ...auth, "Content-Type": "application/json" }, body: JSON.stringify({ kind: "exec", text: "x" }) }, 400)),
   // ── WebSocket e MCP ──
   sonda("WebSocket sem token é recusado", async () => {
     const resp = await cru(hostLocal, `GET /api/stream HTTP/1.1\r\nHost: ${hostLocal}\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n`);

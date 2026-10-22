@@ -24,7 +24,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import { getAllLocalIPv4 } from "../main/network";
 import { clientesConectados } from "./server";
-import { getConfig, setOverride } from "../main/config";
+import { getConfig, patchDeConfigSeguro, setOverride, type AppConfig } from "../main/config";
 import { aplicarConfigHermes, estadoHermes } from "./hermes/cerebro";
 
 function hostnameOf(): string {
@@ -47,6 +47,7 @@ import { agendaFalada, estadoAgenda, eventosDoDia } from "./agenda";
 import { resumoDoDia } from "./resumoDoDia";
 import { buscarNasConversas } from "./buscaConversas";
 import { estiloValido, MAX_INSTRUCOES } from "./estiloResposta";
+import { limparProntas, RESPOSTAS_PRONTAS_PADRAO } from "./respostasRapidas";
 import { adicionarNaLista, alternarItem, apagarLista, limparFeitos, listarListas, removerItem, separarItens } from "./listas";
 import { apagarHabito, apagarMeta, avancarMeta, listarHabitos, listarMetas, marcarHabito, pausarHabito, resumirHabito, salvarHabito, salvarMeta } from "./habitos";
 import { fatosDoDia, montarPainelHoje } from "./hoje";
@@ -262,6 +263,15 @@ const ERROS_DO_MODO: Record<ErroModo, string> = {
   existe: "já existe um modo com esse nome",
   cheio: "limite de 12 modos criados",
 };
+
+/** Jeito de responder como o celular vê (22/10: mais respostas rápidas e telas interativas). */
+function perfilDoCelular(c: AppConfig) {
+  return {
+    estiloResposta: estiloValido(c.estiloResposta), instrucoesPessoais: c.instrucoesPessoais ?? "", tratamento: c.tratamento ?? "chefe",
+    respostasRapidas: c.respostasRapidas !== false, respostasProntas: limparProntas(c.respostasProntas ?? RESPOSTAS_PRONTAS_PADRAO),
+    respostasInterativas: c.respostasInterativas ?? "perguntar",
+  };
+}
 
 const METHODS: Record<string, MethodDef> = {
   // — sistema —
@@ -1354,18 +1364,22 @@ const METHODS: Record<string, MethodDef> = {
   "perfil.get": {
     handler: async () => {
       const c = getConfig();
-      return { estiloResposta: estiloValido(c.estiloResposta), instrucoesPessoais: c.instrucoesPessoais ?? "", tratamento: c.tratamento ?? "chefe" };
+      return perfilDoCelular(c);
     },
   },
   "perfil.set": {
     handler: async (params) => {
-      const patch: { estiloResposta?: string; instrucoesPessoais?: string; tratamento?: string } = {};
+      const patch: { estiloResposta?: string; instrucoesPessoais?: string; tratamento?: string; respostasRapidas?: boolean; respostasProntas?: unknown; respostasInterativas?: unknown } = {};
       if (typeof params["tratamento"] === "string") patch.tratamento = params["tratamento"].trim().slice(0, 30);
       if (params["estiloResposta"] !== undefined) patch.estiloResposta = estiloValido(params["estiloResposta"]);
+      // 22/10: respostas rápidas e telas interativas (saneadas no patchDeConfigSeguro).
+      if (typeof params["respostasRapidas"] === "boolean") patch.respostasRapidas = params["respostasRapidas"];
+      if (params["respostasProntas"] !== undefined) patch.respostasProntas = params["respostasProntas"];
+      if (params["respostasInterativas"] !== undefined) patch.respostasInterativas = params["respostasInterativas"];
       if (typeof params["instrucoesPessoais"] === "string") patch.instrucoesPessoais = params["instrucoesPessoais"].trim().slice(0, MAX_INSTRUCOES);
-      setOverride(patch);
+      setOverride(patchDeConfigSeguro(patch as Partial<AppConfig>));
       const c = getConfig();
-      return { estiloResposta: estiloValido(c.estiloResposta), instrucoesPessoais: c.instrucoesPessoais ?? "", tratamento: c.tratamento ?? "chefe" };
+      return perfilDoCelular(c);
     },
   },
   // Fase 21: o cérebro Hermes — estado (chip de Ajustes no PC e no celular) e a escolha.

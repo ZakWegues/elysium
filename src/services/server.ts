@@ -30,13 +30,15 @@ import { desfazerTurno, desfazerUltimoTurno } from "./brain";
 import type { ResultadoComando } from "./command";
 import type { Fonte } from "./contextoComando";
 import { deveSugerir, sugerirContinuacoes } from "./continuacoes";
+import { rapidasPara, type Rapidas } from "./respostasRapidas";
+import { getConfig } from "../main/config";
 import * as crypto from "node:crypto";
 import type { Socket } from "node:net";
 import { transcribe } from "./stt";
 import { getSystemTelemetry } from "../actions/systemInfo";
 import {
   addMessage, listMessages, getMessageContent, ackMessage, getAttachmentFile,
-  AttachmentTooLargeError, MailboxKind,
+  AttachmentTooLargeError, MailboxKind, MAILBOX_MAX_FILE_BYTES, receberUpload, UploadIncompletoError,
 } from "./mailboxStore";
 import { completeLogin as completeSpotifyLogin } from "./spotify";
 import { handleRpc, listRpcMethods, RpcError } from "./rpc";
@@ -585,6 +587,36 @@ function makeHandler(
       return;
     }
 
+    // PUT /api/mailbox/upload?nome=&tipo=&sessionId=&texto= — 22/10: arquivo grande do celular
+    // (até 500 MB), corpo cru em stream direto para o disco. Content-Length obrigatório.
+    if (req.method === "PUT" && url === "/api/mailbox/upload") {
+      const q = new URL(req.url ?? "", "http://127.0.0.1").searchParams;
+      const nome = (q.get("nome") ?? "").trim();
+      const tamanho = Number(req.headers["content-length"]);
+      if (!nome || nome.length > 200) { sendJson(res, 400, { error: "nome obrigatório" }); return; }
+      if (!req.headers["content-length"] || !Number.isInteger(tamanho) || tamanho <= 0) { sendJson(res, 411, { error: "Content-Length obrigatório" }); return; }
+      if (tamanho > MAILBOX_MAX_FILE_BYTES) {
+        res.writeHead(413, { "Content-Type": "application/json; charset=utf-8", Connection: "close" });
+        res.end(JSON.stringify({ error: "arquivo maior que 500 MB" }));
+        req.destroy();
+        return;
+      }
+      try {
+        const criada = await receberUpload("mobile", req, nome, tamanho, {
+          mimeType: q.get("tipo"),
+          text: (q.get("texto") ?? "").trim().slice(0, 2000) || null,
+          sessionId: (q.get("sessionId") ?? "").trim() || null,
+        });
+        broadcastMailboxEvent("toDesktop", criada.id);
+        sendJson(res, 201, criada);
+      } catch (e) {
+        if (e instanceof UploadIncompletoError) { if (!res.headersSent && !req.destroyed) sendJson(res, 400, { error: e.message }); return; }
+        console.error("[HTTP] upload da caixa falhou:", e);
+        if (!res.headersSent && !req.destroyed) sendJson(res, 500, { error: mensagemDeErro(e) });
+      }
+      return;
+    }
+
     // POST /api/mailbox/messages — celular → servidor, mensagem entra na thread como from:"mobile"
     if (req.method === "POST" && url === "/api/mailbox/messages") {
       let body: string;
@@ -822,17 +854,19 @@ function handleUpgrade(
   const enviarAqui = (t: string) => sendToClient(client, t);
   socket.on("close", () => { fechado = true; soltarDestino(enviarAqui); });
 
-  const executar = async (texto: string, canal: "voz" | "texto" = "voz", aoPedaco?: (t: string) => void): Promise<{ reply: string; fontes?: Fonte[]; local?: boolean }> => {
+  const executar = async (texto: string, canal: "voz" | "texto" = "voz", aoPedaco?: (t: string) => void): Promise<{ reply: string; fontes?: Fonte[]; local?: boolean; rapidas?: Rapidas }> => {
     if (!processStream) return { reply: await processCommand(texto, canal) };
     const r = await processStream(texto, aoPedaco ?? ((token) => sendToClient(client, JSON.stringify({ type: "chunk", text: token }))), canal);
     // Bloco 132: as sugestões chegam DEPOIS do reply, numa mensagem própria — o celular já
     // fechou a bolha; app antigo ignora o tipo que não conhece.
-    if (deveSugerir(r.actions, canal) && !fechado) {
+    // 22/10: respostas rápidas no próprio reply; com pergunta, sem sugestões de continuação.
+    const rapidas = rapidasPara(r.reply, getConfig()) ?? undefined;
+    if (deveSugerir(r.actions, canal) && !fechado && !rapidas?.pergunta) {
       sugerirContinuacoes(texto, r.reply)
         .then(sugestoes => { if (sugestoes.length) sendToClient(client, JSON.stringify({ type: "sugestoes", sugestoes })); })
         .catch(() => { /* sem chips */ });
     }
-    return { reply: r.reply, fontes: r.fontes, local: r.local };
+    return { reply: r.reply, fontes: r.fontes, local: r.local, rapidas };
   };
 
   // Fase 22: o trackpad pelo mesmo WebSocket (inputCanal.ts). Um canal por conexão, criado no
@@ -860,9 +894,9 @@ function handleUpgrade(
         const p = abrirPedido(msg.id, msg.text, enviarAqui);
         if (!p) { retomar(msg.id, enviarAqui); return; } // o mesmo pedido chegou de novo: só reconecta
         executar(msg.text, msg.canal === "texto" ? "texto" : "voz", (t) => pedaco(p, t))
-          .then(({ reply, fontes, local }) => {
+          .then(({ reply, fontes, local, rapidas }) => {
             if (p.parado) { desfazerTurno(p.texto, reply); return; }
-            terminar(p, { type: "reply", reply, ...(fontes?.length ? { fontes } : {}), ...(local ? { local } : {}) });
+            terminar(p, { type: "reply", reply, ...(fontes?.length ? { fontes } : {}), ...(local ? { local } : {}), ...(rapidas ? { rapidas } : {}) });
           })
           .catch(err => {
             console.error("[WS] falha ao processar comando de texto:", err);
@@ -887,9 +921,9 @@ function handleUpgrade(
         if (msg.refazer === true) desfazerUltimoTurno();
         executar(msg.text, msg.canal === "texto" ? "texto" : "voz")
           // Bloco 131: `fontes` vai junto; app antigo lê só o `reply`.
-          .then(({ reply, fontes, local }) => {
+          .then(({ reply, fontes, local, rapidas }) => {
             if (fechado) { desfazerTurno(msg.text!, reply); console.log("[WS] conexão fechada no meio; resposta descartada."); return; }
-            sendToClient(client, JSON.stringify({ type: "reply", reply, ...(fontes?.length ? { fontes } : {}), ...(local ? { local } : {}) }));
+            sendToClient(client, JSON.stringify({ type: "reply", reply, ...(fontes?.length ? { fontes } : {}), ...(local ? { local } : {}), ...(rapidas ? { rapidas } : {}) }));
           })
           .catch(err  => {
             console.error("[WS] falha ao processar comando de texto:", err);
@@ -916,10 +950,10 @@ function handleUpgrade(
         return;
       }
       sendToClient(client, JSON.stringify({ type: "transcript", text }));
-      const { reply, fontes, local } = await executar(text);
+      const { reply, fontes, local, rapidas } = await executar(text);
       // Parado no meio (o mesmo caso do texto): descarta e tira o turno do histórico.
       if (fechado) { desfazerTurno(text, reply); return; }
-      sendToClient(client, JSON.stringify({ type: "reply", reply, ...(fontes?.length ? { fontes } : {}), ...(local ? { local } : {}) }));
+      sendToClient(client, JSON.stringify({ type: "reply", reply, ...(fontes?.length ? { fontes } : {}), ...(local ? { local } : {}), ...(rapidas ? { rapidas } : {}) }));
     } catch (e) {
       console.error("[WS] falha ao processar áudio (transcrição ou comando):", e);
       sendToClient(client, JSON.stringify({ type: "error", error: mensagemDeErro(e) }));

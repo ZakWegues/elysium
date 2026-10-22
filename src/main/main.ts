@@ -11,6 +11,7 @@ import { paletaMinimal } from "../services/paletaMinimal";
 import { paraFala } from "../services/estiloResposta";
 import { ouvirTimers, retomarTimers } from "../services/timers";
 import { deveSugerir, sugerirContinuacoes } from "../services/continuacoes";
+import { rapidasPara } from "../services/respostasRapidas";
 import * as path from "node:path";
 import * as fs from "node:fs";
 
@@ -637,6 +638,9 @@ ipcMain.on("audio-data", async (_event, buffer: Buffer) => {
     notify("ELYSIUM", combined);
 
     enviarAoDash("voice:reply", combined);
+    // 22/10: os botões de resposta também valem depois da voz (o microfone segue aberto).
+    const rapidasVoz = rapidasPara(combined, getConfig());
+    if (rapidasVoz) enviarAoDash("chat:extras", { rapidas: rapidasVoz });
     state.set("speaking");
     // O que ainda não foi dito: o fim da resposta (ou ela inteira, sem fala antecipada).
     // O `speak` entra na mesma fila, depois das frases já enfileiradas.
@@ -748,7 +752,11 @@ async function enviarTexto(text: string, opcoes?: { refazer?: boolean }): Promis
     if (fontes.length) enviarAoDash("chat:extras", { fontes });
     // Fase 18: a nuvem falhou e o local respondeu — o selo "modo local" na bolha.
     if (local) enviarAoDash("chat:extras", { local: true });
-    if (deveSugerir(actions, "texto")) {
+    // 22/10: respostas rápidas. Se ela perguntou algo, a linha é de resposta — sem as
+    // sugestões de continuação (uma linha só embaixo da bolha).
+    const rapidas = rapidasPara(combined, getConfig());
+    if (rapidas) enviarAoDash("chat:extras", { rapidas });
+    if (deveSugerir(actions, "texto") && !rapidas?.pergunta) {
       sugerirContinuacoes(text, combined).then((sugestoes) => {
         if (sugestoes.length && turnoAtual() === meuToken) enviarAoDash("chat:extras", { sugestoes });
       }).catch(() => { /* sem chips */ });

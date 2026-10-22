@@ -391,6 +391,27 @@
 }
 .chat-sugestoes button:hover { background: rgba(var(--purple-rgb),0.18); }
 
+/* 22/10: respostas rápidas — Sim/Não/opções (forte), as prontas e "Outra resposta…". Entram em
+   cascata de 30 ms e somem com fade quando ele responde (tokens --mov-* do base.css). */
+.chat-rapidas { display: flex; flex-wrap: wrap; gap: 6px; transition: opacity var(--mov-saida) var(--mov-suave); }
+.chat-rapidas.saindo, .chat-sugestoes.saindo { opacity: 0; pointer-events: none; transition: opacity var(--mov-saida) var(--mov-suave); }
+.chat-rapidas button, .chat-rapidas [data-sugestao] {
+  padding: 6px 11px; border-radius: var(--radius-12); border: 1px solid var(--border2); background: var(--surface);
+  color: var(--muted); font: inherit; font-size: 12px; cursor: pointer; text-align: left;
+  animation: rapida-entra var(--mov-base) var(--mov-suave) both;
+  transition: background var(--mov-micro), border-color var(--mov-micro), color var(--mov-micro), transform var(--mov-micro);
+}
+.chat-rapidas button.forte, .chat-rapidas [data-sugestao] { border-color: rgba(var(--purple-rgb),0.35); background: rgba(var(--purple-rgb),0.08); color: var(--text); }
+.chat-rapidas button.outra { border-style: dashed; }
+.chat-rapidas button:hover { background: rgba(var(--purple-rgb),0.18); color: var(--text); }
+.chat-rapidas button:active { transform: scale(0.97); }
+.chat-rapidas button:nth-child(2) { animation-delay: 30ms; } .chat-rapidas button:nth-child(3) { animation-delay: 60ms; }
+.chat-rapidas button:nth-child(4) { animation-delay: 90ms; } .chat-rapidas button:nth-child(5) { animation-delay: 120ms; }
+.chat-rapidas button:nth-child(6) { animation-delay: 150ms; } .chat-rapidas button:nth-child(n+7) { animation-delay: 180ms; }
+@keyframes rapida-entra { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { :root:not([data-movimento="sempre"]) .chat-rapidas button { animation: none; } }
+:root[data-movimento="nunca"] .chat-rapidas button { animation: none; }
+
 /* Fase 18: a resposta veio do cérebro local porque a nuvem falhou. */
 .chat-local { display: inline-block; margin: 2px 0 4px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; }
 

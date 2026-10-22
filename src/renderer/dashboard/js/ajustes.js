@@ -109,6 +109,14 @@ const AJUSTES = [
         dica: "Vale para o chat escrito e, mais curto, para a voz." },
       { chave: "instrucoesPessoais", rotulo: "Como a Ely responde", tipo: "area",
         dica: "Em texto livre: como você quer ser tratado, o que evitar, o que sempre incluir. Ex.: “sem emoji; quando eu perguntar preço, dê em reais; me corrija se eu estiver errado”." },
+      // 22/10: botões de resposta embaixo da última mensagem da Ely.
+      { chave: "respostasRapidas", rotulo: "Respostas rápidas", tipo: "bool",
+        dica: "Quando ela pergunta algo, aparecem botões embaixo da resposta: Sim, Não, as opções que ela ofereceu e “Outra resposta…”. Alt+1 a Alt+4 tocam os primeiros. Falar continua valendo." },
+      { chave: "respostasProntas", rotulo: "Respostas prontas", tipo: "lista",
+        dica: "Uma por linha, até 6. Aparecem junto dos botões de resposta." },
+      { chave: "respostasInterativas", rotulo: "Respostas interativas", tipo: "select", opcoes: [
+        ["nunca", "Nunca"], ["pedir", "Quando eu pedir"], ["perguntar", "A Ely pergunta quando fizer sentido"], ["priorizar", "Priorizar sempre que couber"]],
+        dica: "Telas interativas no chat (gráfico, mapa, tabela, calculadora, flashcards). Ainda em construção: por enquanto só fica guardado." },
       { chave: "chatHistoryTurns", rotulo: "Turnos na memória", tipo: "faixa", min: 2, max: 20, passo: 1, unidade: "" },
       { chave: "chatIdleResetMs", rotulo: "Reset por inatividade", tipo: "faixa", min: 60000, max: 3600000, passo: 60000, unidade: "ms" },
     ],
@@ -468,6 +476,9 @@ function desenharAjustes(cfg) {
             <input type="range" data-cfg="${c.chave}" min="${c.min}" max="${c.max}" step="${c.passo}" value="${num}">
             <span class="cfg-faixa-val" data-val-de="${c.chave}">${escHtml(valorLegivel(c, num))}</span>
           </div>`;
+        } else if (c.tipo === "lista") {
+          const linhas = Array.isArray(v) ? v.join("\n") : "";
+          controle = `<textarea data-cfg="${c.chave}" data-lista="1" rows="4" maxlength="400" spellcheck="false">${escHtml(linhas)}</textarea>`;
         } else if (c.tipo === "area") {
           controle = `<textarea data-cfg="${c.chave}" rows="4" maxlength="1500" placeholder="Como você quer que ele responda…">${escHtml(String(v ?? ""))}</textarea>`;
         } else {
@@ -491,6 +502,7 @@ document.addEventListener("change", async (e) => {
   const chave = el.dataset.cfg;
   const valor = el.type === "checkbox" ? el.checked
               : el.type === "range" ? Number(el.value)
+              : el.dataset.lista ? el.value.split("\n").map(l => l.trim()).filter(Boolean).slice(0, 6)
               : el.value;
   // Aplica na hora o que é visual; esperar reiniciar para ver o efeito de um seletor de
   // aparência é o tipo de coisa que faz parecer que não funcionou.

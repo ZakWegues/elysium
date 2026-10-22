@@ -315,6 +315,48 @@ export async function addFileMessage(from: MailboxSender, caminho: string, opts:
   }
 }
 
+/** O upload terminou antes do tamanho anunciado (a conexão caiu) ou passou dele. */
+export class UploadIncompletoError extends Error {}
+
+/**
+ * 22/10: arquivo grande do celular (até 500 MB), em stream direto para o disco — sem base64 e
+ * sem passar pela memória. `tamanho` é o Content-Length: o arquivo tem que bater com ele.
+ * Qualquer falha no meio apaga o parcial.
+ */
+export async function receberUpload(
+  from: MailboxSender,
+  corpo: AsyncIterable<Buffer | string>,
+  nome: string,
+  tamanho: number,
+  opts: { mimeType?: string | null; text?: string | null; sessionId?: string | null } = {},
+): Promise<{ id: string; createdAt: number; sessionId: string; nome: string; sizeBytes: number }> {
+  if (!Number.isInteger(tamanho) || tamanho <= 0) throw new UploadIncompletoError("tamanho inválido");
+  if (tamanho > MAILBOX_MAX_FILE_BYTES) throw new AttachmentTooLargeError("arquivo maior que 500 MB");
+  const limpo = sanitizeFileName(nome);
+  const destino = path.join(attachmentsDir(), `${crypto.randomUUID()}-${limpo}`);
+  const saida = fs.createWriteStream(destino, { flags: "wx" });
+  let recebidos = 0;
+  try {
+    for await (const pedaco of corpo) {
+      const buf = Buffer.isBuffer(pedaco) ? pedaco : Buffer.from(pedaco);
+      recebidos += buf.length;
+      if (recebidos > tamanho) throw new UploadIncompletoError("veio mais do que o anunciado");
+      if (!saida.write(buf)) await new Promise<void>((r) => saida.once("drain", r));
+    }
+    await new Promise<void>((ok, erro) => { saida.end((e?: Error | null) => (e ? erro(e) : ok())); });
+    if (recebidos !== tamanho) throw new UploadIncompletoError(`chegaram ${recebidos} de ${tamanho} bytes`);
+    const mime = opts.mimeType && /^[\w.+-]+\/[\w.+-]+$/.test(opts.mimeType) && opts.mimeType !== "application/octet-stream" ? opts.mimeType : mimePorNome(limpo);
+    const anexo: MailboxAttachmentStored = { name: limpo, mimeType: mime, sizeBytes: recebidos, filePath: destino };
+    const r = addMessage(from, { kind: "file", text: opts.text ?? null, sessionId: opts.sessionId ?? null, anexoPronto: anexo });
+    return { ...r, nome: limpo, sizeBytes: recebidos };
+  } catch (e) {
+    // No Windows o arquivo aberto não sai: fecha antes de apagar.
+    if (!saida.closed) await new Promise<void>((r) => { saida.once("close", () => r()); saida.destroy(); });
+    await fs.promises.rm(destino, { force: true }).catch(() => {});
+    throw e;
+  }
+}
+
 /** O arquivo de um anexo, para a rota `/raw` mandar em stream. undefined = sem anexo ou sumiu. */
 export function getAttachmentFile(id: string): { filePath: string; name: string; mimeType: string; sizeBytes: number } | undefined {
   const item = store.get("messages").find(i => i.id === id);
