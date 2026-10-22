@@ -13,7 +13,6 @@ import { getConfig } from "../main/config";
 import { spawnPs } from "../actions/ps";
 import type { Humor } from "./humor";
 import { duracaoDoMp3, Palavra, palavrasDoMetadado, palavrasPeloTexto } from "./bolota";
-import { kbpsDoMp3, sintetizarNoStudio } from "./voiceStudio";
 
 // 13/10: a Thalita Multilingual é a geração mais nova das vozes pt-BR do Edge (a Francisca é a
 // antiga) — o Zak achou a voz "estranha" e pediu a melhor possível.
@@ -106,42 +105,6 @@ function chaveMp3(voz: string, limpo: string, p: ProsodyOptions): string {
   return `${voz}|${p.rate}|${p.pitch}|${p.volume}|${limpo}`;
 }
 
-// ── VoiceStudio (17/10) ───────────────────────────────────────────────────────
-// Com o motor "voicestudio" nos Ajustes, o MP3 vem do estúdio local. Sem metadado de
-// palavras (a bolota usa o tempo pelo texto), e o volume da noite é aplicado no player.
-
-function usaStudio(): boolean { return getConfig().motorVoz === "voicestudio"; }
-
-function chaveStudio(limpo: string, p: ProsodyOptions): string {
-  return `vs|${getConfig().voiceStudioVoz ?? ""}|${p.rate}|${limpo}`;
-}
-
-/** MP3 do VoiceStudio pelo cache ou na hora; null se ele falhar (quem chama cai no Edge). */
-// A pré-síntese da frase seguinte e a fala dela podem pedir o mesmo pedaço ao mesmo tempo:
-// sem isto seriam duas sínteses disputando a GPU.
-const studioEmAndamento = new Map<string, Promise<Buffer | null>>();
-
-function mp3DoStudio(limpo: string, p: ProsodyOptions): Promise<Buffer | null> {
-  const chave = chaveStudio(limpo, p);
-  const guardado = cacheMp3.get(chave);
-  if (guardado) return Promise.resolve(guardado);
-  const andando = studioEmAndamento.get(chave);
-  if (andando) return andando;
-  const pedido = sintetizarNoStudio(limpo, getConfig().voiceStudioVoz ?? "", String(p.rate ?? "+0%"))
-    .then((mp3) => {
-      cacheMp3.set(chave, mp3);
-      if (cacheMp3.size > 20) cacheMp3.delete(cacheMp3.keys().next().value as string);
-      return mp3;
-    })
-    .catch((e) => {
-      console.warn("[TTS] VoiceStudio falhou — usando a voz do Edge:", e instanceof Error ? e.message : e);
-      return null;
-    })
-    .finally(() => studioEmAndamento.delete(chave));
-  studioEmAndamento.set(chave, pedido);
-  return pedido;
-}
-
 let _tts: MsEdgeTTS | null = null;
 let _cancelFn: (() => void) | null = null;
 
@@ -220,10 +183,6 @@ export async function sintetizarMp3(texto: string, humor?: Humor): Promise<Buffe
   if (!limpo) throw new Error("nada para falar");
   const voz = vozDoMomento();
   const prosodia = prosodiaAgora(voz, humor);
-  if (usaStudio()) {
-    const doStudio = await mp3DoStudio(limpo, prosodia);
-    if (doStudio) return doStudio;
-  }
   const chave = chaveMp3(voz, limpo, prosodia);
   const guardado = cacheMp3.get(chave);
   if (guardado) return guardado;
@@ -363,9 +322,7 @@ export async function synthesize(text: string, humor?: Humor): Promise<void> {
         // `metadataOptions.voiceLocale` sem conferir a partir da SEGUNDA chamada na mesma
         // instância — a primeira fala saía neural e todas as seguintes caíam no SAPI.
         let mp3: Buffer;
-        const doStudio = usaStudio() ? await mp3DoStudio(clean, prosodia) : null;
-        if (doStudio) { mp3 = doStudio; palavras = []; }
-        else if (jaPronto) mp3 = jaPronto;
+        if (jaPronto) mp3 = jaPronto;
         else {
           await _tts.setMetadata(voz, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3, { wordBoundaryEnabled: true });
           const { audioStream, metadataStream } = _tts.toStream(clean, prosodia);
@@ -408,8 +365,6 @@ export async function synthesize(text: string, humor?: Humor): Promise<void> {
           "\"@",
           "$f = $env:NX_ARQUIVO",
           "[NxMci]::mciSendString('open \"'+$f+'\" alias nx_s',$null,0,[IntPtr]::Zero)|Out-Null",
-          // O VoiceStudio não tem volume na API: a noite baixa no player (0–1000).
-          "if ($env:NX_VOL) { [NxMci]::mciSendString('setaudio nx_s volume to '+[int]$env:NX_VOL,$null,0,[IntPtr]::Zero)|Out-Null }",
           // Fase 21: a marca de "começou a tocar" para a bolota pulsar junto.
           "[Console]::Out.WriteLine('NX_PLAY'); [Console]::Out.Flush()",
           "[NxMci]::mciSendString('play nx_s wait',$null,0,[IntPtr]::Zero)|Out-Null",
@@ -417,8 +372,8 @@ export async function synthesize(text: string, humor?: Humor): Promise<void> {
           "Remove-Item $f -Force -EA 0",
         ].join("\n");
 
-        ps = spawnPs(psScript, { NX_ARQUIVO: tmpFile, NX_VOL: doStudio && ehNoite() ? "700" : "" });
-        const durMs = duracaoDoMp3(mp3.length, doStudio ? kbpsDoMp3(mp3) ?? 48 : 48);
+        ps = spawnPs(psScript, { NX_ARQUIVO: tmpFile });
+        const durMs = duracaoDoMp3(mp3.length);
         const tocando: AudioTocando = { texto: clean, durMs, palavras: palavras.length ? palavras : palavrasPeloTexto(clean, durMs) };
         let avisado = false;
         ps.stdout?.on("data", (d: Buffer) => {

@@ -69,13 +69,8 @@ const AJUSTES = [
   },
   {
     grupo: "Voz",
-    nota: "Vozes neurais do Edge, pela internet, ou do VoiceStudio, neste PC. Sem nenhuma das duas o ELYSIUM cai na voz do Windows.",
+    nota: "Vozes neurais do Edge, pela internet. Sem rede o ELYSIUM cai na voz do Windows.",
     campos: [
-      { chave: "motorVoz", rotulo: "Motor de voz", tipo: "select", opcoes: [
-        ["edge", "Edge — pela internet (padrão)"], ["voicestudio", "VoiceStudio — local, neste PC"]],
-        dica: "Com o VoiceStudio, deixe ele aberto: a Ely pede a fala a ele (só neste PC, porta 3900). Fechado ou com erro, ela fala com a voz do Edge." },
-      { chave: "voiceStudioVoz", rotulo: "Voz do VoiceStudio", tipo: "texto",
-        dica: "O nome do perfil de voz, como aparece no VoiceStudio. Vazio = a voz padrão do motor ativo lá." },
       { chave: "voice", rotulo: "Voz", tipo: "select", opcoes: [
         ["pt-BR-ThalitaMultilingualNeural", "Thalita — feminina, a mais natural (padrão)"],
         ["pt-BR-FranciscaNeural", "Francisca — feminina, a antiga"],
