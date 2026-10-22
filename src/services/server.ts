@@ -32,6 +32,7 @@ import type { Fonte } from "./contextoComando";
 import { deveSugerir, sugerirContinuacoes } from "./continuacoes";
 import { rapidasPara, type Rapidas } from "./respostasRapidas";
 import { getConfig } from "../main/config";
+import { proxyDoApp } from "./uiProxy";
 import * as crypto from "node:crypto";
 import type { Socket } from "node:net";
 import { transcribe } from "./stt";
@@ -488,6 +489,20 @@ function makeHandler(
       res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
       // A versão vem do próprio app: um número escrito à mão aqui já ficou para trás uma vez.
       res.end(JSON.stringify({ status: "ok", version: estadoAtualizacao().atual, wsClients: wsClients.size }));
+      return;
+    }
+
+    // GET /api/ui/foto?q=… e /api/ui/rota?coords=… — 22/10: fotos e rotas das telas inteligentes
+    // (a tela não sai para a internet; o celular pede aqui). Hosts fixos e cache em uiProxy.ts.
+    if (req.method === "GET" && (url === "/api/ui/foto" || url === "/api/ui/rota")) {
+      const q = new URL(req.url ?? "", "http://127.0.0.1").searchParams;
+      try {
+        if (url === "/api/ui/foto") sendJson(res, 200, { fotos: await proxyDoApp().fotos(q.get("q") ?? "") });
+        else sendJson(res, 200, { points: await proxyDoApp().rota(q.get("coords") ?? "") });
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        sendJson(res, /consulta|coords/.test(msg) ? 400 : 502, { error: msg.slice(0, 200) });
+      }
       return;
     }
 

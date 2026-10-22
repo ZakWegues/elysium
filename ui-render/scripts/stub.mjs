@@ -1,0 +1,1 @@
+export default {}; export const Map = class {}; export const Marker = class {}; export const LngLatBounds = class {}; export const Popup = class {}; export const setWorkerUrl = () => {}; export const renderToString = () => "";

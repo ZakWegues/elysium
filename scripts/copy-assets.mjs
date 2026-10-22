@@ -34,5 +34,8 @@ cpSync("src/renderer/dashboard", "dist/renderer/dashboard", { recursive: true })
 mkdirSync("dist/renderer/ui", { recursive: true });
 cpSync("ui-render/dist/render.html", "dist/renderer/ui/render.html");
 cpSync("ui-render/dist/protocolo.js", "dist/renderer/ui/protocolo.js");
+// Fase 2: o validador (parser + schema) e o prompt das telas, usados pelo processo principal.
+cpSync("ui-render/dist/validador.cjs", "dist/renderer/ui/validador.cjs");
+cpSync("ui-render/dist/prompt.txt", "dist/renderer/ui/prompt.txt");
 
 console.log("Assets copiados para dist/");

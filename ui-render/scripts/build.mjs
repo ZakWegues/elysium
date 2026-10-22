@@ -7,6 +7,7 @@ import { build } from "esbuild";
 import fs from "node:fs";
 import path from "node:path";
 import zlib from "node:zlib";
+import { pathToFileURL } from "node:url";
 
 const raiz = path.resolve(path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1")), "..");
 const dist = path.join(raiz, "dist");
@@ -82,6 +83,25 @@ const html = `<!doctype html>
 </html>
 `;
 fs.writeFileSync(path.join(dist, "render.html"), html);
+
+// O schema e o prompt das telas, tirados da própria biblioteca (Node, com o mapa/katex em stub).
+const stub = path.join(raiz, "scripts", "stub.mjs");
+const gen = await build({
+  entryPoints: [path.join(raiz, "src/gerar-artefatos.ts")], bundle: true, format: "esm", platform: "node", write: false, logLevel: "warning",
+  jsx: "automatic", loader: { ".css": "empty" }, define: producao,
+  plugins: [{ name: "stub", setup(b) { b.onResolve({ filter: /^(maplibre-gl|katex|maplibre-worker-texto)$/ }, () => ({ path: stub })); } }],
+});
+const tmp = path.join(dist, ".gerar.mjs");
+fs.writeFileSync(tmp, gen.outputFiles[0].text);
+const tamanhos = (await import(`${pathToFileURL(tmp).href}?${Date.now()}`)).gerar(dist);
+fs.rmSync(tmp);
+console.log(`schema.json: ${(tamanhos.schema / 1024).toFixed(0)} KB, prompt.txt: ${(tamanhos.prompt / 1024).toFixed(0)} KB (~${Math.round(tamanhos.prompt / 4 / 1000)}k tokens)`);
+
+// O validador do PC (CommonJS, sem React): parser do lang-core + schema.
+await build({
+  entryPoints: [path.join(raiz, "src/validador.ts")], bundle: true, minify: true, format: "cjs", platform: "node", target: "node20",
+  outfile: path.join(dist, "validador.cjs"), logLevel: "warning",
+});
 
 // O protocolo, para os hosts validarem o que vem da tela (o PC importa este arquivo).
 await build({

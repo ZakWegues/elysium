@@ -48,6 +48,9 @@ import { resumoDoDia } from "./resumoDoDia";
 import { buscarNasConversas } from "./buscaConversas";
 import { estiloValido, MAX_INSTRUCOES } from "./estiloResposta";
 import { limparProntas, RESPOSTAS_PRONTAS_PADRAO } from "./respostasRapidas";
+import { gerarTela } from "./telaInteligente";
+import { geradorDeTelas } from "./geradorDeTelas";
+import { modelosDaGroq } from "./catalogoGroq";
 import { adicionarNaLista, alternarItem, apagarLista, limparFeitos, listarListas, removerItem, separarItens } from "./listas";
 import { apagarHabito, apagarMeta, avancarMeta, listarHabitos, listarMetas, marcarHabito, pausarHabito, resumirHabito, salvarHabito, salvarMeta } from "./habitos";
 import { fatosDoDia, montarPainelHoje } from "./hoje";
@@ -1358,6 +1361,23 @@ const METHODS: Record<string, MethodDef> = {
     handler: async (params) => {
       try { return { resumo: await comContexto("texto", () => resumirLink(requireString(params, "url"))) }; }
       catch (e) { throw new RpcError(502, e instanceof Error ? e.message : String(e)); }
+    },
+  },
+  // Telas inteligentes (Fase 2, 22/10): gera a tela de um pedido (a bancada e, na Fase 3, o app).
+  // 22/10: os modelos que a conta da Groq tem agora (só os ids; a chave não sai do PC).
+  "groq.modelos": { handler: async () => ({ modelos: await modelosDaGroq() }) },
+  "ui.gerar": {
+    handler: async (params) => {
+      const pergunta = typeof params["pergunta"] === "string" ? params["pergunta"].trim().slice(0, 2000) : "";
+      if (!pergunta) throw new RpcError(400, "pergunta obrigatória");
+      const resposta = typeof params["resposta"] === "string" ? params["resposta"].slice(0, 6000) : "";
+      const forcar = params["provedor"] === "hermes" || params["provedor"] === "groq" ? params["provedor"] : undefined;
+      const modelo = typeof params["modelo"] === "string" && /^[\w./:-]{3,120}$/.test(params["modelo"]) ? params["modelo"] : undefined;
+      const gerador = geradorDeTelas(forcar, modelo);
+      if (!gerador) throw new RpcError(503, "sem Hermes nem Groq para gerar a tela");
+      const registro: unknown[] = [];
+      const tela = await gerarTela(pergunta, resposta, gerador, (r) => registro.push(r));
+      return { tela, registro };
     },
   },
   // Jeito de responder (bloco 134): o celular lê e muda o que o PC usa nos prompts.

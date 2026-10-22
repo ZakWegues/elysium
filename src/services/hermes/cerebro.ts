@@ -1,3 +1,6 @@
+import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 import { getConfig, nomeDoUsuario } from "../../main/config";
 import type { Canal } from "../estiloResposta";
 import { modoAtivo } from "../modos";
@@ -306,6 +309,57 @@ export async function pesquisarViaHermes(pergunta: string, canal: Canal, prazoMs
   } finally {
     s.pesquisando--;
   }
+}
+
+/**
+ * Telas inteligentes (Fase 2, 22/10): uma sessão PRÓPRIA, oculta e descartável (o pedido e, se
+ * precisar, a correção) — a tela não entra na conversa nem na lista do Hermes. `modelo` fixa o
+ * modelo da sessão. `null` = não deu (fora do ar, demorou, sem resposta).
+ *
+ * 🔴 Na bancada de 22/10 o agente GRAVOU arquivos (.md, .oui) na pasta de trabalho, mesmo com "não
+ * use ferramentas" no texto. O gateway não aceita desligar ferramentas por sessão (`toolsets` é
+ * recusado; só por perfil). Contenção: a sessão roda com `cwd` numa pasta temporária vazia, apagada
+ * no fim; comando de terminal pede permissão e cai na recusa de sempre (`respostaDeRecusa`).
+ */
+export async function abrirSessaoDeTela(op: { prazoMs?: number; modelo?: string } = {}): Promise<{
+  turno: (texto: string) => Promise<{ texto: string; modelo: string | null } | null>;
+  fechar: () => void;
+} | null> {
+  if (!hermesPronto()) return null;
+  const con = s.con!;
+  let sessao: { session_id: string; info?: { model?: string } };
+  const pasta = fs.mkdtempSync(path.join(os.tmpdir(), "ely-tela-"));
+  const apagarPasta = () => { try { fs.rmSync(pasta, { recursive: true, force: true }); } catch { /* o SO limpa depois */ } };
+  try {
+    sessao = await con.chamar<{ session_id: string; info?: { model?: string } }>("session.create", {
+      title: "ELYSIUM — tela", hidden: true, cwd: pasta, cwd_explicit: true, close_on_disconnect: true, ...(op.modelo ? { model: op.modelo } : {}),
+    }, 30_000);
+  } catch (e) {
+    apagarPasta();
+    console.warn("[UI] Hermes sem sessão para a tela:", e instanceof Error ? e.message : e);
+    return null;
+  }
+  const turno = async (texto: string) => {
+    const fim = await rodarTurno(con, sessao.session_id, texto, {
+      prazoSinalMs: PRAZO_SINAL_FRIO_MS, prazoTurnoMs: op.prazoMs ?? 90_000, prazoSilencioMs: 45_000,
+    }, { aguardar: () => {} });
+    if (fim.tipo === "pergunta") fim.responder(respostaDeRecusa(fim.metodo));
+    if (fim.tipo !== "resposta") {
+      console.warn(`[UI] Hermes sem tela: ${fim.tipo === "erro" ? fim.motivo : "pediu permissão (recusado)"}`);
+      return null;
+    }
+    // O modelo que respondeu: o da sessão (o fallback do Hermes pode ter trocado no meio).
+    let modelo = sessao.info?.model ?? null;
+    try {
+      const info = await con.chamar<{ model?: string; info?: { model?: string } }>("session.info", { session_id: sessao.session_id }, 5_000);
+      modelo = info.model ?? info.info?.model ?? modelo;
+    } catch { /* fica o da criação */ }
+    return { texto: fim.texto, modelo };
+  };
+  const fechar = () => {
+    void con.chamar("session.close", { session_id: sessao.session_id }, 5_000).catch(() => {}).finally(apagarPasta);
+  };
+  return { turno, fechar };
 }
 
 /** A fala foi cortada ("Ely, para", atalho): o turno do Hermes para junto. */

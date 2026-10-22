@@ -136,7 +136,13 @@ const sondas = [
     const depois = fs.existsSync(pasta) ? fs.readdirSync(pasta).length : 0;
     return { ok: depois === antes, det: `anexos antes=${antes} depois=${depois}` };
   }),
-  sonda("kind inválido → 400",() => status(`${BASE}/api/mailbox/messages`, { method: "POST", headers: { ...auth, "Content-Type": "application/json" }, body: JSON.stringify({ kind: "exec", text: "x" }) }, 400)),
+  // 22/10: proxies das telas inteligentes (fotos e rotas).
+  sonda("ui/foto sem token → 401", () => status(`${BASE}/api/ui/foto?q=Pinacoteca`, {}, 401)),
+  sonda("ui/foto consulta gigante → 400", () => status(`${BASE}/api/ui/foto?q=${"a".repeat(500)}`, { headers: auth }, 400)),
+  sonda("ui/rota com coords tortas → 400", () => status(`${BASE}/api/ui/rota?coords=${encodeURIComponent("1,2;../../etc/passwd")}`, { headers: auth }, 400)),
+  sonda("ui/rota com 30 paradas → 400", () => status(`${BASE}/api/ui/rota?coords=${Array.from({ length: 30 }, (_, i) => `${i % 90},${i % 90}`).join(";")}`, { headers: auth }, 400)),
+  sonda("ui.gerar sem pergunta → 4xx", () => status(`${BASE}/api/rpc`, { method: "POST", headers: { ...auth, "Content-Type": "application/json" }, body: JSON.stringify({ method: "ui.gerar", params: {} }) }, [400, 503])),
+  sonda("kind inválido → 400",() =>status(`${BASE}/api/mailbox/messages`, { method: "POST", headers: { ...auth, "Content-Type": "application/json" }, body: JSON.stringify({ kind: "exec", text: "x" }) }, 400)),
   // ── WebSocket e MCP ──
   sonda("WebSocket sem token é recusado", async () => {
     const resp = await cru(hostLocal, `GET /api/stream HTTP/1.1\r\nHost: ${hostLocal}\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n`);
