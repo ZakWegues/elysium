@@ -22,6 +22,26 @@ import * as path from "node:path";
  */
 export const PERFIL_PADRAO = "default";
 
+/**
+ * 22/10: perfil só das telas inteligentes — clone do padrão SEM ferramenta nenhuma, sem MCP e sem
+ * memória. Na bancada o agente gravou arquivos no repo com o perfil do dono; o gateway não deixa
+ * desligar ferramentas por sessão, só por perfil.
+ */
+export const PERFIL_TELAS = "elysium-telas";
+const FERRAMENTAS_DESLIGADAS = ["web", "browser", "terminal", "file", "code_execution", "vision", "image_gen", "tts", "skills", "todo", "memory", "session_search", "connections", "clarify", "delegation", "cronjob", "computer_use", "spotify"];
+
+/** Cria o perfil das telas se faltar (num PC novo). Idempotente. */
+export async function garantirPerfilDeTelas(exe: string): Promise<void> {
+  const lista = await rodarHermes(exe, ["profile", "list"]);
+  if (perfilNaLista(lista, PERFIL_TELAS)) return;
+  console.log(`[hermes] criando o perfil "${PERFIL_TELAS}" (telas, sem ferramentas)`);
+  await rodarHermes(exe, ["profile", "create", PERFIL_TELAS, "--clone", "--no-alias", "--description", "Telas inteligentes do ELYSIUM: sem ferramentas e sem memória."], 180_000);
+  await rodarHermes(exe, ["-p", PERFIL_TELAS, "config", "set", "memory.memory_enabled", "false"]);
+  await rodarHermes(exe, ["-p", PERFIL_TELAS, "config", "set", "memory.user_profile_enabled", "false"]);
+  await rodarHermes(exe, ["-p", PERFIL_TELAS, "tools", "disable", ...FERRAMENTAS_DESLIGADAS]).catch(() => "");
+  for (const s of ["gamma", "elysium"]) await rodarHermes(exe, ["-p", PERFIL_TELAS, "config", "set", `mcp_servers.${s}.enabled`, "false"]).catch(() => "");
+}
+
 /** Onde o instalador oficial do Hermes põe o executável no Windows. */
 export function acharHermes(env: NodeJS.ProcessEnv = process.env): string | null {
   const candidatos = [

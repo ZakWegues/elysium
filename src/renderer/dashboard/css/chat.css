@@ -412,6 +412,24 @@
 @media (prefers-reduced-motion: reduce) { :root:not([data-movimento="sempre"]) .chat-rapidas button { animation: none; } }
 :root[data-movimento="nunca"] .chat-rapidas button { animation: none; }
 
+/* 22/10: telas inteligentes — a tela embaixo da resposta (iframe sandbox). Esqueleto com brilho
+   suave enquanto é gerada; cross-fade para a tela e a altura anima até o tamanho real. */
+.tela-ely { position: relative; align-self: stretch; width: 100%; max-width: 760px; height: 180px; margin: 2px 0 6px;
+  border-radius: var(--radius-12); overflow: hidden; transition: height var(--mov-base) var(--mov-suave), opacity var(--mov-saida) var(--mov-suave); }
+.tela-ely.saindo { opacity: 0; }
+.tela-quadro { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: transparent; opacity: 0; transition: opacity var(--mov-base) var(--mov-suave); }
+.tela-ely.pronta .tela-quadro { opacity: 1; }
+.tela-esqueleto { position: absolute; inset: 0; display: grid; place-items: center; border: 1px solid var(--border2); border-radius: inherit;
+  background: linear-gradient(100deg, rgba(var(--purple-rgb),0.05) 30%, rgba(var(--purple-rgb),0.13) 50%, rgba(var(--purple-rgb),0.05) 70%) 0 0 / 300% 100%;
+  animation: tela-brilho 1.6s linear infinite; transition: opacity var(--mov-saida) var(--mov-suave); color: var(--muted); font-size: 12px; }
+.tela-ely.pronta .tela-esqueleto { opacity: 0; }
+@keyframes tela-brilho { from { background-position: 100% 0; } to { background-position: 0 0; } }
+:root[data-movimento="nunca"] .tela-esqueleto { animation: none; }
+@media (prefers-reduced-motion: reduce) { :root:not([data-movimento="sempre"]) .tela-esqueleto { animation: none; } }
+.chat-ver-tela { align-self: flex-start; padding: 3px 10px; border-radius: 999px; border: 1px dashed var(--border2); background: transparent;
+  color: var(--muted); font: inherit; font-size: 11px; cursor: pointer; transition: color var(--mov-micro), border-color var(--mov-micro); }
+.chat-ver-tela:hover { color: var(--text); border-color: rgba(var(--purple-rgb),0.45); }
+
 /* Fase 18: a resposta veio do cérebro local porque a nuvem falhou. */
 .chat-local { display: inline-block; margin: 2px 0 4px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; }
 

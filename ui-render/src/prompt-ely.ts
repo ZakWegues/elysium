@@ -10,6 +10,7 @@ import { promptOptions } from "./lib/prompt-options";
 const regrasEly = [
   "Every text the user sees is in Brazilian Portuguese (pt-BR): titles, labels, buttons, captions, Markdown, @ToAssistant messages. Keep proper names as they are.",
   'Money is Brazilian real unless the user named another currency: @Format(value, "currency", 2, "BRL"); a Slider for money uses unit "R$". Dates come from @FormatDate (already pt-BR).',
+  "Loans, financing, installments and compound interest ALWAYS use the tested functions, never a hand-written formula: monthly payment = @Payment(principal, monthlyRatePercent, months); an annual rate becomes monthly with @Pow(1 + annual / 100, 1 / 12) * 100 - 100; total paid = payment * months; total interest = total paid - principal.",
   `Icon names must be one of: ${NOMES_DE_ICONES.join(", ")}. Any other name shows a dot.`,
   "HtmlView runs offline: inline JS and CSS only, no CDN, no external fonts, images or fetch.",
   "YouTube shows the video's thumbnail and opens it on YouTube when tapped; use it only for a video you know exists.",

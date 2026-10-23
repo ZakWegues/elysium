@@ -7,7 +7,7 @@ import { modoAtivo } from "../modos";
 import { buildMemoryBlock } from "../memoryStore";
 import { liberacaoAtiva, pedirConfirmacao } from "../confirmacao";
 import { ConexaoHermes } from "./conexao";
-import { acharHermes, encerrarArvore, garantirMcp, garantirPerfil, subirServidor, ServidorHermes, PERFIL_PADRAO } from "./processo";
+import { acharHermes, encerrarArvore, garantirMcp, garantirPerfil, subirServidor, ServidorHermes, PERFIL_PADRAO, PERFIL_TELAS, garantirPerfilDeTelas } from "./processo";
 import { contextoDoTurno } from "./persona";
 import { FimDoTurno, PRAZO_SINAL_FRIO_MS, PRAZO_SINAL_QUENTE_MS, rodarTurno } from "./sessao";
 import { descricaoDaAprovacao, falaDoEsclarecimento, respostaDeRecusa, respostasDoEsclarecimento, tipoDaPergunta } from "./aprovacoes";
@@ -88,6 +88,8 @@ export async function iniciarHermes(): Promise<void> {
   try {
     await garantirPerfil(exe, perfil());
     if (s.urlMcp) await garantirMcp(exe, s.urlMcp, perfil()).catch(e => console.warn("[hermes] MCP:", e instanceof Error ? e.message : e));
+    // 22/10: o perfil das telas (sem ferramentas). Em segundo plano: não segura a subida do Hermes.
+    void garantirPerfilDeTelas(exe).catch(e => console.warn("[hermes] perfil das telas:", e instanceof Error ? e.message : e));
     const t0 = Date.now();
     s.servidor = await subirServidor(exe, perfil());
     s.servidor.filho.on("exit", () => { if (!s.saindo) reiniciarDepois("o processo do Hermes saiu"); });
@@ -332,7 +334,7 @@ export async function abrirSessaoDeTela(op: { prazoMs?: number; modelo?: string 
   const apagarPasta = () => { try { fs.rmSync(pasta, { recursive: true, force: true }); } catch { /* o SO limpa depois */ } };
   try {
     sessao = await con.chamar<{ session_id: string; info?: { model?: string } }>("session.create", {
-      title: "ELYSIUM — tela", hidden: true, cwd: pasta, cwd_explicit: true, close_on_disconnect: true, ...(op.modelo ? { model: op.modelo } : {}),
+      title: "ELYSIUM — tela", hidden: true, profile: PERFIL_TELAS, cwd: pasta, cwd_explicit: true, close_on_disconnect: true, ...(op.modelo ? { model: op.modelo } : {}),
     }, 30_000);
   } catch (e) {
     apagarPasta();

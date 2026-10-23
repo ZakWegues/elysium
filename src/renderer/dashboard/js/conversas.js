@@ -145,7 +145,13 @@ async function openConversation(id) {
   for (const m of chatMessages) {
     if (m.from === "me")        addBubble("user", m.text);
     else if (m.from === "error") addBubble("error", m.text);
-    else                         addBubble("assistant", renderMarkdown(m.text), true);
+    else {
+      addBubble("assistant", renderMarkdown(m.text), true);
+      // 22/10: a tela inteligente salva volta com o que foi digitado nela (telas.js).
+      const bolha = timeline.lastElementChild;
+      if (bolha) bolha.dataset.msg = m.id;
+      if (bolha && m.tela && typeof restaurarTela === "function") restaurarTela(bolha, m);
+    }
   }
   scrollToBottom();
 

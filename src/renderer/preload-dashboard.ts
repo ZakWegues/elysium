@@ -34,6 +34,10 @@ contextBridge.exposeInMainWorld("nx", {
   /** Um timer com nome acabou (bloco 136) — o card Timer se redesenha. */
   onTimerAcabou:   (cb: (t: unknown) => void) => { ipcRenderer.on("timer:acabou", (_e, t) => cb(t)); },
   onChatExtras:    (cb: (x: { fontes?: { titulo: string; url: string }[]; sugestoes?: string[]; local?: boolean; rapidas?: { pergunta: boolean; sim: boolean; nao: boolean; opcoes: string[]; prontas: string[] } }) => void) => { ipcRenderer.on("chat:extras", (_e, x) => cb(x)); },
+  // 22/10: telas inteligentes — o esqueleto/programa da tela, o "Ver como tela" e os pedidos dela (fotos, rota).
+  onChatTela:      (cb: (x: { id: string; estado?: "gerando"; programa?: string; falhou?: boolean; texto?: string }) => void) => { ipcRenderer.on("chat:tela", (_e, x) => cb(x)); },
+  uiVerComoTela:   (pergunta: string, resposta: string) => ipcRenderer.invoke("ui:ver-como-tela", pergunta, resposta),
+  uiPedido:        (rota: string, params: Record<string, string>) => ipcRenderer.invoke("ui:pedido", rota, params),
   onChatBusy:      (cb: ()             => void) => { ipcRenderer.on("chat:busy",          ()       => cb()); },
   onRotinaExecutada: (cb: (r: unknown) => void) => { ipcRenderer.on("rotina:executada", (_e, r) => cb(r)); },
   getHistory:      ()                           => ipcRenderer.invoke("history:get"),

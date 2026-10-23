@@ -12,6 +12,10 @@ import { paraFala } from "../services/estiloResposta";
 import { ouvirTimers, retomarTimers } from "../services/timers";
 import { deveSugerir, sugerirContinuacoes } from "../services/continuacoes";
 import { rapidasPara } from "../services/respostasRapidas";
+import { ehSim } from "../services/confirmacao";
+import { decidirTela, gerarTela, OFERTA, pediuTela } from "../services/telaInteligente";
+import { geradorDeTelas, provedorDeTelas } from "../services/geradorDeTelas";
+import { proxyDoApp } from "../services/uiProxy";
 import * as path from "node:path";
 import * as fs from "node:fs";
 
@@ -725,6 +729,29 @@ async function enviarTexto(text: string, opcoes?: { refazer?: boolean }): Promis
     ligarLive();
     return;
   }
+  // 22/10: resposta à oferta de tela. "Sim" monta a tela da resposta anterior (sem passar pelo
+  // cérebro); qualquer outra coisa descarta a oferta e segue como pedido normal.
+  const oferta = ofertaDeTela && Date.now() - ofertaDeTela.em < 15 * 60_000 ? ofertaDeTela : null;
+  ofertaDeTela = null;
+  // Pedido explícito de tela ("monta uma tela…", "faz uma calculadora") NÃO passa pelo agente do
+  // chat: medido em 22/10, o agente entendeu "tela" como programar uma aba nova no próprio ELYSIUM.
+  // Vai direto para o gerador (sessão sem ferramentas); "disso/isso" usa a última resposta.
+  const explicito = !opcoes?.refazer && pediuTela(text) && getConfig().respostasInterativas !== "nunca" && provedorDeTelas() !== null;
+  if ((oferta && ehSim(text) && !opcoes?.refazer) || explicito) {
+    const tokenOferta = novoTurno();
+    state.set("processing");
+    const doContexto = /\b(disso|isso|dessa|desse|essa|esse|acima|anterior)\b/i.test(text) && ultimaResposta ? ultimaResposta.resposta : "";
+    try {
+      const tela = oferta && ehSim(text)
+        ? await telaNoChat(oferta.pergunta, oferta.resposta, true)
+        : await telaNoChat(text, doContexto, true);
+      if (turnoAtual() !== tokenOferta) return;
+      if (!tela) enviarAoDash("chat:reply", oferta && ehSim(text) ? "Não consegui montar a tela agora. A resposta em texto continua aí em cima." : "Não consegui montar a tela agora. Quer que eu responda em texto?");
+    } finally {
+      if (turnoAtual() === tokenOferta) state.set("idle");
+    }
+    return;
+  }
   const meuToken = novoTurno();
   state.set("processing");
   try {
@@ -747,14 +774,25 @@ async function enviarTexto(text: string, opcoes?: { refazer?: boolean }): Promis
     // Notificação nativa só quando a janela não está à vista: quem digitou no dashboard e
     // está olhando para ele não precisa de um balão do Windows repetindo a resposta.
     if (!dashWin?.isVisible() || !dashWin.isFocused()) notify("ELYSIUM", combined);
-    enviarAoDash("chat:reply", combined);
+    // 22/10 (telas inteligentes): o ajuste "Respostas interativas" decide se a tela sai sozinha,
+    // se a Ely oferece ("Quer que eu monte isso como tela?") ou nada. Só em conversa (sem ação no
+    // PC) e só se a resposta já não termina perguntando outra coisa.
+    // "Priorizar" monta mesmo se a resposta terminou perguntando (a tela substitui a pergunta).
+    const decisao = deveSugerir(actions, "texto") && (getConfig().respostasInterativas === "priorizar" || !pedeResposta(combined))
+      ? decidirTela(getConfig().respostasInterativas, text, "texto", provedorDeTelas() !== null)
+      : "nada";
+    const textoFinal = decisao === "oferecer" ? `${combined}\n\n${OFERTA}` : combined;
+    ofertaDeTela = decisao === "oferecer" ? { pergunta: text, resposta: combined, em: Date.now() } : null;
+    ultimaResposta = { pergunta: text, resposta: combined };
+    enviarAoDash("chat:reply", textoFinal);
+    if (decisao === "gerar") void telaNoChat(text, combined);
     // Blocos 131 e 132: fontes da busca já; sugestões de continuação quando chegarem.
     if (fontes.length) enviarAoDash("chat:extras", { fontes });
     // Fase 18: a nuvem falhou e o local respondeu — o selo "modo local" na bolha.
     if (local) enviarAoDash("chat:extras", { local: true });
     // 22/10: respostas rápidas. Se ela perguntou algo, a linha é de resposta — sem as
     // sugestões de continuação (uma linha só embaixo da bolha).
-    const rapidas = rapidasPara(combined, getConfig());
+    const rapidas = rapidasPara(textoFinal, getConfig());
     if (rapidas) enviarAoDash("chat:extras", { rapidas });
     if (deveSugerir(actions, "texto") && !rapidas?.pergunta) {
       sugerirContinuacoes(text, combined).then((sugestoes) => {
@@ -763,7 +801,7 @@ async function enviarTexto(text: string, opcoes?: { refazer?: boolean }): Promis
     }
     state.set("speaking");
     // Bloco 130: a resposta escrita pode ser longa; a caixa de som fala só o começo.
-    await speak(paraFala(combined), lerHumor(text));
+    await speak(paraFala(textoFinal), lerHumor(text));
   } catch (err) {
     if (turnoAtual() !== meuToken) return;
     const msg = err instanceof ElysiumError ? err.spoken : "Tive um problema, mas já voltei ao normal.";
@@ -773,6 +811,51 @@ async function enviarTexto(text: string, opcoes?: { refazer?: boolean }): Promis
     if (turnoAtual() === meuToken) state.set("idle");
   }
 }
+
+/** A oferta "Quer que eu monte isso como tela?" que espera o "sim" (15 min). */
+let ofertaDeTela: { pergunta: string; resposta: string; em: number } | null = null;
+/** A última resposta do chat de texto: o "monta uma tela disso" usa como contexto. */
+let ultimaResposta: { pergunta: string; resposta: string } | null = null;
+
+/**
+ * Telas inteligentes (Fase 3, 22/10): gera a tela e manda ao dashboard. `comResposta` = veio do
+ * "sim" à oferta: a tela vai numa bolha nova ("Aqui está como tela."); senão ela entra embaixo da
+ * última resposta. O dashboard mostra o esqueleto ao receber `gerando`.
+ */
+async function telaNoChat(pergunta: string, resposta: string, comResposta = false): Promise<string | null> {
+  const gerador = geradorDeTelas();
+  if (!gerador) return null;
+  const id = `tela-${Date.now().toString(36)}`;
+  if (comResposta) enviarAoDash("chat:reply", "Montando a tela…");
+  enviarAoDash("chat:tela", { id, estado: "gerando" });
+  const tela = await gerarTela(pergunta, resposta, gerador);
+  enviarAoDash("chat:tela", tela ? { id, programa: tela.programa, ...(comResposta ? { texto: "Pronto, aqui está como tela." } : {}) } : { id, falhou: true });
+  if (tela) console.log(`[UI] tela em ${tela.ms} ms (${tela.tentativas}ª, ${tela.modelo ?? tela.provedor})`);
+  return tela?.programa ?? null;
+}
+
+// "Ver como tela" (rodapé da resposta): gera e devolve; o dashboard põe embaixo daquela bolha.
+ipcMain.handle("ui:ver-como-tela", async (_e, pergunta: unknown, resposta: unknown) => {
+  if (typeof resposta !== "string" || !resposta.trim()) return null;
+  if (getConfig().respostasInterativas === "nunca") return null;
+  const gerador = geradorDeTelas();
+  if (!gerador) return { erro: "As telas precisam do Hermes ligado." };
+  const tela = await gerarTela(typeof pergunta === "string" ? pergunta.slice(0, 2000) : "", resposta.slice(0, 6000), gerador);
+  return tela ? { programa: tela.programa } : { erro: "Não consegui montar a tela agora." };
+});
+
+// Fotos e rotas pedidas pela tela (ela não sai para a internet). Mesmo proxy do servidor.
+ipcMain.handle("ui:pedido", async (_e, rota: unknown, params: unknown) => {
+  const p = (params && typeof params === "object" ? params : {}) as Record<string, unknown>;
+  if (getConfig().telasComInternet === false) return { erro: "desligado nos Ajustes" };
+  try {
+    if (rota === "fotos") return { dados: { fotos: await proxyDoApp().fotos(String(p.q ?? "")) } };
+    if (rota === "rota") return { dados: { points: await proxyDoApp().rota(String(p.coords ?? "")) } };
+    return { erro: "rota desconhecida" };
+  } catch (e) {
+    return { erro: (e instanceof Error ? e.message : String(e)).slice(0, 200) };
+  }
+});
 
 ipcMain.on("chat:clear", () => {
   clearHistory();

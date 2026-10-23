@@ -144,6 +144,8 @@ export interface AppConfig {
   respostasProntas: string[];
   /** 22/10: telas interativas — "nunca", "pedir", "perguntar" (padrão) ou "priorizar". */
   respostasInterativas: string;
+  /** 22/10: telas com fotos (Wikipedia) e mapas (OpenFreeMap) da internet. Desligado = marcador. */
+  telasComInternet: boolean;
   /**
    * Acompanhar o acesso de fora de casa (Tailscale) no card Saúde, no resumo e na faixa do
    * celular (bloco 122). Desligado por padrão desde o bloco 128: o Zak não quer o Tailscale
@@ -277,6 +279,7 @@ const DEFAULTS: AppConfig = {
   respostasRapidas: true,
   respostasProntas: [...RESPOSTAS_PRONTAS_PADRAO],
   respostasInterativas: "perguntar",
+  telasComInternet: true,
   acessoRemotoNaSaude: false,
   estiloResposta: "equilibrado",
   tratamento: "chefe",

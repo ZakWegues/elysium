@@ -116,7 +116,9 @@ const AJUSTES = [
         dica: "Uma por linha, até 6. Aparecem junto dos botões de resposta." },
       { chave: "respostasInterativas", rotulo: "Respostas interativas", tipo: "select", opcoes: [
         ["nunca", "Nunca"], ["pedir", "Quando eu pedir"], ["perguntar", "A Ely pergunta quando fizer sentido"], ["priorizar", "Priorizar sempre que couber"]],
-        dica: "Telas interativas no chat (gráfico, mapa, tabela, calculadora, flashcards). Ainda em construção: por enquanto só fica guardado." },
+        dica: "Telas interativas no chat (gráfico, mapa, tabela, calculadora, flashcards). \"A Ely pergunta\": quando caberia uma tela, ela oferece e um Sim monta. \"Priorizar\": já monta sem perguntar. Pela voz nunca. Precisa do Hermes ligado. Toda resposta também tem \"Ver como tela\"." },
+      { chave: "telasComInternet", rotulo: "Telas com fotos e mapas da internet", tipo: "bool",
+        dica: "Fotos da Wikipedia e mapas do OpenFreeMap dentro das telas (buscados pelo PC). Desligado, as fotos viram um marcador e o mapa mostra só a lista dos lugares." },
       { chave: "chatHistoryTurns", rotulo: "Turnos na memória", tipo: "faixa", min: 2, max: 20, passo: 1, unidade: "" },
       { chave: "chatIdleResetMs", rotulo: "Reset por inatividade", tipo: "faixa", min: 60000, max: 3600000, passo: 60000, unidade: "ms" },
     ],

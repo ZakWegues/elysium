@@ -205,6 +205,7 @@ window.nx.onChatChunk((pedaco) => {
 });
 
 function finalizarResposta(text) {
+  let bolha = bolhaEmCurso;
   if (bolhaEmCurso) {
     bolhaEmCurso.classList.remove("escrevendo");
     bolhaEmCurso.innerHTML = renderMarkdown(text);
@@ -212,8 +213,14 @@ function finalizarResposta(text) {
     textoEmCurso = "";
   } else {
     addBubble("assistant", renderMarkdown(text), true);
+    const bolhas = timeline.querySelectorAll(".bubble.assistant");
+    bolha = bolhas[bolhas.length - 1];
   }
   recordMessage("reply", text);
+  // 22/10: a bolha sabe qual mensagem é (a tela inteligente grava junto dela) e ganha o
+  // "Ver como tela" no rodapé (telas.js).
+  if (bolha && typeof chatMessages !== "undefined" && chatMessages.length) bolha.dataset.msg = chatMessages[chatMessages.length - 1].id;
+  if (bolha && typeof oferecerVerComoTela === "function") void oferecerVerComoTela(bolha);
 }
 
 /**
@@ -224,11 +231,13 @@ function anexarExtras(x) {
   const bolhas = timeline.querySelectorAll(".bubble.assistant");
   const ultima = bolhas[bolhas.length - 1];
   if (!ultima) return;
-  let rodape = ultima.nextElementSibling?.classList.contains("chat-extras") ? ultima.nextElementSibling : null;
+  // 22/10: a tela inteligente fica entre a bolha e o rodapé.
+  const depois = ultima.nextElementSibling?.classList.contains("tela-ely") ? ultima.nextElementSibling : ultima;
+  let rodape = depois.nextElementSibling?.classList.contains("chat-extras") ? depois.nextElementSibling : null;
   if (!rodape) {
     rodape = document.createElement("div");
     rodape.className = "chat-extras";
-    ultima.after(rodape);
+    depois.after(rodape);
   }
   if (x?.fontes?.length) {
     const host = (u) => { try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return u; } };
