@@ -108,29 +108,61 @@ function montarTela(bolha, { programa = null, estado = null, msgId = null } = {}
 
   ctrl.mostrar = (prog) => {
     ctrl.programa = prog;
-    const f = document.createElement("iframe");
-    f.setAttribute("sandbox", "allow-scripts");
-    f.setAttribute("referrerpolicy", "no-referrer");
-    f.setAttribute("title", "Tela da Ely");
-    f.className = "tela-quadro";
-    f.src = TELA_SRC;
-    ctrl.iframe = f;
-    caixa.appendChild(f);
-    // O contentWindow existe já; as mensagens só são aceitas dele.
-    telasAbertas.set(f.contentWindow, ctrl);
-    // O "pronta" pode sair antes de alguém ouvir: manda também no load.
-    f.addEventListener("load", () => iniciar(ctrl));
+    criarQuadro(ctrl);
     guardarNaMensagem(ctrl);
+    vigia.observe(caixa);
   };
 
   ctrl.falhar = () => {
     caixa.classList.add("saindo");
     setTimeout(() => caixa.remove(), 220);
     if (ctrl.iframe) telasAbertas.delete(ctrl.iframe.contentWindow);
+    vigia.unobserve(caixa);
   };
 
+  caixas.set(caixa, ctrl);
   if (programa) ctrl.mostrar(programa);
   return ctrl;
+}
+
+/** O iframe da tela (de novo ao acordar: o programa e o estado guardados voltam junto). */
+function criarQuadro(ctrl) {
+  const f = document.createElement("iframe");
+  f.setAttribute("sandbox", "allow-scripts");
+  f.setAttribute("referrerpolicy", "no-referrer");
+  f.setAttribute("title", "Tela da Ely");
+  f.className = "tela-quadro";
+  f.src = TELA_SRC;
+  ctrl.iframe = f;
+  ctrl.caixa.appendChild(f);
+  // O contentWindow existe já; as mensagens só são aceitas dele.
+  telasAbertas.set(f.contentWindow, ctrl);
+  // O "pronta" pode sair antes de alguém ouvir: manda também no load.
+  f.addEventListener("load", () => iniciar(ctrl));
+}
+
+// ── telas que dormem ─────────────────────────────────────────────────────────────────────
+// Cada tela é um iframe com React (e as de mapa, um contexto WebGL — o Chromium tem limite).
+// Fora da vista por 30 s (rolou para longe, trocou de aba), o iframe sai e a caixa guarda a
+// altura; voltando para perto da vista (800 px antes), ele é recriado com o estado salvo.
+const caixas = new WeakMap();
+const SONO_MS = 30_000;
+const vigia = new IntersectionObserver((entradas) => {
+  for (const e of entradas) {
+    const ctrl = caixas.get(e.target);
+    if (!ctrl?.programa) continue;
+    clearTimeout(ctrl.timerSono);
+    if (e.isIntersecting) { if (!ctrl.iframe) { criarQuadro(ctrl); ctrl.caixa.classList.remove("dormindo"); } }
+    else if (ctrl.iframe && ctrl.mostrou) ctrl.timerSono = setTimeout(() => dormir(ctrl), SONO_MS);
+  }
+}, { rootMargin: "800px 0px" });
+
+function dormir(ctrl) {
+  if (!ctrl.iframe) return;
+  telasAbertas.delete(ctrl.iframe.contentWindow);
+  ctrl.iframe.remove();
+  ctrl.iframe = null;
+  ctrl.caixa.classList.add("dormindo");
 }
 
 function iniciar(ctrl) {
