@@ -55,12 +55,12 @@
 .iui-button-solid:not(:disabled):hover { background: color-mix(in oklch, var(--iui-accent) 86%, var(--iui-ink)); }
 .iui-button-solid:not(:disabled):active { transform: scale(.98); }
 .iui-button-soft { background: var(--iui-accent-soft); color: var(--iui-ink); }
-.iui-button-outline { border-color: var(--iui-border-strong); background: transparent; }
+.iui-button-outline { border-color: var(--iui-border-strong); background-color: transparent; }
 .iui-icon-button-solid { background: var(--iui-accent); color: var(--iui-on-accent); }
 
 /* Campos: fundo tingido, borda fina, foco na cor de destaque. */
 .iui-input, .iui-textarea, .iui-select {
-  background: color-mix(in srgb, var(--iui-ink) 4%, transparent);
+  background-color: color-mix(in srgb, var(--iui-ink) 4%, transparent);
   border-color: var(--iui-border);
   border-radius: 12px;
 }
