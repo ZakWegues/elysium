@@ -53,7 +53,7 @@ import * as fsAtualizacao from "node:fs";
 import { enderecoPermitido, hostPermitido } from "./redeSegura";
 import { ehDoProprioPc, ExecutorMcp, responderMcp } from "./mcpElysium";
 import { abrirPedido, enviarUi, idValido, parar, pedaco, retomar, soltarDestino, terminar } from "./retomada";
-import { atalhoDeTela, depoisDaResposta, gerarParaCelular } from "./telasDoCelular";
+import { atalhoDeTela, cancelarTelaDoCelular, depoisDaResposta, gerarParaCelular } from "./telasDoCelular";
 import { geradorDeTelas, provedorDeTelas } from "./geradorDeTelas";
 
 const WS_MAGIC = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
@@ -897,11 +897,28 @@ function handleUpgrade(
 
   function handleTextFrame(text: string): void {
     try {
-      const msg = JSON.parse(text) as { type?: string; text?: string; canal?: string; refazer?: boolean; ev?: unknown; id?: unknown; telas?: unknown };
+      const msg = JSON.parse(text) as { type?: string; text?: string; canal?: string; refazer?: boolean; ev?: unknown; id?: unknown; telas?: unknown; pergunta?: unknown; resposta?: unknown };
       // 21/10: batimento do celular — sem resposta em 2 tentativas ele reabre o socket.
       if (msg.type === "ping") { sendToClient(client, JSON.stringify({ type: "pong" })); return; }
       if (msg.type === "retomar") {
         if (!idValido(msg.id) || !retomar(msg.id, enviarAqui)) sendToClient(client, JSON.stringify({ type: "retomada_falhou", id: idValido(msg.id) ? msg.id : null }));
+        return;
+      }
+      // 23/10: o "Cancelar" do esqueleto da tela no celular.
+      if (msg.type === "ui.cancelar") {
+        if (idValido(msg.id)) cancelarTelaDoCelular(msg.id);
+        return;
+      }
+      // 23/10: "Ver como tela" (e "Tentar de novo") do celular: gera a tela de uma resposta que já
+      // está na tela dele. Os frames `ui` vão com este id, guardados na retomada como os do chat.
+      if (msg.type === "ui.ver") {
+        if (!idValido(msg.id) || typeof msg.resposta !== "string" || !msg.resposta.trim()) return;
+        // "Nunca" nos Ajustes: o esqueleto do celular some (sem tela e sem "tentar de novo").
+        if (getConfig().respostasInterativas === "nunca") { sendToClient(client, JSON.stringify({ type: "ui", id: msg.id, falhou: true, cancelada: true })); return; }
+        const pergunta = typeof msg.pergunta === "string" ? msg.pergunta.slice(0, 2000) : "";
+        const p = abrirPedido(msg.id, pergunta, enviarAqui);
+        if (!p) { retomar(msg.id, enviarAqui); return; }
+        void gerarParaCelular(pergunta, msg.resposta.slice(0, 6000), geradorDeTelas(), paraUi(p), { falhou: undefined }, msg.id);
         return;
       }
       if (msg.type === "parar") {
@@ -923,7 +940,7 @@ function handleUpgrade(
           terminar(p, { type: "reply", reply: "Montando a tela…" });
           void gerarParaCelular(atalho.pergunta, atalho.resposta, geradorDeTelas(), paraUi(p), atalho.daOferta
             ? { pronto: "Pronto, aqui está como tela.", falhou: "Não consegui montar a tela agora. A resposta em texto continua aí em cima." }
-            : { pronto: "Pronto, aqui está a tela.", falhou: "Não consegui montar a tela agora. Quer que eu responda em texto?" });
+            : { pronto: "Pronto, aqui está a tela.", falhou: "Não consegui montar a tela agora. Quer que eu responda em texto?" }, msg.id);
           return;
         }
         executar(msg.text, msg.canal === "texto" ? "texto" : "voz", (t) => pedaco(p, t))
@@ -933,7 +950,7 @@ function handleUpgrade(
             // Com a oferta no fim, as respostas rápidas viram as da pergunta nova (Sim/Não).
             const rap = tela.reply !== reply ? rapidasPara(tela.reply, getConfig()) ?? undefined : rapidas;
             terminar(p, { type: "reply", reply: tela.reply, ...(fontes?.length ? { fontes } : {}), ...(local ? { local } : {}), ...(rap ? { rapidas: rap } : {}) });
-            if (tela.gerar) void gerarParaCelular(msg.text!, reply, geradorDeTelas(), paraUi(p));
+            if (tela.gerar) void gerarParaCelular(msg.text!, reply, geradorDeTelas(), paraUi(p), {}, msg.id as string);
           })
           .catch(err => {
             console.error("[WS] falha ao processar comando de texto:", err);

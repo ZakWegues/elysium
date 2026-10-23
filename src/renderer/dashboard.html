@@ -53,7 +53,7 @@
   <symbol id="i-clipboard" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4.5h1.5a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2h-11a2 2 0 0 1-2-2v-13a2 2 0 0 1 2-2H8"/><rect x="8.5" y="2.5" width="7" height="4" rx="1.4"/></symbol>
   <symbol id="i-mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="11.5" rx="3"/><path d="M18.5 11v1.5a6.5 6.5 0 0 1-13 0V11M12 19v3M8.5 22h7"/></symbol>
   <symbol id="i-arrow-up" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20V4.5M5.5 11 12 4.5 18.5 11"/></symbol>
-  <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12M18 6 6 18"/></symbol><symbol id="i-maximize" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4h5v5M9 20H4v-5M20 4l-6 6M4 20l6-6"/></symbol>
   <symbol id="i-minus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/></symbol>
   <symbol id="i-play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4.5 19.5 12 7 19.5z"/></symbol>
   <symbol id="i-pause" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4.5v15M15 4.5v15"/></symbol>
@@ -419,9 +419,18 @@
     <div id="chat-bolhas"></div>
 
     <div id="input-bar">
-      <!-- Stop TTS kill switch (visible only during speaking) -->
-      <div id="stop-zone">
-        <button id="stop-btn" title="Esc para interromper"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-x"/></svg><span>Interromper voz</span></button>
+      <!-- 23/10: a pílula "Ely falando" (igual à do celular): fechada mostra o anel e o estado;
+           um clique abre com Parar. Aparece falando ou pensando; Esc continua parando. -->
+      <div id="stop-zone" class="pilula-voz" aria-live="polite">
+        <button type="button" class="pv-cabeca" aria-expanded="false" title="Ely falando — clique para os controles">
+          <span class="pv-anel" aria-hidden="true"></span>
+          <span class="pv-rotulo">Falando</span>
+          <svg class="ico ico-sm pv-seta" aria-hidden="true"><use href="#i-chevron-down"/></svg>
+        </button>
+        <div class="pv-corpo">
+          <span class="pv-dica">Esc também para</span>
+          <button id="stop-btn" type="button" title="Esc para interromper"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-x"/></svg><span>Parar</span></button>
+        </div>
       </div>
       <!-- Waveform zone (visible when listening/processing) -->
       <div id="voice-zone">

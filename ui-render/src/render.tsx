@@ -3,7 +3,7 @@ import { Renderer, type ActionEvent, type OpenUIError } from "@openuidev/react-l
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { library } from "./lib/library";
-import { definirInternet } from "./config";
+import { definirInternet, definirModo, modoAtual } from "./config";
 import { aoReceber, enviarAoHost, ligarPonte } from "./ponte";
 import { estado as esquemaEstado, type MensagemDoHost, type Tema } from "./protocolo";
 import "./movimento.css";
@@ -86,7 +86,7 @@ function Tela() {
     const sair = aoReceber((m) => {
       if (m.tipo === "programa") { aplicarTema(m.tema); setPrograma(m); }
       else if (m.tipo === "tema") aplicarTema(m.tema);
-      else if (m.tipo === "config") definirInternet(m.internet);
+      else if (m.tipo === "config") { definirInternet(m.internet); definirModo(m.modo ?? "previa"); }
     });
     // Só agora, com alguém ouvindo: o host manda o programa ao receber isto.
     enviarAoHost({ tipo: "pronta" });
@@ -166,5 +166,31 @@ document.addEventListener("click", (e) => {
 addEventListener("error", (e) => enviarAoHost({ tipo: "erro", mensagem: String(e.message ?? e.error ?? "erro").slice(0, 1000) }));
 addEventListener("unhandledrejection", (e) => enviarAoHost({ tipo: "erro", mensagem: String((e.reason as Error)?.message ?? e.reason ?? "erro").slice(0, 1000) }));
 
+/** O elemento (ou um pai) rola sozinho nessa direção? Tabela larga, carrossel, lista com rolagem. */
+function rolaSozinho(alvo: Element | null, dx: number, dy: number): boolean {
+  const horizontal = Math.abs(dx) > Math.abs(dy);
+  for (let n = alvo; n && n !== document.body && n !== document.documentElement; n = n.parentElement) {
+    const s = getComputedStyle(n);
+    if (horizontal) {
+      if (/auto|scroll/.test(s.overflowX) && n.scrollWidth > n.clientWidth + 1) return true;
+    } else if (/auto|scroll/.test(s.overflowY) && n.scrollHeight > n.clientHeight + 1) {
+      const temPraOnde = dy > 0 ? n.scrollTop + n.clientHeight < n.scrollHeight - 1 : n.scrollTop > 0;
+      if (temPraOnde) return true;
+    }
+  }
+  return false;
+}
+
+// Prévia no chat: a tela não rola (tem a altura do conteúdo ou a da prévia), e o iframe engoliria
+// a roda do mouse — o chat parava de rolar com o cursor em cima dela. A roda vai para o host.
+addEventListener("wheel", (e) => {
+  if (modoAtual() !== "previa" || e.ctrlKey) return;
+  if (Math.abs(e.deltaY) <= Math.abs(e.deltaX) || rolaSozinho(e.target as Element, e.deltaX, e.deltaY)) return;
+  e.preventDefault();
+  const dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaMode === 2 ? e.deltaY * 400 : e.deltaY;
+  enviarAoHost({ tipo: "rolar", dy: Math.max(-2000, Math.min(2000, dy)) });
+}, { passive: false });
+
+definirModo("previa");
 ligarPonte();
 createRoot(document.getElementById("raiz")!).render(<Tela />);

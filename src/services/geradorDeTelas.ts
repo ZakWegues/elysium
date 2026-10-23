@@ -64,6 +64,11 @@ export function geradorDeTelas(forcar?: Provedor, modelo?: string): Gerador | nu
           }
         },
         fechar: () => sessao?.fechar(),
+        trocar: () => {
+          sessao?.fechar();
+          sessao = null;
+          return fila.length > 0;
+        },
       };
     };
   }

@@ -738,18 +738,11 @@ async function enviarTexto(text: string, opcoes?: { refazer?: boolean }): Promis
   // Vai direto para o gerador (sessão sem ferramentas); "disso/isso" usa a última resposta.
   const explicito = !opcoes?.refazer && pediuTela(text) && getConfig().respostasInterativas !== "nunca" && provedorDeTelas() !== null;
   if ((oferta && ehSim(text) && !opcoes?.refazer) || explicito) {
-    const tokenOferta = novoTurno();
-    state.set("processing");
     const doContexto = /\b(disso|isso|dessa|desse|essa|esse|acima|anterior)\b/i.test(text) && ultimaResposta ? ultimaResposta.resposta : "";
-    try {
-      const tela = oferta && ehSim(text)
-        ? await telaNoChat(oferta.pergunta, oferta.resposta, true)
-        : await telaNoChat(text, doContexto, true);
-      if (turnoAtual() !== tokenOferta) return;
-      if (!tela) enviarAoDash("chat:reply", oferta && ehSim(text) ? "Não consegui montar a tela agora. A resposta em texto continua aí em cima." : "Não consegui montar a tela agora. Quer que eu responda em texto?");
-    } finally {
-      if (turnoAtual() === tokenOferta) state.set("idle");
-    }
+    // 23/10: a tela é gerada em segundo plano (esqueleto com Cancelar no chat). Antes o app ficava
+    // em "processando" os 20–60 s da geração e o chat recusava mensagens ("Aguarde…").
+    if (oferta && ehSim(text)) void telaNoChat(oferta.pergunta, oferta.resposta, true, "oferta");
+    else void telaNoChat(text, doContexto, true, "pedido");
     return;
   }
   const meuToken = novoTurno();
@@ -822,26 +815,59 @@ let ultimaResposta: { pergunta: string; resposta: string } | null = null;
  * "sim" à oferta: a tela vai numa bolha nova ("Aqui está como tela."); senão ela entra embaixo da
  * última resposta. O dashboard mostra o esqueleto ao receber `gerando`.
  */
-async function telaNoChat(pergunta: string, resposta: string, comResposta = false): Promise<string | null> {
+async function telaNoChat(pergunta: string, resposta: string, comResposta = false, origem: "oferta" | "pedido" | "auto" = "auto"): Promise<string | null> {
   const gerador = geradorDeTelas();
-  if (!gerador) return null;
+  if (!gerador) {
+    if (comResposta) enviarAoDash("chat:reply", "As telas precisam do Hermes ligado. Quer que eu responda em texto?");
+    return null;
+  }
   const id = `tela-${Date.now().toString(36)}`;
+  const controle = new AbortController();
+  telasEmCurso.set(id, controle);
   if (comResposta) enviarAoDash("chat:reply", "Montando a tela…");
   enviarAoDash("chat:tela", { id, estado: "gerando" });
-  const tela = await gerarTela(pergunta, resposta, gerador);
-  enviarAoDash("chat:tela", tela ? { id, programa: tela.programa, ...(comResposta ? { texto: "Pronto, aqui está como tela." } : {}) } : { id, falhou: true });
-  if (tela) console.log(`[UI] tela em ${tela.ms} ms (${tela.tentativas}ª, ${tela.modelo ?? tela.provedor})`);
-  return tela?.programa ?? null;
+  try {
+    const tela = await gerarTela(pergunta, resposta, gerador, undefined, controle.signal);
+    if (tela) {
+      console.log(`[UI] tela em ${tela.ms} ms (${tela.tentativas}ª, ${tela.modelo ?? tela.provedor})`);
+      enviarAoDash("chat:tela", { id, programa: tela.programa, ...(comResposta ? { texto: origem === "oferta" ? "Pronto, aqui está como tela." : "Pronto, aqui está a tela." } : {}) });
+      return tela.programa;
+    }
+    const cancelada = controle.signal.aborted;
+    const texto = !comResposta ? undefined
+      : cancelada ? "Tela cancelada."
+      : origem === "oferta" ? "Não consegui montar a tela agora. A resposta em texto continua aí em cima."
+      : "Não consegui montar a tela agora. Quer que eu responda em texto?";
+    // Falhou (não cancelada): pergunta e resposta vão junto, para o "Tentar de novo" do chat.
+    enviarAoDash("chat:tela", { id, falhou: true, ...(cancelada ? { cancelada: true } : { pergunta, resposta }), ...(texto ? { texto } : {}) });
+    return null;
+  } finally {
+    telasEmCurso.delete(id);
+  }
 }
 
+/** Telas sendo geradas agora (chat e "Ver como tela"): o Cancelar do esqueleto aborta pelo id. */
+const telasEmCurso = new Map<string, AbortController>();
+ipcMain.on("ui:cancelar", (_e, id: unknown) => {
+  if (typeof id === "string") telasEmCurso.get(id)?.abort();
+});
+
 // "Ver como tela" (rodapé da resposta): gera e devolve; o dashboard põe embaixo daquela bolha.
-ipcMain.handle("ui:ver-como-tela", async (_e, pergunta: unknown, resposta: unknown) => {
+ipcMain.handle("ui:ver-como-tela", async (_e, pergunta: unknown, resposta: unknown, id: unknown) => {
   if (typeof resposta !== "string" || !resposta.trim()) return null;
   if (getConfig().respostasInterativas === "nunca") return null;
   const gerador = geradorDeTelas();
   if (!gerador) return { erro: "As telas precisam do Hermes ligado." };
-  const tela = await gerarTela(typeof pergunta === "string" ? pergunta.slice(0, 2000) : "", resposta.slice(0, 6000), gerador);
-  return tela ? { programa: tela.programa } : { erro: "Não consegui montar a tela agora." };
+  const controle = new AbortController();
+  const chave = typeof id === "string" && id.length <= 40 ? id : null;
+  if (chave) telasEmCurso.set(chave, controle);
+  try {
+    const tela = await gerarTela(typeof pergunta === "string" ? pergunta.slice(0, 2000) : "", resposta.slice(0, 6000), gerador, undefined, controle.signal);
+    if (tela) return { programa: tela.programa };
+    return controle.signal.aborted ? { cancelada: true } : { erro: "Não consegui montar a tela agora." };
+  } finally {
+    if (chave) telasEmCurso.delete(chave);
+  }
 });
 
 // Fotos e rotas pedidas pela tela (ela não sai para a internet). Mesmo proxy do servidor.

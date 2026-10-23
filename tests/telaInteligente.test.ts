@@ -78,6 +78,33 @@ describe("geração com validação local e uma nova tentativa (22/10)", () => {
     expect(reg.map((r) => r.ok)).toEqual([false, true]);
   });
 
+  it("errou duas vezes: a 3ª vai do zero no próximo modelo (trocar)", async () => {
+    const pedidos: string[] = [];
+    const respostas = ['root = Col([Title("x"), Grafico(1)])', 'root = Col([Title("x"), Grafico(2)])', BOM];
+    let trocas = 0;
+    const g: Gerador = async () => ({
+      enviar: async (u) => { pedidos.push(u); return { texto: respostas.shift()!, provedor: "teste", modelo: trocas ? "m2" : "m1" }; },
+      fechar: () => {},
+      trocar: () => { trocas++; return true; },
+    });
+    const t = await gerarTela("parcela?", "", g);
+    expect(t?.tentativas).toBe(3);
+    expect(t?.modelo).toBe("m2");
+    expect(trocas).toBe(1);
+    expect(pedidos[2]).toMatch(/Monte uma tela/);
+  });
+
+  it("cancelada no meio: null na hora, e a conversa é fechada", async () => {
+    let fechou = 0;
+    const g: Gerador = async () => ({ enviar: () => new Promise(() => {}), fechar: () => { fechou++; } });
+    const c = new AbortController();
+    const indo = gerarTela("x", "", g, undefined, c.signal);
+    await new Promise((r) => setTimeout(r, 10));
+    c.abort();
+    expect(await indo).toBeNull();
+    expect(fechou).toBe(1);
+  });
+
   it("inválida duas vezes ou sem resposta: sem tela", async () => {
     expect(await gerarTela("x", "", roteiro(["oi, tudo bem?", "root = Col([Title(\"x\""]).g)).toBeNull();
     expect(await gerarTela("x", "", roteiro([null]).g)).toBeNull();

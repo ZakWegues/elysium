@@ -11,3 +11,19 @@ export function internetLigada(): boolean {
 export function definirInternet(ligada: boolean): void {
   internet = ligada;
 }
+
+/**
+ * Prévia (dentro do chat, altura limitada, sem rolagem própria: a roda do mouse vai para o chat)
+ * ou tela cheia (rolagem própria, conteúdo centrado). Fica em `<html data-modo>` para o CSS.
+ */
+export type Modo = "previa" | "cheia";
+let modo: Modo = "previa";
+
+export function modoAtual(): Modo {
+  return modo;
+}
+
+export function definirModo(m: Modo): void {
+  modo = m;
+  document.documentElement.dataset.modo = m;
+}

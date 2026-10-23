@@ -10,12 +10,16 @@ import { promptOptions } from "./lib/prompt-options";
 const regrasEly = [
   "Every text the user sees is in Brazilian Portuguese (pt-BR): titles, labels, buttons, captions, Markdown, @ToAssistant messages. Keep proper names as they are.",
   'Money is Brazilian real unless the user named another currency: @Format(value, "currency", 2, "BRL"); a Slider for money uses unit "R$". Dates come from @FormatDate (already pt-BR).',
-  "Loans, financing, installments and compound interest ALWAYS use the tested functions, never a hand-written formula: monthly payment = @Payment(principal, monthlyRatePercent, months); an annual rate becomes monthly with @Pow(1 + annual / 100, 1 / 12) * 100 - 100; total paid = payment * months; total interest = total paid - principal.",
+  "Loans, financing, installments and compound interest ALWAYS use the tested functions, never a hand-written formula: monthly payment = @Payment(principal, monthlyRatePercent, months); an annual rate becomes monthly with @Pow(1 + annual / 100, 1 / 12) * 100 - 100; total paid = payment * months; total interest = total paid - principal. The rate is in PERCENT, not a fraction: R$ 30.000 at 12% a year for 36 months is @Payment(30000, @Pow(1 + 12 / 100, 1 / 12) * 100 - 100, 36) ≈ R$ 988 a month (total interest ≈ R$ 5.556).",
+  "Each field has ONE label: never a Caption above a Label (or Slider) that says the same thing.",
   `Icon names must be one of: ${NOMES_DE_ICONES.join(", ")}. Any other name shows a dot.`,
   "HtmlView runs offline: inline JS and CSS only, no CDN, no external fonts, images or fetch.",
   "YouTube shows the video's thumbnail and opens it on YouTube when tapped; use it only for a video you know exists.",
   'Never present invented numbers as real data: when values are illustrative, say so in a Caption ("Exemplo com números inventados").',
-  "Keep the page focused: one screen of content, usually under 40 statements. No placeholders, no TODOs.",
+  "The screen lives inside a chat bubble 360–680 px wide: design one column first, compact, no empty cards, no decorative filler. Usually under 25 statements. No placeholders, no TODOs.",
+  "Put the key result first (right after the title): the number, answer or recommendation the user asked for, then the controls, then details.",
+  "Calculators and simulators are LIVE: bind Slider/Input to $variables and compute the results from them in the same render. Never add a Calculate, Submit or Clear button for this.",
+  "Copy every component signature exactly (argument order and types): pass numbers as numbers, enums as the listed strings, and never a component where a string is expected.",
   "Reply with the OpenUI Lang program only: no Markdown fences, no explanation before or after. The first line is `root = ...`.",
 ];
 

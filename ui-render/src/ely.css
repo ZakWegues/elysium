@@ -1,78 +1,120 @@
 /*
- * Design da Ely (22/10) — a camada do ELYSIUM por cima do visual portado (components.css), sem
- * mexer nele. A tela vira uma "folha" própria dentro do chat: fundo do tema, borda fina, respiro,
- * a cor de destaque do app (o host manda `--iui-accent`) nos botões, foco, sliders e gráfico.
- * Menos é mais: nada de brilho em loop, sombra pesada ou gradiente chamativo.
- * Estreito (celular, < 520 px): menos respiro, rótulo em cima do campo, grades numa coluna.
+ * Design da Ely (22–23/10) — a camada do ELYSIUM por cima do visual portado (components.css), sem
+ * mexer nele. A tela é uma "folha" dentro do chat: fundo do tema, borda fina, densidade de chat
+ * (corpo 14 px, respiro 18 px), a cor de destaque do app (o host manda `--iui-accent`) nos botões,
+ * foco, sliders, gráfico e no número principal. Menos é mais: nada em loop, sombra leve.
+ * `data-modo="previa"` (no chat, sem rolagem própria) ou `"cheia"` (tela inteira, rola sozinha).
+ * Estreito (celular, < 520 px): menos respiro, rótulo em cima do campo, números em 2 colunas.
  */
 
 :root {
+  --iui-font: system-ui, "Segoe UI Variable Text", "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
   --iui-accent: #8b7cf6;
   --iui-on-accent: #ffffff;
   --iui-accent-soft: color-mix(in srgb, var(--iui-accent) 14%, transparent);
-  --iui-accent-line: color-mix(in srgb, var(--iui-accent) 38%, transparent);
+  --iui-accent-line: color-mix(in srgb, var(--iui-accent) 40%, transparent);
   --iui-focus: var(--iui-accent);
   --iui-range-thumb: var(--iui-accent);
   --iui-chart-1: var(--iui-accent);
   --iui-info: var(--iui-accent);
   --iui-info-soft: var(--iui-accent-soft);
-  --ely-folha-pad: 22px;
+  /* Densidade de chat: o portado foi feito para página inteira. */
+  --iui-space-section: 18px;
+  --iui-space-group: 10px;
+  --iui-space-group-lg: 14px;
+  --iui-field-gap: 14px;
+  --iui-action-gap: 22px;
+  --ely-folha-pad: 18px;
+  font-size: 14px;
 }
 
-/* A folha: o fundo do tema com um véu da cor de destaque no topo, quase imperceptível. */
+/* A folha. */
 #tela {
   container: folha / inline-size;
   padding: var(--ely-folha-pad);
   border: 1px solid var(--iui-border-strong);
-  border-radius: 18px;
+  border-radius: 16px;
   background:
-    radial-gradient(120% 60% at 0% 0%, color-mix(in srgb, var(--iui-accent) 7%, transparent), transparent 60%),
+    linear-gradient(180deg, color-mix(in srgb, var(--iui-accent) 6%, transparent), transparent 120px),
     var(--iui-canvas);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--iui-ink) 6%, transparent);
   min-height: 40px;
+  line-height: 1.5;
 }
+
+/* Tela cheia: a camada do host é a moldura; aqui só a página, centrada e rolando. */
+:root[data-modo="cheia"] { overflow-y: auto; background: var(--iui-canvas); }
+:root[data-modo="cheia"] body { overflow: visible; }
+:root[data-modo="cheia"] #tela { max-width: 760px; margin: 0 auto; padding: 22px 24px 48px; border: 0; border-radius: 0; box-shadow: none; background: transparent; }
 
 /* Programa que é um cartão só: a folha já é a moldura (sem borda dupla). */
 #tela .iui-card:only-child:not(.iui-card *, .iui-grid *, .iui-row *, .iui-col *, .iui-box *) { padding: 0; border: 0; background: transparent; }
 
-/* Títulos: o da folha manda, mas sem gritar. */
-#tela > * > :is(.iui-title-3xl, .iui-title-2xl, .iui-title-xl):first-child,
-#tela > :is(.iui-title-3xl, .iui-title-2xl, .iui-title-xl):first-child {
-  font-size: clamp(20px, 3.2vw + 8px, 26px);
-  line-height: 1.2;
-  letter-spacing: -0.5px;
+/* Títulos: o da folha manda, sem gritar; os de dentro, discretos. */
+#tela > * > :is(.iui-title-3xl, .iui-title-2xl, .iui-title-xl, .iui-title-lg):first-child,
+#tela > :is(.iui-title-3xl, .iui-title-2xl, .iui-title-xl, .iui-title-lg):first-child,
+#tela .iui-card:only-child > :is(.iui-title-3xl, .iui-title-2xl, .iui-title-xl, .iui-title-lg, .iui-title-md):first-child {
+  font-size: clamp(18px, 2.4vw + 9px, 22px);
+  line-height: 1.25;
+  font-weight: 650;
+  letter-spacing: -0.4px;
 }
-.iui-title-3xl { font-size: 30px; }
-.iui-title-2xl { font-size: 26px; }
+.iui-title-3xl { font-size: 28px; }
+.iui-title-2xl { font-size: 24px; }
+.iui-title-xl { font-size: 21px; }
 .iui-caption, .iui-text-sm { color: var(--iui-muted); }
+.iui-caption { font-size: 12.5px; }
 
-/* Cartões: superfície levemente tingida em vez de outro "buraco" escuro. */
-.iui-card { background: color-mix(in srgb, var(--iui-ink) 3%, var(--iui-canvas)); border-color: var(--iui-border); border-radius: 16px; }
-.iui-card .iui-card { background: color-mix(in srgb, var(--iui-ink) 4%, transparent); }
+/* Cartões: superfície levemente tingida, mais baixos. */
+.iui-card { padding: 16px; background: color-mix(in srgb, var(--iui-ink) 3%, var(--iui-canvas)); border-color: var(--iui-border); border-radius: 14px; }
+.iui-card .iui-card { padding: 12px 14px; background: color-mix(in srgb, var(--iui-ink) 4%, transparent); border-radius: 12px; }
 .iui-card-soft { background: color-mix(in srgb, var(--iui-ink) 4%, transparent); }
 
+/* Métricas (grade de cartões com legenda + número): o número fala, a legenda sussurra; o
+   primeiro, que é o resultado principal, na cor de destaque. */
+.iui-grid > .iui-card { gap: 2px; }
+.iui-grid > .iui-card > .iui-caption:first-child { font-size: 12px; letter-spacing: 0.01em; }
+.iui-grid > .iui-card > .iui-title { font-size: 19px; line-height: 1.25; letter-spacing: -0.3px; font-variant-numeric: tabular-nums; }
+.iui-grid:has(> .iui-card > .iui-caption:first-child + .iui-title) > .iui-card:first-child > .iui-title { color: var(--iui-accent); }
+
 /* Botões: o principal na cor de destaque; os outros discretos. */
+.iui-button { min-height: 38px; }
 .iui-button-solid { background: var(--iui-accent); color: var(--iui-on-accent); }
 .iui-button-solid:not(:disabled):hover { background: color-mix(in oklch, var(--iui-accent) 86%, var(--iui-ink)); }
-.iui-button-solid:not(:disabled):active { transform: scale(.98); }
+.iui-button:not(:disabled):active { transform: scale(.98); }
 .iui-button-soft { background: var(--iui-accent-soft); color: var(--iui-ink); }
 .iui-button-outline { border-color: var(--iui-border-strong); background-color: transparent; }
 .iui-icon-button-solid { background: var(--iui-accent); color: var(--iui-on-accent); }
 
 /* Campos: fundo tingido, borda fina, foco na cor de destaque. */
 .iui-input, .iui-textarea, .iui-select {
+  min-height: 40px;
   background-color: color-mix(in srgb, var(--iui-ink) 4%, transparent);
   border-color: var(--iui-border);
-  border-radius: 12px;
+  border-radius: 10px;
+  font-size: 15px;
 }
 .iui-input:focus, .iui-input:focus-visible, .iui-textarea:focus, .iui-select:focus {
   border-color: var(--iui-accent-line);
   box-shadow: 0 0 0 3px var(--iui-accent-soft);
 }
-.iui-label { font-size: 13px; font-weight: 560; color: var(--iui-muted); }
+.iui-label { font-size: 12.5px; font-weight: 560; color: var(--iui-muted); }
+.iui-field { gap: 6px; }
 /* Rótulo ao lado do campo: colunas fixas, para os campos alinharem. */
 .iui-row:has(> .iui-label):has(> :is(.iui-input, .iui-select, .iui-textarea)) {
   display: grid; grid-template-columns: minmax(120px, 34%) 1fr; gap: 12px; align-items: center;
 }
+
+/* Slider: trilha fina, polegar na cor de destaque com anel do fundo (o portado era um tubo de 24 px). */
+.iui-slider-head { font-size: 13px; }
+.iui-slider-head > label { color: var(--iui-muted); }
+.iui-slider-head > output { font-size: 13px; color: var(--iui-ink); }
+.iui-range { height: 30px; }
+.iui-range::-webkit-slider-runnable-track { height: 6px; border: 0; background: color-mix(in srgb, var(--iui-ink) 12%, transparent); }
+.iui-range::-webkit-slider-thumb { width: 18px; height: 18px; margin-top: -6px; box-shadow: 0 0 0 3px var(--iui-canvas), 0 1px 4px rgb(0 0 0 / 30%); transition: transform var(--iui-dur-micro, 140ms); }
+.iui-range:active::-webkit-slider-thumb { transform: scale(1.12); }
+.iui-range::-moz-range-track { height: 6px; background: color-mix(in srgb, var(--iui-ink) 12%, transparent); }
+.iui-range::-moz-range-progress { height: 6px; border-radius: 999px; background: var(--iui-accent); }
 
 /* Seleções e chips na cor de destaque. */
 .iui-segmented > button[aria-pressed="true"], .iui-segmented > button[aria-checked="true"], .iui-segmented > button[data-state="on"] { color: var(--iui-accent); }
@@ -86,8 +128,10 @@ input[type="range"] { accent-color: var(--iui-accent); }
 .iui-image img { transition: opacity var(--iui-dur-base, 220ms) var(--iui-curva, ease); }
 .iui-image:not(.is-loaded) img { opacity: 0; }
 
-/* Tabela: cabeçalho discreto e linhas finas. */
-.iui-table th { color: var(--iui-muted); font-weight: 560; }
+/* Tabela: cabeçalho discreto, linhas finas, números alinhados. */
+.iui-table { font-size: 13.5px; }
+.iui-table th { color: var(--iui-muted); font-weight: 560; font-size: 12.5px; }
+.iui-table td { font-variant-numeric: tabular-nums; }
 
 /* Estreito: celular ou bolha apertada. */
 @container folha (max-width: 520px) {
@@ -96,15 +140,22 @@ input[type="range"] { accent-color: var(--iui-accent); }
   .iui-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
   .iui-grid:has(.iui-image, .iui-table, .iui-chart, .iui-pie, .iui-slider, .iui-flashcard, .maplibregl-map) { grid-template-columns: minmax(0, 1fr) !important; }
   .iui-grid > :last-child:nth-child(odd) { grid-column: 1 / -1; }
-  .iui-card { padding: 16px; }
-  .iui-grid > .iui-card { padding: 12px; }
-  .iui-grid > .iui-card .iui-title { font-size: 17px; letter-spacing: -0.3px; }
+  .iui-card { padding: 14px; }
+  .iui-grid > .iui-card { padding: 10px 12px; }
+  .iui-grid > .iui-card > .iui-title { font-size: 17px; }
   .iui-button-solid:only-child, .iui-form > .iui-button-solid { align-self: stretch; }
 }
 @container folha (max-width: 270px) {
   .iui-grid { grid-template-columns: minmax(0, 1fr) !important; }
 }
 @media (max-width: 520px) {
-  :root { --ely-folha-pad: 16px; }
-  #tela { border-radius: 16px; }
+  :root { --ely-folha-pad: 14px; }
+  #tela { border-radius: 14px; }
+  :root[data-modo="cheia"] #tela { padding: 16px 16px 40px; }
 }
+
+/* Grade de sliders: linhas mais juntas (o gap do programa vale para os números). */
+.iui-grid:has(> .iui-slider) { row-gap: 8px !important; }
+
+/* Tela cheia: barra de rolagem fina, na cor do tema (a padrão do Chromium destoava). */
+:root[data-modo="cheia"] { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--iui-ink) 22%, transparent) transparent; }

@@ -59,7 +59,8 @@ const CSP = [
   "style-src 'unsafe-inline'",
   "img-src data: blob: https://upload.wikimedia.org https://i.ytimg.com",
   "font-src data:",
-  "connect-src https://tiles.openfreemap.org",
+  // blob: o MapLibre lê o próprio worker (blob criado pela página) por fetch no Electron (23/10).
+  "connect-src https://tiles.openfreemap.org blob:",
   "worker-src blob:",
   "frame-src 'self' about: data:",
   "form-action 'none'",

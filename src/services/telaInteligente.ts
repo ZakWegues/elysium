@@ -26,7 +26,7 @@ function norm(t: string): string {
 export function pediuTela(texto: string): boolean {
   const t = norm(texto);
   if (/\b(como|numa|em|uma) tela\b|\btela interativa\b|\binterativ[oa]\b|\bfaz(er)? (isso )?visual\b/.test(t)) return true;
-  return /\b(monta|monte|montar|faz|faca|fazer|cria|crie|criar|gera|gere|gerar|mostra|mostre|me mostra|quero|desenha|desenhe|me da|me de|manda)\b.{0,40}\b(grafico|mapa|tabela|calculadora|simulador|flashcards?|quiz|planilha|dashboard|painel|cronograma|checklist|comparativo)\b/.test(t);
+  return /\b(monta|monte|montar|faz|faca|fazer|cria|crie|criar|gera|gere|gerar|mostra|mostre|me mostra|quero|desenha|desenhe|me da|me de|manda)\b.{0,80}\b(grafico|mapa|tabela|calculadora|simulador|flashcards?|quiz|planilha|dashboard|painel|cronograma|checklist|comparativo)\b/.test(t);
 }
 
 /**
@@ -105,27 +105,47 @@ export function pedidoDeCorrecao(programa: string, erros: string[]): string {
 export type Conversa = {
   enviar: (usuario: string) => Promise<{ texto: string; provedor: string; modelo: string | null } | null>;
   fechar: () => void;
+  /** Passa para o próximo modelo (conversa nova). false = não há outro. */
+  trocar?: () => boolean;
 };
 export type Gerador = (sistema: string) => Promise<Conversa | null>;
 
 export type Tela = { programa: string; tentativas: number; ms: number; provedor: string; modelo: string | null; declaracoes: number };
 
 /**
- * Gera e valida; uma nova tentativa com os erros. `null` = sem tela (falhou duas vezes, ou ninguém
- * para gerar). `registro` recebe o resultado de cada tentativa (para a bancada e o log).
+ * Gera e valida; uma nova tentativa com os erros. `null` = sem tela (falhou duas vezes, ninguém
+ * para gerar, ou `sinal` cancelou — quem chamou confere `sinal.aborted`). `registro` recebe o
+ * resultado de cada tentativa (para a bancada e o log).
  */
-export async function gerarTela(pergunta: string, respostaTexto: string, gerador: Gerador, registro?: (r: { tentativa: number; ok: boolean; erros: string[]; ms: number; provedor?: string; modelo?: string | null }) => void): Promise<Tela | null> {
+export async function gerarTela(pergunta: string, respostaTexto: string, gerador: Gerador, registro?: (r: { tentativa: number; ok: boolean; erros: string[]; ms: number; provedor?: string; modelo?: string | null }) => void, sinal?: AbortSignal): Promise<Tela | null> {
   const v = carregarValidador();
   const sistema = promptDasTelas();
   const t0 = Date.now();
   const falhou = (e: unknown) => { console.warn("[UI] gerador falhou:", e instanceof Error ? e.message : e); return null; };
-  const conversa = await gerador(sistema).catch(falhou);
-  if (!conversa) { registro?.({ tentativa: 1, ok: false, erros: ["sem gerador"], ms: Date.now() - t0 }); return null; }
+  // Cancelar (o ✕ do esqueleto): a espera em curso acaba na hora e a conversa é fechada.
+  const cancelado = new Promise<null>((ok) => {
+    if (sinal?.aborted) ok(null);
+    else sinal?.addEventListener("abort", () => ok(null), { once: true });
+  });
+  const ouCancela = <T>(p: Promise<T>) => (sinal ? Promise.race([p, cancelado]) : p);
+  const abrindo = gerador(sistema).catch(falhou);
+  // Cancelou enquanto a sessão abria: quando ela abrir, fecha (senão ficaria pendurada no Hermes).
+  void abrindo.then((c) => { if (sinal?.aborted) c?.fechar(); });
+  const conversa = await ouCancela(abrindo);
+  if (!conversa) { registro?.({ tentativa: 1, ok: false, erros: [sinal?.aborted ? "cancelada" : "sem gerador"], ms: Date.now() - t0 }); return null; }
   try {
     let usuario = pedidoDaTela(pergunta, respostaTexto);
-    for (let tentativa = 1; tentativa <= 2; tentativa++) {
+    // 1ª e 2ª (correção) no mesmo modelo; errou as duas: uma 3ª, do zero, no próximo modelo da lista
+    // (23/10: o nemotron às vezes erra a ordem dos argumentos duas vezes seguidas).
+    for (let tentativa = 1; tentativa <= 3; tentativa++) {
+      if (sinal?.aborted) return null;
+      if (tentativa === 3) {
+        if (!conversa.trocar?.()) return null;
+        usuario = pedidoDaTela(pergunta, respostaTexto);
+      }
       const t1 = Date.now();
-      const r = await conversa.enviar(usuario).catch(falhou);
+      const r = await ouCancela(conversa.enviar(usuario).catch(falhou));
+      if (sinal?.aborted) return null;
       if (!r) { registro?.({ tentativa, ok: false, erros: ["sem resposta do modelo"], ms: Date.now() - t1 }); return null; }
       const val = v.validarPrograma(r.texto);
       registro?.({ tentativa, ok: val.ok, erros: val.erros, ms: Date.now() - t1, provedor: r.provedor, modelo: r.modelo });

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { abrirPedido, enviarUi, retomar, soltarDestino, terminar, zerarPedidos } from "../src/services/retomada";
-import { atalhoDeTela, depoisDaResposta, gerarParaCelular, zerarTelasDoCelular, type FrameUi } from "../src/services/telasDoCelular";
+import { atalhoDeTela, cancelarTelaDoCelular, depoisDaResposta, gerarParaCelular, zerarTelasDoCelular, type FrameUi } from "../src/services/telasDoCelular";
 import { OFERTA, type Gerador } from "../src/services/telaInteligente";
 
 const BOM = 'root = Card([Title("Parcela", "md"), Text("R$ 100")])';
@@ -57,9 +57,23 @@ describe("telas no celular: frames ui (22/10)", () => {
   it("sem gerador ou programa ruim: falhou", async () => {
     const a: FrameUi[] = [], b: FrameUi[] = [];
     expect(await gerarParaCelular("x", "", null, (f) => a.push(f), { falhou: "Não deu." })).toBe(false);
-    expect(a).toEqual([{ falhou: true, texto: "Não deu." }]);
+    // Pergunta e resposta vão junto: o "Tentar de novo" do celular pede de novo com elas.
+    expect(a).toEqual([{ falhou: true, pergunta: "x", resposta: "", texto: "Não deu." }]);
     await gerarParaCelular("x", "", gerador("oi, tudo bem?"), (f) => b.push(f));
-    expect(b.at(-1)).toEqual({ falhou: true });
+    expect(b.at(-1)).toEqual({ falhou: true, pergunta: "x", resposta: "" });
+  });
+
+  it("Cancelar (ui.cancelar) aborta pelo id: falhou + cancelada, sem 'tentar de novo'", async () => {
+    let soltar: (v: null) => void = () => {};
+    const lento: Gerador = async () => ({ enviar: () => new Promise((r) => { soltar = r; }), fechar: () => {} });
+    const frames: FrameUi[] = [];
+    const indo = gerarParaCelular("faz um quiz", "", lento, (f) => frames.push(f), { pronto: "Pronto." }, "pedido-cancela-1");
+    await new Promise((r) => setTimeout(r, 10));
+    expect(cancelarTelaDoCelular("pedido-cancela-1")).toBe(true);
+    expect(await indo).toBe(false);
+    soltar(null);
+    expect(frames.at(-1)).toEqual({ falhou: true, cancelada: true, texto: "Tela cancelada." });
+    expect(cancelarTelaDoCelular("pedido-cancela-1")).toBe(false);
   });
 
   it("a conexão cai enquanto gera: retomar entrega reply, a tela guardada e as próximas", () => {

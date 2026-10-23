@@ -5,9 +5,10 @@ import { z } from "zod/v4";
  * arquivo — ou a cópia gerada no build (`dist/protocolo.js`) — para validar o que vem da tela.
  *
  * Host → tela: `programa` (o OpenUI Lang, o tema e o estado salvo), `tema` (troca ao vivo),
- * `config` (fotos e mapas da internet ligados?), `resposta` (de um `pedido`).
+ * `config` (fotos e mapas da internet ligados? prévia no chat ou tela cheia?), `resposta` (de um `pedido`).
  * Tela → host: `pronta`, `altura`, `acao` (perguntar / abrirLink / copiar), `estado` (o que foi
- * digitado, para voltar ao reabrir), `pedido` (fotos, rota), `erro` (o programa não montou).
+ * digitado, para voltar ao reabrir), `pedido` (fotos, rota), `erro` (o programa não montou),
+ * `rolar` (a roda do mouse na prévia: quem rola é o chat do host).
  */
 
 const MAX_PROGRAMA = 200_000;
@@ -27,7 +28,7 @@ export const estado = z.record(z.string().max(60), z.union([z.string().max(5000)
 export const mensagemDoHost = z.discriminatedUnion("tipo", [
   z.object({ tipo: z.literal("programa"), texto: texto(MAX_PROGRAMA), tema, estado: estado.optional(), streaming: z.boolean().optional() }),
   z.object({ tipo: z.literal("tema"), tema }),
-  z.object({ tipo: z.literal("config"), internet: z.boolean() }),
+  z.object({ tipo: z.literal("config"), internet: z.boolean(), modo: z.enum(["previa", "cheia"]).optional() }),
   z.object({ tipo: z.literal("resposta"), id: z.number().int().positive(), dados: z.unknown().optional(), erro: texto(200).optional() }),
 ]);
 export type MensagemDoHost = z.infer<typeof mensagemDoHost>;
@@ -39,6 +40,7 @@ export const mensagemDaTela = z.discriminatedUnion("tipo", [
   z.object({ tipo: z.literal("estado"), vars: estado }),
   z.object({ tipo: z.literal("pedido"), id: z.number().int().positive(), rota: z.enum(["fotos", "rota"]), params: z.record(z.string().max(30), texto(300)) }),
   z.object({ tipo: z.literal("erro"), mensagem: texto(1000) }),
+  z.object({ tipo: z.literal("rolar"), dy: z.number().min(-2000).max(2000) }),
 ]);
 export type MensagemDaTela = z.infer<typeof mensagemDaTela>;
 

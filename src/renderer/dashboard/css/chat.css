@@ -163,29 +163,57 @@
 .num { color: #f78c6c; }
 .cmt { color: #546e7a; font-style: italic; }
 
-/* Stop TTS kill switch */
-/* Flutua no topo, por cima de qualquer aba (02/10): a Ely fala também com o Chat fechado
-   (lembrete, timer, rotina), e o botão preso na barra do chat ficava invisível nessas horas. */
+/* 23/10: pílula "Ely falando" — a mesma do celular. Fechada: anel girando devagar + estado; um
+   clique abre com Parar. Sem pulso em loop; a cor é a do tema e o vermelho fica no Parar.
+   Mora logo abaixo das abas (voz.js mede), por cima de qualquer aba. */
 #stop-zone {
-  display: none; justify-content: center; align-items: center;
-  position: fixed; top: 56px; left: 50%; transform: translateX(-50%); z-index: 900;
+  position: fixed; left: 50%; top: 64px; z-index: 900;
+  display: flex; flex-direction: column; align-items: stretch;
+  width: max-content; max-width: 92vw;
+  border: 1px solid rgba(var(--purple-rgb), 0.45); border-radius: 22px;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  backdrop-filter: blur(14px) saturate(1.2);
+  box-shadow: 0 8px 28px rgba(0,0,0,0.35);
+  opacity: 0; pointer-events: none; transform: translate(-50%, -8px) scale(0.96);
+  transition: opacity var(--mov-base) var(--mov-suave), transform var(--mov-base) var(--mov-suave), border-radius var(--mov-base) var(--mov-suave);
+  interpolate-size: allow-keywords;
 }
+#stop-zone.visivel { opacity: 1; pointer-events: auto; transform: translate(-50%, 0) scale(1); }
+#stop-zone.aberta { border-radius: 16px; }
+.pv-cabeca { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 14px 0 10px; border: 0; background: transparent;
+  color: var(--purple-bright); font: inherit; font-size: 12px; font-weight: 600; letter-spacing: 0.04em; cursor: pointer; }
+.pv-seta { transition: transform var(--mov-base) var(--mov-suave); opacity: 0.8; }
+#stop-zone.aberta .pv-seta { transform: rotate(180deg); }
+/* O anel: um arco que gira devagar (pensando gira mais rápido), no ritmo da esfera. */
+.pv-anel { width: 20px; height: 20px; border-radius: 50%; flex: none;
+  background: conic-gradient(from 0deg, var(--purple-bright) 0 28%, rgba(var(--purple-rgb), 0.18) 28% 100%);
+  -webkit-mask: radial-gradient(circle, transparent 5.5px, #000 6px); mask: radial-gradient(circle, transparent 5.5px, #000 6px);
+  animation: pv-gira 1.571s linear infinite; }
+#stop-zone.pensando .pv-anel { animation-duration: 0.9s; }
+@keyframes pv-gira { to { transform: rotate(360deg); } }
+/* Fechada, o corpo não ocupa nem altura nem largura: a pílula tem o tamanho da cabeça. */
+.pv-corpo { display: flex; align-items: center; gap: 10px; height: 0; max-width: 0; padding: 0 10px; overflow: hidden; opacity: 0;
+  transition: height var(--mov-base) var(--mov-suave), max-width var(--mov-base) var(--mov-suave), padding var(--mov-base) var(--mov-suave), opacity var(--mov-micro) var(--mov-suave); }
+#stop-zone.aberta .pv-corpo { height: auto; max-width: 420px; padding: 0 10px 10px; opacity: 1; transition-delay: 0s, 0s, 0s, 60ms; }
+.pv-dica { flex: 1; color: var(--muted); font-size: 11px; white-space: nowrap; }
 #stop-btn {
-  display: flex; align-items: center; gap: 8px;
-  padding: 8px 22px; border-radius: var(--radius-10); cursor: pointer;
-  background: rgba(224,82,82,0.12); border: 1px solid rgba(224,82,82,0.5);
-  color: var(--red); font-size: 12px; font-weight: 700; letter-spacing: 0.04em;
-  animation: pulse-red 1.5s ease-in-out infinite;
-  transition: background 0.15s, box-shadow 0.15s;
+  display: flex; align-items: center; gap: 6px; min-height: 34px; padding: 0 14px; border-radius: 999px; cursor: pointer;
+  background: transparent; border: 1px solid var(--border2); color: var(--text); font: inherit; font-size: 12px; font-weight: 600;
+  transition: background var(--mov-micro), border-color var(--mov-micro), color var(--mov-micro);
 }
-#stop-btn:hover {
-  background: rgba(224,82,82,0.28);
-  box-shadow: 0 0 28px rgba(224,82,82,0.5);
-}
-@keyframes pulse-red {
-  0%, 100% { box-shadow: 0 0 8px  rgba(224,82,82,0.22); }
-  50%       { box-shadow: 0 0 20px rgba(224,82,82,0.52); }
-}
+#stop-btn:hover { background: rgba(224,82,82,0.14); border-color: rgba(224,82,82,0.55); color: var(--red); }
+:root[data-movimento="nunca"] .pv-anel { animation: none; }
+@media (prefers-reduced-motion: reduce) { :root:not([data-movimento="sempre"]) .pv-anel { animation: none; } }
+
+/* "Digitando" (23/10): os três pontos do celular — sobem 4 px em sequência (160 ms), no ciclo
+   do "pensando" da esfera (1,571 s). */
+.bubble.assistant.pensando { display: inline-flex; align-items: center; gap: 5px; min-height: 38px; padding: 0 16px; }
+.bubble.assistant.pensando i { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); animation: pensando-ponto 1.571s ease-in-out infinite; }
+.bubble.assistant.pensando i:nth-child(2) { animation-delay: 160ms; }
+.bubble.assistant.pensando i:nth-child(3) { animation-delay: 320ms; }
+@keyframes pensando-ponto { 0%, 50%, 100% { transform: none; } 25% { transform: translateY(-4px); } }
+:root[data-movimento="nunca"] .bubble.assistant.pensando i { animation: none; }
+@media (prefers-reduced-motion: reduce) { :root:not([data-movimento="sempre"]) .bubble.assistant.pensando i { animation: none; } }
 
 /* Voice input bar */
 #input-bar {
@@ -412,22 +440,83 @@
 @media (prefers-reduced-motion: reduce) { :root:not([data-movimento="sempre"]) .chat-rapidas button { animation: none; } }
 :root[data-movimento="nunca"] .chat-rapidas button { animation: none; }
 
-/* 22/10: telas inteligentes — a tela embaixo da resposta (iframe sandbox). Esqueleto com brilho
-   suave enquanto é gerada; cross-fade para a tela e a altura anima até o tamanho real. */
-.tela-ely { position: relative; align-self: stretch; width: 100%; max-width: 760px; height: 180px; margin: 2px 0 6px;
-  border-radius: var(--radius-12); overflow: hidden; transition: height var(--mov-base) var(--mov-suave), opacity var(--mov-saida) var(--mov-suave); }
+/* 22–23/10: telas inteligentes — a PRÉVIA embaixo da resposta (iframe sandbox), altura até 440 px
+   (o resto esmaece e "Abrir tela inteira" abre a camada .tela-cheia). Enquanto é gerada, um
+   esqueleto vivo (blocos com brilho em cascata, barras que respiram, frase que troca, tempo e
+   Cancelar); se falhar, uma faixa com "Tentar de novo". */
+/* flex-shrink 0: o #timeline é flex em coluna e, com overflow hidden, a caixa encolhia até sumir
+   (era o "proporção errada e não rola" — o chat nunca transbordava). */
+.tela-ely { position: relative; flex-shrink: 0; align-self: stretch; width: 100%; max-width: 760px; height: 236px; margin: 2px 0 6px;
+  border-radius: 16px; overflow: hidden; transition: height var(--mov-base) var(--mov-suave), opacity var(--mov-saida) var(--mov-suave); }
 .tela-ely.saindo { opacity: 0; }
 /* Tela fora da vista há 30 s: o iframe saiu (telas.js), a caixa guarda a altura. */
-.tela-ely.dormindo { background: rgba(var(--purple-rgb),0.04); }
-.tela-quadro { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: transparent; opacity: 0; transition: opacity var(--mov-base) var(--mov-suave); }
+.tela-ely.dormindo { background: rgba(var(--purple-rgb),0.04); border: 1px solid var(--border2); }
+.tela-quadro { position: absolute; left: 0; top: 0; width: 100%; height: 100%; border: 0; background: transparent; opacity: 0; transition: opacity var(--mov-base) var(--mov-suave); }
 .tela-ely.pronta .tela-quadro { opacity: 1; }
-.tela-esqueleto { position: absolute; inset: 0; display: grid; place-items: center; border: 1px solid var(--border2); border-radius: inherit;
-  background: linear-gradient(100deg, rgba(var(--purple-rgb),0.05) 30%, rgba(var(--purple-rgb),0.13) 50%, rgba(var(--purple-rgb),0.05) 70%) 0 0 / 300% 100%;
-  animation: tela-brilho 1.6s linear infinite; transition: opacity var(--mov-saida) var(--mov-suave); color: var(--muted); font-size: 12px; }
+/* Cortada: esmaece embaixo; o botão fica por cima do esmaecido. Inteira: "Tela cheia" discreto no canto. */
+.tela-mais { position: absolute; left: 0; right: 0; bottom: 0; display: flex; justify-content: flex-end; padding: 8px 10px; pointer-events: none; }
+.tela-ely.cortada .tela-mais { justify-content: center; padding-top: 56px; border-radius: 0 0 16px 16px;
+  background: linear-gradient(to bottom, transparent, color-mix(in srgb, var(--surface) 92%, transparent) 70%); }
+.tela-abrir { pointer-events: auto; display: inline-flex; align-items: center; gap: 6px; min-height: 30px; padding: 0 12px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--border2); background: color-mix(in srgb, var(--surface) 88%, transparent); backdrop-filter: blur(8px);
+  color: var(--muted); font: inherit; font-size: 11.5px; font-weight: 600; opacity: 0; transition: opacity var(--mov-micro), color var(--mov-micro), border-color var(--mov-micro); }
+.tela-ely.cortada .tela-abrir { opacity: 1; color: var(--text); min-height: 34px; padding: 0 16px; font-size: 12px; }
+.tela-ely:hover .tela-abrir, .tela-abrir:focus-visible { opacity: 1; }
+.tela-abrir:hover { color: var(--purple-bright); border-color: rgba(var(--purple-rgb),0.5); }
+
+.tela-esqueleto { position: absolute; inset: 0; display: flex; flex-direction: column; border: 1px solid var(--border2); border-radius: inherit;
+  background: color-mix(in srgb, var(--surface) 70%, transparent); transition: opacity var(--mov-saida) var(--mov-suave); }
 .tela-ely.pronta .tela-esqueleto { opacity: 0; }
+.esq-folha { flex: 1; display: flex; flex-direction: column; gap: 10px; padding: 18px 18px 0; overflow: hidden; }
+.esq-folha i, .esq-cartoes i, .esq-barras i { display: block; border-radius: 8px;
+  background: linear-gradient(100deg, rgba(var(--purple-rgb),0.07) 30%, rgba(var(--purple-rgb),0.2) 50%, rgba(var(--purple-rgb),0.07) 70%) 0 0 / 300% 100%;
+  animation: tela-brilho 1.8s linear infinite; }
+.esq-titulo { width: 46%; height: 18px; }
+.esq-linha { width: 72%; height: 10px; animation-delay: 120ms !important; }
+.esq-cartoes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.esq-cartoes i { height: 52px; border-radius: 12px; }
+.esq-cartoes i:nth-child(2) { animation-delay: 160ms; } .esq-cartoes i:nth-child(3) { animation-delay: 320ms; }
+.esq-barras { display: flex; align-items: flex-end; gap: 8px; height: 58px; }
+.esq-barras i { flex: 1; height: 100%; border-radius: 6px 6px 2px 2px; transform-origin: bottom; animation: tela-brilho 1.8s linear infinite, esq-respira 2.4s ease-in-out infinite; }
+.esq-barras i:nth-child(1) { --h: .55; } .esq-barras i:nth-child(2) { --h: .85; animation-delay: 0s, 200ms; } .esq-barras i:nth-child(3) { --h: .4; animation-delay: 0s, 400ms; }
+.esq-barras i:nth-child(4) { --h: .7; animation-delay: 0s, 600ms; } .esq-barras i:nth-child(5) { --h: .3; animation-delay: 0s, 800ms; } .esq-barras i:nth-child(6) { --h: .6; animation-delay: 0s, 1000ms; }
+@keyframes esq-respira { 0%, 100% { transform: scaleY(var(--h, .6)); } 50% { transform: scaleY(calc(var(--h, .6) * 0.6 + 0.35)); } }
+.esq-rodape { display: flex; align-items: center; gap: 10px; padding: 10px 12px 10px 16px; border-top: 1px solid var(--border2); color: var(--muted); font-size: 12px; }
+.esq-pontos { display: inline-flex; gap: 4px; }
+.esq-pontos i { width: 5px; height: 5px; border-radius: 50%; background: var(--purple-bright); animation: pensando-ponto 1.571s ease-in-out infinite; }
+.esq-pontos i:nth-child(2) { animation-delay: 160ms; } .esq-pontos i:nth-child(3) { animation-delay: 320ms; }
+.esq-frase { flex: 1; color: var(--text); transition: opacity 160ms ease; }
+.esq-frase.trocando { opacity: 0; }
+.esq-tempo { font-variant-numeric: tabular-nums; }
+.esq-cancelar { padding: 4px 12px; border-radius: 999px; border: 1px solid var(--border2); background: transparent; color: var(--muted); font: inherit; font-size: 11.5px; cursor: pointer;
+  transition: color var(--mov-micro), border-color var(--mov-micro); }
+.esq-cancelar:hover { color: var(--red); border-color: rgba(224,82,82,0.5); }
+.esq-cancelar:disabled { opacity: 0.5; cursor: default; }
 @keyframes tela-brilho { from { background-position: 100% 0; } to { background-position: 0 0; } }
-:root[data-movimento="nunca"] .tela-esqueleto { animation: none; }
-@media (prefers-reduced-motion: reduce) { :root:not([data-movimento="sempre"]) .tela-esqueleto { animation: none; } }
+:root[data-movimento="nunca"] :is(.esq-folha i, .esq-cartoes i, .esq-barras i, .esq-pontos i) { animation: none; }
+@media (prefers-reduced-motion: reduce) { :root:not([data-movimento="sempre"]) :is(.esq-folha i, .esq-cartoes i, .esq-barras i, .esq-pontos i) { animation: none; } }
+
+/* Falhou: faixa baixa com o motivo e "Tentar de novo". */
+.tela-ely.falhou { height: auto; overflow: visible; }
+.tela-falhou { display: flex; align-items: center; gap: 12px; padding: 10px 12px 10px 16px; border: 1px dashed var(--border2); border-radius: 14px; color: var(--muted); font-size: 12.5px; }
+.tela-falhou span { flex: 1; }
+.tela-tentar { padding: 5px 14px; border-radius: 999px; border: 1px solid rgba(var(--purple-rgb),0.45); background: rgba(var(--purple-rgb),0.1); color: var(--text); font: inherit; font-size: 12px; cursor: pointer; }
+.tela-tentar:hover { background: rgba(var(--purple-rgb),0.2); }
+
+/* Tela cheia: camada por cima do app; o painel entra com fade + escala; a tela rola sozinha. */
+.tela-cheia { position: fixed; inset: 0; z-index: 1200; display: grid; place-items: center; padding: 28px;
+  background: rgba(0,0,0,0.5); backdrop-filter: blur(6px); opacity: 0; transition: opacity var(--mov-base) var(--mov-suave); }
+.tela-cheia.aberta { opacity: 1; }
+.tela-cheia-painel { display: flex; flex-direction: column; width: min(860px, 100%); height: min(900px, 100%); overflow: hidden;
+  border: 1px solid var(--border2); border-radius: 18px; background: var(--surface); box-shadow: 0 24px 64px rgba(0,0,0,0.45);
+  transform: scale(0.97) translateY(6px); transition: transform var(--mov-base) var(--mov-suave); }
+.tela-cheia.aberta .tela-cheia-painel { transform: none; }
+.tela-cheia-topo { display: flex; align-items: center; justify-content: space-between; min-height: 46px; padding: 0 8px 0 18px; border-bottom: 1px solid var(--border2);
+  color: var(--muted); font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+.tela-cheia-fechar { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; border: 0; background: transparent; color: var(--muted); cursor: pointer; }
+.tela-cheia-fechar:hover, .tela-cheia-fechar:focus-visible { background: rgba(var(--purple-rgb),0.14); color: var(--text); }
+.tela-cheia-quadro { position: static; flex: 1; width: 100%; height: auto; opacity: 1; }
+@media (prefers-reduced-motion: reduce) { :root:not([data-movimento="sempre"]) :is(.tela-cheia, .tela-cheia-painel, #stop-zone) { transition: none; } }
 .chat-ver-tela { align-self: flex-start; padding: 3px 10px; border-radius: 999px; border: 1px dashed var(--border2); background: transparent;
   color: var(--muted); font: inherit; font-size: 11px; cursor: pointer; transition: color var(--mov-micro), border-color var(--mov-micro); }
 .chat-ver-tela:hover { color: var(--text); border-color: rgba(var(--purple-rgb),0.45); }

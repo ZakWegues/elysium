@@ -51,21 +51,44 @@ export function depoisDaResposta(texto: string, reply: string, podeSugerir: bool
   return { reply: decisao === "oferecer" ? `${reply}\n\n${OFERTA}` : reply, gerar: decisao === "gerar" };
 }
 
-export type FrameUi = { estado?: "gerando"; programa?: string; texto?: string; falhou?: true };
+export type FrameUi = { estado?: "gerando"; programa?: string; texto?: string; falhou?: true; cancelada?: true; pergunta?: string; resposta?: string };
 
-/** Gera e manda os frames (gerando → programa | falhou). `texto` troca o texto da bolha. */
+/** Telas do celular sendo geradas, pelo id do pedido: o "Cancelar" do esqueleto aborta aqui. */
+const emCurso = new Map<string, AbortController>();
+
+/** `{type:"ui.cancelar", id}` do celular. true = havia uma tela sendo gerada com esse id. */
+export function cancelarTelaDoCelular(id: string): boolean {
+  const c = emCurso.get(id);
+  c?.abort();
+  return !!c;
+}
+
+/**
+ * Gera e manda os frames (gerando → programa | falhou). `texto` troca o texto da bolha. Falhou
+ * (não cancelada): pergunta e resposta vão junto, para o "Tentar de novo" do celular.
+ */
 export async function gerarParaCelular(
   pergunta: string, resposta: string, gerador: Gerador | null, enviar: (f: FrameUi) => void,
-  textos: { pronto?: string; falhou?: string } = {},
+  textos: { pronto?: string; falhou?: string } = {}, id?: string,
 ): Promise<boolean> {
-  if (!gerador) { enviar({ falhou: true, ...(textos.falhou ? { texto: textos.falhou } : {}) }); return false; }
-  enviar({ estado: "gerando" });
-  const tela = await gerarTela(pergunta, resposta, gerador).catch(() => null);
-  if (tela) console.log(`[UI] tela do celular em ${tela.ms} ms (${tela.tentativas}ª, ${tela.modelo ?? tela.provedor})`);
-  enviar(tela
-    ? { programa: tela.programa, ...(textos.pronto ? { texto: textos.pronto } : {}) }
-    : { falhou: true, ...(textos.falhou ? { texto: textos.falhou } : {}) });
-  return !!tela;
+  const paraTentar = { pergunta: pergunta.slice(0, 2000), resposta: resposta.slice(0, 6000) };
+  if (!gerador) { enviar({ falhou: true, ...paraTentar, ...(textos.falhou ? { texto: textos.falhou } : {}) }); return false; }
+  const controle = new AbortController();
+  if (id) emCurso.set(id, controle);
+  try {
+    enviar({ estado: "gerando" });
+    const tela = await gerarTela(pergunta, resposta, gerador, undefined, controle.signal).catch(() => null);
+    if (tela) {
+      console.log(`[UI] tela do celular em ${tela.ms} ms (${tela.tentativas}ª, ${tela.modelo ?? tela.provedor})`);
+      enviar({ programa: tela.programa, ...(textos.pronto ? { texto: textos.pronto } : {}) });
+      return true;
+    }
+    if (controle.signal.aborted) enviar({ falhou: true, cancelada: true, ...(textos.pronto ? { texto: "Tela cancelada." } : {}) });
+    else enviar({ falhou: true, ...paraTentar, ...(textos.falhou ? { texto: textos.falhou } : {}) });
+    return false;
+  } finally {
+    if (id && emCurso.get(id) === controle) emCurso.delete(id);
+  }
 }
 
 /** Só para os testes. */

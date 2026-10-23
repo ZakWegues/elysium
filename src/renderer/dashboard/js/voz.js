@@ -111,11 +111,53 @@ function setState(s) {
 let ttsFalando = false;
 // Também enquanto ela PENSA (02/10, "parar geração" do ChatGPT): uma resposta longa que
 // saiu do rumo não precisa ser esperada até o fim. O main descarta o resto pelo token.
+// 23/10: a pílula entra e sai com fade + 8 px (classe "visivel"), fica logo abaixo das abas e
+// recolhe sozinha 5 s depois de aberta, como a do celular.
+let timerPilula = null;
 function mostrarStop() {
   const pensando = appState === "processing";
-  stopZone.style.display = (appState === "speaking" || ttsFalando || pensando) ? "flex" : "none";
+  const ativa = appState === "speaking" || ttsFalando || pensando;
+  if (ativa && !stopZone.classList.contains("visivel")) {
+    // Abaixo das abas e, no Chat, abaixo do seletor IA/Celular (não cobre nenhum dos dois).
+    const fundos = ["viewtabs", "chat-mode-tabs"].map((id) => document.getElementById(id)?.getBoundingClientRect()).filter((r) => r && r.height > 0).map((r) => r.bottom);
+    stopZone.style.top = `${Math.round(Math.max(48, ...fundos) + 10)}px`;
+  }
+  stopZone.classList.toggle("visivel", ativa);
+  stopZone.classList.toggle("pensando", pensando);
+  if (!ativa) recolherPilula();
+  stopZone.querySelector(".pv-rotulo").textContent = pensando ? "Pensando" : "Falando";
   const rotulo = document.querySelector("#stop-btn span");
-  if (rotulo) rotulo.textContent = pensando ? "Parar resposta" : "Interromper voz";
+  if (rotulo) rotulo.textContent = pensando ? "Parar resposta" : "Parar";
+  mostrarPensando(pensando && !bolhaEmCurso);
+}
+function recolherPilula() {
+  clearTimeout(timerPilula);
+  stopZone.classList.remove("aberta");
+  stopZone.querySelector(".pv-cabeca").setAttribute("aria-expanded", "false");
+}
+stopZone.querySelector(".pv-cabeca").addEventListener("click", () => {
+  const abrir = !stopZone.classList.contains("aberta");
+  stopZone.classList.toggle("aberta", abrir);
+  stopZone.querySelector(".pv-cabeca").setAttribute("aria-expanded", String(abrir));
+  clearTimeout(timerPilula);
+  if (abrir) timerPilula = setTimeout(recolherPilula, 5000);
+});
+
+// "Digitando" (23/10): os três pontos do celular, numa bolha da Ely, entre o envio e o 1º pedaço.
+let bolhaPensando = null;
+function mostrarPensando(sim) {
+  if (sim && !bolhaPensando) {
+    const wasBottom = isAtBottom();
+    bolhaPensando = document.createElement("div");
+    bolhaPensando.className = "bubble assistant pensando";
+    bolhaPensando.setAttribute("aria-label", "Ely está pensando");
+    bolhaPensando.innerHTML = "<i></i><i></i><i></i>";
+    timeline.appendChild(bolhaPensando);
+    if (wasBottom) scrollToBottom();
+  } else if (!sim && bolhaPensando) {
+    bolhaPensando.remove();
+    bolhaPensando = null;
+  }
 }
 window.nx.onFalando?.((f) => { ttsFalando = f; mostrarStop(); });
 
@@ -190,6 +232,7 @@ let bolhaEmCurso = null;
 let textoEmCurso = "";
 
 window.nx.onChatChunk((pedaco) => {
+  mostrarPensando(false);
   if (!bolhaEmCurso) {
     const wasBottom = isAtBottom();
     document.getElementById("chat-vazio")?.remove();
@@ -205,6 +248,7 @@ window.nx.onChatChunk((pedaco) => {
 });
 
 function finalizarResposta(text) {
+  mostrarPensando(false);
   let bolha = bolhaEmCurso;
   if (bolhaEmCurso) {
     bolhaEmCurso.classList.remove("escrevendo");
@@ -322,6 +366,7 @@ window.nx.onError((msg) => {
 window.nx.onChatReply(finalizarResposta);
 
 window.nx.onChatError((msg) => {
+  mostrarPensando(false);
   if (bolhaEmCurso) { bolhaEmCurso.remove(); bolhaEmCurso = null; textoEmCurso = ""; }
   addBubble("error", msg);
   recordMessage("error", msg);
