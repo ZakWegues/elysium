@@ -1,0 +1,110 @@
+/*
+ * Design da Ely (22/10) — a camada do ELYSIUM por cima do visual portado (components.css), sem
+ * mexer nele. A tela vira uma "folha" própria dentro do chat: fundo do tema, borda fina, respiro,
+ * a cor de destaque do app (o host manda `--iui-accent`) nos botões, foco, sliders e gráfico.
+ * Menos é mais: nada de brilho em loop, sombra pesada ou gradiente chamativo.
+ * Estreito (celular, < 520 px): menos respiro, rótulo em cima do campo, grades numa coluna.
+ */
+
+:root {
+  --iui-accent: #8b7cf6;
+  --iui-on-accent: #ffffff;
+  --iui-accent-soft: color-mix(in srgb, var(--iui-accent) 14%, transparent);
+  --iui-accent-line: color-mix(in srgb, var(--iui-accent) 38%, transparent);
+  --iui-focus: var(--iui-accent);
+  --iui-range-thumb: var(--iui-accent);
+  --iui-chart-1: var(--iui-accent);
+  --iui-info: var(--iui-accent);
+  --iui-info-soft: var(--iui-accent-soft);
+  --ely-folha-pad: 22px;
+}
+
+/* A folha: o fundo do tema com um véu da cor de destaque no topo, quase imperceptível. */
+#tela {
+  container: folha / inline-size;
+  padding: var(--ely-folha-pad);
+  border: 1px solid var(--iui-border-strong);
+  border-radius: 18px;
+  background:
+    radial-gradient(120% 60% at 0% 0%, color-mix(in srgb, var(--iui-accent) 7%, transparent), transparent 60%),
+    var(--iui-canvas);
+  min-height: 40px;
+}
+
+/* Programa que é um cartão só: a folha já é a moldura (sem borda dupla). */
+#tela .iui-card:only-child:not(.iui-card *, .iui-grid *, .iui-row *, .iui-col *, .iui-box *) { padding: 0; border: 0; background: transparent; }
+
+/* Títulos: o da folha manda, mas sem gritar. */
+#tela > * > :is(.iui-title-3xl, .iui-title-2xl, .iui-title-xl):first-child,
+#tela > :is(.iui-title-3xl, .iui-title-2xl, .iui-title-xl):first-child {
+  font-size: clamp(20px, 3.2vw + 8px, 26px);
+  line-height: 1.2;
+  letter-spacing: -0.5px;
+}
+.iui-title-3xl { font-size: 30px; }
+.iui-title-2xl { font-size: 26px; }
+.iui-caption, .iui-text-sm { color: var(--iui-muted); }
+
+/* Cartões: superfície levemente tingida em vez de outro "buraco" escuro. */
+.iui-card { background: color-mix(in srgb, var(--iui-ink) 3%, var(--iui-canvas)); border-color: var(--iui-border); border-radius: 16px; }
+.iui-card .iui-card { background: color-mix(in srgb, var(--iui-ink) 4%, transparent); }
+.iui-card-soft { background: color-mix(in srgb, var(--iui-ink) 4%, transparent); }
+
+/* Botões: o principal na cor de destaque; os outros discretos. */
+.iui-button-solid { background: var(--iui-accent); color: var(--iui-on-accent); }
+.iui-button-solid:not(:disabled):hover { background: color-mix(in oklch, var(--iui-accent) 86%, var(--iui-ink)); }
+.iui-button-solid:not(:disabled):active { transform: scale(.98); }
+.iui-button-soft { background: var(--iui-accent-soft); color: var(--iui-ink); }
+.iui-button-outline { border-color: var(--iui-border-strong); background: transparent; }
+.iui-icon-button-solid { background: var(--iui-accent); color: var(--iui-on-accent); }
+
+/* Campos: fundo tingido, borda fina, foco na cor de destaque. */
+.iui-input, .iui-textarea, .iui-select {
+  background: color-mix(in srgb, var(--iui-ink) 4%, transparent);
+  border-color: var(--iui-border);
+  border-radius: 12px;
+}
+.iui-input:focus, .iui-input:focus-visible, .iui-textarea:focus, .iui-select:focus {
+  border-color: var(--iui-accent-line);
+  box-shadow: 0 0 0 3px var(--iui-accent-soft);
+}
+.iui-label { font-size: 13px; font-weight: 560; color: var(--iui-muted); }
+/* Rótulo ao lado do campo: colunas fixas, para os campos alinharem. */
+.iui-row:has(> .iui-label):has(> :is(.iui-input, .iui-select, .iui-textarea)) {
+  display: grid; grid-template-columns: minmax(120px, 34%) 1fr; gap: 12px; align-items: center;
+}
+
+/* Seleções e chips na cor de destaque. */
+.iui-segmented > button[aria-pressed="true"], .iui-segmented > button[aria-checked="true"], .iui-segmented > button[data-state="on"] { color: var(--iui-accent); }
+.iui-badge-info { background: var(--iui-accent-soft); color: var(--iui-ink); }
+.iui-link { color: var(--iui-accent); }
+.iui-check > input, .iui-radio-group input { accent-color: var(--iui-accent); }
+input[type="range"] { accent-color: var(--iui-accent); }
+
+/* Fotos: a que não carregou some (sem quadro vazio); as que carregam entram com fade. */
+.iui-image.is-empty { display: none; }
+.iui-image img { transition: opacity var(--iui-dur-base, 220ms) var(--iui-curva, ease); }
+.iui-image:not(.is-loaded) img { opacity: 0; }
+
+/* Tabela: cabeçalho discreto e linhas finas. */
+.iui-table th { color: var(--iui-muted); font-weight: 560; }
+
+/* Estreito: celular ou bolha apertada. */
+@container folha (max-width: 520px) {
+  .iui-row:has(> .iui-label):has(> :is(.iui-input, .iui-select, .iui-textarea)) { grid-template-columns: 1fr; gap: 6px; }
+  /* Números e cartões curtos em duas colunas; foto, tabela e mapa numa só. */
+  .iui-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .iui-grid:has(.iui-image, .iui-table, .iui-chart, .iui-pie, .iui-slider, .iui-flashcard, .maplibregl-map) { grid-template-columns: minmax(0, 1fr) !important; }
+  .iui-grid > :last-child:nth-child(odd) { grid-column: 1 / -1; }
+  .iui-card { padding: 16px; }
+  .iui-grid > .iui-card { padding: 12px; }
+  .iui-grid > .iui-card .iui-title { font-size: 17px; letter-spacing: -0.3px; }
+  .iui-button-solid:only-child, .iui-form > .iui-button-solid { align-self: stretch; }
+}
+@container folha (max-width: 270px) {
+  .iui-grid { grid-template-columns: minmax(0, 1fr) !important; }
+}
+@media (max-width: 520px) {
+  :root { --ely-folha-pad: 16px; }
+  #tela { border-radius: 16px; }
+}

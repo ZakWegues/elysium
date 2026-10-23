@@ -67,8 +67,11 @@ function temaDaTela() {
     "--iui-muted": corComputada("--muted", escuro ? "#9aa4b5" : "#5b6574"),
     "--iui-faint": corComputada("--muted", escuro ? "#9aa4b5" : "#5b6574"),
     "--iui-on-ink": fundo,
-    "--iui-info": corComputada("--purple-bright", "#9d7fd4"),
   };
+  // Destaque do tema (botão principal, foco, sliders); o texto em cima dele contrasta.
+  const destaque = corComputada("--purple-bright", "#9d7fd4");
+  vars["--iui-accent"] = destaque;
+  vars["--iui-on-accent"] = luminancia(destaque) > 0.5 ? "#111118" : "#ffffff";
   const mov = document.documentElement.dataset.movimento;
   const reduzir = mov === "nunca" || (mov !== "sempre" && matchMedia("(prefers-reduced-motion: reduce)").matches);
   return { esquema: escuro ? "escuro" : "claro", vars, reduzirMovimento: reduzir };

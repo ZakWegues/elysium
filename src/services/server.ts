@@ -52,7 +52,9 @@ import { estadoAtualizacao } from "./atualizacao";
 import * as fsAtualizacao from "node:fs";
 import { enderecoPermitido, hostPermitido } from "./redeSegura";
 import { ehDoProprioPc, ExecutorMcp, responderMcp } from "./mcpElysium";
-import { abrirPedido, idValido, parar, pedaco, retomar, soltarDestino, terminar } from "./retomada";
+import { abrirPedido, enviarUi, idValido, parar, pedaco, retomar, soltarDestino, terminar } from "./retomada";
+import { atalhoDeTela, depoisDaResposta, gerarParaCelular } from "./telasDoCelular";
+import { geradorDeTelas, provedorDeTelas } from "./geradorDeTelas";
 
 const WS_MAGIC = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
@@ -496,6 +498,7 @@ function makeHandler(
     // (a tela não sai para a internet; o celular pede aqui). Hosts fixos e cache em uiProxy.ts.
     if (req.method === "GET" && (url === "/api/ui/foto" || url === "/api/ui/rota")) {
       const q = new URL(req.url ?? "", "http://127.0.0.1").searchParams;
+      if (getConfig().telasComInternet === false) { sendJson(res, 403, { error: "desligado nos Ajustes" }); return; }
       try {
         if (url === "/api/ui/foto") sendJson(res, 200, { fotos: await proxyDoApp().fotos(q.get("q") ?? "") });
         else sendJson(res, 200, { points: await proxyDoApp().rota(q.get("coords") ?? "") });
@@ -869,7 +872,7 @@ function handleUpgrade(
   const enviarAqui = (t: string) => sendToClient(client, t);
   socket.on("close", () => { fechado = true; soltarDestino(enviarAqui); });
 
-  const executar = async (texto: string, canal: "voz" | "texto" = "voz", aoPedaco?: (t: string) => void): Promise<{ reply: string; fontes?: Fonte[]; local?: boolean; rapidas?: Rapidas }> => {
+  const executar = async (texto: string, canal: "voz" | "texto" = "voz", aoPedaco?: (t: string) => void): Promise<{ reply: string; fontes?: Fonte[]; local?: boolean; rapidas?: Rapidas; podeSugerir?: boolean }> => {
     if (!processStream) return { reply: await processCommand(texto, canal) };
     const r = await processStream(texto, aoPedaco ?? ((token) => sendToClient(client, JSON.stringify({ type: "chunk", text: token }))), canal);
     // Bloco 132: as sugestões chegam DEPOIS do reply, numa mensagem própria — o celular já
@@ -881,8 +884,11 @@ function handleUpgrade(
         .then(sugestoes => { if (sugestoes.length) sendToClient(client, JSON.stringify({ type: "sugestoes", sugestoes })); })
         .catch(() => { /* sem chips */ });
     }
-    return { reply: r.reply, fontes: r.fontes, local: r.local, rapidas };
+    return { reply: r.reply, fontes: r.fontes, local: r.local, rapidas, podeSugerir: deveSugerir(r.actions, canal) };
   };
+
+  // A tela vai com o ajuste "Telas com internet" (fotos, mapa e rotas) do momento.
+  const paraUi = (p: Parameters<typeof enviarUi>[0]) => (f: Record<string, unknown>) => enviarUi(p, { ...f, internet: getConfig().telasComInternet !== false });
 
   // Fase 22: o trackpad pelo mesmo WebSocket (inputCanal.ts). Um canal por conexão, criado no
   // primeiro frame de entrada — e é aí que o acesso do aparelho é registrado, uma vez só.
@@ -891,7 +897,7 @@ function handleUpgrade(
 
   function handleTextFrame(text: string): void {
     try {
-      const msg = JSON.parse(text) as { type?: string; text?: string; canal?: string; refazer?: boolean; ev?: unknown; id?: unknown };
+      const msg = JSON.parse(text) as { type?: string; text?: string; canal?: string; refazer?: boolean; ev?: unknown; id?: unknown; telas?: unknown };
       // 21/10: batimento do celular — sem resposta em 2 tentativas ele reabre o socket.
       if (msg.type === "ping") { sendToClient(client, JSON.stringify({ type: "pong" })); return; }
       if (msg.type === "retomar") {
@@ -905,13 +911,29 @@ function handleUpgrade(
       }
       if (msg.type === "command" && msg.text && idValido(msg.id)) {
         // Pedido com id: a resposta fica guardada para retomar se o socket cair.
+        // 22/10 (Fase 4): o app que desenha telas avisa (`telas: true`); só ele recebe oferta e tela.
+        const comTelas = msg.telas === true && msg.canal === "texto";
+        const modoTelas = getConfig().respostasInterativas;
+        const atalho = comTelas ? atalhoDeTela(msg.text, msg.refazer === true, modoTelas, provedorDeTelas() !== null) : null;
         if (msg.refazer === true) desfazerUltimoTurno();
         const p = abrirPedido(msg.id, msg.text, enviarAqui);
         if (!p) { retomar(msg.id, enviarAqui); return; } // o mesmo pedido chegou de novo: só reconecta
+        if (atalho) {
+          // "Sim" à oferta ou pedido explícito: direto para o gerador, sem passar pelo agente.
+          terminar(p, { type: "reply", reply: "Montando a tela…" });
+          void gerarParaCelular(atalho.pergunta, atalho.resposta, geradorDeTelas(), paraUi(p), atalho.daOferta
+            ? { pronto: "Pronto, aqui está como tela.", falhou: "Não consegui montar a tela agora. A resposta em texto continua aí em cima." }
+            : { pronto: "Pronto, aqui está a tela.", falhou: "Não consegui montar a tela agora. Quer que eu responda em texto?" });
+          return;
+        }
         executar(msg.text, msg.canal === "texto" ? "texto" : "voz", (t) => pedaco(p, t))
-          .then(({ reply, fontes, local, rapidas }) => {
+          .then(({ reply, fontes, local, rapidas, podeSugerir }) => {
             if (p.parado) { desfazerTurno(p.texto, reply); return; }
-            terminar(p, { type: "reply", reply, ...(fontes?.length ? { fontes } : {}), ...(local ? { local } : {}), ...(rapidas ? { rapidas } : {}) });
+            const tela = comTelas ? depoisDaResposta(msg.text!, reply, podeSugerir === true, modoTelas, provedorDeTelas() !== null) : { reply, gerar: false };
+            // Com a oferta no fim, as respostas rápidas viram as da pergunta nova (Sim/Não).
+            const rap = tela.reply !== reply ? rapidasPara(tela.reply, getConfig()) ?? undefined : rapidas;
+            terminar(p, { type: "reply", reply: tela.reply, ...(fontes?.length ? { fontes } : {}), ...(local ? { local } : {}), ...(rap ? { rapidas: rap } : {}) });
+            if (tela.gerar) void gerarParaCelular(msg.text!, reply, geradorDeTelas(), paraUi(p));
           })
           .catch(err => {
             console.error("[WS] falha ao processar comando de texto:", err);

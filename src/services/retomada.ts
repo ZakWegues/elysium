@@ -21,6 +21,8 @@ export interface Pedido {
   /** Quem recebe os próximos pedaços; null quando ninguém está conectado. */
   destino: Envio | null;
   parado: boolean;
+  /** 22/10: a tela inteligente deste pedido (frame `ui`), que chega depois do reply. */
+  ui: Record<string, unknown> | null;
 }
 
 export const VALIDADE_MS = 10 * 60_000;
@@ -42,7 +44,7 @@ function limpar(agora = Date.now()): void {
 export function abrirPedido(id: string, texto: string, destino: Envio, agora = Date.now()): Pedido | null {
   limpar(agora);
   if (pedidos.has(id)) return null;
-  const p: Pedido = { id, texto, parcial: "", final: null, criadoEm: agora, destino, parado: false };
+  const p: Pedido = { id, texto, parcial: "", final: null, criadoEm: agora, destino, parado: false, ui: null };
   pedidos.set(id, p);
   return p;
 }
@@ -63,6 +65,14 @@ export function terminar(p: Pedido, final: Record<string, unknown>): void {
   }
 }
 
+/** A tela do pedido (gerando, pronta ou falhou): guarda a última e entrega se houver alguém. */
+export function enviarUi(p: Pedido, frame: Record<string, unknown>): void {
+  p.ui = { ...frame, type: "ui", id: p.id };
+  if (p.destino && !p.parado) {
+    try { p.destino(JSON.stringify(p.ui)); } catch { p.destino = null; }
+  }
+}
+
 /** A conexão de quem pediu caiu: o pedido continua, só fica sem destino até alguém retomar. */
 export function soltarDestino(destino: Envio): void {
   for (const p of pedidos.values()) if (p.destino === destino) p.destino = null;
@@ -78,7 +88,9 @@ export function retomar(id: string, destino: Envio, agora = Date.now()): boolean
   if (!p || p.parado) return false;
   destino(JSON.stringify({ type: "retomada", id, text: p.parcial }));
   if (p.final) destino(JSON.stringify(p.final));
-  else p.destino = destino;
+  if (p.ui) destino(JSON.stringify(p.ui));
+  // Mesmo terminado, a tela pode ainda estar sendo gerada: o próximo `ui` vem para cá.
+  p.destino = destino;
   return true;
 }
 

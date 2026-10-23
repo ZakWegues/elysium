@@ -7,6 +7,7 @@ import { definirInternet } from "./config";
 import { aoReceber, enviarAoHost, ligarPonte } from "./ponte";
 import { estado as esquemaEstado, type MensagemDoHost, type Tema } from "./protocolo";
 import "./movimento.css";
+import "./ely.css";
 
 /**
  * A tela inteligente, do lado de dentro do sandbox (iframe `sandbox="allow-scripts"` no PC,

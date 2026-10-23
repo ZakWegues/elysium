@@ -13,7 +13,7 @@ import * as path from "node:path";
 
 const UA = "ELYSIUM/2 (assistente pessoal; https://github.com/ZakWegues/elysium)";
 const HOSTS = new Set(["pt.wikipedia.org", "en.wikipedia.org", "commons.wikimedia.org", "router.project-osrm.org"]);
-const PULAR = /\.svg|icon|logo|map|mapa|flag|bandeira|seal|bras[aã]o|coat_of_arms|signature|assinatura|diagram/i;
+const PULAR = /\.svg|icon|logo|map|mapa|flag|bandeira|seal|selo|bras[aã]o|coat_of_arms|emblem|medal|escudo|crest|insignia|signature|assinatura|diagram/i;
 const LARGURA = 960;
 const SEMANA = 7 * 24 * 3600 * 1000;
 const MAX_ENTRADAS = 600;

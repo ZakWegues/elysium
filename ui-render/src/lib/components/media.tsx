@@ -86,7 +86,7 @@ function Photo(props: PhotoProps) {
   const ratio = typeof props.aspectRatio === "number" && props.aspectRatio > 0.2 && props.aspectRatio < 5 ? props.aspectRatio : 1.5;
   return (
     <div
-      className={cx("iui-image", props.fit === "contain" && "is-contain", loaded === current && "is-loaded")}
+      className={cx("iui-image", props.fit === "contain" && "is-contain", loaded === current && "is-loaded", settled && "is-empty")}
       style={{ aspectRatio: ratio, borderRadius: radius(props.radius ?? "lg") }}
       role={current ? undefined : "img"}
       aria-label={current ? undefined : alt}

@@ -17,7 +17,14 @@ const esperando = new Map<number, { ok: (dados: unknown) => void; erro: (e: Erro
 type Ouvinte = (m: MensagemDoHost) => void;
 const ouvintes = new Set<Ouvinte>();
 
+/** Na WebView do celular (react-native-webview) o host é o app nativo, não uma janela pai. */
+type JanelaRn = Window & { ReactNativeWebView?: { postMessage: (texto: string) => void }; __elyHost?: (m: unknown) => void };
+const rn = () => (window as JanelaRn).ReactNativeWebView;
+
 export function enviarAoHost(m: MensagemDaTela): void {
+  // Celular: a mensagem vai como texto JSON para o app, que valida tudo do lado de lá.
+  const nativo = rn();
+  if (nativo) { nativo.postMessage(JSON.stringify(m)); return; }
   // Sandbox sem allow-same-origin: a origem da tela é "null" e a do host não se conhece daqui.
   // O conteúdo não tem segredo; quem decide o que fazer com ele é o host, que valida tudo.
   window.parent.postMessage(m, "*");
@@ -45,23 +52,31 @@ export function aoReceber(o: Ouvinte): () => void {
   return () => { ouvintes.delete(o); };
 }
 
-/** Liga a escuta. Só aceita mensagens da janela que hospeda (`window.parent`) e no formato. */
+/**
+ * Liga a escuta. No PC/navegador só aceita mensagens da janela que hospeda (`window.parent`); na
+ * WebView do celular o app chama `window.__elyHost(m)` (injectJavaScript). Sempre no formato.
+ */
 export function ligarPonte(): void {
+  if (rn()) (window as JanelaRn).__elyHost = (dados) => receber(dados);
   window.addEventListener("message", (e) => {
-    if (e.source !== window.parent) return;
-    const r = mensagemDoHost.safeParse(e.data);
-    if (!r.success) return;
-    const m = r.data;
-    if (m.tipo === "resposta") {
-      const p = esperando.get(m.id);
-      if (!p) return;
-      esperando.delete(m.id);
-      clearTimeout(p.timer);
-      if (m.erro) p.erro(new Error(m.erro));
-      else p.ok(m.dados);
-      return;
-    }
-    ultimas.set(m.tipo, m);
-    for (const o of ouvintes) o(m);
+    if (e.source !== window.parent || rn()) return;
+    receber(e.data);
   });
+}
+
+function receber(dados: unknown): void {
+  const r = mensagemDoHost.safeParse(dados);
+  if (!r.success) return;
+  const m = r.data;
+  if (m.tipo === "resposta") {
+    const p = esperando.get(m.id);
+    if (!p) return;
+    esperando.delete(m.id);
+    clearTimeout(p.timer);
+    if (m.erro) p.erro(new Error(m.erro));
+    else p.ok(m.dados);
+    return;
+  }
+  ultimas.set(m.tipo, m);
+  for (const o of ouvintes) o(m);
 }
