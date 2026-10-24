@@ -9,7 +9,7 @@ const BOM = 'root = Card([Title("Parcela", "md"), Text("R$ 100")])';
 
 describe("quando a tela sai (22/10)", () => {
   it("pedido explícito", () => {
-    for (const t of ["monta uma tela disso", "faz uma calculadora de juros", "me mostra num gráfico", "quero flashcards de bioquímica", "me dá flashcards de bioquímica", "faz isso interativo", "cria uma tabela comparando os dois"]) expect(pediuTela(t), t).toBe(true);
+    for (const t of ["monta uma tela disso", "faz uma calculadora de juros", "me mostra num gráfico", "quero flashcards de bioquímica", "me dá flashcards de bioquímica", "faz isso interativo", "cria uma tabela comparando os dois", "monta um roteiro de um dia no centro"]) expect(pediuTela(t), t).toBe(true);
     for (const t of ["qual a capital da França?", "abre o Spotify", "toca uma música", "me conta uma piada"]) expect(pediuTela(t), t).toBe(false);
   });
 

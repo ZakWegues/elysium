@@ -27,7 +27,7 @@ function norm(t: string): string {
 export function pediuTela(texto: string): boolean {
   const t = norm(texto);
   if (/\b(como|numa|em|uma) tela\b|\btela interativa\b|\binterativ[oa]\b|\bfaz(er)? (isso )?visual\b/.test(t)) return true;
-  return /\b(monta|monte|montar|faz|faca|fazer|cria|crie|criar|gera|gere|gerar|mostra|mostre|me mostra|quero|desenha|desenhe|me da|me de|manda)\b.{0,80}\b(grafico|mapa|tabela|calculadora|simulador|flashcards?|quiz|planilha|dashboard|painel|cronograma|checklist|comparativo)\b/.test(t);
+  return /\b(monta|monte|montar|faz|faca|fazer|cria|crie|criar|gera|gere|gerar|mostra|mostre|me mostra|quero|desenha|desenhe|me da|me de|manda)\b.{0,80}\b(grafico|mapa|tabela|calculadora|simulador|flashcards?|quiz|planilha|dashboard|painel|cronograma|checklist|comparativo|roteiro|itinerario)\b/.test(t);
 }
 
 /**
