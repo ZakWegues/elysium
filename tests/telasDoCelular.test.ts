@@ -50,7 +50,7 @@ describe("telas no celular: frames ui (22/10)", () => {
 
   it("gerando → programa, com o texto novo da bolha", async () => {
     const frames: FrameUi[] = [];
-    expect(await gerarParaCelular("parcela?", "", gerador(BOM), (f) => frames.push(f), { pronto: "Pronto." })).toBe(true);
+    expect(await gerarParaCelular("mostra isso numa tela", "", gerador(BOM), (f) => frames.push(f), { pronto: "Pronto." })).toBe(true);
     expect(frames).toEqual([{ estado: "gerando" }, { programa: BOM, texto: "Pronto." }]);
   });
 

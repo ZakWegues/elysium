@@ -147,6 +147,15 @@ export interface AppConfig {
   /** 22/10: telas com fotos (Wikipedia) e mapas (OpenFreeMap) da internet. Desligado = marcador. */
   telasComInternet: boolean;
   /**
+   * 24/10: o modelo que o perfil do Hermes tinha antes de ir para o Gemini (por perfil), para
+   * voltar se a chave do Gemini sair. Vazio = nunca trocou.
+   */
+  hermesModeloAntes?: Record<string, { provider: string; modelo: string }>;
+  /** 24/10: o modelo Gemini que o Hermes está usando (mostrado em Ajustes). */
+  geminiModelo?: string;
+  /** 24/10: com a chave do Gemini, o Ollama só entra se o Gemini falhar e isto estiver ligado. */
+  ollamaReserva?: boolean;
+  /**
    * Acompanhar o acesso de fora de casa (Tailscale) no card Saúde, no resumo e na faixa do
    * celular (bloco 122). Desligado por padrão desde o bloco 128: o Zak não quer o Tailscale
    * agora, e um aviso permanente que ele decidiu ignorar vira ruído no card.
@@ -317,9 +326,9 @@ function loadDefaults(): AppConfig {
 }
 
 // Store seguro no userData. A API key vive aqui.
-const store = new Store<{ apiKey: string; overrides: Partial<AppConfig>; serverToken: string; mcpToken: string; githubToken: string; googleClientId: string; googleClientSecret: string }>({
+const store = new Store<{ apiKey: string; overrides: Partial<AppConfig>; serverToken: string; mcpToken: string; githubToken: string; googleClientId: string; googleClientSecret: string; geminiApiKey: string }>({
   name: "elysium-config",
-  defaults: { apiKey: "", overrides: {}, serverToken: "", mcpToken: "", githubToken: "", googleClientId: "", googleClientSecret: "" },
+  defaults: { apiKey: "", overrides: {}, serverToken: "", mcpToken: "", githubToken: "", googleClientId: "", googleClientSecret: "", geminiApiKey: "" },
 });
 
 const fileDefaults = loadDefaults();
@@ -608,7 +617,7 @@ export function setApiKey(key: string): void {
 // Migração preguiçosa: o primeiro acesso a um segredo antigo em texto puro o regrava cifrado.
 // Sem cifra disponível (raro), fica como estava — perder a chave seria pior.
 // O `serverToken` NÃO entra: ele já viaja no QR para o celular, e os scripts locais o leem.
-type ChaveSecreta = "apiKey" | "githubToken" | "googleClientSecret";
+type ChaveSecreta = "apiKey" | "githubToken" | "googleClientSecret" | "geminiApiKey";
 const PREFIXO_CIFRA = "enc:v1:";
 
 function cifraDisponivel(): boolean {
@@ -658,6 +667,18 @@ function gravarSegredo(chave: ChaveSecreta, valor: string): void {
  */
 export function getGithubToken(): string {
   return lerSegredo("githubToken");
+}
+
+/** 24/10: a chave do Google AI Studio (Gemini), cifrada como as outras. Vazia = sem Gemini. */
+export function getGeminiKey(): string {
+  const guardada = lerSegredo("geminiApiKey");
+  if (guardada) return guardada;
+  const env = process.env.GEMINI_API_KEY;
+  return env && env.trim() ? env.trim() : "";
+}
+
+export function setGeminiKey(chave: string): void {
+  gravarSegredo("geminiApiKey", chave);
 }
 
 /**

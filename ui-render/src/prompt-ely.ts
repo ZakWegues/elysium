@@ -16,6 +16,7 @@ const regrasEly = [
   "HtmlView runs offline: inline JS and CSS only, no CDN, no external fonts, images or fetch.",
   "YouTube shows the video's thumbnail and opens it on YouTube when tapped; use it only for a video you know exists.",
   'Never present invented numbers as real data: when values are illustrative, say so in a Caption ("Exemplo com números inventados").',
+  "Never use Map or MapMarker: maps are turned off. Places and trips go in a timeline List of ListItem with a SearchImage photo of each place.",
   "The screen lives inside a chat bubble 360–680 px wide: design one column first, compact, no empty cards, no decorative filler. Usually under 25 statements. No placeholders, no TODOs.",
   "Put the key result first (right after the title): the number, answer or recommendation the user asked for, then the controls, then details.",
   "Calculators and simulators are LIVE: bind Slider/Input to $variables and compute the results from them in the same render. Never add a Calculate, Submit or Clear button for this.",

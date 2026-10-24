@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import * as os from "node:os";
 
 export type InfoQuery = "ram" | "cpu" | "battery" | "disk" | "hora" | "data" | "cpu_temperature" | string;
 
@@ -88,43 +89,61 @@ export interface SystemTelemetry {
   battery_charging: boolean;
 }
 
-const TELEMETRY_SCRIPT = `
-$mem  = Get-CimInstance Win32_OperatingSystem
-$ramPct = [math]::Round(($mem.TotalVisibleMemorySize - $mem.FreePhysicalMemory) / $mem.TotalVisibleMemorySize * 100, 1)
-$cpu  = [int](Get-WmiObject Win32_Processor | Measure-Object LoadPercentage -Average).Average
-$bat  = Get-WmiObject Win32_Battery
-$batPct      = if ($bat) { [int]$bat.EstimatedChargeRemaining } else { -1 }
-$charging    = if ($bat -and $bat.BatteryStatus -eq 2) { $true } else { $false }
-@{ cpu=$cpu; ram=$ramPct; battery=$batPct; charging=$charging } | ConvertTo-Json -Compress
+// 24/10: CPU e RAM saem do Node (os), sem abrir PowerShell; só a bateria precisa do WMI, e ela
+// muda devagar — fica em cache por 1 min. Antes eram 2 PowerShell a cada 5 s/30 s com o celular ligado.
+let _cpuAntes = os.cpus().map((c) => c.times);
+function cpuAgora(): number {
+  const agora = os.cpus().map((c) => c.times);
+  let ocupado = 0, total = 0;
+  agora.forEach((t, i) => {
+    const a = _cpuAntes[i] ?? t;
+    const tot = (t.user + t.nice + t.sys + t.idle + t.irq) - (a.user + a.nice + a.sys + a.idle + a.irq);
+    total += tot;
+    ocupado += tot - (t.idle - a.idle);
+  });
+  _cpuAntes = agora;
+  return total > 0 ? Math.round((ocupado / total) * 100) : 0;
+}
+const ramAgora = () => Math.round((1 - os.freemem() / os.totalmem()) * 1000) / 10;
+
+/** CPU e RAM sem PowerShell: o laço de anomalias usa isto enquanto o dashboard está escondido. */
+export function cpuERam(): { cpu_pct: number; ram_pct: number } {
+  return { cpu_pct: cpuAgora(), ram_pct: ramAgora() };
+}
+
+const BATERIA_SCRIPT = `
+$bat = Get-WmiObject Win32_Battery
+$batPct   = if ($bat) { [int]$bat.EstimatedChargeRemaining } else { -1 }
+$charging = if ($bat -and $bat.BatteryStatus -eq 2) { $true } else { $false }
+@{ battery=$batPct; charging=$charging } | ConvertTo-Json -Compress
 `;
+let _bateria: { pct: number | null; carregando: boolean; em: number } | null = null;
+let _lendoBateria: Promise<void> | null = null;
+async function bateria(): Promise<{ pct: number | null; carregando: boolean }> {
+  if (!_bateria || Date.now() - _bateria.em > 60_000) {
+    _lendoBateria ??= runPs(BATERIA_SCRIPT).then((raw) => {
+      try {
+        const p = JSON.parse(raw) as { battery: number; charging: boolean };
+        _bateria = { pct: p.battery === -1 ? null : (p.battery ?? null), carregando: p.charging ?? false, em: Date.now() };
+      } catch { _bateria = { pct: null, carregando: false, em: Date.now() }; }
+    }).finally(() => { _lendoBateria = null; });
+    if (!_bateria) await _lendoBateria;
+  }
+  return { pct: _bateria?.pct ?? null, carregando: _bateria?.carregando ?? false };
+}
 
 export async function getSystemTelemetry(): Promise<SystemTelemetry> {
-  const raw = await runPs(TELEMETRY_SCRIPT);
-  try {
-    const parsed = JSON.parse(raw) as {
-      cpu: number; ram: number; battery: number; charging: boolean;
-    };
-    return {
-      timestamp:        Date.now(),
-      cpu_pct:          parsed.cpu    ?? 0,
-      ram_pct:          parsed.ram    ?? 0,
-      battery_pct:      parsed.battery === -1 ? null : (parsed.battery ?? null),
-      battery_charging: parsed.charging ?? false,
-    };
-  } catch {
-    return { timestamp: Date.now(), cpu_pct: 0, ram_pct: 0, battery_pct: null, battery_charging: false };
-  }
+  const bat = await bateria();
+  return {
+    timestamp:        Date.now(),
+    cpu_pct:          cpuAgora(),
+    ram_pct:          ramAgora(),
+    battery_pct:      bat.pct,
+    battery_charging: bat.carregando,
+  };
 }
 
 // ── Background monitor ────────────────────────────────────────────────────────
-
-const MONITOR_SCRIPT = `
-$mem = Get-CimInstance Win32_OperatingSystem
-$ramPct = [math]::Round(($mem.TotalVisibleMemorySize - $mem.FreePhysicalMemory) / $mem.TotalVisibleMemorySize * 100, 1)
-$bat = Get-WmiObject Win32_Battery
-$batPct = if ($bat) { [int]$bat.EstimatedChargeRemaining } else { -1 }
-Write-Output "$ramPct $batPct"
-`;
 
 let _ramAlertedAt   = 0;
 let _batAlertedAt   = 0;
@@ -132,24 +151,22 @@ const ALERT_COOLDOWN = 5 * 60 * 1_000; // re-alert at most every 5 min
 
 export function startMonitor(alert: (title: string, msg: string) => void): void {
   const check = async () => {
-    const raw = await runPs(MONITOR_SCRIPT);
-    const [ramStr, batStr] = raw.split(" ");
-    const ram = parseFloat(ramStr);
-    const bat = parseInt(batStr, 10);
+    const ram = ramAgora();
+    const bat = (await bateria()).pct ?? -1;
     const now = Date.now();
 
-    if (!isNaN(ram) && ram > 92 && now - _ramAlertedAt > ALERT_COOLDOWN) {
+    if (ram > 92 && now - _ramAlertedAt > ALERT_COOLDOWN) {
       _ramAlertedAt = now;
       alert("ELYSIUM — RAM Alta", `Uso de RAM em ${ram.toFixed(1)}%. Considere fechar alguns programas.`);
     }
 
-    if (bat !== -1 && !isNaN(bat) && bat < 20 && now - _batAlertedAt > ALERT_COOLDOWN) {
+    if (bat !== -1 && bat < 20 && now - _batAlertedAt > ALERT_COOLDOWN) {
       _batAlertedAt = now;
       alert("ELYSIUM — Bateria Baixa", `Bateria em ${bat}%. Conecte o carregador.`);
     }
   };
 
-  setInterval(() => { check().catch(() => { /* best effort */ }); }, 30_000);
+  setInterval(() => { check().catch(() => { /* best effort */ }); }, 30_000).unref();
 }
 
 // ── Top Processes ─────────────────────────────────────────────────────────────

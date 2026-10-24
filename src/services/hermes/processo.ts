@@ -81,6 +81,21 @@ export function rodarHermes(exe: string, args: string[], prazoMs = 60_000): Prom
   });
 }
 
+/** O provedor e o modelo do perfil (`hermes -p … config get`). */
+export async function lerModeloDoPerfil(exe: string, perfil: string): Promise<{ provider: string; modelo: string }> {
+  const [provider, modelo] = await Promise.all([
+    rodarHermes(exe, ["-p", perfil, "config", "get", "model.provider"], 30_000),
+    rodarHermes(exe, ["-p", perfil, "config", "get", "model.default"], 30_000),
+  ]);
+  return { provider: provider.trim(), modelo: modelo.trim() };
+}
+
+/** Grava provedor e modelo no perfil (a chave do Gemini NÃO vai para arquivo: vem pelo env). */
+export async function gravarModeloDoPerfil(exe: string, perfil: string, provider: string, modelo: string): Promise<void> {
+  await rodarHermes(exe, ["-p", perfil, "config", "set", "model.provider", provider], 30_000);
+  await rodarHermes(exe, ["-p", perfil, "config", "set", "model.default", modelo], 30_000);
+}
+
 /** O perfil existe? Lê a tabela do `hermes profile list` (a primeira coluna é o nome). Pura. */
 export function perfilNaLista(saida: string, perfil: string): boolean {
   return saida.split(/\r?\n/).some(l => l.replace(/^[\s◆*]+/, "").split(/\s+/)[0] === perfil);
@@ -138,11 +153,11 @@ export interface ServidorHermes {
 }
 
 /** Sobe o `hermes serve` do perfil e espera ele atender. */
-export async function subirServidor(exe: string, perfil = PERFIL_PADRAO, prazoMs = 60_000): Promise<ServidorHermes> {
+export async function subirServidor(exe: string, perfil = PERFIL_PADRAO, prazoMs = 60_000, envExtra: Record<string, string> = {}): Promise<ServidorHermes> {
   const porta = await portaLivre();
   const token = crypto.randomBytes(24).toString("base64url");
   const filho = spawn(exe, ["-p", perfil, "serve", "--port", String(porta), "--host", "127.0.0.1", "--skip-build", "--isolated"], {
-    env: { ...process.env, HERMES_DASHBOARD_SESSION_TOKEN: token },
+    env: { ...process.env, ...envExtra, HERMES_DASHBOARD_SESSION_TOKEN: token },
     windowsHide: true,
     stdio: ["ignore", "pipe", "pipe"],
   });

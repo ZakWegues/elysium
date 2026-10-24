@@ -1,4 +1,4 @@
-import { getApiKey, getConfig } from "../main/config";
+import { getApiKey, getConfig, getGeminiKey } from "../main/config";
 import { inicioAutomaticoConfere, sincronizarInicioAutomatico } from "../main/autoLaunch";
 import { baseDoOllama, momentoDoUltimoLimiteGroq, ollamaDisponivel } from "./llm";
 import { garantirOllama } from "./ollamaVivo";
@@ -169,7 +169,8 @@ function lerBackupChaves(): number | null {
 
 export async function verificarSaude(): Promise<ItemSaude[]> {
   const cfg = getConfig();
-  const cerebroLocal = cfg.routerProvider === "ollama" || cfg.chatProvider !== "groq";
+  // 24/10: com a chave do Gemini o "local" roda no Gemini; o Ollama só importa como reserva ligada.
+  const cerebroLocal = (cfg.routerProvider === "ollama" || cfg.chatProvider !== "groq") && (!getGeminiKey() || !!cfg.ollamaReserva);
   const [ollama, inicio, discos, tailscale, som] = await Promise.all([
     cerebroLocal ? ollamaDisponivel(cfg.ollamaRouterModel) : Promise.resolve({ ok: true, detalhe: "" }),
     inicioAutomaticoConfere().catch(() => ({ ok: true, detalhe: "não consegui ler o Registro" })),

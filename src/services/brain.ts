@@ -2,7 +2,7 @@ import { provedorDaConversa } from "./cerebroHibrido";
 import { blocoDoModo, modoAtivo, tocarModo } from "./modos";
 import { filtroDeMarcas, guardarRevisoesDoTexto } from "./cartoes";
 import { marcarReserva } from "./contextoComando";
-import { getApiKey, getConfig, AppConfig, nomeDoUsuario } from "../main/config";
+import { getApiKey, getConfig, getGeminiKey, AppConfig, nomeDoUsuario } from "../main/config";
 import { blocoDeInstrucoes, Canal, estiloValido, maxTokensDaConversa, personaStark, regrasDaConversa } from "./estiloResposta";
 import { apiKeyError } from "./errors";
 import { callChat, ChatMessage, Provider } from "./llm";
@@ -368,7 +368,8 @@ export function desfazerUltimoTurno(): void {
  */
 export async function provedorDoRoteador(cfg: AppConfig): Promise<{ provider: Provider; motivo?: string }> {
   if (cfg.routerProvider !== "ollama") return { provider: "groq" };
-  if (!cfg.evitarGpuOcupada) return { provider: "ollama" };
+  // Com a chave do Gemini o "ollama" vai para a nuvem (llm.ts): a GPU não importa mais.
+  if (!cfg.evitarGpuOcupada || getGeminiKey()) return { provider: "ollama" };
 
   const ocupada = await quemOcupaGpu();
   if (!ocupada) return { provider: "ollama" };

@@ -26,6 +26,9 @@ describe("quando a tela sai (22/10)", () => {
     expect(decidirTela("perguntar", p, "texto", true)).toBe("oferecer");
     expect(decidirTela("priorizar", p, "texto", true)).toBe("gerar");
     expect(decidirTela("nunca", "monta uma tela disso", "texto", true)).toBe("nada");
+    // Conta dividida e financiamento saem prontos, sem modelo: não vale perguntar.
+    expect(decidirTela("perguntar", "divide a conta de 380 entre 5", "texto", true)).toBe("gerar");
+    expect(decidirTela("pedir", "divide a conta de 380 entre 5", "texto", true)).toBe("nada");
   });
 
   it("voz nunca gera; sem Hermes nem Groq, nada", () => {
@@ -61,7 +64,7 @@ describe("geração com validação local e uma nova tentativa (22/10)", () => {
 
   it("válida de primeira (com cerca de Markdown em volta)", async () => {
     const { g } = roteiro(["```\n" + BOM + "\n```"]);
-    const t = await gerarTela("parcela?", "R$ 100", g);
+    const t = await gerarTela("mostra isso numa tela", "R$ 100", g);
     expect(t?.programa).toBe(BOM);
     expect(t?.tentativas).toBe(1);
     expect(t?.modelo).toBe("m1");
@@ -70,7 +73,7 @@ describe("geração com validação local e uma nova tentativa (22/10)", () => {
   it("inválida, depois corrigida: os erros voltam ao modelo", async () => {
     const { g, pedidos, contagem } = roteiro(['root = Col([Title("x"), Grafico(1)])', BOM]);
     const reg: { tentativa: number; ok: boolean }[] = [];
-    const t = await gerarTela("parcela?", "", g, (r) => reg.push(r));
+    const t = await gerarTela("mostra isso numa tela", "", g, (r) => reg.push(r));
     expect(t?.tentativas).toBe(2);
     expect(pedidos[1]).toMatch(/Grafico/);
     // A correção vai na mesma conversa (abre uma vez, fecha uma vez).
@@ -87,7 +90,7 @@ describe("geração com validação local e uma nova tentativa (22/10)", () => {
       fechar: () => {},
       trocar: () => { trocas++; return true; },
     });
-    const t = await gerarTela("parcela?", "", g);
+    const t = await gerarTela("mostra isso numa tela", "", g);
     expect(t?.tentativas).toBe(3);
     expect(t?.modelo).toBe("m2");
     expect(trocas).toBe(1);

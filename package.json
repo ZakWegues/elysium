@@ -54,7 +54,8 @@
     "electron-store": "^8.2.0",
     "msedge-tts": "^2.1.0",
     "qrcode": "^1.5.4",
-    "ws": "^8.22.0"
+    "ws": "^8.22.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@electron/fuses": "^1.8.0",

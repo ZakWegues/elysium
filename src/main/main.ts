@@ -31,7 +31,7 @@ import { aplicarBackup, lerBackup, montarBackup } from "../services/backup";
 import { montarDiagnostico } from "../services/diagnostico";
 import { esquecerAparelhos, listarAparelhos } from "../services/aparelhos";
 import * as QRCode from "qrcode";
-import { getConfig, getApiKey, setApiKey, hasApiKey, setOverride, patchDeConfigSeguro, getOrCreateServerToken, getOrCreateMcpToken, regenerateServerToken, AppConfig, getGithubToken, setGithubToken, setGoogleCliente } from "./config";
+import { getConfig, getApiKey, setApiKey, hasApiKey, setOverride, patchDeConfigSeguro, getOrCreateServerToken, getOrCreateMcpToken, regenerateServerToken, AppConfig, getGithubToken, setGithubToken, setGoogleCliente, getGeminiKey, setGeminiKey } from "./config";
 import { limparCacheClima } from "../services/clima";
 import { getLocalIPv4, getAllLocalIPv4 } from "./network";
 import { inputHost } from "../services/inputHost";
@@ -80,7 +80,7 @@ import { aoMudarModo, modoParaCliente } from "../services/modos";
 import { iniciarRotinas, pararRotinas, enfileirarEntrega, type Entrega } from "../services/rotinas";
 import { avaliarCondicao, executarComPolitica } from "../services/agente";
 import { definicoesDeFerramentas } from "../services/ferramentas";
-import { definirUrlDoMcp, iniciarHermes, interromperHermes, pararHermes, pedidoDoHermes, aplicarConfigHermes } from "../services/hermes/cerebro";
+import { definirUrlDoMcp, iniciarHermes, interromperHermes, pararHermes, pedidoDoHermes, aplicarConfigHermes, reiniciarHermesPorModelo } from "../services/hermes/cerebro";
 import { buscarNovidades } from "../services/novidades";
 import { emitirEvento, MARCOS_OCIOSO } from "../services/eventos";
 import { getRunningApps } from "../actions/systemInfo";
@@ -97,7 +97,7 @@ import {
   aoMudarAtualizacao, estadoAtualizacao, iniciarAtualizacoes, instalarAtualizacaoDesktop, verificarAtualizacoes,
   marcarNovidadesVistas, novidadesPendentes,
 } from "../services/atualizacao";
-import { startMonitor, getDashboardTelemetry, killProcess } from "../actions/systemInfo";
+import { startMonitor, getDashboardTelemetry, killProcess, cpuERam } from "../actions/systemInfo";
 import type { BrainAction } from "../services/brain";
 import { mediaControl } from "../actions/mediaControl";
 import { logAnomaly, getAnomalyHistory, getInsights } from "../services/telemetryLog";
@@ -330,7 +330,13 @@ const ANOM_COOLDOWN = 5 * 60_000; // 5 min between same-type RAM alerts
 function startTelemetryLoop(): void {
   const tick = async () => {
     try {
-      const t = await getDashboardTelemetry();
+      // 24/10: o script completo (processos, discos, temperatura) é um PowerShell pesado; com o
+      // dashboard escondido só CPU/RAM pelo Node, e o completo só quando algo passa de 85%.
+      const visivel = !!dashWin && !dashWin.isDestroyed() && dashWin.isVisible();
+      const leve = visivel ? null : cpuERam();
+      const t = leve && leve.cpu_pct < 85 && leve.ram_pct < 85
+        ? { ...leve, processes: [] as { name: string }[] }
+        : await getDashboardTelemetry();
       const now = Date.now();
 
       // ── CPU sustained (≥95% for 2 consecutive ticks = ~6s) ──────────────
@@ -386,7 +392,7 @@ function startTelemetryLoop(): void {
       if (_cpuAltaTiques === 40) emitirEvento("cpu.alta", { valor: Math.round(t.cpu_pct), maior: t.processes[0]?.name?.replace(/#\d+$/, "") });
       if (_ramAltaTiques === 40) emitirEvento("ram.alta", { valor: Math.round(t.ram_pct), maior: t.processes[0]?.name?.replace(/#\d+$/, "") });
 
-      if (!dashWin || dashWin.isDestroyed() || !dashWin.isVisible()) return;
+      if (!visivel || !dashWin) return;
       dashWin.webContents.send("dash:telemetry", t);
     } catch { /* best-effort */ }
   };
@@ -930,6 +936,15 @@ ipcMain.on("media:direct", async (_event, op: string) => {
 // ── config IPC ────────────────────────────────────────────────────────────────
 
 ipcMain.handle("config:get-api-key", () => getApiKey());
+// 24/10: a chave do Gemini (Google AI Studio). Nunca volta para a tela: só o status e o modelo.
+ipcMain.handle("config:set-gemini-key", (_e, chave: unknown) => {
+  if (typeof chave !== "string" || chave.length > 200) return { ok: false };
+  setGeminiKey(chave.trim());
+  reiniciarHermesPorModelo();
+  return { ok: true };
+});
+ipcMain.handle("config:gemini-status", () => ({ temChave: !!getGeminiKey(), modelo: getConfig().geminiModelo || null }));
+
 ipcMain.handle("config:set-api-key", (_e, key: string) => {
   setApiKey(key);
   notify("ELYSIUM", "API key configurada! Pronto para usar.");
@@ -1419,7 +1434,7 @@ app.on("ready", async () => {
   iniciarAtualizacoes({ sair: () => quit("atualizando"), ocupado: () => state.get() !== "idle" });
   // Cérebro local: se o Ollama estiver parado, sobe já — antes do primeiro pedido pagar a espera.
   // "auto" (fase 16) também usa o local para a conversa curta.
-  if (cfg.routerProvider === "ollama" || cfg.chatProvider !== "groq") void garantirOllama(baseDoOllama());
+  if ((cfg.routerProvider === "ollama" || cfg.chatProvider !== "groq") && (!getGeminiKey() || cfg.ollamaReserva)) void garantirOllama(baseDoOllama());
   // Modo foco (fase 12): distração vira balão no PC; o resumo do fim vai também ao celular.
   iniciarFoco({
     avisar: (titulo, corpo) => {

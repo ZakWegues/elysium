@@ -52,6 +52,8 @@ const AJUSTES = [
         dica: "Cobre JSON quebrado e Ollama fora do ar. Não cobre pedido composto pela metade — aquilo é JSON válido." },
       { chave: "evitarGpuOcupada", rotulo: "Usar a nuvem com jogo aberto", tipo: "bool",
         dica: "Um modelo de 7-8B ocupa ~4,7 GB de VRAM enquanto carregado, e leva até 18 s para carregar a frio." },
+      { chave: "ollamaReserva", rotulo: "Ollama de reserva offline", tipo: "bool",
+        dica: "Com a chave do Gemini, o \"local\" roda no Gemini Flash-Lite e o Ollama fica parado. Ligado, o Ollama volta só quando o Gemini falhar (sem internet)." },
     ],
   },
   {
@@ -116,9 +118,9 @@ const AJUSTES = [
         dica: "Uma por linha, até 6. Aparecem junto dos botões de resposta." },
       { chave: "respostasInterativas", rotulo: "Respostas interativas", tipo: "select", opcoes: [
         ["nunca", "Nunca"], ["pedir", "Quando eu pedir"], ["perguntar", "A Ely pergunta quando fizer sentido"], ["priorizar", "Priorizar sempre que couber"]],
-        dica: "Telas interativas no chat (gráfico, mapa, tabela, calculadora, flashcards). \"A Ely pergunta\": quando caberia uma tela, ela oferece e um Sim monta. \"Priorizar\": já monta sem perguntar. Pela voz nunca. Precisa do Hermes ligado. Toda resposta também tem \"Ver como tela\"." },
-      { chave: "telasComInternet", rotulo: "Telas com fotos e mapas da internet", tipo: "bool",
-        dica: "Fotos da Wikipedia e mapas do OpenFreeMap dentro das telas (buscados pelo PC). Desligado, as fotos viram um marcador e o mapa mostra só a lista dos lugares." },
+        dica: "Telas interativas no chat (gráfico, tabela, calculadora, flashcards, quiz). \"A Ely pergunta\": quando caberia uma tela, ela oferece e um Sim monta. \"Priorizar\": já monta sem perguntar. Pela voz nunca. Precisa do Hermes ligado. Toda resposta também tem \"Ver como tela\"." },
+      { chave: "telasComInternet", rotulo: "Telas com fotos da internet", tipo: "bool",
+        dica: "Fotos da Wikipedia dentro das telas (buscadas pelo PC). Desligado, as fotos viram um marcador." },
       { chave: "chatHistoryTurns", rotulo: "Turnos na memória", tipo: "faixa", min: 2, max: 20, passo: 1, unidade: "" },
       { chave: "chatIdleResetMs", rotulo: "Reset por inatividade", tipo: "faixa", min: 60000, max: 3600000, passo: 60000, unidade: "ms" },
     ],

@@ -1,4 +1,5 @@
-import { getConfig } from "../main/config";
+import { getConfig, getGeminiKey } from "../main/config";
+import { gerarGemini, type Mensagem } from "./gemini";
 import { abrirSessaoDeTela, hermesPronto } from "./hermes/cerebro";
 import { callChat, type ChatMessage } from "./llm";
 import type { Gerador } from "./telaInteligente";
@@ -11,7 +12,7 @@ import type { Gerador } from "./telaInteligente";
  * prompt das telas sozinho passa disso (413 medido em 22/10). Vai o Llama 4 Scout, que tem cota
  * maior; troca pelo `modelo` do pedido (bancada).
  */
-export type Provedor = "hermes" | "groq";
+export type Provedor = "gemini" | "hermes" | "groq";
 /**
  * Ordem medida na bancada de 22/10 (4 pedidos cada, válida na 1ª / mediana até a tela):
  * nemotron-3-super 100% / 12 s, laguna-s-2.1 100% / 14 s, gemma-4-31b 100% / 19 s,
@@ -31,12 +32,36 @@ export const MODELO_GROQ_TELAS ="meta-llama/llama-4-scout-17b-16e-instruct";
  * por padrão, só o Hermes gera; a Groq fica para a bancada (`forcar`) e para uma conta com cota maior.
  */
 export function provedorDeTelas(): Provedor | null {
+  // 24/10: com a chave do Gemini, ele escreve as telas (rápido; o Hermes fica de reserva).
+  if (getGeminiKey()) return "gemini";
   if (getConfig().cerebro === "hermes" && hermesPronto()) return "hermes";
   return null;
 }
 
 export function geradorDeTelas(forcar?: Provedor, modelo?: string): Gerador | null {
   const provedor = forcar ?? provedorDeTelas();
+  if (provedor === "gemini") {
+    return async (sistema) => {
+      const mensagens: Mensagem[] = [];
+      // Gemini não respondeu (cota, rede): o resto da conversa vai pelo Hermes, se estiver de pé.
+      let reserva: Awaited<ReturnType<Gerador>> = null;
+      return {
+        enviar: async (usuario) => {
+          if (reserva) return reserva.enviar(usuario);
+          mensagens.push({ papel: "user", texto: usuario });
+          const r = await gerarGemini({ sistema, mensagens, temperatura: 0.3, maxTokens: 8192 });
+          if (r) { mensagens.push({ papel: "model", texto: r.texto }); return { texto: r.texto, provedor: "gemini", modelo: r.modelo }; }
+          const hermes = getConfig().cerebro === "hermes" && hermesPronto() ? geradorDeTelas("hermes") : null;
+          if (!hermes) return null;
+          console.warn("[UI] Gemini sem resposta; a tela vai pelo Hermes");
+          reserva = await hermes(sistema);
+          return reserva ? reserva.enviar(usuario) : null;
+        },
+        fechar: () => reserva?.fechar(),
+        trocar: () => reserva?.trocar?.() ?? false,
+      };
+    };
+  }
   if (provedor === "hermes") {
     return async (sistema) => {
       // A troca de modelo é NOSSA: com o modelo fixo na sessão, não dá para contar com o fallback

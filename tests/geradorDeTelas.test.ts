@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 const abertas: string[] = [];
 const fechadas: string[] = [];
 let semResposta = new Set<string>();
-vi.mock("../src/main/config", () => ({ getConfig: () => ({ cerebro: "hermes" }) }));
+vi.mock("../src/main/config", () => ({ getConfig: () => ({ cerebro: "hermes" }), getGeminiKey: () => "" }));
 vi.mock("../src/services/llm", () => ({ callChat: async () => "" }));
 vi.mock("../src/services/hermes/cerebro", () => ({
   hermesPronto: () => true,

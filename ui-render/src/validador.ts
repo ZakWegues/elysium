@@ -36,5 +36,7 @@ export function validarPrograma(bruto: string): Validacao {
   if (r.meta.incomplete) erros.push("o programa terminou no meio (parênteses ou aspas abertos)");
   for (const e of r.meta.errors) erros.push(e.message);
   if (r.meta.unresolved.length) erros.push(`nomes usados e não definidos: ${r.meta.unresolved.join(", ")}`);
+  // 24/10: mapas desligados nas telas novas.
+  if (/\b(Map|MapMarker)\s*\(/.test(programa)) erros.push("there are no maps: put places in a List of ListItem (time, place, one line) with a SearchImage photo per place");
   return { ok: erros.length === 0, programa, erros: erros.slice(0, 12).map((e) => e.slice(0, 400)), declaracoes: r.meta.statementCount };
 }

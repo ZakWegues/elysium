@@ -90,6 +90,30 @@ apikeySave.addEventListener("click", async () => {
   } catch { addBubble("error", "Falha ao salvar API key."); }
 });
 
+// ── Chave do Gemini (24/10): nunca volta para a tela; só "salva" e o modelo em uso. ──
+const geminiInput = document.getElementById("gemini-input");
+const geminiStatusEl = document.getElementById("gemini-status");
+async function mostrarGemini() {
+  try {
+    const st = await window.nx.geminiStatus();
+    if (!st?.temChave) return;
+    geminiInput.value = "";
+    geminiInput.placeholder = "Chave salva (cole outra para trocar; vazio + Salvar remove)";
+    geminiStatusEl.textContent = st.modelo ? `Em uso pelo Hermes e pelas telas: ${st.modelo}` : "Chave salva — o Hermes está trocando de modelo…";
+  } catch { /* ignore */ }
+}
+document.getElementById("gemini-save").addEventListener("click", async () => {
+  const k = geminiInput.value.trim();
+  if (!k && !confirm("Remover a chave do Gemini? O Hermes volta ao modelo de antes.")) return;
+  try {
+    await window.nx.setGeminiKey(k);
+    addBubble("system", k ? "Chave do Gemini salva. O Hermes está subindo de novo no Gemini." : "Chave do Gemini removida.");
+    geminiInput.value = "";
+    setTimeout(mostrarGemini, 15000);
+  } catch { addBubble("error", "Falha ao salvar a chave do Gemini."); }
+});
+void mostrarGemini();
+
 // ─────────────────────────────────────────────────
 // CONFIG
 // ─────────────────────────────────────────────────

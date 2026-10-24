@@ -1,6 +1,7 @@
 import { falhaDeConexao, garantirOllama } from "./ollamaVivo";
-import { getApiKey, getConfig, marcarModeloMorto } from "../main/config";
+import { getApiKey, getConfig, getGeminiKey, marcarModeloMorto } from "../main/config";
 import { apiKeyError, networkError } from "./errors";
+import { modelosGemini } from "./gemini";
 
 /**
  * Uma porta só para os dois provedores de chat: a Groq (nuvem) e o Ollama (local).
@@ -26,8 +27,24 @@ import { apiKeyError, networkError } from "./errors";
  */
 
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
+/** O Gemini fala o mesmo dialeto da Groq (OpenAI) neste endereço — ver `noGemini`. */
+const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
+
+/**
+ * 24/10: com a chave do Gemini, o que ia para o Ollama (as rotinas de fundo e a conversa curta)
+ * vai para o Flash-Lite — sem modelo de 2,6 GB na GPU nem servidor local para manter de pé. O
+ * Ollama só entra se o Gemini falhar e a reserva offline estiver ligada em Ajustes.
+ */
+function noGemini(p: { provider: Provider }): boolean {
+  return p.provider === "ollama" && !!getGeminiKey();
+}
+async function modeloLeveGemini(): Promise<string> {
+  return (await modelosGemini(getGeminiKey())).lite[0];
+}
 
 export type Provider = "groq" | "ollama";
+/** Quem respondeu de fato: o Gemini atende os pedidos "ollama" quando há chave (24/10). */
+type ProvedorReal = Provider | "gemini";
 
 export interface ChatMessage {
   role: "system" | "user" | "assistant" | "tool";
@@ -105,7 +122,7 @@ export interface ChatPedido {
 
 /** Erro de provedor com a causa legível, para quem chama decidir se cai no fallback. */
 export class ProviderError extends Error {
-  constructor(public provider: Provider, message: string) {
+  constructor(public provider: ProvedorReal, message: string) {
     super(message);
     this.name = "ProviderError";
   }
@@ -160,18 +177,19 @@ export function baseDoOllama(): string {
   return baseOllama();
 }
 
-async function chamarGroq(p: ChatPedido): Promise<string> {
-  const apiKey = getApiKey();
+async function chamarGroq(p: ChatPedido, gemini = false): Promise<string> {
+  const apiKey = gemini ? getGeminiKey() : getApiKey();
   if (!apiKey) throw apiKeyError();
+  const nome: ProvedorReal = gemini ? "gemini" : "groq";
 
   let res: Response;
   const conexao = sinalDeConexao(p);
   try {
-    res = await fetch(GROQ_URL, {
+    res = await fetch(gemini ? GEMINI_URL : GROQ_URL, {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: p.model,
+        model: gemini ? await modeloLeveGemini() : p.model,
         messages: p.messages,
         temperature: p.temperature,
         max_tokens: p.maxTokens,
@@ -192,11 +210,11 @@ async function chamarGroq(p: ChatPedido): Promise<string> {
     const corpo = await corpoCurto(res);
     // Modelo aposentado: anota para o `getConfig()` seguinte já devolver o padrão, em
     // vez de bater no mesmo id morto em todo comando até alguém editar o código.
-    if (res.status === 404 && /model_not_found|does not exist/i.test(corpo)) {
+    if (!gemini && res.status === 404 && /model_not_found|does not exist/i.test(corpo)) {
       marcarModeloMorto("groq", p.model);
     }
-    if (res.status === 429) ultimoLimiteGroq = Date.now();
-    throw new ProviderError("groq", `HTTP ${res.status} ${corpo}`);
+    if (!gemini && res.status === 429) ultimoLimiteGroq = Date.now();
+    throw new ProviderError(nome, `HTTP ${res.status} ${corpo}`);
   }
 
   if (p.onToken) {
@@ -320,6 +338,10 @@ async function lerLinhas(
 }
 
 export async function callChat(p: ChatPedido): Promise<string> {
+  if (noGemini(p)) {
+    try { return await chamarGroq(p, true); }
+    catch (e) { if (!getConfig().ollamaReserva) throw e; }
+  }
   return p.provider === "ollama" ? chamarOllama(p) : chamarGroq(p);
 }
 
@@ -359,26 +381,27 @@ function lerChamadas(brutas: unknown): ChamadaDeFerramenta[] {
 
 export async function callChatComFerramentas(p: PedidoComFerramentas): Promise<RespostaComFerramentas> {
   const tools = p.tools.map(t => ({ type: "function", function: { name: t.name, description: t.description, parameters: t.parameters } }));
-  const messages = mensagensParaFerramentas(p.messages, p.provider);
+  const gemini = noGemini(p);
+  const messages = mensagensParaFerramentas(p.messages, gemini ? "groq" : p.provider);
 
-  if (p.provider === "groq") {
-    const apiKey = getApiKey();
+  if (p.provider === "groq" || gemini) {
+    const apiKey = gemini ? getGeminiKey() : getApiKey();
     if (!apiKey) throw apiKeyError();
     let res: Response;
     try {
-      res = await fetch(GROQ_URL, {
+      res = await fetch(gemini ? GEMINI_URL : GROQ_URL, {
         method: "POST",
         headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ model: p.model, messages, tools, tool_choice: "auto", temperature: p.temperature, max_tokens: p.maxTokens }),
+        body: JSON.stringify({ model: gemini ? await modeloLeveGemini() : p.model, messages, tools, tool_choice: "auto", temperature: p.temperature, max_tokens: p.maxTokens }),
         signal: AbortSignal.timeout(p.timeoutMs ?? 30_000),
       });
     } catch (e) { throw networkError(String(e)); }
     if (res.status === 401) throw apiKeyError();
     if (!res.ok) {
       const corpo = await corpoCurto(res);
-      if (res.status === 404 && /model_not_found|does not exist/i.test(corpo)) marcarModeloMorto("groq", p.model);
-      if (res.status === 429) ultimoLimiteGroq = Date.now();
-    throw new ProviderError("groq", `HTTP ${res.status} ${corpo}`);
+      if (!gemini && res.status === 404 && /model_not_found|does not exist/i.test(corpo)) marcarModeloMorto("groq", p.model);
+      if (!gemini && res.status === 429) ultimoLimiteGroq = Date.now();
+    throw new ProviderError(gemini ? "gemini" : "groq", `HTTP ${res.status} ${corpo}`);
     }
     const dados = await res.json() as { choices?: { message?: { content?: string | null; tool_calls?: unknown } }[] };
     const msg = dados.choices?.[0]?.message;

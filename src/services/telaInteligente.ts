@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { semAcento } from "./texto";
+import { lerDados, numerosDaConta, numerosDeFinanciamento, pedidoDosDados, programaConta, programaFinanciamento, programaPronto, semModelo, sistemaDosDados, tipoDeTelaPronta, type TipoComDados, type TipoPronto } from "./telasProntas";
 
 /**
  * Telas inteligentes (Fase 2, 22/10) — a resposta da Ely vira uma tela interativa (OpenUI Lang),
@@ -45,6 +46,10 @@ export function decidirTela(modo: ModoInterativo | string | undefined, pergunta:
   if (pediuTela(pergunta)) return "gerar";
   if (modo === "pedir") return "nada";
   if (!cabeTela(pergunta)) return "nada";
+  // 24/10: financiamento e conta dividida saem prontos do texto, sem modelo e em milissegundos:
+  // perguntar antes custaria mais que mostrar.
+  const tipo = tipoDeTelaPronta(pergunta);
+  if (tipo && semModelo(tipo)) return "gerar";
   return modo === "priorizar" ? "gerar" : "oferecer";
 }
 
@@ -112,6 +117,50 @@ export type Gerador = (sistema: string) => Promise<Conversa | null>;
 
 export type Tela = { programa: string; tentativas: number; ms: number; provedor: string; modelo: string | null; declaracoes: number };
 
+type Registro = (r: { tentativa: number; ok: boolean; erros: string[]; ms: number; provedor?: string; modelo?: string | null }) => void;
+
+/**
+ * Tela pronta: as instantâneas (financiamento, dividir conta) saem do próprio texto; as outras pedem
+ * ao modelo só os DADOS em JSON (prompt curto) — duas tentativas, a 2ª com o erro do zod. O
+ * programa montado ainda passa no validador (cinto de segurança). null = cai no gerador livre.
+ */
+async function telaPronta(
+  tipo: TipoPronto, pergunta: string, resposta: string, gerador: Gerador, v: Validador,
+  ouCancela: <T>(p: Promise<T>) => Promise<T | null>, registro?: Registro, sinal?: AbortSignal,
+): Promise<Omit<Tela, "ms"> | null> {
+  const t1 = Date.now();
+  const pronto = (programa: string, tentativas: number, provedor: string, modelo: string | null) => {
+    const val = v.validarPrograma(programa);
+    registro?.({ tentativa: tentativas, ok: val.ok, erros: val.erros, ms: Date.now() - t1, provedor, modelo });
+    if (!val.ok) { console.warn(`[UI] tela pronta "${tipo}" inválida: ${val.erros.slice(0, 3).join(" | ")}`); return null; }
+    console.log(`[UI] tela pronta "${tipo}" em ${Date.now() - t1} ms (${provedor}${modelo ? ` ${modelo}` : ""})`);
+    return { programa: val.programa, tentativas, provedor, modelo, declaracoes: val.declaracoes };
+  };
+  if (semModelo(tipo)) {
+    const texto = `${pergunta}\n${resposta}`;
+    return pronto(tipo === "financiamento" ? programaFinanciamento(numerosDeFinanciamento(texto)) : programaConta(numerosDaConta(texto)), 0, "pronta", null);
+  }
+  const t = tipo as TipoComDados;
+  const conversa = await ouCancela(gerador(sistemaDosDados(t)).catch(() => null));
+  if (!conversa) return null;
+  try {
+    let usuario = pedidoDosDados(pergunta, resposta);
+    for (let tentativa = 1; tentativa <= 2; tentativa++) {
+      if (sinal?.aborted) return null;
+      const r = await ouCancela(conversa.enviar(usuario).catch(() => null));
+      if (!r) return null;
+      const d = lerDados(t, r.texto);
+      if (d.ok) return pronto(programaPronto(t, d.dados), tentativa, r.provedor, r.modelo);
+      console.warn(`[UI] dados da tela "${t}" inválidos (tentativa ${tentativa}): ${d.erro}`);
+      registro?.({ tentativa, ok: false, erros: [d.erro], ms: Date.now() - t1, provedor: r.provedor, modelo: r.modelo });
+      usuario = `O JSON não passou na validação: ${d.erro}. Devolva o objeto JSON INTEIRO corrigido, só ele.`;
+    }
+    return null;
+  } finally {
+    conversa.fechar();
+  }
+}
+
 /**
  * Gera e valida; uma nova tentativa com os erros. `null` = sem tela (falhou duas vezes, ninguém
  * para gerar, ou `sinal` cancelou — quem chamou confere `sinal.aborted`). `registro` recebe o
@@ -128,6 +177,14 @@ export async function gerarTela(pergunta: string, respostaTexto: string, gerador
     else sinal?.addEventListener("abort", () => ok(null), { once: true });
   });
   const ouCancela = <T>(p: Promise<T>) => (sinal ? Promise.race([p, cancelado]) : p);
+  // 24/10: os pedidos comuns têm tela pronta (o modelo só manda os dados, ou nem isso).
+  const tipo = tipoDeTelaPronta(pergunta) ?? (/\b(disso|isso|dessa|desse)\b/i.test(pergunta) ? tipoDeTelaPronta(respostaTexto) : null);
+  if (tipo) {
+    const pronta = await telaPronta(tipo, pergunta, respostaTexto, gerador, v, ouCancela, registro, sinal);
+    if (pronta) return { ...pronta, ms: Date.now() - t0 };
+    if (sinal?.aborted) return null;
+    console.warn(`[UI] tela pronta "${tipo}" não saiu; indo pelo gerador livre`);
+  }
   const abrindo = gerador(sistema).catch(falhou);
   // Cancelou enquanto a sessão abria: quando ela abrir, fecha (senão ficaria pendurada no Hermes).
   void abrindo.then((c) => { if (sinal?.aborted) c?.fechar(); });

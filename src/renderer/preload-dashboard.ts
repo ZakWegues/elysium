@@ -51,6 +51,8 @@ contextBridge.exposeInMainWorld("nx", {
   // ── Config ─────────────────────────────────────────────────────────────────
   getApiKey:       ()                           => ipcRenderer.invoke("config:get-api-key"),
   setApiKey:       (k: string)                  => ipcRenderer.invoke("config:set-api-key", k),
+  setGeminiKey:    (k: string)                  => ipcRenderer.invoke("config:set-gemini-key", k),
+  geminiStatus:    ()                           => ipcRenderer.invoke("config:gemini-status"),
   getConfig:       ()                           => ipcRenderer.invoke("config:get-all"),
   setConfig:       (p: Record<string, unknown>) => ipcRenderer.invoke("config:set-all", p),
   resetConfig:     ()                           => ipcRenderer.invoke("config:reset-defaults"),

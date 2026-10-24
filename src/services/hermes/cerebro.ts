@@ -1,13 +1,14 @@
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { getConfig, nomeDoUsuario } from "../../main/config";
+import { getConfig, getGeminiKey, nomeDoUsuario, setOverride } from "../../main/config";
+import { modelosGemini } from "../gemini";
 import type { Canal } from "../estiloResposta";
 import { modoAtivo } from "../modos";
 import { buildMemoryBlock } from "../memoryStore";
 import { liberacaoAtiva, pedirConfirmacao } from "../confirmacao";
 import { ConexaoHermes } from "./conexao";
-import { acharHermes, encerrarArvore, garantirMcp, garantirPerfil, subirServidor, ServidorHermes, PERFIL_PADRAO, PERFIL_TELAS, garantirPerfilDeTelas } from "./processo";
+import { acharHermes, encerrarArvore, garantirMcp, garantirPerfil, gravarModeloDoPerfil, lerModeloDoPerfil, subirServidor, ServidorHermes, PERFIL_PADRAO, PERFIL_TELAS, garantirPerfilDeTelas } from "./processo";
 import { contextoDoTurno } from "./persona";
 import { FimDoTurno, PRAZO_SINAL_FRIO_MS, PRAZO_SINAL_QUENTE_MS, rodarTurno } from "./sessao";
 import { descricaoDaAprovacao, falaDoEsclarecimento, respostaDeRecusa, respostasDoEsclarecimento, tipoDaPergunta } from "./aprovacoes";
@@ -78,6 +79,37 @@ export function definirUrlDoMcp(url: string): void {
   s.urlMcp = url;
 }
 
+/**
+ * 24/10: o chat do Hermes no Gemini (chave do Google AI Studio do dono). Com chave: o perfil vai
+ * para `provider: gemini` e o Flash estável mais novo que a chave enxerga (econômico e rápido); o
+ * que havia antes fica guardado em `hermesModeloAntes`. Sem chave e o perfil ainda no Gemini: volta
+ * ao anterior. Os `fallback_providers` do perfil (OpenRouter grátis) continuam de reserva.
+ */
+async function ajustarModeloDoHermes(exe: string, p: string, chave: string): Promise<void> {
+  const atual = await lerModeloDoPerfil(exe, p);
+  const antes = getConfig().hermesModeloAntes ?? {};
+  if (chave) {
+    const alvo = (await modelosGemini(chave)).flash[0];
+    if (atual.provider !== "gemini") setOverride({ hermesModeloAntes: { ...antes, [p]: atual } });
+    if (atual.provider !== "gemini" || atual.modelo !== alvo) {
+      await gravarModeloDoPerfil(exe, p, "gemini", alvo);
+      console.log(`[hermes] perfil ${p} no Gemini: ${alvo}`);
+    }
+    setOverride({ geminiModelo: alvo });
+  } else if (atual.provider === "gemini" && antes[p]) {
+    await gravarModeloDoPerfil(exe, p, antes[p].provider, antes[p].modelo);
+    setOverride({ geminiModelo: "" });
+    console.log(`[hermes] perfil ${p} de volta a ${antes[p].provider}`);
+  }
+}
+
+/** A chave do Gemini mudou: o Hermes sobe de novo para trocar de modelo (e receber a chave). */
+export function reiniciarHermesPorModelo(): void {
+  if (getConfig().cerebro !== "hermes") return;
+  pararHermes();
+  setTimeout(() => { s.saindo = false; void iniciarHermes(); }, 1500);
+}
+
 export async function iniciarHermes(): Promise<void> {
   if (getConfig().cerebro !== "hermes" || s.saindo) return;
   if (s.estado === "subindo" || hermesPronto()) return;
@@ -90,8 +122,11 @@ export async function iniciarHermes(): Promise<void> {
     if (s.urlMcp) await garantirMcp(exe, s.urlMcp, perfil()).catch(e => console.warn("[hermes] MCP:", e instanceof Error ? e.message : e));
     // 22/10: o perfil das telas (sem ferramentas). Em segundo plano: não segura a subida do Hermes.
     void garantirPerfilDeTelas(exe).catch(e => console.warn("[hermes] perfil das telas:", e instanceof Error ? e.message : e));
+    const chaveGemini = getGeminiKey();
+    await ajustarModeloDoHermes(exe, perfil(), chaveGemini).catch(e => console.warn("[hermes] modelo Gemini:", e instanceof Error ? e.message : e));
     const t0 = Date.now();
-    s.servidor = await subirServidor(exe, perfil());
+    // A chave do Gemini vai só no ambiente do processo (nunca para arquivo do Hermes).
+    s.servidor = await subirServidor(exe, perfil(), undefined, chaveGemini ? { GEMINI_API_KEY: chaveGemini } : {});
     s.servidor.filho.on("exit", () => { if (!s.saindo) reiniciarDepois("o processo do Hermes saiu"); });
     const con = new ConexaoHermes();
     await con.abrir(s.servidor.url);
