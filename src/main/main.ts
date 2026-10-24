@@ -77,7 +77,7 @@ import { processCommand, processCommandStream, executarComando } from "../servic
 import { startServer, setActiveToken, broadcastMailboxEvent, broadcastNotify, broadcastEstadoPc, broadcastModo, broadcastPomodoro, ligarMcp } from "../services/server";
 import { iniciarPomodoro, pararRelogioPomodoro, pomodoroParaCliente } from "../services/pomodoro";
 import { aoMudarModo, modoParaCliente } from "../services/modos";
-import { iniciarRotinas, pararRotinas, enfileirarEntrega, type Entrega } from "../services/rotinas";
+import { iniciarRotinas, pararRotinas, enfileirarEntrega, listarRotinas, type Entrega } from "../services/rotinas";
 import { avaliarCondicao, executarComPolitica } from "../services/agente";
 import { definicoesDeFerramentas } from "../services/ferramentas";
 import { definirUrlDoMcp, iniciarHermes, interromperHermes, pararHermes, pedidoDoHermes, aplicarConfigHermes, reiniciarHermesPorModelo } from "../services/hermes/cerebro";
@@ -403,6 +403,10 @@ function startTelemetryLoop(): void {
   // também com apps da loja hospedados no ApplicationFrameHost.
   let _janelas: Map<string, string> | null = null;
   aCada(15_000, "janelas", async () => {
+    // 24/10: listar as janelas é um PowerShell; só vale com o modo foco ligado ou uma rotina
+    // ativa que espera programa abrir/fechar. Fora disso a lista velha some (sem "abriu" falso depois).
+    const precisa = estadoFoco().ativo || listarRotinas().some((r) => r.ativa && r.gatilho?.tipo === "evento" && /^app\./.test(r.gatilho.evento));
+    if (!precisa) { _janelas = null; return; }
     try {
       const agora = new Map<string, string>();
       for (const a of await getRunningApps()) {
