@@ -55,7 +55,7 @@ describe("telas prontas: os programas passam no validador do renderer (24/10)", 
     flashcards: { tema: "Enzimas", cartoes: [{ frente: "O que é Km?", verso: "A [S] em que v = Vmáx/2." }, { frente: "Inibição competitiva", verso: "Km sobe, Vmáx igual.", dica: "disputa o sítio ativo" }, { frente: "Cofator", verso: "Íon inorgânico." }] },
     quiz: { tema: "História do Brasil", perguntas: [{ pergunta: "Em que ano foi a Independência?", opcoes: ["1500", "1822", "1889"], certa: 1, explicacao: "7 de setembro de 1822." }, { pergunta: "Quem proclamou a República?", opcoes: ["Deodoro", "Getúlio"], certa: 0, explicacao: "Deodoro da Fonseca, 1889." }, { pergunta: "Capital antes de Brasília?", opcoes: ["Salvador", "Rio de Janeiro"], certa: 1 }] },
     checklist: { titulo: "Viagem para a praia", grupos: [{ nome: "Roupas", itens: ["Biquíni", "Chinelo"] }, { nome: "", itens: ["Protetor \"FPS 50\""] }] },
-    roteiro: { titulo: "Um dia no centro de SP", paradas: [{ hora: "9h", lugar: "Pinacoteca", descricao: "Abre cedo e é perto da Luz.", foto: "Pinacoteca São Paulo" }, { hora: "12h", lugar: "Mercado Municipal", descricao: "Sanduíche de mortadela." }], dicas: ["Vá de metrô."] },
+    roteiro: { titulo: "Um dia no centro de SP", cidade: "São Paulo", paradas: [{ hora: "9h", lugar: "Pinacoteca", descricao: "Abre cedo e é perto da Luz.", foto: "Pinacoteca São Paulo" }, { hora: "12h", lugar: "Mercado Municipal", descricao: "Sanduíche de mortadela." }], dicas: ["Vá de metrô."] },
     cronograma: { titulo: "Semana de estudos", dias: [{ dia: "Segunda", itens: [{ hora: "19h", tarefa: "Bioquímica" }] }, { dia: "Terça", itens: [{ tarefa: "Revisão" }] }], nota: "Uma hora por dia." },
   };
 
@@ -66,6 +66,13 @@ describe("telas prontas: os programas passam no validador do renderer (24/10)", 
       if (d.ok) expect(valida(programaPronto(tipo, d.dados))).toBe("ok");
     });
   }
+
+  it("roteiro: a busca da foto leva a cidade (sem repetir)", () => {
+    const d = lerDados("roteiro", JSON.stringify(exemplos.roteiro));
+    const p = d.ok ? programaPronto("roteiro", d.dados) : "";
+    expect(p).toContain('SearchImage("Mercado Municipal São Paulo"');
+    expect(p).toContain('SearchImage("Pinacoteca São Paulo"');
+  });
 
   it("lerDados aceita cerca de Markdown e recusa o que não bate com o esquema", () => {
     expect(lerDados("flashcards", "```json\n" + JSON.stringify(exemplos.flashcards) + "\n```").ok).toBe(true);

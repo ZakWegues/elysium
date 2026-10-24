@@ -129,7 +129,7 @@ const esquemas = {
     grupos: z.array(z.object({ nome: z.string().max(40).default(""), itens: z.array(texto(120)).min(1).max(15) })).min(1).max(6),
   }),
   roteiro: z.object({
-    titulo, resumo: z.string().max(200).optional(),
+    titulo, resumo: z.string().max(200).optional(), cidade: z.string().max(40).optional(),
     paradas: z.array(z.object({ hora: z.string().max(12).default(""), lugar: texto(60), descricao: texto(240), foto: z.string().max(60).optional() })).min(2).max(8),
     dicas: z.array(texto(160)).max(5).default([]),
   }),
@@ -150,7 +150,7 @@ const FORMATOS: Record<TipoComDados, string> = {
   flashcards: `{"tema": string, "cartoes": [{"frente": string (pergunta ou termo), "verso": string (resposta curta), "dica"?: string}] (5 a 10)}`,
   quiz: `{"tema": string, "perguntas": [{"pergunta": string, "opcoes": [string] (3 ou 4), "certa": number (índice da certa, começando em 0), "explicacao": string (uma frase)}] (5 a 8)}`,
   checklist: `{"titulo": string, "grupos": [{"nome": string (pode ser ""), "itens": [string]}] (1 a 6 grupos)}`,
-  roteiro: `{"titulo": string, "resumo"?: string, "paradas": [{"hora": string (ex.: "9h"), "lugar": string, "descricao": string (1 frase), "foto": string (2 a 4 palavras para achar uma foto do lugar, ex.: "Pinacoteca São Paulo")}] (3 a 7), "dicas": [string] (até 3)}`,
+  roteiro: `{"titulo": string, "resumo"?: string, "cidade": string (a cidade do roteiro), "paradas": [{"hora": string (ex.: "9h"), "lugar": string, "descricao": string (1 frase), "foto": string (nome do lugar + cidade, ex.: "Pinacoteca São Paulo")}] (3 a 7), "dicas": [string] (até 3)}`,
   cronograma: `{"titulo": string, "dias": [{"dia": string (ex.: "Segunda"), "itens": [{"hora": string, "tarefa": string}]}] (1 a 7), "nota"?: string}`,
 };
 
@@ -272,7 +272,12 @@ ${vars.join("\n")}`;
 }
 
 function programaRoteiro(d: Dados<"roteiro">): string {
-  const fotos = d.paradas.map((p) => `Col([SearchImage(${s(p.foto || p.lugar)}, 1.4, "lg"), Text(${s(p.lugar)}, "sm", null, "semibold"), Caption(${s(p.hora || " ")})], 1)`);
+  // 24/10: "Mercado Municipal" sozinho achou a foto de um político; a cidade desfaz a ambiguidade.
+  const busca = (p: { lugar: string; foto?: string }) => {
+    const q = p.foto || p.lugar;
+    return d.cidade && !norm(q).includes(norm(d.cidade)) ? `${q} ${d.cidade}` : q;
+  };
+  const fotos = d.paradas.map((p) => `Col([SearchImage(${s(busca(p))}, 1.4, "lg"), Text(${s(p.lugar)}, "sm", null, "semibold"), Caption(${s(p.hora || " ")})], 1)`);
   const itens = d.paradas.map((p) => `ListItem(${s(p.lugar)}, ${s(p.descricao)}, ${s(p.hora || "•")})`);
   return `root = Col([Title(${s(d.titulo)}, "lg")${d.resumo ? `, Caption(${s(d.resumo)})` : ""}, fotos, linha${d.dicas.length ? ", dicas" : ""}])
 fotos = Carousel([${fotos.join(", ")}], 210)
