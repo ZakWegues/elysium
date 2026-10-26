@@ -178,10 +178,37 @@ function guardarPalavras(chave: string, palavras: Palavra[]): void {
   if (cachePalavras.size > 20) cachePalavras.delete(cachePalavras.keys().next().value as string);
 }
 
+/**
+ * 26/10: a Thalita do serviço gratuito passou a falhar ~5 em 6 vezes ("Stream closed before the
+ * synthesis completed") enquanto a Francisca e o Antonio seguiam firmes. A voz que falhar fica de
+ * lado por 15 min e a fala sai na Francisca — neural do mesmo jeito, nunca a robótica.
+ */
+const VOZ_RESERVA = "pt-BR-FranciscaNeural";
+const vozRuimAte = new Map<string, number>();
+function vozUtilizavel(voz: string): string {
+  return voz !== VOZ_RESERVA && (vozRuimAte.get(voz) ?? 0) > Date.now() ? VOZ_RESERVA : voz;
+}
+function marcarVozRuim(voz: string): string {
+  if (voz !== VOZ_RESERVA && !((vozRuimAte.get(voz) ?? 0) > Date.now())) {
+    vozRuimAte.set(voz, Date.now() + 15 * 60_000);
+    console.warn(`[TTS] ${voz} falhou; a ${VOZ_RESERVA} fala por 15 min`);
+  }
+  return voz;
+}
+
 export async function sintetizarMp3(texto: string, humor?: Humor): Promise<Buffer> {
+  try { return await sintetizarMp3Com(texto, vozUtilizavel(vozDoMomento()), humor); }
+  catch (e) {
+    const voz = vozUtilizavel(vozDoMomento());
+    if (voz === VOZ_RESERVA) throw e;
+    marcarVozRuim(voz);
+    return sintetizarMp3Com(texto, VOZ_RESERVA, humor);
+  }
+}
+
+async function sintetizarMp3Com(texto: string, voz: string, humor?: Humor): Promise<Buffer> {
   const limpo = cleanTextForSpeech(texto);
   if (!limpo) throw new Error("nada para falar");
-  const voz = vozDoMomento();
   const prosodia = prosodiaAgora(voz, humor);
   const chave = chaveMp3(voz, limpo, prosodia);
   const guardado = cacheMp3.get(chave);
@@ -276,9 +303,9 @@ export async function synthesize(text: string, humor?: Humor): Promise<void> {
         // handshake; a 2.x acompanha. Na 2.x o `toStream` devolve { audioStream,
         // metadataStream } em vez do stream direto.
         // Pendência 10 da §15: a chave `voice` existia no config e nunca era lida.
-        const voz = vozDoMomento();
-        const prosodia = prosodiaAgora(voz, humor);
-        const chave = chaveMp3(voz, clean, prosodia);
+        let voz = vozUtilizavel(vozDoMomento());
+        let prosodia = prosodiaAgora(voz, humor);
+        let chave = chaveMp3(voz, clean, prosodia);
         const jaPronto = cacheMp3.get(chave);
         let palavras = cachePalavras.get(chave) ?? [];
         // O `{}` é obrigatório: a 2.0.7 declara o terceiro parâmetro como opcional e lê
@@ -308,9 +335,12 @@ export async function synthesize(text: string, humor?: Humor): Promise<void> {
             if (!mp3.length) throw new Error("stream neural retornou 0 bytes");
           } catch (err) {
             _tts = null;
-            console.error(`[TTS] falha na síntese neural (tentativa ${tentativa}/3):`, err);
-            // 26/10: as falhas vêm em rajadas curtas do serviço; esperar um pouco atravessa a maioria.
-            if (tentativa < 3) await new Promise((r) => setTimeout(r, tentativa * 900));
+            console.error(`[TTS] falha na síntese neural com a ${voz} (tentativa ${tentativa}/3):`, err);
+            // 26/10: a voz escolhida falhou → a próxima tentativa já vai na reserva neural, sem
+            // esperar; falhou a reserva também, uma espera curta atravessa as rajadas do serviço.
+            const reserva = vozUtilizavel(marcarVozRuim(voz));
+            if (reserva !== voz) { voz = reserva; prosodia = prosodiaAgora(voz, humor); chave = chaveMp3(voz, clean, prosodia); }
+            else if (tentativa < 3) await new Promise((r) => setTimeout(r, tentativa * 900));
           }
         }
 
