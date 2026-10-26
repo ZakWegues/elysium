@@ -170,7 +170,7 @@ const SECOES_AJUSTES = [
     resumo: (c) => THEMES[c.theme]?.name ?? "Tema" },
   { id: "atalho", titulo: "Atalho e conta", icone: "key", nos: ["#sec-atalho"],
     resumo: (c) => c.shortcut || "Ctrl+Shift+J" },
-  { id: "cerebro", titulo: "Cérebro", icone: "cpu", nos: ["[data-secao='cerebro']", "[data-secao='modelos-da-groq']"],
+  { id: "cerebro", titulo: "Cérebro", icone: "cpu", nos: ["#sec-gemini", "[data-secao='cerebro']", "[data-secao='modelos-da-groq']"],
     resumo: (c) => (c.cerebro !== "elysium" ? "Hermes · reserva " : "") + (c.routerProvider === "groq" ? "Nuvem" : "Local") + " · " + (c.chatProvider === "groq" ? "responde na nuvem" : c.chatProvider === "auto" ? "híbrido" : "responde local"),
     aoAbrir: () => desenharEstadoHermes() },
   { id: "voz", titulo: "Voz", icone: "mic", nos: ["[data-secao='voz']"],
