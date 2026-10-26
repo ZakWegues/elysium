@@ -11,7 +11,8 @@
 
 const TELA_SRC = "ui/render.html";
 /** Altura máxima da prévia no chat; o resto vai para a tela cheia. */
-const PREVIA_MAX = 440;
+// 26/10: as telas ficaram mais ricas (abertura, números, gráfico): um pouco mais de prévia.
+const PREVIA_MAX = 480;
 /** iframe.contentWindow → controle da tela (o da prévia ou o da tela cheia). */
 const telasAbertas = new Map();
 
@@ -22,7 +23,7 @@ function mensagemDaTela(m) {
   switch (m.tipo) {
     case "pronta": return { tipo: "pronta" };
     case "altura": return Number.isInteger(m.px) && m.px >= 0 && m.px <= 20000 ? { tipo: "altura", px: m.px } : null;
-    case "acao": return ["perguntar", "abrirLink", "copiar"].includes(m.acao) && ehTexto(m.valor, 4000) ? { tipo: "acao", acao: m.acao, valor: m.valor } : null;
+    case "acao": return ["perguntar", "abrirLink", "copiar", "haptica"].includes(m.acao) && ehTexto(m.valor, 4000) ? { tipo: "acao", acao: m.acao, valor: m.valor } : null;
     case "estado": {
       if (!m.vars || typeof m.vars !== "object" || Array.isArray(m.vars)) return null;
       const json = JSON.stringify(m.vars);

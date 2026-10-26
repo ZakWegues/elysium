@@ -5,6 +5,7 @@ import { exampleDashboard, exampleShoppingList, exampleSteps, exampleTrip } from
 import { compositionPrograms } from "../galeria/composition-programs";
 import { programasPt } from "../galeria/programas-pt";
 import { telasProntas } from "../galeria/telas-prontas";
+import { fixturesV1 } from "../galeria/fixtures-v1";
 import { programs } from "../galeria/programs";
 import { toolPrograms } from "../galeria/tool-programs";
 
@@ -12,6 +13,8 @@ const parser = createParser(library.toJSONSchema());
 
 const todos = [
   ...telasProntas,
+  // 26/10: telas antigas do histórico continuam abrindo com o renderer novo.
+  ...fixturesV1,
   ...programasPt,
   ...toolPrograms,
   { id: "example-list", code: exampleShoppingList },

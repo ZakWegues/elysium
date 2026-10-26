@@ -1,0 +1,206 @@
+/*
+ * Componentes da Ely (26/10) — Hero, Stat, Ring, Progress, Timeline, ImageCard, Callout, ScoreBar,
+ * Versus, Avatar, Empty, WeekGrid, QuizCard e o mapa leve. Profundidade em camadas (sombra curta +
+ * luz de borda), a cor de destaque do app por baixo de tudo e movimento só na entrada: contagem,
+ * anel que se desenha, barra que cresce. Nada em loop. `--ely-tom` troca a cor por peça.
+ */
+
+:root {
+  --ely-tom: var(--iui-accent);
+  --ely-elev-1: 0 1px 2px color-mix(in srgb, #000 10%, transparent), inset 0 1px 0 color-mix(in srgb, #fff 6%, transparent);
+  --ely-elev-2: 0 6px 18px -8px color-mix(in srgb, #000 30%, transparent), inset 0 1px 0 color-mix(in srgb, #fff 7%, transparent);
+  --ely-superficie: color-mix(in srgb, var(--iui-ink) 4%, var(--iui-canvas));
+  --ely-linha: color-mix(in srgb, var(--iui-ink) 10%, transparent);
+  --ely-curva: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.ely-num { font-variant-numeric: tabular-nums; }
+
+/* ── Hero ── */
+.ely-hero {
+  display: flex; align-items: center; gap: 14px;
+  padding: 16px 16px 16px 14px; margin: -2px 0 4px;
+  border-radius: 16px; border: 1px solid color-mix(in srgb, var(--ely-tom) 22%, transparent);
+  background:
+    radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--ely-tom) 22%, transparent), transparent 60%),
+    linear-gradient(135deg, color-mix(in srgb, var(--ely-tom) 10%, var(--iui-canvas)), var(--iui-canvas));
+  box-shadow: var(--ely-elev-1);
+}
+.ely-hero-icone {
+  flex: none; width: 44px; height: 44px; border-radius: 14px; display: grid; place-items: center;
+  color: var(--ely-tom);
+  background: color-mix(in srgb, var(--ely-tom) 16%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ely-tom) 30%, transparent);
+}
+.ely-hero-texto { display: grid; gap: 2px; min-width: 0; }
+.ely-hero-titulo { font-size: clamp(18px, 2.2vw + 10px, 22px); font-weight: 680; letter-spacing: -0.4px; line-height: 1.2; color: var(--iui-ink); }
+.ely-hero-sub { font-size: 13px; color: var(--iui-muted); line-height: 1.4; }
+
+/* ── Stat ── */
+.ely-statrow { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+@container folha (max-width: 520px) { .ely-statrow { grid-template-columns: 1fr 1fr; } }
+.ely-stat {
+  display: grid; gap: 4px; padding: 12px 14px; border-radius: 14px;
+  background: var(--ely-superficie); border: 1px solid var(--ely-linha); box-shadow: var(--ely-elev-1);
+  min-width: 0;
+}
+.ely-statrow > .ely-stat:first-child {
+  background: linear-gradient(160deg, color-mix(in srgb, var(--ely-tom) 16%, var(--iui-canvas)), var(--ely-superficie));
+  border-color: color-mix(in srgb, var(--ely-tom) 30%, transparent);
+}
+.ely-statrow > .ely-stat:first-child .ely-stat-valor { color: var(--ely-tom); }
+.ely-stat-topo { display: flex; align-items: center; gap: 6px; color: var(--iui-muted); font-size: 12px; }
+.ely-stat-icone { color: var(--ely-tom); display: inline-flex; }
+.ely-stat-rotulo { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ely-stat-valor { font-size: 21px; font-weight: 680; letter-spacing: -0.4px; line-height: 1.2; font-variant-numeric: tabular-nums; color: var(--iui-ink); overflow-wrap: anywhere; }
+.ely-stat-pe { display: flex; align-items: flex-end; justify-content: space-between; gap: 8px; min-height: 18px; }
+.ely-delta { font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ely-delta.is-sobe { color: var(--iui-success); }
+.ely-delta.is-desce { color: var(--iui-danger); }
+.ely-delta.is-igual { color: var(--iui-muted); }
+.ely-spark { width: 72px; height: 24px; color: var(--ely-tom); flex: none; overflow: visible; }
+.ely-spark-linha { stroke-dasharray: 300; stroke-dashoffset: 300; animation: ely-desenha 900ms var(--ely-curva) 120ms forwards; }
+
+/* ── Ring ── */
+.ely-ring { position: relative; width: 112px; aspect-ratio: 1; margin: 0 auto; }
+.ely-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.ely-ring circle { fill: none; stroke-width: 9; }
+.ely-ring-fundo { stroke: color-mix(in srgb, var(--ely-tom) 14%, transparent); }
+.ely-ring-arco { stroke: var(--ely-tom); stroke-linecap: round; transition: stroke-dashoffset 900ms var(--ely-curva); }
+.ely-ring-centro { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; }
+.ely-ring-valor { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; font-variant-numeric: tabular-nums; color: var(--iui-ink); }
+.ely-ring-rotulo { font-size: 11.5px; color: var(--iui-muted); }
+
+/* ── Progress / ScoreBar ── */
+.ely-progress, .ely-score { display: grid; gap: 6px; }
+.ely-progress-topo, .ely-score-topo { display: flex; justify-content: space-between; gap: 8px; font-size: 12.5px; color: var(--iui-muted); }
+.ely-progress-trilho { height: 8px; border-radius: 99px; background: color-mix(in srgb, var(--ely-tom) 14%, transparent); overflow: hidden; }
+.ely-progress-barra {
+  height: 100%; border-radius: inherit; transform-origin: left;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--ely-tom) 70%, #fff 0%), var(--ely-tom));
+  transition: transform 700ms var(--ely-curva);
+}
+.ely-score.is-destaque .ely-score-topo { color: var(--iui-ink); font-weight: 600; }
+.ely-score:not(.is-destaque) .ely-progress-barra { background: color-mix(in srgb, var(--iui-ink) 30%, transparent); }
+
+/* ── Timeline (e o mapa leve) ── */
+.ely-tl, .ely-trilha { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
+.ely-tl-item { position: relative; display: grid; grid-template-columns: 22px 1fr; gap: 12px; padding-bottom: 16px; }
+.ely-tl-item:not(:last-child)::before {
+  content: ""; position: absolute; left: 10px; top: 22px; bottom: 0; width: 2px; border-radius: 2px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--ely-tom) 50%, transparent), color-mix(in srgb, var(--ely-tom) 12%, transparent));
+}
+.ely-tl-ponto {
+  width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; color: var(--ely-tom);
+  background: color-mix(in srgb, var(--ely-tom) 16%, var(--iui-canvas)); box-shadow: 0 0 0 3px var(--iui-canvas), inset 0 0 0 1.5px var(--ely-tom);
+}
+.ely-tl-corpo { display: grid; gap: 3px; min-width: 0; }
+.ely-tl-hora { font-size: 11.5px; font-weight: 650; letter-spacing: 0.02em; color: var(--ely-tom); font-variant-numeric: tabular-nums; }
+.ely-tl-titulo { font-weight: 620; color: var(--iui-ink); }
+.ely-tl-texto { font-size: 13px; color: var(--iui-muted); }
+.ely-tl-foto { margin-top: 6px; max-width: 360px; }
+.ely-trilha-item button {
+  all: unset; box-sizing: border-box; cursor: pointer; display: flex; align-items: center; gap: 12px; width: 100%;
+  padding: 8px 10px; border-radius: 12px;
+}
+.ely-trilha-item.is-sel button, .ely-trilha-item button:hover { background: color-mix(in srgb, var(--ely-tom) 10%, transparent); }
+.ely-trilha-ponto { flex: none; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-size: 12.5px; font-weight: 700; color: var(--iui-on-accent); background: var(--ely-tom); }
+.ely-trilha-texto { display: grid; }
+.ely-trilha-titulo { font-weight: 600; }
+.ely-trilha-sub { font-size: 12px; color: var(--iui-muted); }
+
+/* ── ImageCard ── */
+.ely-imgcard { border-radius: 14px; overflow: hidden; background: var(--ely-superficie); border: 1px solid var(--ely-linha); box-shadow: var(--ely-elev-2); }
+.ely-imgcard-foto { position: relative; }
+.ely-imgcard-foto .iui-image { border-radius: 0 !important; }
+.ely-imgcard-selo {
+  position: absolute; left: 10px; top: 10px; padding: 3px 9px; border-radius: 99px; font-size: 11.5px; font-weight: 650;
+  color: #fff; background: color-mix(in srgb, #000 45%, transparent); backdrop-filter: blur(6px);
+}
+.ely-imgcard-texto { display: grid; gap: 2px; padding: 10px 12px 12px; }
+.ely-imgcard-titulo { font-weight: 640; color: var(--iui-ink); }
+.ely-imgcard-sub { font-size: 12.5px; color: var(--iui-muted); }
+
+/* ── Callout ── */
+.ely-callout {
+  display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 14px;
+  background: color-mix(in srgb, var(--ely-tom) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--ely-tom) 24%, transparent);
+}
+.ely-callout-icone { color: var(--ely-tom); display: inline-flex; padding-top: 1px; }
+.ely-callout-titulo { font-weight: 650; color: var(--iui-ink); margin-bottom: 2px; }
+.ely-callout-texto { font-size: 13.5px; color: color-mix(in srgb, var(--iui-ink) 88%, transparent); line-height: 1.45; }
+
+/* ── Versus ── */
+.ely-versus { display: grid; gap: 10px; grid-template-columns: repeat(var(--ely-n), minmax(0, 1fr)); }
+@container folha (max-width: 420px) { .ely-versus { grid-template-columns: 1fr; } }
+.ely-versus-item { position: relative; border-radius: 16px; transition: transform 300ms var(--ely-curva); }
+.ely-versus-item.is-vencedor { box-shadow: 0 0 0 2px var(--ely-tom), 0 12px 28px -14px color-mix(in srgb, var(--ely-tom) 70%, transparent); }
+.ely-versus-coroa {
+  position: absolute; z-index: 2; right: 10px; top: 10px; display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 9px; border-radius: 99px; font-size: 11.5px; font-weight: 700; color: var(--iui-on-accent); background: var(--ely-tom);
+}
+
+/* ── Avatar ── */
+.ely-avatarrow { display: flex; flex-wrap: wrap; gap: 14px; justify-content: flex-start; }
+.ely-avatar { display: grid; justify-items: center; gap: 4px; width: 64px; text-align: center; }
+.ely-avatar-bola { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 15px; box-shadow: var(--ely-elev-2); }
+.ely-avatar-nome { font-size: 11.5px; color: var(--iui-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 64px; }
+.ely-avatar-valor { font-size: 12.5px; font-weight: 650; color: var(--iui-ink); }
+
+/* ── Empty ── */
+.ely-vazio { display: grid; justify-items: center; gap: 6px; padding: 18px 8px; text-align: center; }
+.ely-vazio-desenho { width: 64px; height: 64px; fill: none; stroke: var(--ely-tom); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; opacity: 0.85; }
+.ely-vazio-desenho * { stroke-dasharray: 160; stroke-dashoffset: 160; animation: ely-desenha 1100ms var(--ely-curva) forwards; }
+.ely-vazio-titulo { font-weight: 640; color: var(--iui-ink); }
+.ely-vazio-texto { font-size: 13px; color: var(--iui-muted); max-width: 320px; }
+
+/* ── WeekGrid ── */
+.ely-semana { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); }
+@container folha (max-width: 520px) { .ely-semana { grid-template-columns: 1fr; } }
+.ely-semana-dia { display: grid; align-content: start; gap: 6px; padding: 10px; border-radius: 12px; background: var(--ely-superficie); border: 1px solid var(--ely-linha); }
+.ely-semana-nome { font-size: 12px; font-weight: 700; letter-spacing: 0.03em; color: var(--ely-tom); text-transform: uppercase; }
+.ely-semana-item { display: grid; gap: 1px; font-size: 13px; padding: 6px 8px; border-radius: 8px; background: color-mix(in srgb, var(--ely-tom) 8%, transparent); }
+.ely-semana-hora { font-size: 11px; color: var(--iui-muted); font-variant-numeric: tabular-nums; }
+
+/* ── QuizCard ── */
+.ely-quiz { display: grid; gap: 10px; padding: 14px; border-radius: 16px; background: var(--ely-superficie); border: 1px solid var(--ely-linha); box-shadow: var(--ely-elev-1); }
+.ely-quiz-pergunta { font-weight: 640; color: var(--iui-ink); }
+.ely-quiz-opcoes { display: grid; gap: 8px; }
+.ely-quiz-opcao {
+  all: unset; box-sizing: border-box; cursor: pointer; display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border-radius: 12px; border: 1px solid var(--ely-linha); background: var(--iui-canvas);
+  transition: background 200ms, border-color 200ms, transform 200ms var(--ely-curva);
+}
+.ely-quiz-opcao:not(:disabled):hover { border-color: color-mix(in srgb, var(--ely-tom) 50%, transparent); }
+.ely-quiz-opcao:not(:disabled):active { transform: scale(0.98); }
+.ely-quiz-opcao:disabled { cursor: default; }
+.ely-quiz-letra { flex: none; width: 24px; height: 24px; border-radius: 8px; display: grid; place-items: center; font-size: 12px; font-weight: 700; background: color-mix(in srgb, var(--ely-tom) 12%, transparent); color: var(--ely-tom); }
+.ely-quiz-opcao > span:nth-child(2) { flex: 1; }
+.ely-quiz-opcao.is-certa { border-color: var(--iui-success); background: var(--iui-success-soft); color: var(--iui-ink); }
+.ely-quiz-opcao.is-certa svg { color: var(--iui-success); }
+.ely-quiz-opcao.is-errada { border-color: var(--iui-danger); background: var(--iui-danger-soft); animation: ely-balanca 360ms; }
+.ely-quiz-explica { font-size: 13px; color: var(--iui-muted); padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, var(--iui-ink) 4%, transparent); animation: ely-surge 300ms var(--ely-curva); }
+.ely-quiz.is-certo .ely-quiz-explica strong { color: var(--iui-success); }
+.ely-quiz.is-errado .ely-quiz-explica strong { color: var(--iui-danger); }
+
+@keyframes ely-desenha { to { stroke-dashoffset: 0; } }
+@keyframes ely-balanca { 20%, 60% { transform: translateX(-4px); } 40%, 80% { transform: translateX(4px); } }
+@keyframes ely-surge { from { opacity: 0; transform: translateY(-4px); } }
+
+/* Reduzir movimento: tudo já no lugar. */
+:root[data-reduzir] :is(.ely-spark-linha, .ely-vazio-desenho *) { animation: none; stroke-dashoffset: 0; }
+:root[data-reduzir] :is(.ely-ring-arco, .ely-progress-barra) { transition: none; }
+:root[data-reduzir] .ely-quiz-opcao.is-errada { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  :is(.ely-spark-linha, .ely-vazio-desenho *) { animation: none; stroke-dashoffset: 0; }
+  :is(.ely-ring-arco, .ely-progress-barra) { transition: none; }
+}
+
+/* Sem foto (nome inventado, internet desligada): a área encolhe para uma faixa com gradiente. */
+.ely-imgcard-foto:has(.iui-image.is-empty) .iui-image,
+.ely-tl-foto:has(.iui-image.is-empty) .iui-image {
+  aspect-ratio: auto !important; height: 56px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--ely-tom) 22%, transparent), color-mix(in srgb, var(--ely-tom) 6%, transparent));
+}
+.ely-tl-foto:has(.iui-image.is-empty) { display: none; }

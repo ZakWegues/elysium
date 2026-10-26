@@ -19,6 +19,7 @@ const regrasEly = [
   "Never use Map or MapMarker: maps are turned off. Places and trips go in a timeline List of ListItem with a SearchImage photo of each place.",
   "The screen lives inside a chat bubble 360–680 px wide: design one column first, compact, no empty cards, no decorative filler. Usually under 25 statements. No placeholders, no TODOs.",
   "Put the key result first (right after the title): the number, answer or recommendation the user asked for, then the controls, then details.",
+  "Make it rich and polished, not a bare form: open with Hero(title, subtitle, icon); show metrics in a StatRow of Stat (icon, delta, spark); the takeaway in a Callout; places, times or steps in a Timeline; progress or shares in Ring/Progress; options side by side in Versus with ImageCard; people in AvatarRow. A real photo (SearchImage/ImageCard) for every place, dish or product.",
   "Calculators and simulators are LIVE: bind Slider/Input to $variables and compute the results from them in the same render. Never add a Calculate, Submit or Clear button for this.",
   "Copy every component signature exactly (argument order and types): pass numbers as numbers, enums as the listed strings, and never a component where a string is expected.",
   "Reply with the OpenUI Lang program only: no Markdown fences, no explanation before or after. The first line is `root = ...`.",

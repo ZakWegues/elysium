@@ -11,9 +11,10 @@ const html = fs.readFileSync(path.join(__dirname, "..", "ui-render", "dist", "re
 const csp = /<meta http-equiv="Content-Security-Policy" content="([^"]+)">/.exec(html)?.[1] ?? "";
 
 describe("renderer das telas (ui-render/dist/render.html)", () => {
-  it("tem CSP: nada além dos tiles do OpenFreeMap na rede (e blob: da própria página, o worker do mapa)", () => {
+  it("tem CSP: a tela não fala com a rede (26/10: sem o mapa de rua, nem os tiles)", () => {
     expect(csp).toContain("default-src 'none'");
-    expect(csp).toContain("connect-src https://tiles.openfreemap.org blob:;");
+    expect(csp).toContain("connect-src 'none';");
+    expect(csp).not.toMatch(/openfreemap/);
     expect(csp).toContain("form-action 'none'");
     expect(csp).not.toMatch(/jsdelivr|unpkg|cdnjs|esm\.sh|googleapis|thesys|posthog|cloudfront/);
     expect(csp).not.toMatch(/unsafe-eval/);

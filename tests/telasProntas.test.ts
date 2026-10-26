@@ -70,8 +70,8 @@ describe("telas prontas: os programas passam no validador do renderer (24/10)", 
   it("roteiro: a busca da foto leva a cidade (sem repetir)", () => {
     const d = lerDados("roteiro", JSON.stringify(exemplos.roteiro));
     const p = d.ok ? programaPronto("roteiro", d.dados) : "";
-    expect(p).toContain('SearchImage("Mercado Municipal São Paulo"');
-    expect(p).toContain('SearchImage("Pinacoteca São Paulo"');
+    expect(p).toContain('"Mercado Municipal São Paulo")');
+    expect(p).toContain('ImageCard("Pinacoteca São Paulo"');
   });
 
   it("lerDados aceita cerca de Markdown e recusa o que não bate com o esquema", () => {

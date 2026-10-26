@@ -96,6 +96,33 @@ export const Payment = defineFunction({
   },
 });
 
+/**
+ * ELYSIUM (26/10): the loan balance over time for a chart — one row per year (or per `step`
+ * periods): {ano, saldo, juros, amortizado}. Price table, same math as @Payment.
+ */
+export const Amortizacao = defineFunction({
+  name: "Amortizacao",
+  description: "Loan schedule for a chart: rows {ano, saldo, juros, amortizado} every step periods (default 12), e.g. Chart(\"area\", @Amortizacao(300000, 0.8, 360), \"ano\", [\"saldo\"])",
+  params: z.object({ principal: z.number(), rate: z.number(), periods: z.number(), step: z.number().optional() }),
+  returns: z.array(z.object({ ano: z.number(), saldo: z.number(), juros: z.number(), amortizado: z.number() })),
+  fn: ({ principal, rate, periods, step }) => {
+    if (!(periods > 0)) throw new Error("periods must be positive");
+    const n = Math.min(1200, Math.round(periods));
+    const passo = Math.max(1, Math.round(step ?? 12));
+    const r = rate / 100;
+    const parcela = r === 0 ? principal / n : (principal * r) / (1 - Math.pow(1 + r, -n));
+    const linhas: { ano: number; saldo: number; juros: number; amortizado: number }[] = [{ ano: 0, saldo: finite(principal), juros: 0, amortizado: 0 }];
+    let saldo = principal, juros = 0;
+    for (let k = 1; k <= n; k++) {
+      const j = saldo * r;
+      juros += j;
+      saldo = Math.max(0, saldo - (parcela - j));
+      if (k % passo === 0 || k === n) linhas.push({ ano: Math.round((k / passo) * 100) / 100, saldo: finite(saldo), juros: finite(juros), amortizado: finite(principal - saldo) });
+    }
+    return linhas;
+  },
+});
+
 // Units per kind, as the factor to the kind's base unit (m, kg, l, m/s)
 const UNITS: Record<string, [string, number]> = {
   mm: ["length", 0.001], cm: ["length", 0.01], m: ["length", 1], km: ["length", 1000],
@@ -125,4 +152,4 @@ export const Convert = defineFunction({
   },
 });
 
-export const numberFunctions = [Pow, Sqrt, Random, Clamp, Percent, Lerp, Allocate, Payment, Convert];
+export const numberFunctions = [Pow, Sqrt, Random, Clamp, Percent, Lerp, Allocate, Payment, Amortizacao, Convert];

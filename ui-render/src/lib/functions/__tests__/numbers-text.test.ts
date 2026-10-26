@@ -96,6 +96,14 @@ const cases: Record<string, [string, unknown][]> = {
     ["@Payment(1200, 0, 12)", 100],
     ["@Payment(1000, 1, 0)", null],
   ],
+  // ELYSIUM (26/10): saldo devedor por ano; termina em zero; juros totais = parcela × n − valor.
+  Amortizacao: [
+    ["@Count(@Amortizacao(12000, 1, 24))", 3],
+    ["@Round(@Last(@Amortizacao(12000, 1, 24)).saldo, 2)", 0],
+    ["@Round(@Last(@Amortizacao(1200, 0, 12)).juros, 2)", 0],
+    ["@Round(@Last(@Amortizacao(30000, 0.9489, 36)).juros, 0)", 5556],
+    ["@Amortizacao(1000, 1, 0)", null],
+  ],
   Convert: [
     ['@Round(@Convert(10, "km", "mi"), 3)', 6.214],
     ['@Convert(100, "c", "f")', 212],

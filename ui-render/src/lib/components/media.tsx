@@ -73,7 +73,7 @@ function useImageSearch(query: string | null): string[] | undefined {
 type PhotoProps = { query: string; src?: string | null; aspectRatio?: number | null; radius?: unknown; fit?: string | null };
 
 /** A photo from src, or, without one or when it fails, the best search result for query. */
-function Photo(props: PhotoProps) {
+export function Photo(props: PhotoProps) {
   const alt = typeof props.query === "string" ? props.query.trim() : "";
   // ELYSIUM: "Telas com fotos e mapas da internet" desligado = nenhuma foto de fora, nem com URL.
   const src = internetLigada() ? webUrl(props.src) : null;

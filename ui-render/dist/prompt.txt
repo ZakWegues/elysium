@@ -82,6 +82,25 @@ YouTube(video: string, title?: string) — YouTube video by id or URL, shown as 
 Flashcard(front: string | Node[], back: string | Node[], hint?: string) — Card that flips between front and back when tapped. Put several in a Carousel or Grid.
 Celebration(when: boolean) — Bursts confetti when its condition turns true, e.g. Celebration($score == 5) at the end of a quiz.
 
+### Ely
+Hero(title: string, subtitle?: string, icon?: string, tone?: Color) — Opening band of a screen: icon plate, big title, one-line subtitle, soft gradient. Use one at the top instead of a plain Title.
+Stat(label: string, value: string | number, icon?: string, delta?: number, spark?: number[], tone?: Color) — One metric tile: label, big value (already formatted, e.g. @Format(x, "currency", 2, "BRL")), optional icon, delta in % (shows ▲/▼ in green/red) and spark = a short list of numbers drawn as a sparkline.
+StatRow(children: Node[]) — Row of Stat tiles: 2 per line on a phone, up to 4 when wide. The first Stat is the headline result.
+Ring(value: number, max?: number, label?: string, center?: string, tone?: Color) — Progress ring that draws itself: value of max (default 100); center text defaults to the percent. For scores, completion, share of a total. Reacts to $variables.
+Progress(value: number, max?: number, label?: string, tone?: Color) — Horizontal progress bar with label and value/max on the right (e.g. answered/total). Reacts to $variables.
+Timeline(children: Node[]) — Vertical timeline of TimelineItem: itineraries, schedules, steps, history. Use instead of a map for places.
+TimelineItem(title: string, text?: string, time?: string, icon?: string, image?: string) — One stop in a Timeline: title, short text, time label, optional icon, image = a photo search query (2–4 words).
+ImageCard(query: string, title: string, caption?: string, badge?: string) — Card with a real photo on top (query = 2–4 words naming the thing), title and caption below, optional badge on the photo.
+Callout(text: string, tone?: "insight" | "dica" | "alerta" | "sucesso", icon?: string, title?: string) — Highlighted note: insight (default), dica, alerta or sucesso. For the takeaway, a tip, a warning, a verdict.
+ScoreBar(label: string, value: number, max?: number, highlight?: boolean) — Labeled score bar (value of max, default 10). highlight marks the best one.
+Versus(children: Node[], winner?: number) — Side-by-side options (each child usually an ImageCard or a Card); winner = 0-based index of the best, shown with a crown.
+Avatar(name: string, value?: string) — Round avatar with the person's initials (stable color per name) and an optional value below, e.g. what each one pays.
+AvatarRow(children: Node[]) — Row of Avatar that wraps.
+Empty(title: string, text?: string, icon?: "caixa" | "busca" | "folha" | "estrela") — Friendly empty state with a line drawing (caixa, busca, folha, estrela), a title and a short hint.
+WeekGrid(days: {dia: string, itens: {hora?: string, tarefa: string}[]}[]) — Week planner: days = [{dia: "Seg", itens: [{hora: "19h", tarefa: "Bioquímica"}]}]. Columns when wide, stacked days on a phone.
+QuizCard(value: $binding<string>, question: string, options: string[], correct: number, explanation?: string) — One quiz question: tap an option, it locks and shows right (green) or wrong (shake, red) plus the explanation. value holds the chosen option text; score with ($q1 == "right option" ? 1 : 0).
+- Rich building blocks: start a screen with Hero; metrics in StatRow of Stat; insights in Callout; places, times and steps in Timeline; progress in Ring or Progress; choices side by side in Versus.
+
 ### Drawing
 Svg(children: Node[], viewBox: string, width?: Length, height?: Length) — A drawing for steps, parts, mechanisms, diagrams and layouts. Scales to its width; its shapes take expressions, so state can move them.
 G(children: Node[], transform?: string, opacity?: number) — Group; transform like "rotate(30 50 50)" or "translate(10 0)".
@@ -141,6 +160,7 @@ Use @-prefixed built-in functions (@Count, @Sum, @Avg, @Min, @Max, @Round) on da
 @Lerp(a: number, b: number, t: number) → number — The value a fraction t of the way from a to b
 @Allocate(total: number, weights: number[], decimals?: number) → number[] — Splits total in proportion to weights, rounded to decimals (default 2), so the parts add up to exactly total, e.g. @Allocate(100, [1, 1, 1]) is [33.34, 33.33, 33.33]
 @Payment(principal: number, rate: number, periods: number) → number — Payment per period that repays principal over periods at rate percent per period, e.g. a 30-year loan at 6% a year: @Payment(300000, 6 / 12, 360)
+@Amortizacao(principal: number, rate: number, periods: number, step?: number) → {ano: number, saldo: number, juros: number, amortizado: number}[] — Loan schedule for a chart: rows {ano, saldo, juros, amortizado} every step periods (default 12), e.g. Chart("area", @Amortizacao(300000, 0.8, 360), "ano", ["saldo"])
 @Convert(value: number, from: string, to: string) → number — value from one unit to another: mm cm m km in ft yd mi; mg g kg oz lb st; ml l tsp tbsp floz cup pt qt gal (US); m/s km/h mph kn; m2 km2 ft2 ha acre; c f k
 @Format(value: number, kind?: "number" | "currency" | "percent" | "compact", decimals?: number, currency?: string) → string — Number as text: "number" 12,345.6, "currency" $12,345.68 (currency is a code like "EUR"), "percent" 45 -> 45%, "compact" 1.2M ($1.2M with a currency)
 @Join(list: any[], sep?: string, field?: string) → string — Joins the items (or their field) into text with sep (default ", "), skipping nulls
@@ -293,6 +313,7 @@ Before finishing, walk your output and verify:
 - Never use Map or MapMarker: maps are turned off. Places and trips go in a timeline List of ListItem with a SearchImage photo of each place.
 - The screen lives inside a chat bubble 360–680 px wide: design one column first, compact, no empty cards, no decorative filler. Usually under 25 statements. No placeholders, no TODOs.
 - Put the key result first (right after the title): the number, answer or recommendation the user asked for, then the controls, then details.
+- Make it rich and polished, not a bare form: open with Hero(title, subtitle, icon); show metrics in a StatRow of Stat (icon, delta, spark); the takeaway in a Callout; places, times or steps in a Timeline; progress or shares in Ring/Progress; options side by side in Versus with ImageCard; people in AvatarRow. A real photo (SearchImage/ImageCard) for every place, dish or product.
 - Calculators and simulators are LIVE: bind Slider/Input to $variables and compute the results from them in the same render. Never add a Calculate, Submit or Clear button for this.
 - Copy every component signature exactly (argument order and types): pass numbers as numbers, enums as the listed strings, and never a component where a string is expected.
 - Reply with the OpenUI Lang program only: no Markdown fences, no explanation before or after. The first line is `root = ...`.

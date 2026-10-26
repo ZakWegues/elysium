@@ -6,7 +6,7 @@ import { z } from "zod/v4";
  *
  * Host → tela: `programa` (o OpenUI Lang, o tema e o estado salvo), `tema` (troca ao vivo),
  * `config` (fotos e mapas da internet ligados? prévia no chat ou tela cheia?), `resposta` (de um `pedido`).
- * Tela → host: `pronta`, `altura`, `acao` (perguntar / abrirLink / copiar), `estado` (o que foi
+ * Tela → host: `pronta`, `altura`, `acao` (perguntar / abrirLink / copiar / haptica — 26/10: leve, sucesso ou erro), `estado` (o que foi
  * digitado, para voltar ao reabrir), `pedido` (fotos, rota), `erro` (o programa não montou),
  * `rolar` (a roda do mouse na prévia: quem rola é o chat do host).
  */
@@ -36,7 +36,7 @@ export type MensagemDoHost = z.infer<typeof mensagemDoHost>;
 export const mensagemDaTela = z.discriminatedUnion("tipo", [
   z.object({ tipo: z.literal("pronta") }),
   z.object({ tipo: z.literal("altura"), px: z.number().int().min(0).max(20_000) }),
-  z.object({ tipo: z.literal("acao"), acao: z.enum(["perguntar", "abrirLink", "copiar"]), valor: texto(4000) }),
+  z.object({ tipo: z.literal("acao"), acao: z.enum(["perguntar", "abrirLink", "copiar", "haptica"]), valor: texto(4000) }),
   z.object({ tipo: z.literal("estado"), vars: estado }),
   z.object({ tipo: z.literal("pedido"), id: z.number().int().positive(), rota: z.enum(["fotos", "rota"]), params: z.record(z.string().max(30), texto(300)) }),
   z.object({ tipo: z.literal("erro"), mensagem: texto(1000) }),

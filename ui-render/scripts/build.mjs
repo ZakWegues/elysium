@@ -14,21 +14,6 @@ const dist = path.join(raiz, "dist");
 fs.mkdirSync(dist, { recursive: true });
 const producao = { "process.env.NODE_ENV": '"production"' };
 
-/** O worker do MapLibre, empacotado num só arquivo e entregue como texto (vira blob: na tela). */
-const workerDoMapa = {
-  name: "maplibre-worker-texto",
-  setup(b) {
-    b.onResolve({ filter: /^maplibre-worker-texto$/ }, () => ({ path: "maplibre-worker-texto", namespace: "worker" }));
-    b.onLoad({ filter: /.*/, namespace: "worker" }, async () => {
-      const r = await build({
-        entryPoints: [path.join(raiz, "node_modules/maplibre-gl/dist/maplibre-gl-worker.mjs")],
-        bundle: true, minify: true, format: "iife", write: false, logLevel: "error", define: producao,
-      });
-      return { contents: r.outputFiles[0].text, loader: "text" };
-    });
-  },
-};
-
 /** Só o woff2 das fontes do KaTeX (os navegadores do PC e do celular leem), embutido em data:. */
 const fontesDoKatex = {
   name: "katex-woff2",
@@ -46,21 +31,20 @@ const r = await build({
   bundle: true, minify: true, format: "esm", platform: "browser", target: ["chrome110"],
   write: false, outdir: dist, logLevel: "warning", jsx: "automatic", define: producao,
   loader: { ".woff2": "dataurl" },
-  plugins: [workerDoMapa, fontesDoKatex],
+  plugins: [fontesDoKatex],
 });
 const js = r.outputFiles.find((f) => f.path.endsWith(".js")).text;
 const css = r.outputFiles.find((f) => f.path.endsWith(".css"))?.text ?? "";
 
 // O CSP da tela. 'unsafe-inline': o próprio código vem inline, e o HtmlView (srcdoc) herda esta
-// política. A tela não fala com ninguém além dos tiles do OpenFreeMap; fotos e rotas vêm do host.
+// política. 26/10: sem o mapa de rua, a tela não fala com ninguém; fotos vêm do host.
 const CSP = [
   "default-src 'none'",
   "script-src 'unsafe-inline' blob:",
   "style-src 'unsafe-inline'",
   "img-src data: blob: https://upload.wikimedia.org https://i.ytimg.com",
   "font-src data:",
-  // blob: o MapLibre lê o próprio worker (blob criado pela página) por fetch no Electron (23/10).
-  "connect-src https://tiles.openfreemap.org blob:",
+  "connect-src 'none'",
   "worker-src blob:",
   "frame-src 'self' about: data:",
   "form-action 'none'",
@@ -84,13 +68,17 @@ const html = `<!doctype html>
 </html>
 `;
 fs.writeFileSync(path.join(dist, "render.html"), html);
+// 26/10: orçamento de tamanho — o renderer vai junto no app do celular (OTA) e abre em cada tela.
+const ORCAMENTO = 2.2 * 1024 * 1024;
+console.log(`render.html: ${(html.length / 1024 / 1024).toFixed(2)} MB`);
+if (html.length > ORCAMENTO) throw new Error(`render.html passou do orçamento (${html.length} > ${ORCAMENTO})`);
 
 // O schema e o prompt das telas, tirados da própria biblioteca (Node, com o mapa/katex em stub).
 const stub = path.join(raiz, "scripts", "stub.mjs");
 const gen = await build({
   entryPoints: [path.join(raiz, "src/gerar-artefatos.ts")], bundle: true, format: "esm", platform: "node", write: false, logLevel: "warning",
   jsx: "automatic", loader: { ".css": "empty" }, define: producao,
-  plugins: [{ name: "stub", setup(b) { b.onResolve({ filter: /^(maplibre-gl|katex|maplibre-worker-texto)$/ }, () => ({ path: stub })); } }],
+  plugins: [{ name: "stub", setup(b) { b.onResolve({ filter: /^(katex)$/ }, () => ({ path: stub })); } }],
 });
 const tmp = path.join(dist, ".gerar.mjs");
 fs.writeFileSync(tmp, gen.outputFiles[0].text);

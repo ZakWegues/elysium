@@ -188,71 +188,99 @@ const s = (v: string) => JSON.stringify(v);
 const num = (n: number) => String(Math.round(n * 100) / 100);
 const reais = (expr: string) => `@Format(${expr}, "currency", 2, "BRL")`;
 
+// 26/10 (pedido do Zak: telas "muito mais aprimoradas e completas"): os modelos usam as peças da
+// Ely (Hero, StatRow/Stat, Ring, Progress, Timeline, ImageCard, Callout, ScoreBar, Versus, Avatar,
+// WeekGrid, QuizCard). Os dados e os esquemas são os mesmos — só o desenho mudou.
+
 export function programaFinanciamento(n: { valor: number; taxaAno: number; meses: number }): string {
   const maxValor = Math.max(n.valor * 3, 50_000), passo = n.valor >= 100_000 ? 5000 : n.valor >= 20_000 ? 1000 : 100;
   const maxMeses = Math.max(n.meses, 420);
-  return `root = Col([Title("Financiamento", "lg"), resumo, controles, Caption("Parcelas iguais (tabela Price). A taxa anual vira mensal: " + @Format(mensal, "number", 3) + "% ao mês.")])
+  return `root = Col([hero, resumo, partes, grafico, controles, prazos, economia])
 $valor = ${num(n.valor)}
 $taxa = ${num(n.taxaAno)}
 $prazo = ${num(n.meses)}
 mensal = (@Pow(1 + $taxa / 100, 1 / 12) - 1) * 100
 parcela = @Payment($valor, mensal, $prazo)
-resumo = Grid([Card([Caption("Parcela"), Title(${reais("parcela")}, "xl")], "soft"), Card([Caption("Total pago"), Title(${reais("parcela * $prazo")}, "xl")], "soft"), Card([Caption("Só de juros"), Title(${reais("parcela * $prazo - $valor")}, "xl")], "soft")], 3, 150, 3)
-controles = Col([Slider($valor, ${passo}, ${num(maxValor)}, ${passo}, "Valor financiado", "R$"), Slider($taxa, 1, 40, 0.1, "Juros ao ano", "%"), Slider($prazo, 6, ${maxMeses}, 6, "Prazo", "meses")], 2)`;
+total = parcela * $prazo
+juros = total - $valor
+menos = @Clamp($prazo - 60, 12, 600)
+mais = @Clamp($prazo + 60, 12, 600)
+hero = Hero("Financiamento", "Parcelas iguais (tabela Price) · " + @Format(mensal, "number", 3) + "% ao mês", "landmark")
+resumo = StatRow([Stat("Parcela", ${reais("parcela")}, "calendar"), Stat("Total pago", ${reais("total")}, "wallet"), Stat("Só de juros", ${reais("juros")}, "percent", null, null, "warning")])
+partes = Card([Row([Ring(@Round(@Percent(juros, total)), 100, "do total é juros", null, "warning"), Col([Caption("Do que você paga"), Text("Valor emprestado: " + ${reais("$valor")}, "sm"), Text("Juros: " + ${reais("juros")}, "sm"), Text("Prazo: " + $prazo + " meses (" + @Round($prazo / 12, 1) + " anos)", "sm", "muted")], 1)], 4, "center", null, true)], "soft", 3)
+grafico = Card([Caption("Quanto ainda falta pagar, ano a ano"), Chart("area", @Amortizacao($valor, mensal, $prazo), "ano", ["saldo"], "currency", "BRL")], "soft", 3)
+controles = Col([Slider($valor, ${passo}, ${num(maxValor)}, ${passo}, "Valor financiado", "R$"), Slider($taxa, 1, 40, 0.1, "Juros ao ano", "%"), Slider($prazo, 6, ${maxMeses}, 6, "Prazo", "meses")], 2)
+prazos = Table(["Prazo", "Parcela", "Juros no total"], [[menos + " meses", ${reais("@Payment($valor, mensal, menos)")}, ${reais("@Payment($valor, mensal, menos) * menos - $valor")}], [$prazo + " meses (atual)", ${reais("parcela")}, ${reais("juros")}], [mais + " meses", ${reais("@Payment($valor, mensal, mais)")}, ${reais("@Payment($valor, mensal, mais) * mais - $valor")}]])
+economia = Callout("Encurtar o prazo para " + menos + " meses economiza " + ${reais("juros - (@Payment($valor, mensal, menos) * menos - $valor)")} + " de juros, com parcela de " + ${reais("@Payment($valor, mensal, menos)")} + ".", "dica", null, "Vale a conta")`;
 }
 
 export function programaConta(n: { total: number; pessoas: number; servico: number }): string {
-  return `root = Col([Title("Dividir a conta", "lg"), resumo, Grid([Input($total, "Total da conta (R$)", "number"), Input($pessoas, "Pessoas", "number")], 2, 140, 3), Slider($servico, 0, 20, 1, "Serviço", "%", [{value: 0, label: "Sem"}, {value: 10, label: "10%"}, {value: 20, label: "20%"}])])
+  return `root = Col([hero, resumo, gente, Grid([Input($total, "Total da conta (R$)", "number"), Input($pessoas, "Pessoas", "number")], 2, 140, 3), Slider($servico, 0, 20, 1, "Serviço", "%", [{value: 0, label: "Sem"}, {value: 10, label: "10%"}, {value: 20, label: "20%"}])])
 $total = ${num(n.total)}
 $pessoas = ${num(n.pessoas)}
 $servico = ${num(n.servico)}
 comServico = $total * (1 + $servico / 100)
-resumo = Grid([Card([Caption("Cada um"), Title(${reais("comServico / ($pessoas > 0 ? $pessoas : 1)")}, "xl")], "soft"), Card([Caption("Total com serviço"), Title(${reais("comServico")}, "xl")], "soft")], 2, 140, 3)`;
+cada = comServico / ($pessoas > 0 ? $pessoas : 1)
+hero = Hero("Dividir a conta", "Com " + $servico + "% de serviço, igual para todo mundo", "receipt")
+resumo = StatRow([Stat("Cada um", ${reais("cada")}, "users"), Stat("Total com serviço", ${reais("comServico")}, "receipt"), Stat("Só o serviço", ${reais("comServico - $total")}, "percent")])
+gente = AvatarRow(@Each(@Range(1, @Clamp($pessoas, 1, 12)), "i", Avatar("Pessoa " + i, ${reais("cada")})))`;
 }
 
 function programaPainel(d: Dados<"painel">): string {
   const fmt = d.moeda ? (e: string) => reais(e) : (e: string) => `@Format(${e}, "number", 0)`;
   const dados = `[${d.categorias.map((c) => `{nome: ${s(c.nome)}, valor: ${num(c.valor)}}`).join(", ")}]`;
-  const maior = [...d.categorias].sort((a, b) => b.valor - a.valor)[0];
-  return `root = Col([topo, resumo, grafico, tabela${d.nota ? ", nota" : ""}])
+  const ord = [...d.categorias].sort((a, b) => b.valor - a.valor);
+  const total = d.categorias.reduce((a, c) => a + c.valor, 0) || 1;
+  const maior = ord[0];
+  const parte = Math.round((maior.valor / total) * 100);
+  const top3 = Math.round((ord.slice(0, 3).reduce((a, c) => a + c.valor, 0) / total) * 100);
+  const sub = d.exemplo ? "Exemplo com números ilustrativos" : d.subtitulo || `${d.categorias.length} categorias`;
+  const insights = [
+    `Callout(${s(`${maior.nome} é a maior parte: ${parte}% do total.`)}, "insight", null, "Onde mais pesa")`,
+    ...(d.categorias.length > 3 ? [`Callout(${s(`As 3 maiores categorias somam ${top3}% do total.`)}, "dica")`] : []),
+    ...(d.nota ? [`Callout(${s(d.nota)}, "insight")`] : []),
+  ];
+  return `root = Col([hero, resumo, Card([Row([Caption("Distribuição"), Spacer(), SegmentedControl($tipo, [{value: "bar", label: "Barras"}, {value: "donut", label: "Rosca"}])], 2, "center"), grafico], "soft", 3), insights, Card([Caption("Detalhes"), tabela], "soft", 3)])
 $tipo = "bar"
 dados = ${dados}
-topo = Row([Col([Title(${s(d.titulo)}, "lg"), ${d.exemplo ? `Caption("Exemplo com números ilustrativos")` : d.subtitulo ? `Caption(${s(d.subtitulo)})` : `Caption(${s(d.categorias.length + " categorias")})`}], 1), Spacer(), SegmentedControl($tipo, [{value: "bar", label: "Barras"}, {value: "donut", label: "Rosca"}])], 3, null, null, true)
-resumo = Grid([Card([Caption("Total"), Title(${fmt("@Sum(dados.valor)")}, "xl")], "soft"), Card([Caption("Maior"), Title(${s(maior.nome)}, "xl")], "soft"), Card([Caption("Média"), Title(${fmt("@Avg(dados.valor)")}, "xl")], "soft")], 3, 130, 3)
-grafico = Chart($tipo, dados, "nome", ["valor"], ${d.moeda ? `"currency", "BRL"` : `"number"`})
-tabela = Table(["Categoria", "Valor", "Parte"], @Each(@Sort(dados, "valor", "desc"), "c", [c.nome, ${fmt("c.valor")}, @Round(@Percent(c.valor, @Sum(dados.valor))) + "%"]))${d.nota ? `\nnota = Caption(${s(d.nota)})` : ""}`;
+hero = Hero(${s(d.titulo)}, ${s(sub)}, "chart-pie")
+resumo = StatRow([Stat("Total", ${fmt("@Sum(dados.valor)")}, "wallet"), Stat("Maior", ${s(maior.nome)}, "trending-up", null, null, "warning"), Stat("Média", ${fmt("@Avg(dados.valor)")}, "equal")])
+grafico = Chart($tipo, @Sort(dados, "valor", "desc"), "nome", ["valor"], ${d.moeda ? `"currency", "BRL"` : `"number"`})
+insights = Col([${insights.join(", ")}], 2)
+tabela = Table(["Categoria", "Valor", "Parte"], @Each(@Sort(dados, "valor", "desc"), "c", [c.nome, ${fmt("c.valor")}, @Round(@Percent(c.valor, @Sum(dados.valor))) + "%"]))`;
 }
 
 function programaComparacao(d: Dados<"comparacao">): string {
-  const n = d.itens.length;
   const linhas = d.criterios.map((c) => `[${[s(c.nome), ...d.itens.map((_, i) => s(c.valores[i] ?? "—"))].join(", ")}]`);
-  const cores = ["success", "info", "purple", "warning"];
-  if (d.destaques?.length) linhas.push(`["Destaque", ${d.itens.map((_, i) => d.destaques?.[i] ? `Badge(${s(d.destaques[i])}, "${cores[i % 4]}")` : `""`).join(", ")}]`);
-  return `root = Col([Title(${s(d.titulo)}, "lg"), tabela, veredito])
+  // O vencedor: o item que o veredito cita primeiro (ele diz qual escolher); sem citação, nenhum.
+  const v = norm(d.veredito);
+  const citado = d.itens.map((it, i) => ({ i, pos: v.indexOf(norm(it)) })).filter((x) => x.pos >= 0).sort((a, b) => a.pos - b.pos)[0];
+  const cartoes = d.itens.map((it, i) => `ImageCard(${s(it)}, ${s(it)}${d.destaques?.[i] ? `, null, ${s(d.destaques[i])}` : ""})`);
+  return `root = Col([hero, Versus([${cartoes.join(", ")}]${citado ? `, ${citado.i}` : ""}), Card([Caption("Lado a lado"), tabela], "soft", 3), veredito])
+hero = Hero(${s(d.titulo)}, ${s(`${d.itens.length} opções · ${d.criterios.length} critérios`)}, "target")
 tabela = Table([${["\"\"", ...d.itens.map(s)].join(", ")}], [${linhas.join(", ")}])
-veredito = Card([Row([Icon("lightbulb", "sm"), Text(${s(d.veredito)}, "sm")], 2)], "soft", 3)${n > 3 ? "" : ""}`;
+veredito = Callout(${s(d.veredito)}, "sucesso", "trophy", "Veredito")`;
 }
 
 function programaFlashcards(d: Dados<"flashcards">): string {
   const cartoes = d.cartoes.map((c, i) => `c${i} = Flashcard(${s(c.frente)}, ${s(c.verso)}${c.dica ? `, ${s(c.dica)}` : ""})`);
-  return `root = Col([Title(${s(d.tema)}, "lg"), Caption("${d.cartoes.length} cartões · toque para virar, arraste para o próximo"), Carousel([${d.cartoes.map((_, i) => `c${i}`).join(", ")}], 260)])
+  return `root = Col([hero, Carousel([${d.cartoes.map((_, i) => `c${i}`).join(", ")}], 270), Callout("Toque no cartão para ver a resposta; arraste para o próximo. Errou? Volte nele no fim.", "dica")])
+hero = Hero(${s(d.tema)}, ${s(`${d.cartoes.length} cartões para revisar`)}, "brain")
 ${cartoes.join("\n")}`;
 }
 
 function programaQuiz(d: Dados<"quiz">): string {
   const ps = d.perguntas.map((p) => ({ ...p, certa: Math.min(p.certa, p.opcoes.length - 1) }));
-  const blocos = ps.map((p, i) => {
-    const certa = s(p.opcoes[p.certa]);
-    const fb = `$r${i} == "" ? "" : ($r${i} == ${certa} ? ${s("Certo! " + p.explicacao)} : ${s("Resposta: " + p.opcoes[p.certa] + ". " + p.explicacao)})`;
-    return `q${i} = Card([Title(${s(`${i + 1}. ${p.pergunta}`)}, "sm"), RadioGroup($r${i}, [${p.opcoes.map(s).join(", ")}]), Text(${fb}, "sm", $r${i} == ${certa} ? "success" : "muted")], null, 3, 2)
-$r${i} = ""`;
-  });
+  const n = ps.length;
+  const blocos = ps.map((p, i) => `q${i} = QuizCard($r${i}, ${s(`${i + 1}. ${p.pergunta}`)}, [${p.opcoes.map(s).join(", ")}], ${p.certa}${p.explicacao ? `, ${s(p.explicacao)}` : ""})
+$r${i} = ""`);
   const pontos = ps.map((p, i) => `($r${i} == ${s(p.opcoes[p.certa])} ? 1 : 0)`).join(" + ");
   const feitas = ps.map((_, i) => `($r${i} != "" ? 1 : 0)`).join(" + ");
-  return `root = Col([Title(${s(d.tema)}, "lg"), placar, ${ps.map((_, i) => `q${i}`).join(", ")}, Celebration(pontos == ${ps.length})])
+  return `root = Col([hero, Progress(feitas, ${n}, "Respondidas"), ${ps.map((_, i) => `q${i}`).join(", ")}, final, Celebration(pontos == ${n})])
 pontos = ${pontos}
 feitas = ${feitas}
-placar = Card([Row([Text("Acertos · " + feitas + " de " + ${ps.length} + " respondidas", "sm", "muted"), Spacer(), Title(pontos + " de " + ${ps.length}, "lg")])], "soft", 3)
+hero = Hero(${s(d.tema)}, ${s(`${n} perguntas · toque numa opção para responder`)}, "graduation-cap")
+final = Card([Row([Ring(pontos, ${n}, "acertos", pontos + "/" + ${n}, pontos == ${n} ? "success" : null), Col([Title(feitas < ${n} ? "Continue!" : (pontos == ${n} ? "Gabaritou!" : (pontos >= ${Math.ceil(n * 0.7)} ? "Mandou bem!" : "Bora revisar?")), "md"), Text(feitas < ${n} ? "Faltam " + (${n} - feitas) + " perguntas." : "Você acertou " + pontos + " de " + ${n} + ".", "sm", "muted")], 1)], 4, "center")], "soft", 3)
 ${blocos.join("\n")}`;
 }
 
@@ -260,13 +288,15 @@ function programaChecklist(d: Dados<"checklist">): string {
   let k = 0;
   const vars: string[] = [];
   const grupos = d.grupos.map((g, gi) => {
+    const ini = k;
     const itens = g.itens.map((it) => { const v = `$c${k++}`; vars.push(`${v} = false`); return `Checkbox(${v}, ${s(it)}, true)`; });
-    return `g${gi} = Card([${g.nome ? `Title(${s(g.nome)}, "sm"), ` : ""}${itens.join(", ")}], null, 3, 2)`;
+    const feitosG = Array.from({ length: k - ini }, (_, j) => `($c${ini + j} ? 1 : 0)`).join(" + ");
+    return `g${gi} = Card([${g.nome ? `Title(${s(g.nome)}, "sm"), ` : ""}Progress(${feitosG}, ${k - ini}), ${itens.join(", ")}], null, 3, 2)`;
   });
   const total = k, marcados = Array.from({ length: k }, (_, i) => `($c${i} ? 1 : 0)`).join(" + ");
-  return `root = Col([Title(${s(d.titulo)}, "lg"), progresso, ${d.grupos.map((_, i) => `g${i}`).join(", ")}, Celebration(feitos == ${total})])
+  return `root = Col([topo, ${d.grupos.map((_, i) => `g${i}`).join(", ")}, Celebration(feitos == ${total})])
 feitos = ${marcados}
-progresso = Card([Row([Text("Feito", "sm", "muted"), Spacer(), Title(feitos + " de " + ${total}, "lg")])], "soft", 3)
+topo = Row([Col([Hero(${s(d.titulo)}, ${s(`${total} itens em ${d.grupos.length} grupo${d.grupos.length > 1 ? "s" : ""}`)}, "list-checks")], 1), Ring(feitos, ${total}, "feito", feitos + "/" + ${total}, feitos == ${total} ? "success" : null)], 3, "center")
 ${grupos.join("\n")}
 ${vars.join("\n")}`;
 }
@@ -277,17 +307,19 @@ function programaRoteiro(d: Dados<"roteiro">): string {
     const q = p.foto || p.lugar;
     return d.cidade && !norm(q).includes(norm(d.cidade)) ? `${q} ${d.cidade}` : q;
   };
-  const fotos = d.paradas.map((p) => `Col([SearchImage(${s(busca(p))}, 1.4, "lg"), Text(${s(p.lugar)}, "sm", null, "semibold"), Caption(${s(p.hora || " ")})], 1)`);
-  const itens = d.paradas.map((p) => `ListItem(${s(p.lugar)}, ${s(p.descricao)}, ${s(p.hora || "•")})`);
-  return `root = Col([Title(${s(d.titulo)}, "lg")${d.resumo ? `, Caption(${s(d.resumo)})` : ""}, fotos, linha${d.dicas.length ? ", dicas" : ""}])
-fotos = Carousel([${fotos.join(", ")}], 210)
-linha = List([${itens.join(", ")}], "none", true)${d.dicas.length ? `\ndicas = Card([Title("Dicas", "sm"), List([${d.dicas.map(s).join(", ")}])], "soft", 3)` : ""}`;
+  const p0 = d.paradas[0];
+  const itens = d.paradas.map((p, i) => `TimelineItem(${s(p.lugar)}, ${s(p.descricao)}, ${s(p.hora || "")}, null${i === 0 ? "" : `, ${s(busca(p))}`})`);
+  return `root = Col([capa, hero, linha${d.dicas.length ? ", dicas" : ""}])
+capa = ImageCard(${s(busca(p0))}, ${s(p0.lugar)}, ${s(p0.descricao)}, ${s(p0.hora ? `Começa às ${p0.hora}` : "Primeira parada")})
+hero = Hero(${s(d.titulo)}, ${s(d.resumo || `${d.paradas.length} paradas${d.cidade ? ` em ${d.cidade}` : ""}`)}, "map-pin")
+linha = Timeline([${itens.join(", ")}])${d.dicas.length ? `\ndicas = Col([${d.dicas.map((t) => `Callout(${s(t)}, "dica")`).join(", ")}], 2)` : ""}`;
 }
 
 function programaCronograma(d: Dados<"cronograma">): string {
-  const dias = d.dias.map((dia, i) => `d${i} = Card([Title(${s(dia.dia)}, "sm"), List([${dia.itens.map((it) => `ListItem(${s(it.tarefa)}, null, ${s(it.hora || "•")})`).join(", ")}], "none")], null, 3, 2)`);
-  return `root = Col([Title(${s(d.titulo)}, "lg")${d.nota ? `, Caption(${s(d.nota)})` : ""}, Carousel([${d.dias.map((_, i) => `d${i}`).join(", ")}], 250)])
-${dias.join("\n")}`;
+  const dias = `[${d.dias.map((dia) => `{dia: ${s(dia.dia)}, itens: [${dia.itens.map((it) => `{hora: ${s(it.hora || "")}, tarefa: ${s(it.tarefa)}}`).join(", ")}]}`).join(", ")}]`;
+  const tarefas = d.dias.reduce((a, x) => a + x.itens.length, 0);
+  return `root = Col([hero, StatRow([Stat("Dias", ${s(String(d.dias.length))}, "calendar-days"), Stat("Tarefas", ${s(String(tarefas))}, "list-checks")]), WeekGrid(${dias})${d.nota ? `, Callout(${s(d.nota)}, "dica")` : ""}])
+hero = Hero(${s(d.titulo)}, ${s(`${tarefas} tarefas em ${d.dias.length} dia${d.dias.length > 1 ? "s" : ""}`)}, "calendar-days")`;
 }
 
 /** Os dados validados viram o programa. Pura. */

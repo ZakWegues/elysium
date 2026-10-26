@@ -3,7 +3,7 @@ import { actions } from "./actions";
 import { functions } from "./functions";
 import "./components/theme.css";
 import "./components/components.css";
-import "./components/map/map.css";
+import "./components/ely-componentes.css";
 import { Chart } from "./components/chart";
 import { Carousel, Celebration, Code, Flashcard, MathBlock, Popover, Quote, YouTube } from "./components/extra";
 import {
@@ -22,7 +22,9 @@ import {
 } from "./components/controls";
 import { HtmlView } from "./components/html-view";
 import { Box, Card, Col, Divider, Form, Grid, Row, Spacer } from "./components/layout";
-import { MapMarker, MapView } from "./components/map/map";
+// 26/10: o mapa de rua saiu do pacote; Map/MapMarker seguem com o mesmo nome, desenhados como trilha.
+import { MapMarker, MapView } from "./components/map/mapa-leve";
+import { elyComponents } from "./components/ely";
 import { Icon, Image, SearchImage } from "./components/media";
 import { svgComponents } from "./components/svg";
 import { Table } from "./components/table";
@@ -43,6 +45,7 @@ export const library = createLibrary({
     SearchImage, Image, Icon, Table, Chart, MapView, MapMarker, YouTube,
     Flashcard, Celebration,
     ...svgComponents, HtmlView,
+    ...elyComponents,
   ],
   functions,
   actions,
@@ -66,6 +69,13 @@ export const library = createLibrary({
     },
     { name: "Media and data", components: ["SearchImage", "Image", "Icon", "Table", "Chart", "Map", "MapMarker", "YouTube"] },
     { name: "Play", components: ["Flashcard", "Celebration"] },
+    {
+      name: "Ely",
+      components: ["Hero", "Stat", "StatRow", "Ring", "Progress", "Timeline", "TimelineItem", "ImageCard", "Callout", "ScoreBar", "Versus", "Avatar", "AvatarRow", "Empty", "WeekGrid", "QuizCard"],
+      notes: [
+        "- Rich building blocks: start a screen with Hero; metrics in StatRow of Stat; insights in Callout; places, times and steps in Timeline; progress in Ring or Progress; choices side by side in Versus.",
+      ],
+    },
     { name: "Drawing", components: ["Svg", "G", "Circle", "Ellipse", "Rect", "Line", "Path", "Polyline", "Polygon", "SvgText", "HtmlView"] },
   ],
 });
