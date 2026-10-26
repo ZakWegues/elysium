@@ -43,8 +43,8 @@ export function prosodiaDa(voz: string, noite = ehNoite()): ProsodyOptions {
 /**
  * Vozes que mudaram de nome ou não existem no serviço gratuito do Edge (fase 19): a
  * "pt-BR-ThalitaNeural" hoje é "ThalitaMultilingualNeural", e a Macerio é só do Azure pago.
- * Com o nome errado a síntese falha e cai calada no SAPI do Windows — a voz robótica que
- * parece "bug da Ely". Pura.
+ * Com o nome errado a síntese falha (antes caía no SAPI robótico; desde 25/10 a Ely fica só
+ * no texto). Pura.
  */
 export function vozEfetiva(voz: string | undefined): string {
   const v = voz?.trim() || VOICE;
@@ -269,45 +269,8 @@ export async function synthesize(text: string, humor?: Humor): Promise<void> {
 
     const globalTimer = setTimeout(() => { if (!settled) _cancelFn?.(); }, TTS_TIMEOUT_MS);
 
-    // ── Fallback: síntese 100% offline via SAPI do Windows (System.Speech).
-    // Usado quando o msedge-tts falha (rede, token expirado, etc) — nunca
-    // deixa o app completamente mudo.
-    function speakOffline() {
-      if (settled) return;
-      // O texto vai em $env:NX_TEXTO (bloco 198): a fala vem do modelo e do /api/tts, e o
-      // escape antigo (`''`) deixava as aspas curvas ‘ ’ fecharem a string.
-      const psScript = [
-        "Add-Type -AssemblyName System.Speech",
-        "$s = New-Object System.Speech.Synthesis.SpeechSynthesizer",
-        "try {",
-        "  $voices = $s.GetInstalledVoices() | Where-Object { $_.VoiceInfo.Culture.Name -like 'pt*' }",
-        "  $v = ($voices | Where-Object { $_.VoiceInfo.Gender -eq 'Female' } | Select-Object -First 1)",
-        "  if (-not $v) { $v = $voices | Select-Object -First 1 }",
-        "  if ($v) { $s.SelectVoice($v.VoiceInfo.Name) }",
-        "} catch {}",
-        "$s.Speak($env:NX_TEXTO)",
-      ].join("\n");
-      ps = spawnPs(psScript, { NX_TEXTO: clean });
-      // Voz offline: sem metadado nem MP3 — a duração sai do texto (~65 ms por letra).
-      const durOffline = clean.length * 65;
-      avisarAudio({ texto: clean, durMs: durOffline, palavras: palavrasPeloTexto(clean, durOffline) });
-
-      let stderr = "";
-      ps.stderr?.on("data", (d: Buffer) => { stderr += d.toString(); });
-      ps.on("close", (code) => {
-        if (code !== 0) console.error(`[TTS] fallback SAPI saiu com código ${code}: ${stderr.trim()}`);
-        finish();
-      });
-      ps.on("error", (err) => {
-        console.error("[TTS] falha ao spawnar powershell (fallback SAPI):", err);
-        finish();
-      });
-    }
-
     (async () => {
       try {
-        if (!_tts) _tts = new MsEdgeTTS();
-
         // 🔴 msedge-tts 1.3.4 dava "Connect Error" em toda chamada nesta máquina (pendência
         // 9 da §15) e a voz vivia no fallback SAPI, robótica. O endpoint do Edge mudou o
         // handshake; a 2.x acompanha. Na 2.x o `toStream` devolve { audioStream,
@@ -321,30 +284,39 @@ export async function synthesize(text: string, humor?: Humor): Promise<void> {
         // O `{}` é obrigatório: a 2.0.7 declara o terceiro parâmetro como opcional e lê
         // `metadataOptions.voiceLocale` sem conferir a partir da SEGUNDA chamada na mesma
         // instância — a primeira fala saía neural e todas as seguintes caíam no SAPI.
-        let mp3: Buffer;
-        if (jaPronto) mp3 = jaPronto;
-        else {
-          await _tts.setMetadata(voz, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3, { wordBoundaryEnabled: true });
-          const { audioStream, metadataStream } = _tts.toStream(clean, prosodia);
-          const lerPalavras = coletarPalavras(metadataStream);
+        let mp3: Buffer = jaPronto ?? Buffer.alloc(0);
+        // 25/10: o Zak não quer mais a voz do SAPI ("travada e sem sentimento"). Falhou a
+        // neural: até 3 tentativas, cada uma numa conexão nova; esgotou, a Ely fica calada
+        // (o texto continua na tela) em vez de falar robótica.
+        for (let tentativa = 1; !jaPronto && !mp3.length && tentativa <= 3 && !settled; tentativa++) {
+          try {
+            if (!_tts) _tts = new MsEdgeTTS();
+            await _tts.setMetadata(voz, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3, { wordBoundaryEnabled: true });
+            const { audioStream, metadataStream } = _tts.toStream(clean, prosodia);
+            const lerPalavras = coletarPalavras(metadataStream);
 
-          const chunks: Buffer[] = [];
-          audioStream.on("data", (c: Buffer) => { if (!settled) chunks.push(c); });
+            const chunks: Buffer[] = [];
+            audioStream.on("data", (c: Buffer) => { if (!settled) chunks.push(c); });
 
-          await new Promise<void>((res, rej) => {
-            audioStream.on("end", res);
-            audioStream.on("error", rej);
-          });
-          mp3 = Buffer.concat(chunks);
-          palavras = lerPalavras();
-          guardarPalavras(chave, palavras);
+            await new Promise<void>((res, rej) => {
+              audioStream.on("end", res);
+              audioStream.on("error", rej);
+            });
+            mp3 = Buffer.concat(chunks);
+            palavras = lerPalavras();
+            guardarPalavras(chave, palavras);
+            if (!mp3.length) throw new Error("stream neural retornou 0 bytes");
+          } catch (err) {
+            _tts = null;
+            console.error(`[TTS] falha na síntese neural (tentativa ${tentativa}/3):`, err);
+          }
         }
 
         if (settled) return;
 
         if (!mp3.length) {
-          console.error("[TTS] stream neural retornou 0 bytes — usando fallback offline");
-          speakOffline();
+          console.error("[TTS] síntese neural indisponível — fala só em texto desta vez");
+          finish();
           return;
         }
 
@@ -384,22 +356,20 @@ export async function synthesize(text: string, humor?: Humor): Promise<void> {
         ps.stderr?.on("data", (d: Buffer) => { stderr += d.toString(); });
         ps.on("close", (code) => {
           if (code !== 0) {
-            console.error(`[TTS] powershell (playback neural) saiu com código ${code}: ${stderr.trim()} — usando fallback offline`);
+            console.error(`[TTS] powershell (playback neural) saiu com código ${code}: ${stderr.trim()}`);
             fs.unlink(tmpFile, () => {});
-            speakOffline();
-            return;
           }
           finish();
         });
         ps.on("error", (err) => {
-          console.error("[TTS] falha ao spawnar powershell (playback neural) — usando fallback offline:", err);
+          console.error("[TTS] falha ao spawnar powershell (playback neural):", err);
           fs.unlink(tmpFile, () => {});
-          speakOffline();
+          finish();
         });
       } catch (err) {
-        console.error("[TTS] falha na síntese neural (msedge-tts) — usando fallback offline:", err);
+        console.error("[TTS] falha ao tocar a fala neural:", err);
         _tts = null; // reset so next call opens a fresh connection
-        speakOffline();
+        finish();
       }
     })();
   });
