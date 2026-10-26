@@ -4,12 +4,14 @@ import { library } from "../src/lib/library";
 import { exampleDashboard, exampleShoppingList, exampleSteps, exampleTrip } from "../src/lib/prompt-options";
 import { compositionPrograms } from "../galeria/composition-programs";
 import { programasPt } from "../galeria/programas-pt";
+import { telasProntas } from "../galeria/telas-prontas";
 import { programs } from "../galeria/programs";
 import { toolPrograms } from "../galeria/tool-programs";
 
 const parser = createParser(library.toJSONSchema());
 
 const todos = [
+  ...telasProntas,
   ...programasPt,
   ...toolPrograms,
   { id: "example-list", code: exampleShoppingList },

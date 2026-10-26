@@ -252,7 +252,7 @@ $r${i} = ""`;
   return `root = Col([Title(${s(d.tema)}, "lg"), placar, ${ps.map((_, i) => `q${i}`).join(", ")}, Celebration(pontos == ${ps.length})])
 pontos = ${pontos}
 feitas = ${feitas}
-placar = Card([Row([Text("Acertos", "sm", "muted"), Spacer(), Title(pontos + " de " + ${ps.length}, "lg")])], "soft", 3)
+placar = Card([Row([Text("Acertos · " + feitas + " de " + ${ps.length} + " respondidas", "sm", "muted"), Spacer(), Title(pontos + " de " + ${ps.length}, "lg")])], "soft", 3)
 ${blocos.join("\n")}`;
 }
 

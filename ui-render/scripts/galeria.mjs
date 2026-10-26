@@ -9,13 +9,14 @@ import path from "node:path";
 const raiz = path.resolve(path.dirname(new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1")), "..");
 const r = await build({
   stdin: {
-    contents: `export { programs } from "./programs"; export { compositionPrograms } from "./composition-programs"; export { toolPrograms } from "./tool-programs"; export { programasPt } from "./programas-pt";`,
+    contents: `export { programs } from "./programs"; export { compositionPrograms } from "./composition-programs"; export { toolPrograms } from "./tool-programs"; export { programasPt } from "./programas-pt"; export { telasProntas } from "./telas-prontas";`,
     resolveDir: path.join(raiz, "galeria"), loader: "ts",
   },
   bundle: true, format: "esm", platform: "node", write: false, logLevel: "error",
 });
 const mod = await import(`data:text/javascript;base64,${Buffer.from(r.outputFiles[0].text).toString("base64")}`);
 const secoes = [
+  ["Telas prontas (ELYSIUM)", mod.telasProntas],
   ["Em português (ELYSIUM)", mod.programasPt],
   ["Galeria original", mod.programs],
   ["Composições", mod.compositionPrograms],
