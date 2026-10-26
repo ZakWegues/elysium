@@ -309,6 +309,8 @@ export async function synthesize(text: string, humor?: Humor): Promise<void> {
           } catch (err) {
             _tts = null;
             console.error(`[TTS] falha na síntese neural (tentativa ${tentativa}/3):`, err);
+            // 26/10: as falhas vêm em rajadas curtas do serviço; esperar um pouco atravessa a maioria.
+            if (tentativa < 3) await new Promise((r) => setTimeout(r, tentativa * 900));
           }
         }
 
