@@ -54,6 +54,61 @@ export async function modelosGemini(chave: string, busca: Busca = fetch): Promis
   }
 }
 
+/**
+ * 26/10: o Flash mais novo nem sempre é o melhor — o gemini-3.8-flash estava sobrecarregado (503
+ * "high demand", 109 s sem resposta). Mede os candidatos com um pedido mínimo, em paralelo, e
+ * guarda a ordem por 30 min: quem responde mais rápido vai na frente; quem falhou, para o fim.
+ */
+let velocidade: { em: number; chave: string; ms: Map<string, number | null> } | null = null;
+const VALIDADE_VELOCIDADE_MS = 30 * 60_000;
+
+export async function medirModelosGemini(chave: string, busca: Busca = fetch): Promise<Map<string, number | null>> {
+  if (velocidade && velocidade.chave === chave && Date.now() - velocidade.em < VALIDADE_VELOCIDADE_MS) return velocidade.ms;
+  const { flash, lite } = await modelosGemini(chave, busca);
+  const candidatos = [...flash.slice(0, 3), ...lite.slice(0, 2)];
+  const medidas = await Promise.all(candidatos.map(async (modelo) => {
+    const t0 = Date.now();
+    try {
+      const r = await busca(`${BASE}/models/${modelo}:generateContent`, {
+        method: "POST",
+        headers: { "x-goog-api-key": chave, "Content-Type": "application/json" },
+        body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: "Responda só: ok" }] }], generationConfig: { maxOutputTokens: 16 } }),
+        signal: AbortSignal.timeout(12_000),
+      });
+      return [modelo, r.ok ? Date.now() - t0 : null] as const;
+    } catch { return [modelo, null] as const; }
+  }));
+  const ms = new Map<string, number | null>(medidas);
+  velocidade = { em: Date.now(), chave, ms };
+  console.log("[gemini] latência:", medidas.map(([m, t]) => `${m} ${t === null ? "falhou" : t + " ms"}`).join(", "));
+  return ms;
+}
+
+/** Ordena pela velocidade medida (sem medida = mantém a posição; falhou = fim). Pura. */
+export function ordenarPorVelocidade(modelos: string[], ms: Map<string, number | null> | undefined): string[] {
+  if (!ms) return modelos;
+  const peso = (m: string, i: number) => { const t = ms.get(m); return t === undefined ? 50_000 + i : t === null ? 100_000 + i : t; };
+  return modelos.map((m, i) => ({ m, p: peso(m, i) })).sort((a, b) => a.p - b.p).map((x) => x.m);
+}
+
+/**
+ * O modelo do Hermes: o Flash-Lite mais rápido que respondeu; nenhum Lite → o Flash mais rápido.
+ * Medido em 26/10: no Lite cada chamada do Hermes leva 1–3 s (chat 2–5 s, pesquisa ~7 s); no
+ * Flash, 3–32 s, e o 3.7/3.8 nem respondiam. As respostas do Lite saíram certas.
+ */
+export async function modeloDoHermes(chave: string, busca: Busca = fetch): Promise<string> {
+  const { flash, lite } = await modelosGemini(chave, busca);
+  const ms = await medirModelosGemini(chave, busca);
+  const ok = (m: string) => typeof ms.get(m) === "number";
+  return ordenarPorVelocidade(lite, ms).find(ok) ?? ordenarPorVelocidade(flash, ms).find(ok) ?? lite[0];
+}
+
+/** A ordem de tentativa: a preferência, com quem falhou na medição por último. Pura. */
+export function ordemDeTentativa(preferencia: string[], ms: Map<string, number | null> | undefined): string[] {
+  if (!ms) return preferencia;
+  return [...preferencia.filter((m) => ms.get(m) !== null), ...preferencia.filter((m) => ms.get(m) === null)];
+}
+
 export type Mensagem = { papel: "user" | "model"; texto: string };
 
 export type PedidoGemini = {
@@ -67,18 +122,40 @@ export type PedidoGemini = {
   /** Tarefa simples: começa pelo Flash-Lite. */
   leve?: boolean;
   sinal?: AbortSignal;
+  /** 26/10: pesquisa no Google antes de responder (grounding); as fontes voltam em `fontes`. */
+  buscar?: boolean;
 };
 
+export type FonteGemini = { titulo: string; url: string };
+
+/** As fontes do grounding: o título é o site (o endereço é o redirecionador do Google). Pura. */
+export function fontesDoGrounding(meta: { groundingChunks?: { web?: { uri?: string; title?: string } }[] } | undefined, maximo = 4): FonteGemini[] {
+  const fontes: FonteGemini[] = [];
+  const vistos = new Set<string>();
+  for (const c of meta?.groundingChunks ?? []) {
+    const url = c.web?.uri, titulo = (c.web?.title ?? "").trim();
+    if (!url || !/^https?:/.test(url)) continue;
+    const chave = titulo || url;
+    if (vistos.has(chave)) continue;
+    vistos.add(chave);
+    fontes.push({ titulo: titulo || "fonte", url });
+    if (fontes.length >= maximo) break;
+  }
+  return fontes;
+}
+
 /** Gera. `null` = sem chave ou nenhum modelo respondeu. */
-export async function gerarGemini(p: PedidoGemini, busca: Busca = fetch, chave = getGeminiKey()): Promise<{ texto: string; modelo: string } | null> {
+export async function gerarGemini(p: PedidoGemini, busca: Busca = fetch, chave = getGeminiKey()): Promise<{ texto: string; modelo: string; fontes: FonteGemini[] } | null> {
   if (!chave) return null;
   const { flash, lite } = await modelosGemini(chave, busca);
-  const ordem = (p.leve ? [...lite, ...flash] : [...flash, ...lite]).slice(0, 3);
+  const ms = velocidade?.chave === chave ? velocidade.ms : undefined;
+  const ordem = ordemDeTentativa(p.leve ? [...ordenarPorVelocidade(lite, ms), ...ordenarPorVelocidade(flash, ms)] : [...ordenarPorVelocidade(flash, ms), ...ordenarPorVelocidade(lite, ms)], ms).slice(0, 3);
   for (const modelo of ordem) {
     if (p.sinal?.aborted) return null;
     const corpo = {
       ...(p.sistema ? { systemInstruction: { parts: [{ text: p.sistema }] } } : {}),
       contents: p.mensagens.map((m) => ({ role: m.papel, parts: [{ text: m.texto }] })),
+      ...(p.buscar ? { tools: [{ google_search: {} }] } : {}),
       generationConfig: {
         temperature: p.temperatura ?? 0.3,
         maxOutputTokens: p.maxTokens ?? 8192,
@@ -99,11 +176,11 @@ export async function gerarGemini(p: PedidoGemini, busca: Busca = fetch, chave =
         console.warn(`[gemini] ${modelo} respondeu ${r.status}; tentando o próximo`);
         continue;
       }
-      const j = await r.json() as { candidates?: { content?: { parts?: { text?: string }[] }; finishReason?: string }[] };
+      const j = await r.json() as { candidates?: { content?: { parts?: { text?: string }[] }; finishReason?: string; groundingMetadata?: Parameters<typeof fontesDoGrounding>[0] }[] };
       const c = j.candidates?.[0];
       const texto = (c?.content?.parts ?? []).map((x) => x.text ?? "").join("").trim();
       if (!texto) { console.warn(`[gemini] ${modelo} sem texto (${c?.finishReason ?? "?"})`); continue; }
-      return { texto, modelo };
+      return { texto, modelo, fontes: fontesDoGrounding(c?.groundingMetadata) };
     } catch (e) {
       if (p.sinal?.aborted) return null;
       console.warn(`[gemini] ${modelo} falhou:`, e instanceof Error ? e.message : e);
@@ -115,4 +192,5 @@ export async function gerarGemini(p: PedidoGemini, busca: Busca = fetch, chave =
 /** Só para os testes. */
 export function zerarListaGemini(): void {
   lista = null;
+  velocidade = null;
 }

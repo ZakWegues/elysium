@@ -51,6 +51,8 @@ export const INSTRUCOES_MCP = [
   "Ferramentas do PC do dono (ELYSIUM). Prefira estas às suas para tudo que é do PC dele.",
   "Se uma ferramenta devolver uma pergunta de confirmação, repita-a ao dono exatamente e pare.",
   "Escolhas certas: 'fecha tudo menos X' = fechar_tudo_menos (nunca feche um por um); rotina que repete ('todo dia às 8…') = criar_rotina, não lembrete; apagar rotina = apagar_rotina, nunca pausar;",
+  // 26/10: a busca do ELYSIUM vai ao Google pelo Gemini (segundos); a web do Hermes depende do Nous.
+  "Pesquisa na internet (notícias, preços, placares, fatos recentes) = buscar_na_web, sempre antes das suas ferramentas de web; ela já traz as fontes.",
   "foco com pausas ('50 minutos com pausa de 10') = pomodoro; 'quero revisar isso depois: X' = guardar_cartao; 'terminei/fiz X' = concluir_tarefa; 'que nota preciso…' = nota_necessaria.",
 ].join(" ");
 

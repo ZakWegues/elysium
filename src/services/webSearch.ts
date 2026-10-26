@@ -1,4 +1,5 @@
-import { getApiKey, getConfig } from "../main/config";
+import { getApiKey, getConfig, getGeminiKey } from "../main/config";
+import { gerarGemini } from "./gemini";
 import { apiKeyError, networkError } from "./errors";
 import { canalAtual, Fonte, registrarFontes } from "./contextoComando";
 
@@ -68,6 +69,23 @@ export function limparCitacoes(texto: string): string {
 
 export async function searchWeb(query: string): Promise<string> {
   const canal = canalAtual();
+  // 26/10: com a chave do Gemini, a busca do Google pelo próprio Gemini (grounding): poucos
+  // segundos, contra 30–45 s da pesquisa pelo Hermes. Falhou → Hermes → Groq, como antes.
+  if (getGeminiKey()) {
+    const t0 = Date.now();
+    const data = new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+    const r = await gerarGemini({
+      sistema: `${canal === "texto" ? SEARCH_PROMPT_TEXTO : SEARCH_SYSTEM_PROMPT}\nHoje é ${data}. Pesquise antes de responder.`,
+      mensagens: [{ papel: "user", texto: query }],
+      buscar: true, temperatura: 0.3, maxTokens: 2048, prazoMs: 30_000,
+    }).catch(() => null);
+    if (r?.texto) {
+      console.log(`[busca] Gemini em ${Date.now() - t0} ms, ${r.fontes.length} fonte(s) (${r.modelo})`);
+      registrarFontes(r.fontes);
+      return canal === "voz" ? r.texto.replace(/\*\*/g, "") : r.texto;
+    }
+    console.warn("[busca] Gemini sem resposta; indo pelo Hermes/Groq");
+  }
   // Fase 23: com o Hermes como cérebro, ele pesquisa (busca + navegador dele, fontes de verdade).
   // Fora do ar, lento ou sem resposta → a busca de sempre, pela Groq.
   if (getConfig().cerebro !== "elysium") {

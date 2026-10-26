@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { getConfig, getGeminiKey, nomeDoUsuario, setOverride } from "../../main/config";
-import { modelosGemini } from "../gemini";
+import { modeloDoHermes } from "../gemini";
 import type { Canal } from "../estiloResposta";
 import { modoAtivo } from "../modos";
 import { buildMemoryBlock } from "../memoryStore";
@@ -89,7 +89,8 @@ async function ajustarModeloDoHermes(exe: string, p: string, chave: string): Pro
   const atual = await lerModeloDoPerfil(exe, p);
   const antes = getConfig().hermesModeloAntes ?? {};
   if (chave) {
-    const alvo = (await modelosGemini(chave)).flash[0];
+    // 26/10: o Flash-Lite mais rápido que responde agora (ver modeloDoHermes).
+    const alvo = await modeloDoHermes(chave);
     if (atual.provider !== "gemini") setOverride({ hermesModeloAntes: { ...antes, [p]: atual } });
     if (atual.provider !== "gemini" || atual.modelo !== alvo) {
       await gravarModeloDoPerfil(exe, p, "gemini", alvo);

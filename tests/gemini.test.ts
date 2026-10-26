@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../src/main/config", () => ({ getGeminiKey: () => "chave-de-teste" }));
-const { escolherModelos, gerarGemini, modelosGemini, zerarListaGemini } = await import("../src/services/gemini");
+const { escolherModelos, fontesDoGrounding, gerarGemini, modeloDoHermes, ordemDeTentativa, modelosGemini, ordenarPorVelocidade, zerarListaGemini } = await import("../src/services/gemini");
 
 type Chamada = { url: string; init?: RequestInit };
 function buscaFalsa(respostas: ((url: string) => { status: number; corpo: unknown })) {
@@ -48,7 +48,7 @@ describe("Gemini (24/10)", () => {
       return ok('{"a": 1}');
     });
     const r = await gerarGemini({ mensagens: [{ papel: "user", texto: "dados" }], sistema: "só JSON", esquema: { type: "object" } }, busca, "chave-de-teste");
-    expect(r).toEqual({ texto: '{"a": 1}', modelo: "gemini-2.5-flash" });
+    expect(r).toEqual({ texto: '{"a": 1}', modelo: "gemini-2.5-flash", fontes: [] });
     const corpo = JSON.parse(String(chamadas.at(-1)?.init?.body));
     expect(corpo.generationConfig.responseMimeType).toBe("application/json");
     expect(corpo.generationConfig.thinkingConfig).toEqual({ thinkingBudget: 0 });
@@ -62,5 +62,27 @@ describe("Gemini (24/10)", () => {
     expect(await gerarGemini({ mensagens: [{ papel: "user", texto: "x" }] }, busca, "")).toBeNull();
     const ruim = buscaFalsa((u) => (u.includes(":generateContent") ? { status: 500, corpo: {} } : { status: 200, corpo: LISTA }));
     expect(await gerarGemini({ mensagens: [{ papel: "user", texto: "x" }] }, ruim.busca, "chave-de-teste")).toBeNull();
+  });
+
+  it("busca: manda a ferramenta google_search e devolve as fontes do grounding sem repetir site", async () => {
+    const { busca, chamadas } = buscaFalsa((u) => (u.includes(":generateContent")
+      ? { status: 200, corpo: { candidates: [{ content: { parts: [{ text: "Canberra." }] }, groundingMetadata: { groundingChunks: [
+        { web: { uri: "https://vertexaisearch.cloud.google.com/r/1", title: "wikipedia.org" } },
+        { web: { uri: "https://vertexaisearch.cloud.google.com/r/2", title: "wikipedia.org" } },
+        { web: { uri: "https://vertexaisearch.cloud.google.com/r/3", title: "gov.au" } }] } }] } }
+      : { status: 200, corpo: LISTA }));
+    const r = await gerarGemini({ mensagens: [{ papel: "user", texto: "capital da Austrália" }], buscar: true }, busca, "chave-de-teste");
+    expect(JSON.parse(String(chamadas.at(-1)?.init?.body)).tools).toEqual([{ google_search: {} }]);
+    expect(r?.fontes.map((f) => f.titulo)).toEqual(["wikipedia.org", "gov.au"]);
+    expect(fontesDoGrounding(undefined)).toEqual([]);
+  });
+
+  it("velocidade: o Flash que respondeu mais rápido vai na frente; quem falhou vai para o fim", async () => {
+    expect(ordenarPorVelocidade(["a", "b", "c"], new Map([["a", null], ["b", 900], ["c", 300]]))).toEqual(["c", "b", "a"]);
+    expect(ordenarPorVelocidade(["a", "b"], undefined)).toEqual(["a", "b"]);
+    const { busca } = buscaFalsa((u) => (!u.includes(":generateContent") ? { status: 200, corpo: LISTA }
+      : u.includes("gemini-3-flash:") ? { status: 503, corpo: { error: { message: "high demand" } } } : ok("ok")));
+    expect(await modeloDoHermes("chave-de-teste", busca)).toBe("gemini-2.5-flash-lite");
+    expect(ordemDeTentativa(["a", "b", "c"], new Map([["a", null], ["b", null]]))).toEqual(["c", "a", "b"]);
   });
 });

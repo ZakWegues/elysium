@@ -49,7 +49,10 @@ export function geradorDeTelas(forcar?: Provedor, modelo?: string): Gerador | nu
         enviar: async (usuario) => {
           if (reserva) return reserva.enviar(usuario);
           mensagens.push({ papel: "user", texto: usuario });
-          const r = await gerarGemini({ sistema, mensagens, temperatura: 0.3, maxTokens: 8192 });
+          // 26/10: os dados de uma tela pronta (prompt curto, JSON pequeno) saem em 2–5 s; uma chamada
+          // presa 45 s (medido) vale mais como nova tentativa no próximo modelo. O gerador livre segue com 45 s.
+          const prazoMs = sistema.length < 6000 ? 15_000 : 45_000;
+          const r = await gerarGemini({ sistema, mensagens, temperatura: 0.3, maxTokens: 8192, prazoMs });
           if (r) { mensagens.push({ papel: "model", texto: r.texto }); return { texto: r.texto, provedor: "gemini", modelo: r.modelo }; }
           const hermes = getConfig().cerebro === "hermes" && hermesPronto() ? geradorDeTelas("hermes") : null;
           if (!hermes) return null;
