@@ -10,18 +10,24 @@
 // ─────────────────────────────────────────────────
 const bars = [0,1,2,3,4,5,6,7,8].map(i => document.getElementById("b" + i));
 
-(function animLoop() {
-  if (appState === "listening") {
-    const silent = (Date.now() - lastLevelTs) > 80;
-    if (silent) {
-      bars.forEach((bar, i) => {
-        currentH[i] = lerp(currentH[i], MIN_H, DECAY_SPEED);
-        bar.style.height = currentH[i].toFixed(1) + "px";
-      });
-    }
+// 25/10: o laço só existe enquanto ouve (antes rodava 60 vezes por segundo o tempo todo, à toa).
+let ondasRodando = false;
+function animLoop() {
+  if (appState !== "listening") { ondasRodando = false; return; }
+  const silent = (Date.now() - lastLevelTs) > 80;
+  if (silent) {
+    bars.forEach((bar, i) => {
+      currentH[i] = lerp(currentH[i], MIN_H, DECAY_SPEED);
+      bar.style.height = currentH[i].toFixed(1) + "px";
+    });
   }
   requestAnimationFrame(animLoop);
-})();
+}
+function ligarOndas() { if (!ondasRodando) { ondasRodando = true; requestAnimationFrame(animLoop); } }
+
+// Fundo decorativo parado com a janela sem foco (ver fundo.css).
+function acertarFundo() { document.body.classList.toggle("fundo-parado", !focoJanela); }
+window.nx.onFocoJanela?.((f) => { focoJanela = f; acertarFundo(); window.dispatchEvent(new Event("ely-estado")); });
 
 // ─────────────────────────────────────────────────
 // STATE MACHINE
@@ -75,6 +81,8 @@ function setState(s) {
   if (s === "listening" && anterior !== "listening") bipe(660, 990);
   else if (anterior === "listening" && s === "processing") bipe(880, 590);
   appState = s;
+  if (s === "listening") ligarOndas();
+  window.dispatchEvent(new Event("ely-estado"));
   statusBadge.className = s;
   // O fundo acelera enquanto o app está ouvindo, pensando ou falando.
   document.body.classList.toggle("vivo", s === "listening" || s === "processing" || s === "speaking");

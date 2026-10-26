@@ -61,6 +61,8 @@ contextBridge.exposeInMainWorld("nx", {
 
   // ── Telemetry ──────────────────────────────────────────────────────────────
   onTelemetry:     (cb: (t: unknown) => void)   => { ipcRenderer.on("dash:telemetry",     (_e, t) => cb(t)); },
+  // 25/10: foco real da janela (o document.hasFocus() não acompanha a janela aberta sem foco).
+  onFocoJanela:    (cb: (foco: boolean) => void) => { ipcRenderer.on("dash:foco", (_e, f) => cb(Boolean(f))); },
   onActionLog:     (cb: (l: unknown) => void)   => { ipcRenderer.on("dash:action-log",    (_e, l) => cb(l)); },
 
   // ── System ─────────────────────────────────────────────────────────────────

@@ -173,6 +173,7 @@
   }
 
   function visivel() {
+    // 25/10: sem foco e com a Ely parada, a esfera também para (volta no foco ou quando ela ouve/fala).
     return ligada && !document.hidden && centro.offsetParent !== null && !centro.classList.contains("modo-self");
   }
 
@@ -187,11 +188,15 @@
   }
   new ResizeObserver(() => acordar()).observe(centro);
   document.addEventListener("visibilitychange", acordar);
+  window.addEventListener("ely-estado", acordar);
 
+  // Congelada sem foco (25/10): ao voltar, continua de onde parou, sem nascer de novo.
+  let congelada = false;
   function acordar() {
     if (rodando) return;
     rodando = true;
-    pedirNascer = true;
+    if (!congelada) pedirNascer = true;
+    congelada = false;
     ultimo = performance.now();
     requestAnimationFrame(quadro);
   }
@@ -204,7 +209,9 @@
 
   function passo(agora) {
     lerConfig();
-    if (!visivel()) { rodando = false; ctx.clearRect(0, 0, canvas.width, canvas.height); return; }
+    if (!visivel()) { rodando = false; congelada = false; ctx.clearRect(0, 0, canvas.width, canvas.height); return; }
+    // 25/10: sem foco e com a Ely parada, congela no último quadro (volta no foco ou quando ela ouve/fala).
+    if (!focoJanela && appState === "idle") { rodando = false; congelada = true; return; }
     const dt = Math.min(0.05, (agora - ultimo) / 1000);
     ultimo = agora;
     const lento = movimentoReduzido();

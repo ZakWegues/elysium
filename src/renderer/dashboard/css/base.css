@@ -155,7 +155,10 @@ body.theme-ely {
 .ely-shaft {
   position: absolute; top: -30%; height: 160%; width: 42%;
   background: linear-gradient(180deg, transparent, var(--shaft, #d9b168), transparent);
-  opacity: 0.06; filter: blur(50px); transform: skewX(-14deg); will-change: transform;
+  /* 25/10: bordas laterais suaves pela máscara em vez de blur(50px) refeito a cada quadro. */
+  opacity: 0.06; transform: skewX(-14deg); will-change: transform;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 32%, #000 68%, transparent);
+          mask-image: linear-gradient(90deg, transparent, #000 32%, #000 68%, transparent);
 }
 .ely-shaft-1 { left: 6%;  animation: ely-shaft-1 24s ease-in-out infinite alternate, ely-pulsa 9s ease-in-out infinite; }
 .ely-shaft-2 { right: 2%; animation: ely-shaft-2 30s ease-in-out infinite alternate, ely-pulsa 12s ease-in-out infinite 3s; }

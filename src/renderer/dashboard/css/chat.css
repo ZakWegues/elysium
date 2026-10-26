@@ -189,7 +189,7 @@
   background: conic-gradient(from 0deg, var(--purple-bright) 0 28%, rgba(var(--purple-rgb), 0.18) 28% 100%);
   -webkit-mask: radial-gradient(circle, transparent 5.5px, #000 6px); mask: radial-gradient(circle, transparent 5.5px, #000 6px);
   animation: pv-gira 1.571s linear infinite; }
-#stop-zone.pensando .pv-anel { animation-duration: 0.9s; }
+#stop-zone.pensando .pv-anel { animation-duration: 0.9s; } #stop-zone:not(.visivel) .pv-anel { animation-play-state: paused; }
 @keyframes pv-gira { to { transform: rotate(360deg); } }
 /* Fechada, o corpo não ocupa nem altura nem largura: a pílula tem o tamanho da cabeça. */
 .pv-corpo { display: flex; align-items: center; gap: 10px; height: 0; max-width: 0; padding: 0 10px; overflow: hidden; opacity: 0;

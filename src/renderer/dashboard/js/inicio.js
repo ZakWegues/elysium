@@ -1402,6 +1402,8 @@ window.nx.onTelemetry?.((t) => {
 function notasLegiveis(md) {
   return escHtml(md)
     .replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>")
+    // 25/10: "## Novidades" / "## Para testar" das notas apareciam com o ## cru.
+    .replace(/^#{1,4} +(.+)$/gm, "<strong>$1</strong>")
     .replace(/^- /gm, "• ")
     .replace(/\n{3,}/g, "\n\n");
 }

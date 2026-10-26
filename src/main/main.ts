@@ -97,7 +97,7 @@ import {
   aoMudarAtualizacao, estadoAtualizacao, iniciarAtualizacoes, instalarAtualizacaoDesktop, verificarAtualizacoes,
   marcarNovidadesVistas, novidadesPendentes,
 } from "../services/atualizacao";
-import { startMonitor, getDashboardTelemetry, killProcess, cpuERam } from "../actions/systemInfo";
+import { startMonitor, getDashboardTelemetry, killProcess, cpuERam, type DashboardTelemetry } from "../actions/systemInfo";
 import type { BrainAction } from "../services/brain";
 import { mediaControl } from "../actions/mediaControl";
 import { logAnomaly, getAnomalyHistory, getInsights } from "../services/telemetryLog";
@@ -199,6 +199,7 @@ function openDashboard(): void {
 
   // Push telemetry immediately when renderer finishes loading (no 3 s wait)
   dashWin.webContents.once("did-finish-load", async () => {
+    enviarAoDash("dash:foco", !!dashWin && !dashWin.isDestroyed() && dashWin.isFocused());
     try {
       const t = await getDashboardTelemetry();
       enviarAoDash("dash:telemetry", t);
@@ -212,7 +213,7 @@ function openDashboard(): void {
   dashWin.on("closed", () => { dashWin = null; janelaMudou(); });
   // O celular mostra se o ELYSIUM está na tela, minimizado ou só na bandeja (08/10).
   for (const ev of ["show", "hide", "minimize", "restore", "focus", "blur"] as const) {
-    dashWin.on(ev as "show", () => janelaMudou());
+    dashWin.on(ev as "show", () => { janelaMudou(); enviarAoDash("dash:foco", !!dashWin && !dashWin.isDestroyed() && dashWin.isFocused()); });
   }
 }
 
@@ -320,6 +321,7 @@ function getActionsLabel(actions: BrainAction[]): string {
 
 // ── telemetry loop (every 3s) ─────────────────────────────────────────────────
 
+let _completo: { t: DashboardTelemetry; em: number } | null = null;
 let _cpuHighCount  = 0;
 let _prevCpuPct    = 0;
 let _cpuAltaTiques = 0;
@@ -332,11 +334,15 @@ function startTelemetryLoop(): void {
     try {
       // 24/10: o script completo (processos, discos, temperatura) é um PowerShell pesado; com o
       // dashboard escondido só CPU/RAM pelo Node, e o completo só quando algo passa de 85%.
+      // 25/10: com o dashboard aberto, o completo a cada 15 s (eram 20 PowerShells por minuto); nos
+      // tiques do meio, CPU/RAM frescos pelo Node sobre o último completo.
       const visivel = !!dashWin && !dashWin.isDestroyed() && dashWin.isVisible();
-      const leve = visivel ? null : cpuERam();
-      const t = leve && leve.cpu_pct < 85 && leve.ram_pct < 85
-        ? { ...leve, processes: [] as { name: string }[] }
-        : await getDashboardTelemetry();
+      const leve = cpuERam();
+      const alta = leve.cpu_pct >= 85 || leve.ram_pct >= 85;
+      let t: DashboardTelemetry | (typeof leve & { processes: { name: string }[] });
+      if (!visivel && !alta) t = { ...leve, processes: [] };
+      else if (_completo && Date.now() - _completo.em < 15_000) t = { ..._completo.t, ...leve, timestamp: Date.now() };
+      else { const c = await getDashboardTelemetry(); _completo = { t: c, em: Date.now() }; t = c; }
       const now = Date.now();
 
       // ── CPU sustained (≥95% for 2 consecutive ticks = ~6s) ──────────────

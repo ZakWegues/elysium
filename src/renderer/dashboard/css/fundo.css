@@ -21,7 +21,14 @@
   transition: transform 1.6s var(--mov-suave);
 }
 #bg-tracos, #bg-poeira { transform: translate(calc(var(--par-x, 0) * 26px), calc(var(--par-y, 0) * 18px)); }
-.lg-blob { position: absolute; border-radius: 50%; filter: blur(36px); will-change: transform, opacity; }
+/* 25/10: o desfoque vem pronto no gradiente (perfil gaussiano do antigo blur(36px), 72 px para cada
+   lado). Com filter: blur a GPU refazia o desfoque a cada quadro da animação. */
+.lg-blob { position: absolute; border-radius: 50%; will-change: transform, opacity; }
+.lg-blob::before { content: ""; position: absolute; inset: -72px; border-radius: 50%;
+  background: radial-gradient(circle closest-side, var(--cor) calc(100% - 144px),
+    color-mix(in srgb, var(--cor) 84%, transparent) calc(100% - 108px),
+    color-mix(in srgb, var(--cor) 50%, transparent) calc(100% - 72px),
+    color-mix(in srgb, var(--cor) 16%, transparent) calc(100% - 36px), transparent 100%); }
 .lg-blob::after { content: none; }
 @keyframes lg-respira-1 { 0%, 100% { opacity: 0.50; } 50% { opacity: 0.66; } }
 @keyframes lg-respira-2 { 0%, 100% { opacity: 0.55; } 50% { opacity: 0.38; } }
@@ -47,7 +54,10 @@ body.vivo .lg-blob-5 { animation-duration: 11s, 8s; }
 .theme-rich #bg-aurora { display: block; }
 .aurora {
   position: absolute; left: 50%; top: 50%; width: 140vmax; height: 140vmax; margin: -70vmax 0 0 -70vmax;
-  border-radius: 50%; opacity: 0.16; filter: blur(60px); will-change: transform;
+  /* 25/10: sem blur(60px) (refeito a cada quadro do giro); a máscara apaga o miolo do cônico, o
+     único ponto em que o desfoque fazia diferença. */
+  border-radius: 50%; opacity: 0.16; will-change: transform;
+  -webkit-mask-image: radial-gradient(circle, transparent 0, #000 18%); mask-image: radial-gradient(circle, transparent 0, #000 18%);
   background: conic-gradient(from 0deg, transparent 0deg, var(--blob-1, #cbb9ff) 60deg, transparent 120deg, var(--blob-2, #b8ecf3) 200deg, transparent 260deg, var(--blob-3, #ded7ff) 320deg, transparent 360deg);
   transition: opacity 1.2s var(--mov-suave);
 }
@@ -65,25 +75,25 @@ body.vivo .aurora-2 { animation-duration: 60s; }
    valores padrão abaixo são exatamente os do `lg` original. */
 .lg-blob-1 { /* quente/primário — canto superior direito */
   width: 620px; height: 620px; top: -230px; right: -170px;
-  background: var(--blob-1, #cbb9ff); opacity: 0.5;
+  --cor: var(--blob-1, #cbb9ff); opacity: 0.5;
 }
 .lg-blob-2 { /* frio/secundário — canto inferior esquerdo */
   width: 640px; height: 640px; bottom: -280px; left: -190px;
-  background: var(--blob-2, #b8ecf3); opacity: 0.55;
+  --cor: var(--blob-2, #b8ecf3); opacity: 0.55;
 }
 .lg-blob-3 { /* meio, só profundidade */
   width: 400px; height: 400px; top: 46%; left: 48%;
-  background: var(--blob-3, #ded7ff); opacity: 0.4;
+  --cor: var(--blob-3, #ded7ff); opacity: 0.4;
 }
 @keyframes lg-drift-1 { from { transform: translate(0,0) scale(1); } to { transform: translate(120px,80px) scale(1.14); } }
 @keyframes lg-drift-2 { from { transform: translate(0,0) scale(1); } to { transform: translate(-110px,-130px) scale(1.10); } }
 .lg-blob-4 { /* mancha pequena, alto a esquerda — quebra a simetria dos tres cantos */
   width: 300px; height: 300px; top: 8%; left: 14%;
-  background: var(--blob-2, #b8ecf3); opacity: 0.26;
+  --cor: var(--blob-2, #b8ecf3); opacity: 0.26;
 }
 .lg-blob-5 { /* mancha pequena, baixo a direita */
   width: 340px; height: 340px; bottom: 6%; right: 18%;
-  background: var(--blob-1, #cbb9ff); opacity: 0.22;
+  --cor: var(--blob-1, #cbb9ff); opacity: 0.22;
 }
 @keyframes lg-drift-3 { from { transform: translate(0,0) scale(1); } to { transform: translate(-90px,110px) scale(0.88); } }
 @keyframes lg-drift-4 { from { transform: translate(0,0) scale(1); } to { transform: translate(150px,-70px) scale(1.2); } }
@@ -115,7 +125,14 @@ body.vivo .aurora-2 { animation-duration: 60s; }
 #bg-poeira i {
   position: absolute; width: 2px; height: 2px; border-radius: 50%;
   background: var(--purple-bright); opacity: var(--a, 0.22);
-  filter: blur(0.4px); will-change: transform;
+  will-change: transform;
   animation: bg-poeira var(--d, 48s) ease-in-out infinite alternate;
 }
 @keyframes bg-poeira { from { transform: translate(0,0); } to { transform: translate(26px,-34px); } }
+
+/* 25/10: janela sem foco = fundo decorativo parado. Os blobs, a aurora e os feixes têm blur de
+   36–60 px em camadas enormes; animados, a GPU refaz o desfoque a cada quadro (medido: 60% de um
+   núcleo com o dashboard aberto, 11% parado). Com foco tudo anda como sempre. */
+body.fundo-parado .aurora, body.fundo-parado .lg-blob, body.fundo-parado .bg-traco,
+body.fundo-parado #bg-poeira i, body.fundo-parado .ely-shaft,
+body.fundo-parado #bg-tracos::after, body.fundo-parado .hoje-reator::before { animation-play-state: paused; }

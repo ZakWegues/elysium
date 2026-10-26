@@ -16,6 +16,8 @@ const CHART_LEN = 60;
 
 let currentH    = new Array(9).fill(MIN_H);
 let lastLevelTs = 0;
+// 25/10: a janela está em foco? Vem do processo principal (dash:foco); o fundo e a esfera param sem ele.
+let focoJanela = true;
 let voiceActive = false;
 let appState    = "idle";
 
