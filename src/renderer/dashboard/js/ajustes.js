@@ -26,6 +26,14 @@ let agendaAtual = null;
 //
 // `config.html` continua existindo como janela avulsa da bandeja.
 
+// 26/10: as vozes prontas do Gemini (a mesma lista de src/services/vozGemini.ts).
+const VOZES_GEMINI = [["Kore", "firme"], ["Aoede", "leve"], ["Leda", "jovem"], ["Sulafat", "calorosa"], ["Despina", "suave"],
+  ["Achernar", "macia"], ["Vindemiatrix", "gentil"], ["Zephyr", "luminosa"], ["Autonoe", "clara e viva"], ["Callirrhoe", "tranquila"],
+  ["Erinome", "clara"], ["Laomedeia", "animada"], ["Pulcherrima", "direta"], ["Gacrux", "madura"], ["Sadachbia", "alegre"],
+  ["Achird", "amigável"], ["Puck", "animado"], ["Charon", "informativo"], ["Fenrir", "empolgado"], ["Orus", "firme"],
+  ["Iapetus", "claro"], ["Umbriel", "tranquilo"], ["Algieba", "suave"], ["Enceladus", "sussurrado"], ["Algenib", "rouco"],
+  ["Rasalgethi", "informativo"], ["Alnilam", "firme"], ["Schedar", "equilibrado"], ["Zubenelgenubi", "descontraído"], ["Sadaltager", "sábio"]];
+
 const AJUSTES = [
   {
     grupo: "Cérebro",
@@ -71,13 +79,22 @@ const AJUSTES = [
   },
   {
     grupo: "Voz",
-    nota: "Vozes neurais do Edge, pela internet. Sem rede o ELYSIUM cai na voz do Windows.",
+    nota: "Com a chave do Gemini a Ely fala com a voz do Gemini, a mais natural, no tom do momento. Se ela falhar ou a cota do dia acabar, fala com a voz da Microsoft. Nunca com a voz robótica do Windows.",
     campos: [
-      { chave: "voice", rotulo: "Voz", tipo: "select", opcoes: [
+      // 26/10: a voz do Gemini (vozGemini.ts; a lista é a mesma de lá).
+      { chave: "vozProvedor", rotulo: "Quem dá a voz", tipo: "select", opcoes: [
+        ["gemini", "Gemini — a mais natural (com a sua chave)"], ["edge", "Microsoft — as vozes do Edge"]],
+        dica: "O Gemini fala com entonação de gente e muda o tom sozinho: mais calma e baixa à noite, mais rápida quando você está com pressa, acolhedora quando você parece cansado." },
+      { chave: "vozGemini", rotulo: "Voz do Gemini", tipo: "select", opcoes: VOZES_GEMINI.map(([n, j]) => [n, `${n} — ${j}`]),
+        dica: "Escolha e toque em “Ouvir” para ouvir como fica." },
+      { chave: "_amostra", rotulo: "Ouvir a voz", tipo: "acao", botao: "Ouvir", acao: "voz-amostra" },
+      { chave: "_cota", rotulo: "Cota do Gemini hoje", tipo: "info",
+        dica: "O Google não diz quanto sobra; o app conta o uso (dele e do Hermes) e aprende o limite quando ele é atingido. Avisa perto do fim." },
+      { chave: "voice", rotulo: "Voz da Microsoft", tipo: "select", opcoes: [
         ["pt-BR-ThalitaMultilingualNeural", "Thalita — feminina, a mais natural (padrão)"],
         ["pt-BR-FranciscaNeural", "Francisca — feminina, a antiga"],
         ["pt-BR-AntonioNeural", "Antonio — masculina"]],
-        dica: "As três vozes brasileiras do Edge. (A Macerio só existe no Azure pago: quem tinha escolhido ouve o Antonio.)" },
+        dica: "As três vozes brasileiras do Edge; é a reserva quando o Gemini falha. Se a escolhida falhar no serviço da Microsoft, vai a Francisca." },
       { chave: "velocidadeFala", rotulo: "Velocidade da fala", tipo: "faixa", min: -10, max: 10, passo: 1, unidade: "%",
         dica: "0 é o normal de cada voz. Por cima disso ela já fala um pouco mais devagar à noite e quando você parece cansado, e mais rápido quando você está com pressa." },
       { chave: "falaAntecipada", rotulo: "Começar a falar antes de terminar", tipo: "bool",
@@ -174,7 +191,8 @@ const SECOES_AJUSTES = [
     resumo: (c) => (c.cerebro !== "elysium" ? "Hermes · reserva " : "") + (c.routerProvider === "groq" ? "Nuvem" : "Local") + " · " + (c.chatProvider === "groq" ? "responde na nuvem" : c.chatProvider === "auto" ? "híbrido" : "responde local"),
     aoAbrir: () => desenharEstadoHermes() },
   { id: "voz", titulo: "Voz", icone: "mic", nos: ["[data-secao='voz']"],
-    resumo: (c) => (String(c.voice || "").match(/pt-BR-([A-Za-z]+?)(Multilingual)?Neural/)?.[1]) || "Francisca" },
+    resumo: (c) => c.vozProvedor !== "edge" ? `Gemini · ${c.vozGemini || "Kore"}` : ((String(c.voice || "").match(/pt-BR-([A-Za-z]+?)(Multilingual)?Neural/)?.[1]) || "Francisca"),
+    aoAbrir: () => desenharCota() },
   { id: "clima", titulo: "Clima", icone: "cloud", nos: ["#sec-clima"],
     resumo: (c) => c.climaCidade || "Cidade não definida" },
   { id: "conversa", titulo: "Conversa", icone: "message-circle", nos: ["[data-secao='conversa']"],
@@ -483,6 +501,10 @@ function desenharAjustes(cfg) {
         } else if (c.tipo === "lista") {
           const linhas = Array.isArray(v) ? v.join("\n") : "";
           controle = `<textarea data-cfg="${c.chave}" data-lista="1" rows="4" maxlength="400" spellcheck="false">${escHtml(linhas)}</textarea>`;
+        } else if (c.tipo === "acao") {
+          controle = `<button type="button" class="save-btn" data-acao="${c.acao}">${escHtml(c.botao)}</button>`;
+        } else if (c.tipo === "info") {
+          controle = `<span class="cfg-info" data-info="${c.chave}">…</span>`;
         } else if (c.tipo === "area") {
           controle = `<textarea data-cfg="${c.chave}" rows="4" maxlength="1500" placeholder="Como você quer que ele responda…">${escHtml(String(v ?? ""))}</textarea>`;
         } else {
@@ -495,6 +517,23 @@ function desenharAjustes(cfg) {
       }).join("")}
     </section>`).join("");
 }
+
+/** A cota do dia em Ajustes → Voz: uso por modelo (do app e do Hermes), limite quando já se sabe. */
+async function desenharCota() {
+  const el = document.querySelector("[data-info='_cota']");
+  if (!el || !window.nx.geminiCota) return;
+  try {
+    const c = await window.nx.geminiCota();
+    const linhas = (c.modelos ?? []).filter(m => m.usos > 0 || m.esgotado).slice(0, 6).map(m =>
+      `${m.categoria === "voz" ? "voz · " : m.categoria === "hermes" ? "Hermes · " : ""}${m.modelo.replace(/^gemini-/, "")}: ${m.usos}${m.limite ? ` de ${m.limite}` : ""}${m.esgotado ? " — acabou" : ""}`);
+    el.innerHTML = (linhas.length ? linhas.map(escHtml).join("<br>") : "nada usado ainda hoje") + `<br><small>A cota volta às ${escHtml(c.virada)}.</small>`;
+  } catch { el.textContent = "não consegui ler"; }
+}
+
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-acao='voz-amostra']");
+  if (b) window.nx.vozAmostra?.();
+});
 
 /**
  * Grava campo a campo, no `change`. Não há botão "Salvar" de propósito: com botão, sair da

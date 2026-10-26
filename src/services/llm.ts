@@ -2,6 +2,7 @@ import { falhaDeConexao, garantirOllama } from "./ollamaVivo";
 import { getApiKey, getConfig, getGeminiKey, marcarModeloMorto } from "../main/config";
 import { apiKeyError, networkError } from "./errors";
 import { modelosGemini } from "./gemini";
+import { registrarUsoGemini } from "./cotaGemini";
 
 /**
  * Uma porta só para os dois provedores de chat: a Groq (nuvem) e o Ollama (local).
@@ -38,8 +39,10 @@ const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/openai/chat
 function noGemini(p: { provider: Provider }): boolean {
   return p.provider === "ollama" && !!getGeminiKey();
 }
+let ultimoModeloLeve = "";
 async function modeloLeveGemini(): Promise<string> {
-  return (await modelosGemini(getGeminiKey())).lite[0];
+  ultimoModeloLeve = (await modelosGemini(getGeminiKey())).lite[0];
+  return ultimoModeloLeve;
 }
 
 export type Provider = "groq" | "ollama";
@@ -205,6 +208,7 @@ async function chamarGroq(p: ChatPedido, gemini = false): Promise<string> {
     conexao.liberar();
   }
 
+  if (gemini) registrarUsoGemini("texto", ultimoModeloLeve, res.status);
   if (res.status === 401) throw apiKeyError();
   if (!res.ok) {
     const corpo = await corpoCurto(res);
@@ -396,6 +400,7 @@ export async function callChatComFerramentas(p: PedidoComFerramentas): Promise<R
         signal: AbortSignal.timeout(p.timeoutMs ?? 30_000),
       });
     } catch (e) { throw networkError(String(e)); }
+    if (gemini) registrarUsoGemini("texto", ultimoModeloLeve, res.status);
     if (res.status === 401) throw apiKeyError();
     if (!res.ok) {
       const corpo = await corpoCurto(res);

@@ -66,6 +66,7 @@ iniciarLogEmArquivo();
 import { getTopHistory } from "../services/history";
 import { registrarPergunta, bolhasDoChat } from "../services/perguntas";
 import { aoTocarAudio, ehNoite } from "../services/tts";
+import { ligarAvisoDeCota, resumoDaCota } from "../services/cotaGemini";
 import { aoTerminarInstalacao } from "../actions/instalarApp";
 import { ehAlucinacaoDoWhisper, ehEntradaDoLive, ehSaidaDoLive, JANELA_RESPOSTA_MS, pedeResposta, SILENCIO_LIVE_MS } from "../services/live";
 import { envelopeDasPalavras } from "../services/bolota";
@@ -954,6 +955,10 @@ ipcMain.handle("config:set-gemini-key", (_e, chave: unknown) => {
   return { ok: true };
 });
 ipcMain.handle("config:gemini-status", () => ({ temChave: !!getGeminiKey(), modelo: getConfig().geminiModelo || null }));
+// 26/10: Ajustes → Voz — a amostra toca a voz escolhida agora (já gravada pelo change do campo) e
+// a cota do dia (uso por modelo, do app e do Hermes; limites aprendidos dos 429).
+ipcMain.handle("voz:amostra", () => { interruptAll(); void speak("Oi! Eu sou a Ely. Assim fica a minha voz — gostou?"); return true; });
+ipcMain.handle("gemini:cota", () => resumoDaCota());
 
 ipcMain.handle("config:set-api-key", (_e, key: string) => {
   setApiKey(key);
@@ -1510,6 +1515,7 @@ app.on("ready", async () => {
   });
 
   startMonitor(notify);
+  ligarAvisoDeCota(notify);
   startTelemetryLoop();
 
   // O agendador entra depois do servidor e do TTS porque dispara na hora o que venceu

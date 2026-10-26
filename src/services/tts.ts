@@ -9,7 +9,8 @@ import * as os from "node:os";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { spawn, ChildProcess } from "node:child_process";
-import { getConfig } from "../main/config";
+import { getConfig, getGeminiKey } from "../main/config";
+import { duracaoDoWav, estiloDaFala, sintetizarVozGemini, vozGeminiValida } from "./vozGemini";
 import { spawnPs } from "../actions/ps";
 import type { Humor } from "./humor";
 import { duracaoDoMp3, Palavra, palavrasDoMetadado, palavrasPeloTexto } from "./bolota";
@@ -196,6 +197,41 @@ function marcarVozRuim(voz: string): string {
   return voz;
 }
 
+/**
+ * 26/10: a voz do Gemini (vozGemini.ts) vem primeiro quando há chave e o dono não escolheu o Edge
+ * em Ajustes → Voz. Falhou ou cota acabou → o Edge neural de sempre. Nunca a robótica.
+ */
+function usarVozGemini(): boolean {
+  return getConfig().vozProvedor !== "edge" && !!getGeminiKey();
+}
+
+async function falaGemini(limpo: string, humor?: Humor): Promise<Buffer | null> {
+  const cfg = getConfig();
+  const voz = vozGeminiValida(cfg.vozGemini);
+  const estilo = estiloDaFala({ noite: ehNoite(), humor, velocidade: cfg.velocidadeFala });
+  const chave = `gemini|${voz}|${estilo}|${limpo}`;
+  const guardado = cacheMp3.get(chave);
+  if (guardado) return guardado;
+  const t0 = Date.now();
+  const r = await sintetizarVozGemini(limpo, voz, estilo).catch(() => null);
+  if (!r) { console.warn("[TTS] voz do Gemini indisponível — vai a do Edge"); return null; }
+  console.log(`[TTS] Gemini ${r.modelo} (${voz}) em ${Date.now() - t0} ms`);
+  cacheMp3.set(chave, r.wav);
+  if (cacheMp3.size > 20) cacheMp3.delete(cacheMp3.keys().next().value as string);
+  return r.wav;
+}
+
+/** O áudio de uma fala para o celular: WAV do Gemini ou MP3 do Edge. */
+export async function sintetizarAudio(texto: string, humor?: Humor): Promise<{ audio: Buffer; tipo: "audio/wav" | "audio/mpeg" }> {
+  if (usarVozGemini()) {
+    const limpo = cleanTextForSpeech(texto);
+    if (!limpo) throw new Error("nada para falar");
+    const wav = await falaGemini(limpo, humor);
+    if (wav) return { audio: wav, tipo: "audio/wav" };
+  }
+  return { audio: await sintetizarMp3(texto, humor), tipo: "audio/mpeg" };
+}
+
 export async function sintetizarMp3(texto: string, humor?: Humor): Promise<Buffer> {
   try { return await sintetizarMp3Com(texto, vozUtilizavel(vozDoMomento()), humor); }
   catch (e) {
@@ -311,11 +347,14 @@ export async function synthesize(text: string, humor?: Humor): Promise<void> {
         // O `{}` é obrigatório: a 2.0.7 declara o terceiro parâmetro como opcional e lê
         // `metadataOptions.voiceLocale` sem conferir a partir da SEGUNDA chamada na mesma
         // instância — a primeira fala saía neural e todas as seguintes caíam no SAPI.
-        let mp3: Buffer = jaPronto ?? Buffer.alloc(0);
+        // 26/10: a voz do Gemini primeiro (com a chave e sem o Edge escolhido em Ajustes → Voz).
+        const wav = usarVozGemini() ? await falaGemini(clean, humor) : null;
+        if (settled) return;
+        let mp3: Buffer = wav ?? jaPronto ?? Buffer.alloc(0);
         // 25/10: o Zak não quer mais a voz do SAPI ("travada e sem sentimento"). Falhou a
         // neural: até 3 tentativas, cada uma numa conexão nova; esgotou, a Ely fica calada
         // (o texto continua na tela) em vez de falar robótica.
-        for (let tentativa = 1; !jaPronto && !mp3.length && tentativa <= 3 && !settled; tentativa++) {
+        for (let tentativa = 1; !wav && !jaPronto && !mp3.length && tentativa <= 3 && !settled; tentativa++) {
           try {
             if (!_tts) _tts = new MsEdgeTTS();
             await _tts.setMetadata(voz, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3, { wordBoundaryEnabled: true });
@@ -352,7 +391,7 @@ export async function synthesize(text: string, humor?: Humor): Promise<void> {
           return;
         }
 
-        tmpFile = path.join(os.tmpdir(), `nx_tts_${Date.now()}.mp3`);
+        tmpFile = path.join(os.tmpdir(), `nx_tts_${Date.now()}.${wav ? "wav" : "mp3"}`);
         fs.writeFileSync(tmpFile, mp3);
 
         // MCI (winmm.dll): "play alias wait" blocks until playback completes.
@@ -377,7 +416,8 @@ export async function synthesize(text: string, humor?: Humor): Promise<void> {
         ].join("\n");
 
         ps = spawnPs(psScript, { NX_ARQUIVO: tmpFile });
-        const durMs = duracaoDoMp3(mp3.length);
+        const durMs = wav ? duracaoDoWav(wav) : duracaoDoMp3(mp3.length);
+        if (wav) palavras = [];
         const tocando: AudioTocando = { texto: clean, durMs, palavras: palavras.length ? palavras : palavrasPeloTexto(clean, durMs) };
         let avisado = false;
         ps.stdout?.on("data", (d: Buffer) => {

@@ -1,4 +1,5 @@
 import { getGeminiKey } from "../main/config";
+import { cotaEsgotada, registrarUsoGemini } from "./cotaGemini";
 
 /**
  * Gemini pela chave do Google AI Studio do dono (24/10). Rápido e de cota grande: escreve as telas
@@ -67,6 +68,8 @@ export async function medirModelosGemini(chave: string, busca: Busca = fetch): P
   const { flash, lite } = await modelosGemini(chave, busca);
   const candidatos = [...flash.slice(0, 3), ...lite.slice(0, 2)];
   const medidas = await Promise.all(candidatos.map(async (modelo) => {
+    // 26/10: no plano grátis os Flash têm 20 usos por dia; esgotado hoje não gasta nem um teste.
+    if (cotaEsgotada(modelo)) return [modelo, null] as const;
     const t0 = Date.now();
     try {
       const r = await busca(`${BASE}/models/${modelo}:generateContent`, {
@@ -75,6 +78,7 @@ export async function medirModelosGemini(chave: string, busca: Busca = fetch): P
         body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: "Responda só: ok" }] }], generationConfig: { maxOutputTokens: 16 } }),
         signal: AbortSignal.timeout(12_000),
       });
+      registrarUsoGemini("texto", modelo, r.status, r.ok ? "" : await r.text().catch(() => ""));
       return [modelo, r.ok ? Date.now() - t0 : null] as const;
     } catch { return [modelo, null] as const; }
   }));
@@ -148,7 +152,10 @@ export function fontesDoGrounding(meta: { groundingChunks?: { web?: { uri?: stri
 export async function gerarGemini(p: PedidoGemini, busca: Busca = fetch, chave = getGeminiKey()): Promise<{ texto: string; modelo: string; fontes: FonteGemini[] } | null> {
   if (!chave) return null;
   const { flash, lite } = await modelosGemini(chave, busca);
-  const ms = velocidade?.chave === chave ? velocidade.ms : undefined;
+  const medido = velocidade?.chave === chave ? velocidade.ms : undefined;
+  // Esgotado hoje conta como falha (vai para o fim), mesmo sem medição.
+  const ms = new Map(medido ?? []);
+  for (const m of [...flash, ...lite]) if (cotaEsgotada(m)) ms.set(m, null);
   const ordem = ordemDeTentativa(p.leve ? [...ordenarPorVelocidade(lite, ms), ...ordenarPorVelocidade(flash, ms)] : [...ordenarPorVelocidade(flash, ms), ...ordenarPorVelocidade(lite, ms)], ms).slice(0, 3);
   for (const modelo of ordem) {
     if (p.sinal?.aborted) return null;
@@ -173,9 +180,11 @@ export async function gerarGemini(p: PedidoGemini, busca: Busca = fetch, chave =
         signal: AbortSignal.any(sinais),
       });
       if (!r.ok) {
+        registrarUsoGemini("texto", modelo, r.status, await r.text().catch(() => ""));
         console.warn(`[gemini] ${modelo} respondeu ${r.status}; tentando o próximo`);
         continue;
       }
+      registrarUsoGemini("texto", modelo, r.status);
       const j = await r.json() as { candidates?: { content?: { parts?: { text?: string }[] }; finishReason?: string; groundingMetadata?: Parameters<typeof fontesDoGrounding>[0] }[] };
       const c = j.candidates?.[0];
       const texto = (c?.content?.parts ?? []).map((x) => x.text ?? "").join("").trim();

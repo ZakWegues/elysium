@@ -44,7 +44,7 @@ import {
 import { completeLogin as completeSpotifyLogin } from "./spotify";
 import { handleRpc, listRpcMethods, RpcError } from "./rpc";
 import { emitirEvento } from "./eventos";
-import { sintetizarMp3 } from "./tts";
+import { sintetizarAudio } from "./tts";
 import { registrarAcesso } from "./aparelhos";
 import { criarCanal, CanalDeInput } from "./inputCanal";
 import { inputHost } from "./inputHost";
@@ -516,9 +516,10 @@ function makeHandler(
       const texto = new URL(req.url ?? "/", "http://x").searchParams.get("text") ?? "";
       if (!texto.trim()) { sendJson(res, 400, { error: "text vazio" }); return; }
       try {
-        const mp3 = await sintetizarMp3(texto);
-        res.writeHead(200, { "Content-Type": "audio/mpeg", "Content-Length": mp3.length, "Cache-Control": "no-store" });
-        res.end(mp3);
+        // 26/10: WAV quando a voz é a do Gemini, MP3 quando é a do Edge.
+        const { audio, tipo } = await sintetizarAudio(texto);
+        res.writeHead(200, { "Content-Type": tipo, "Content-Length": audio.length, "Cache-Control": "no-store" });
+        res.end(audio);
       } catch (e) {
         sendJson(res, 502, { error: `síntese falhou: ${e instanceof Error ? e.message : String(e)}` });
       }

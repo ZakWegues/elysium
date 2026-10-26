@@ -155,6 +155,10 @@ export interface AppConfig {
   geminiModelo?: string;
   /** 24/10: com a chave do Gemini, o Ollama só entra se o Gemini falhar e isto estiver ligado. */
   ollamaReserva?: boolean;
+  /** 26/10: quem dá a voz — "gemini" (padrão com a chave) ou "edge" (as vozes da Microsoft). */
+  vozProvedor?: "gemini" | "edge";
+  /** 26/10: a voz pronta do Gemini (Kore, Aoede, Sulafat…). */
+  vozGemini?: string;
   /**
    * Acompanhar o acesso de fora de casa (Tailscale) no card Saúde, no resumo e na faixa do
    * celular (bloco 122). Desligado por padrão desde o bloco 128: o Zak não quer o Tailscale
