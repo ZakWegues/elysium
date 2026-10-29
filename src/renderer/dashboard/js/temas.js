@@ -24,6 +24,11 @@
  * das duas.
  */
 const THEMES = {
+  // 29/10: o design novo do Zak, igual ao do celular (ver css/design.css). A família "ely"
+  // com uma classe por cima: `dk` (preto OLED, chapado) e `gl` (vidro líquido sobre orbes).
+  dark:  { name: "Dark",  family: "ely", dk: true, purple: "#9fb0ff", purpleBright: "#c3ceff", cyan: "#58d7a2", cyanDark: "#3fb487", bg: "#000000", surface: "#0d0e12", surface2: "#14161c", glassInk: "13,14,18" },
+  glass: { name: "Glass", family: "ely", gl: true, purple: "#8fb4ff", purpleBright: "#c4d6ff", cyan: "#b79bff", cyanDark: "#8f72e6", bg: "#05041a", surface: "rgba(255,255,255,0.10)", surface2: "rgba(255,255,255,0.06)", glassInk: "30,26,80", blobs: ["#705cff", "#19d3c5", "#ff4fa3"] },
+
   // Stark (fase 16): a família "ely" com o acabamento HUD por cima (`stark: true` liga a
   // classe `theme-stark`, ver css/stark.css). "purple" é o acento principal em todo o CSS —
   // aqui ele é o azul do reator; "cyan" vira o âmbar/dourado dos detalhes.
@@ -142,6 +147,8 @@ function applyTheme(id) {
   document.body.classList.toggle("theme-stark", !!p.stark);
   document.body.classList.toggle("theme-renascenca", !!p.renascenca);
   document.body.classList.toggle("theme-minimal", !!p.minimal);
+  document.body.classList.toggle("theme-dk", !!p.dk);
+  document.body.classList.toggle("theme-gl", !!p.gl);
   // Classe comum às duas famílias. Carrega só o que é movimento — molas, entradas de modal
   // e bolha, brilho nos botões, a camada de blobs — que é idêntico entre elas.
   document.body.classList.add("theme-rich");
@@ -154,7 +161,7 @@ function renderThemeSwatches() {
   if (!wrap) return;
   wrap.innerHTML = "";
   const grades = {};
-  for (const [fam, rotulo] of [["stark", "Stark — HUD"], ["renascenca", "Renascença — ouro e afresco"], ["ely", "ELYSIUM — noite"], ["lg", "Vidro Líquido — dia"], ["minimal", "Minimal — segue o Windows"]]) {
+  for (const [fam, rotulo] of [["novo", "Dark e Glass — o design novo, igual ao celular"], ["stark", "Stark — HUD"],["renascenca", "Renascença — ouro e afresco"], ["ely", "ELYSIUM — noite"], ["lg", "Vidro Líquido — dia"], ["minimal", "Minimal — segue o Windows"]]) {
     const bloco = document.createElement("div");
     bloco.innerHTML = `<div class="theme-familia">${rotulo}</div><div class="theme-grade"></div>`;
     wrap.appendChild(bloco);
@@ -175,7 +182,7 @@ function renderThemeSwatches() {
       cfgAtual.theme = id;
       window.nx.setConfig({ theme: id }).catch(() => {});
     });
-    grades[t.minimal ? "minimal" : t.stark ? "stark" : t.renascenca ? "renascenca" : t.family].appendChild(div);
+    grades[t.dk || t.gl ? "novo" : t.minimal ? "minimal" : t.stark ? "stark" : t.renascenca ? "renascenca" : t.family].appendChild(div);
   });
 }
 
