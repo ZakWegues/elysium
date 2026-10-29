@@ -251,6 +251,8 @@ async function chamarOllama(p: ChatPedido): Promise<string> {
         model: p.model,
         messages: p.messages,
         stream: Boolean(p.onToken),
+        // 29/10: modelos que pensam (qwen3.5) gastavam o teto pensando e devolviam vazio.
+        think: false,
         ...(p.json ? { format: "json" } : {}),
         // Descarrega da VRAM sozinho depois deste tempo sem uso. Ver o cabeçalho.
         keep_alive: cfg.ollamaKeepAlive || "60s",
@@ -420,7 +422,7 @@ export async function callChatComFerramentas(p: PedidoComFerramentas): Promise<R
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: p.model, messages, tools, stream: false,
+        model: p.model, messages, tools, stream: false, think: false,
         keep_alive: cfg.ollamaKeepAlive || "60s",
         options: { temperature: p.temperature, num_predict: p.maxTokens, num_ctx: cfg.ollamaNumCtx || 8192 },
       }),

@@ -53,7 +53,7 @@ const AJUSTES = [
       { chave: "chatProvider", rotulo: "Quem escreve a resposta", tipo: "select", opcoes: [
         ["auto", "Híbrido — conhecimento na nuvem, o resto local"], ["ollama", "Local — Ollama nesta máquina"], ["groq", "Nuvem — Groq"]],
         dica: "Híbrido: perguntas de conhecimento e o chat escrito vão para a Groq (acerta mais fato); ações e conversa curta ficam no local." },
-      { chave: "ollamaRouterModel", rotulo: "Modelo local", tipo: "texto", dica: "ollama pull qwen2.5:7b" },
+      { chave: "ollamaRouterModel", rotulo: "Modelo local", tipo: "texto", dica: "ollama pull qwen3.5:4b (o recomendado para esta máquina)" },
       { chave: "cerebroFerramentas", rotulo: "Agir em etapas (ferramentas)", tipo: "bool",
         dica: "O modelo olha o PC (o que está aberto, clima, estado) antes de agir e encadeia ações. Desligado, volta ao roteador de uma lista só." },
       { chave: "fallbackToGroq", rotulo: "Cair na Groq se o local falhar", tipo: "bool",

@@ -155,6 +155,8 @@ export interface AppConfig {
   geminiModelo?: string;
   /** 24/10: com a chave do Gemini, o Ollama só entra se o Gemini falhar e isto estiver ligado. */
   ollamaReserva?: boolean;
+  /** 29/10: a troca única para o qwen3.5:4b já rodou. */
+  modeloLocalQwen35Aplicado?: boolean;
   /** 26/10: quem dá a voz — "gemini" (padrão com a chave) ou "edge" (as vozes da Microsoft). */
   vozProvedor?: "gemini" | "edge";
   /** 26/10: a voz pronta do Gemini (Kore, Aoede, Sulafat…). */
@@ -253,8 +255,10 @@ const DEFAULTS: AppConfig = {
   // compostos e condicionais × 3), o qwen2.5:7b acertou 80% em 1,0 s (p50) contra 73% em
   // 2,1 s do llama3.1:8b, com o mesmo prompt e as mesmas 33 ferramentas. O llama3.2:3b
   // ficou em 60% e AGE em conversa ("quanto é 15% de 200" → volume): descartado.
-  ollamaRouterModel: "qwen2.5:7b",
-  ollamaChatModel: "qwen2.5:7b",
+  // 29/10: qwen3.5:4b — medido nesta máquina (RTX 5050 8 GB): 81 tok/s contra 62 do qwen2.5:7b,
+  // mesmas respostas em conversa, JSON e ferramenta, metade da VRAM. Pensamento desligado (llm.ts).
+  ollamaRouterModel: "qwen3.5:4b",
+  ollamaChatModel: "qwen3.5:4b",
   // 🔴 Era "60s", pensado para o llama3.2 (3B, ~2 GB), que recarregava em 2-4 s. O
   // llama3.1:8b ocupa ~4,9 GB e **medimos 18,3 s de carregamento a frio**. Com 60 s,
   // qualquer pausa de um minuto na conversa fazia o comando seguinte esperar 18 s sem
@@ -405,7 +409,7 @@ const CANDIDATOS_GROQ: Record<string, string[]> = {
 };
 
 /** Mesma ideia do lado local. Vale para roteamento e conversa. */
-const CANDIDATOS_OLLAMA = ["qwen2.5:7b", "llama3.1:8b", "llama3.1", "llama3.2"];
+const CANDIDATOS_OLLAMA = ["qwen3.5:4b", "qwen2.5:7b", "llama3.1:8b", "llama3.1", "llama3.2"];
 
 function primeiroVivo(candidatos: string[], mortos: Set<string>): string | null {
   return candidatos.find(m => !mortos.has(m)) ?? null;
@@ -522,9 +526,15 @@ export function migrarCerebroHibrido(o: Partial<AppConfig>): Partial<AppConfig> 
   return o.chatProvider === "groq" ? { cerebroHibridoAplicado: true } : { cerebroHibridoAplicado: true, chatProvider: "auto" };
 }
 
+/** Troca única para o qwen3.5:4b (29/10, o Zak pediu o melhor modelo local para esta máquina). */
+export function migrarModeloLocal(o: Partial<AppConfig>): Partial<AppConfig> | null {
+  if (o.modeloLocalQwen35Aplicado) return null;
+  return { modeloLocalQwen35Aplicado: true, ollamaRouterModel: "qwen3.5:4b", ollamaChatModel: "qwen3.5:4b" };
+}
+
 export function getConfig(): AppConfig {
   let overrides = store.get("overrides", {} as Partial<AppConfig>);
-  const trocas = { ...(migrarVozFeminina(overrides) ?? {}), ...(migrarTemaStark(overrides) ?? {}), ...(migrarCerebroHibrido(overrides) ?? {}), ...(migrarVozThalita(overrides) ?? {}) };
+  const trocas = { ...(migrarVozFeminina(overrides) ?? {}), ...(migrarTemaStark(overrides) ?? {}), ...(migrarCerebroHibrido(overrides) ?? {}), ...(migrarVozThalita(overrides) ?? {}), ...(migrarModeloLocal(overrides) ?? {}) };
   if (Object.keys(trocas).length) {
     overrides = { ...overrides, ...trocas };
     store.set("overrides", overrides);
