@@ -126,8 +126,11 @@ async function loadConfig() {
     if (cidade) cidade.textContent = cfg.climaCidade || "não definida";
     if (cfg.shortcut) shortcutInput.value = cfg.shortcut;
     if (atalhoSelecaoInput && cfg.atalhoSelecao) atalhoSelecaoInput.value = cfg.atalhoSelecao;
+    aplicarFundo(cfg.fundoDash);
+    aplicarBarra(cfg);
     applyTheme(cfg.theme);
   } catch {
+    aplicarBarra({});
     applyTheme(FALLBACK_THEME);
   }
 }

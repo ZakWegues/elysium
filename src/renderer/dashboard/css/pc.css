@@ -103,7 +103,6 @@
 .gp-form input[type="text"] { flex: 1 1 100%; min-width: 0; }
 .gp-form input:focus, .gp-form select:focus { border-color: var(--purple); }
 .gp-form input[type="time"], .gp-form input[type="date"] { color-scheme: dark; }
-.theme-lg .gp-form input[type="time"], .theme-lg .gp-form input[type="date"], .theme-lg .lembrete-novo input[type="time"] { color-scheme: light; }
 .gp-form button {
   padding: 0 12px; border-radius: var(--radius-6); border: 1px solid var(--border);
   background: rgba(var(--purple-rgb),0.16); color: var(--purple-bright); cursor: pointer;

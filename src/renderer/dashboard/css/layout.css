@@ -154,7 +154,6 @@ canvas.spark { width: 100%; height: 44px; display: block; border-radius: var(--r
   flex: 1; display: flex; flex-direction: column; min-width: 0;
   background: var(--bg);
 }
-.theme-lg #center { background: transparent; }
 
 /* ── Switch IA ↔ Celular ──────────────────────────────────
    Um controle só, centralizado no topo do chat. À esquerda a conversa com a IA, à

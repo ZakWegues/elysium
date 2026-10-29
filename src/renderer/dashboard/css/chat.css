@@ -377,9 +377,6 @@
   background: rgba(255,255,255,0.06); color: var(--text); font-size: 10.5px;
 }
 .bubble .codigo-topo button:hover { background: rgba(var(--purple-rgb),0.25); }
-.theme-lg .bubble .codigo { border-color: var(--border); }
-.theme-lg .bubble .codigo-topo { background: rgba(17,17,26,0.05); }
-.theme-lg .bubble .codigo-topo button { background: rgba(17,17,26,0.06); }
 
 /* Busca na conversa (Ctrl+F). */
 #chat-busca {

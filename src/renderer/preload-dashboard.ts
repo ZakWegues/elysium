@@ -44,8 +44,6 @@ contextBridge.exposeInMainWorld("nx", {
   getHistory:      ()                           => ipcRenderer.invoke("history:get"),
   chatStarters:    ()                           => ipcRenderer.invoke("chat:starters"),
   // 20/10: tema Minimal — claro/escuro e destaque do Windows.
-  sistemaCores:    ()                           => ipcRenderer.invoke("sistema:cores"),
-  onSistemaCores:  (cb: (c: unknown) => void)   => { ipcRenderer.on("sistema:cores", (_e, c) => cb(c)); },
   minimizar:       ()                           => ipcRenderer.send("window:minimize"),
 
   // ── Config ─────────────────────────────────────────────────────────────────
@@ -57,6 +55,7 @@ contextBridge.exposeInMainWorld("nx", {
   geminiCota:      ()                           => ipcRenderer.invoke("gemini:cota"),
   getConfig:       ()                           => ipcRenderer.invoke("config:get-all"),
   setConfig:       (p: Record<string, unknown>) => ipcRenderer.invoke("config:set-all", p),
+  escolherFundo:   ()                           => ipcRenderer.invoke("fundo:escolher"),
   resetConfig:     ()                           => ipcRenderer.invoke("config:reset-defaults"),
   openConfigWindow: ()                          => ipcRenderer.send("config:open-window"),
   versao:          ()                           => ipcRenderer.invoke("app:version"),

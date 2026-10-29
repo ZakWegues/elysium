@@ -206,7 +206,6 @@
   font-family: var(--mono); font-size: 10.5px; line-height: 1.5; color: var(--muted);
   padding: 10px 12px; border-radius: var(--radius-8); border: 1px solid var(--border); background: rgba(0,0,0,0.12);
 }
-.theme-lg #dados-saida { background: rgba(17,17,26,0.04); }
 
 /* ── Atualização automática (bloco 95) ─────────────────────────────────────── */
 .atu-caixa { padding: 12px 14px; margin-bottom: 14px; border-radius: var(--radius-12, 12px); border: 1px solid var(--border); background: rgba(var(--purple-rgb), 0.05); }

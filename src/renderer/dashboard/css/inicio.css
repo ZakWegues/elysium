@@ -77,7 +77,6 @@
   color: var(--text); font-family: inherit; font-size: 12px; line-height: 1.55; outline: none;
 }
 .notas-caixa:focus { border-color: var(--purple); }
-.theme-lg .notas-caixa { background: rgba(255,255,255,0.9); }
 .notas-rodape { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; font-size: 10.5px; color: var(--muted); }
 .notas-rodape button { border: none; background: none; color: var(--purple-bright); font-family: inherit; font-size: 11px; font-weight: 600; cursor: pointer; padding: 3px 6px; border-radius: 6px; }
 .notas-rodape button:hover { background: rgba(var(--purple-rgb),0.14); }

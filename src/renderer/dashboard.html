@@ -24,8 +24,6 @@
 <link rel="stylesheet" href="dashboard/css/inicio.css">
 <link rel="stylesheet" href="dashboard/css/hoje.css">
 <link rel="stylesheet" href="dashboard/css/stark.css">
-<link rel="stylesheet" href="dashboard/css/renascenca.css">
-<link rel="stylesheet" href="dashboard/css/minimal.css">
 <link rel="stylesheet" href="dashboard/css/design.css">
 </head>
 <body>
@@ -190,6 +188,8 @@
     <svg class="ico ico-sm" aria-hidden="true"><use href="#i-rotate"/></svg><span>Atualizar</span>
   </button>
   <button class="vtab vtab-fim" data-view="ajustes" role="tab" aria-selected="false"><span class="vtab-ico"><svg class="ico" aria-hidden="true"><use href="#i-settings"/></svg></span><span class="vtab-label">Ajustes</span><span class="vtab-dot"></span></button>
+  <!-- 30/10: recolhe a barra (só ícones) ou mostra os nomes. -->
+  <button id="nav-recolher" type="button" title="Recolher a barra" aria-label="Recolher a barra"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-chevron-left"/></svg></button>
   <span id="vtab-thumb"></span>
 </nav>
 
@@ -488,8 +488,12 @@
 
         <section class="cfg-grupo" id="sec-aparencia">
           <div class="cfg-row">
-            <label>Tema<small>Duas famílias: ELYSIUM é noite com luz dourada; Vidro Líquido é dia e translúcido</small></label>
+            <label>Tema<small>Dark, Glass ou Stark, cada um em três cores; e o fundo: animado, um papel colorido ou uma imagem sua</small></label>
             <div class="cfg-controle"><div id="theme-swatches"></div></div>
+          </div>
+          <div class="cfg-row">
+            <label>Barra de abas<small>De que lado ela fica, e se mostra os nomes ou só os ícones</small></label>
+            <div class="cfg-controle"><div id="barra-opcoes" class="barra-opcoes"></div></div>
           </div>
         </section>
 

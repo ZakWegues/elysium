@@ -46,9 +46,7 @@
 .rotina-condicao .ico { color: var(--yellow); }
 .rot-form label.hidden, .rot-form [hidden] { display: none !important; }
 .rot-form select { padding: 9px 12px; border-radius: var(--radius-7); background: rgba(0,0,0,0.2); border: 1px solid var(--border); color: var(--text); font-family: inherit; font-size: 12.5px; outline: none; font-weight: 400; }
-.theme-lg .rot-form select { background: rgba(255,255,255,0.9); }
 .rot-form input[type="number"] { padding: 9px 12px; border-radius: var(--radius-7); background: rgba(0,0,0,0.2); border: 1px solid var(--border); color: var(--text); font-family: inherit; font-size: 12.5px; outline: none; font-weight: 400; }
-.theme-lg .rot-form input[type="number"] { background: rgba(255,255,255,0.9); }
 .rot-por-hora, .rot-por-evento { display: flex; flex-direction: column; gap: 14px; }
 .rotina-nome { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 3px; }
 .rotina-texto { font-size: 12px; color: var(--muted); font-style: italic; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -98,8 +96,6 @@
 .rot-form input[type="time"] { width: 120px; color-scheme: dark; }
 /* Fase 20: o dia da prova no plano de estudo — o mesmo campo escuro dos outros. */
 .rot-form input[type="date"] { width: 170px; color-scheme: dark; }
-.theme-lg .rot-form input[type="time"], .theme-lg .rot-form input[type="date"] { color-scheme: light; }
-.theme-lg .rot-form input[type="text"], .theme-lg .rot-form input[type="time"], .theme-lg .rot-form input[type="date"], .theme-lg .rot-form textarea { background: rgba(255,255,255,0.9); }
 .rot-dias { display: flex; gap: 5px; }
 .rot-dias button {
   width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--border);

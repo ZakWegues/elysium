@@ -6,8 +6,7 @@
 import { dentroDoApp } from "./ipcSeguro";
 import "./migrateUserData";
 import { migrarLembretesParaTarefas } from "../actions/memoryActions";
-import { app, BrowserWindow, globalShortcut, ipcMain, clipboard, nativeImage, dialog, shell, powerMonitor, nativeTheme, systemPreferences } from "electron";
-import { paletaMinimal } from "../services/paletaMinimal";
+import { app, BrowserWindow, globalShortcut, ipcMain, clipboard, nativeImage, dialog, shell, powerMonitor } from "electron";
 import { paraFala } from "../services/estiloResposta";
 import { ouvirTimers, retomarTimers } from "../services/timers";
 import { deveSugerir, sugerirContinuacoes } from "../services/continuacoes";
@@ -18,6 +17,7 @@ import { geradorDeTelas, provedorDeTelas } from "../services/geradorDeTelas";
 import { proxyDoApp } from "../services/uiProxy";
 import * as path from "node:path";
 import * as fs from "node:fs";
+import { pathToFileURL } from "node:url";
 
 // Rede de segurança (08/10): um erro solto em qualquer canto do processo principal — um
 // callback de socket, uma promessa sem catch — derrubava o app inteiro em silêncio (o bug
@@ -908,17 +908,6 @@ ipcMain.on("chat:clear", () => {
 /** Bolhas de partida do chat — ver `perguntas.ts`. */
 ipcMain.handle("chat:starters", () => bolhasDoChat(4));
 
-// 20/10: tema Minimal — claro/escuro e cor de destaque do Windows, com aviso quando mudam.
-function coresDoSistema(): { escuro: boolean; paleta: ReturnType<typeof paletaMinimal> } {
-  let destaque: string | undefined;
-  try { destaque = systemPreferences.getAccentColor(); } catch { /* fora do Windows */ }
-  const escuro = nativeTheme.shouldUseDarkColors;
-  return { escuro, paleta: paletaMinimal(escuro, destaque) };
-}
-ipcMain.handle("sistema:cores", () => coresDoSistema());
-nativeTheme.on("updated", () => enviarAoDash("sistema:cores", coresDoSistema()));
-systemPreferences.on("accent-color-changed", () => enviarAoDash("sistema:cores", coresDoSistema()));
-
 ipcMain.handle("history:get", () => getTopHistory(8));
 
 // ── system IPC ────────────────────────────────────────────────────────────────
@@ -989,6 +978,31 @@ ipcMain.handle("brain:ollama-status", async (_e, modelo?: string) => {
   const cfg = getConfig();
   return ollamaDisponivel(modelo || cfg.ollamaRouterModel);
 });
+/**
+ * 30/10: imagem de fundo do dashboard. O Zak escolhe no seletor do Windows; a cópia vai para
+ * a pasta do app (`fundo/fundo-<hora>.<ext>`) e as anteriores são apagadas. Devolve o
+ * endereço `file:` da cópia, que o `patchDeConfigSeguro` aceita.
+ */
+ipcMain.handle("fundo:escolher", async () => {
+  const r = await dialog.showOpenDialog({
+    title: "Imagem de fundo",
+    properties: ["openFile"],
+    filters: [{ name: "Imagens", extensions: ["png", "jpg", "jpeg", "webp", "gif", "bmp"] }],
+  });
+  const origem = r.filePaths[0];
+  if (r.canceled || !origem) return null;
+  const ext = path.extname(origem).toLowerCase().replace(".jpeg", ".jpg");
+  if (![".png", ".jpg", ".webp", ".gif", ".bmp"].includes(ext)) return null;
+  const pasta = path.join(app.getPath("userData"), "fundo");
+  fs.mkdirSync(pasta, { recursive: true });
+  for (const velho of fs.readdirSync(pasta)) {
+    try { fs.unlinkSync(path.join(pasta, velho)); } catch { /* em uso: fica para a próxima */ }
+  }
+  const destino = path.join(pasta, `fundo-${Date.now()}${ext}`);
+  fs.copyFileSync(origem, destino);
+  return pathToFileURL(destino).href;
+});
+
 ipcMain.handle("config:set-all", async (_e, patchBruto: Partial<AppConfig>) => {
   const prev = getConfig();
   const patch = patchDeConfigSeguro(patchBruto);

@@ -194,6 +194,14 @@ export interface AppConfig {
   chatIdleResetMs: number;
   serverPort: number;
   theme: string;
+  /**
+   * 30/10: o fundo do dashboard — `{"tipo":"animado"}`, `{"tipo":"papel","id":…}` ou
+   * `{"tipo":"imagem","uri":"file:…"}` (cópia na pasta do app, ver `fundo:escolher`). Em JSON.
+   */
+  fundoDash: string;
+  /** 30/10: de que lado fica a barra de abas (estilo Nuvio) e se ela está recolhida (só ícones). */
+  barraLado: "topo" | "baixo" | "esquerda" | "direita";
+  barraRecolhida: boolean;
   layout: UiLayout;
   /**
    * Cidade do card de clima. Escolhida pelo usuário em Ajustes — não há
@@ -311,7 +319,10 @@ const DEFAULTS: AppConfig = {
   // 19/10: 30 min — com o Hermes único (memória e compactação dele), 5 min fazia a Ely esquecer no meio.
   chatIdleResetMs: 1800000,
   serverPort: 4200,
-  theme: "stark",
+  theme: "dark-elisio",
+  fundoDash: '{"tipo":"animado"}',
+  barraLado: "topo",
+  barraRecolhida: false,
   layout: { order: ["perf", "storage", "taskmgr"], hidden: [] },
   movimento: "auto",
   climaCidade: "",
@@ -584,6 +595,18 @@ export function getOverrides(): Partial<AppConfig> {
  * mandaria todas as conversas para um servidor de fora — e a porta tem que ser válida.
  * Pura: devolve o patch sem o que não presta.
  */
+/** O fundo do dashboard que o renderer pode gravar. Pura. */
+export function fundoDashValido(bruto: unknown): boolean {
+  if (typeof bruto !== "string" || bruto.length > 2000) return false;
+  try {
+    const f = JSON.parse(bruto);
+    if (f?.tipo === "animado") return true;
+    if (f?.tipo === "papel") return ["nebulosa", "por-do-sol", "oceano"].includes(f.id);
+    if (f?.tipo === "imagem") return typeof f.uri === "string" && /^file:\/\/\/.+\/fundo\/fundo-\d+\.(png|jpe?g|webp|gif|bmp)$/i.test(f.uri);
+  } catch { /* inválido */ }
+  return false;
+}
+
 export function patchDeConfigSeguro(patch: Partial<AppConfig>): Partial<AppConfig> {
   if (!patch || typeof patch !== "object" || Array.isArray(patch)) return {};
   const limpo: Partial<AppConfig> = { ...patch };
@@ -602,6 +625,10 @@ export function patchDeConfigSeguro(patch: Partial<AppConfig>): Partial<AppConfi
   }
   // 22/10: a lista das respostas prontas e o modo das telas chegam do dashboard e do celular.
   if ("respostasProntas" in limpo) limpo.respostasProntas = limparProntas(limpo.respostasProntas);
+  // 30/10: o fundo só aceita o que o próprio app gravou (imagem copiada para a pasta dele).
+  if ("fundoDash" in limpo && !fundoDashValido(limpo.fundoDash)) delete limpo.fundoDash;
+  if ("barraLado" in limpo && !["topo", "baixo", "esquerda", "direita"].includes(String(limpo.barraLado))) delete limpo.barraLado;
+  if ("barraRecolhida" in limpo) limpo.barraRecolhida = limpo.barraRecolhida === true;
   if ("respostasInterativas" in limpo && !["nunca", "pedir", "perguntar", "priorizar"].includes(String(limpo.respostasInterativas))) delete limpo.respostasInterativas;
   return limpo;
 }

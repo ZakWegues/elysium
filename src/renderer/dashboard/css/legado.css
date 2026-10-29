@@ -67,7 +67,6 @@
 #remote-body ol { margin: 6px 0 0 16px; }
 #remote-body li { margin-bottom: 4px; }
 #remote-body a { color: var(--purple-bright); }
-.theme-lg #remote-body code { background: rgba(17,17,26,0.06); }
 
 /* ── Conversas salvas ──────────────────────────────────────────────────────── */
 .conv-item {
@@ -176,10 +175,6 @@
 #sp-vol-val { font-size: 10px; color: var(--muted); min-width: 22px; text-align: right;
               font-variant-numeric: tabular-nums; }
 #sp-device { font-size: 10px; color: var(--dim); }
-
-.theme-lg #sp-seek, .theme-lg #sp-vol { background: rgba(17,17,26,0.10); }
-.theme-lg .sp-btn:hover { background: rgba(17,17,26,0.06); }
-.theme-lg #sp-vol::-webkit-slider-thumb { background: #16161d; }
 
 /* Presets */
 #presets-grid { display: flex; flex-direction: column; gap: 5px; margin-bottom: 8px; }

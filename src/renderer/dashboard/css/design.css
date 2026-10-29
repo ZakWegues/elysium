@@ -1,148 +1,187 @@
-/* dashboard/css/design.css — os temas Dark e Glass (29/10), o mesmo design do celular
-   (`dark.css` e `glass.css` do Zak). As duas são a família "ely" (escura, `theme-rich`)
-   com uma classe por cima, como a Stark: só pele, nada de layout.
+/* dashboard/css/design.css — 30/10: Glass sem véu branco, fundo próprio (papéis coloridos e
+   imagem do PC) e a barra de abas no jeito do Nuvio, em qualquer um dos quatro lados.
+   O Dark é a noite do ELYSIUM de sempre (base.css/rich.css) — aqui não tem regra dele. */
 
-   · Dark  (`theme-dk`): preto OLED, superfícies chapadas s1–s3, fios #242832, um acento
-     frio (#9fb0ff). Sem fundo animado e sem desfoque — o desenho é plano de propósito.
-   · Glass (`theme-gl`): cena índigo com quatro orbes derivando e vidro líquido flutuando
-     por cima — gradiente de 160°, luz radial no canto, aro claro e sombra funda. A barra de
-     abas vira uma pílula flutuante com a lente que estica (mola).
-
-   Fontes: Manrope/JetBrains Mono e Outfit/Figtree quando instaladas no Windows; senão a
-   do sistema. Movimento desliga com `prefers-reduced-motion`. */
-
-/* ═════════════ DARK ═════════════ */
-body.theme-dk {
-  --dk-s1: #0d0e12; --dk-s2: #14161c; --dk-s3: #1c1f27; --dk-line: #242832;
-  --border: var(--dk-line);
-  --border2: var(--dk-line);
-  --text: #eceef4;
-  --muted: #a4aab8;
-  --glass-blur: none;
-  --shadow-card: none;
-  --shadow-float: 0 12px 40px rgba(0,0,0,0.6);
-  --vidro-card: var(--dk-s1);
-  --vidro-barra: rgba(8,9,12,0.96);
-  --vidro-gaveta: var(--dk-s1);
-  --vidro-painel: var(--dk-s1);
-  --blur-barra: none; --blur-gaveta: none; --blur-painel: none;
-  --radius-10: 22px; --radius-12: 20px;
-  font-family: "Manrope", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
-}
-body.theme-dk #lg-blob-bg,
-body.theme-dk #bg-aurora,
-body.theme-dk #ely-shafts,
-body.theme-dk #bg-tracos,
-body.theme-dk #bg-poeira { display: none; }
-body.theme-dk .home-card,
-body.theme-dk .hoje-painel,
-body.theme-dk .rotina,
-body.theme-dk .rot-card,
-body.theme-dk .chart-wrap { background: var(--dk-s1); border-color: var(--dk-line); box-shadow: none; backdrop-filter: none; }
-body.theme-dk .home-card:hover { background: var(--dk-s2); }
-body.theme-dk .home-card-title,
-body.theme-dk .hoje-painel h3 { font-family: "JetBrains Mono", "Cascadia Code", Consolas, monospace; letter-spacing: 0.08em; color: #7d8493; }
-body.theme-dk #viewtabs { background: rgba(8,9,12,0.96); border-bottom-color: var(--dk-line); }
-/* A aba ativa: a linha de 2 px do `.dk-tab-line`, deslizando, no lugar da pílula. */
-body.theme-dk #vtab-thumb { top: auto; bottom: 0; height: 2px; transition: transform 260ms cubic-bezier(0.23, 1, 0.32, 1); }
-body.theme-dk #vtab-thumb::after { background: var(--purple); border: 0; box-shadow: none; backdrop-filter: none; border-radius: 2px; }
-body.theme-dk .bubble.user { background: #1b2142; border-color: #2c3566; color: var(--text); border-radius: 20px 20px 6px 20px; }
-body.theme-dk .bubble.assistant { background: var(--dk-s2); border-color: var(--dk-line); backdrop-filter: none; border-radius: 20px 20px 20px 6px; }
-body.theme-dk .vtab:active,
-body.theme-dk .home-card:active { transform: scale(0.97); }
-
-/* ═════════════ GLASS ═════════════ */
+/* ═════════════ GLASS ═════════════
+   A mesma base escura com vidro DE VERDADE: desfoque forte sobre manchas bem coloridas e tinta
+   escura da cor do tema (`--glass-ink`). Nada de branco por cima — era o "leitoso". Só um fio
+   de luz de 1 px no topo das superfícies. */
 body.theme-gl {
-  --ink2: rgba(236,241,255,0.78);
-  --text: #f5f7ff;
-  --muted: rgba(236,241,255,0.62);
-  --border: rgba(255,255,255,0.22);
-  --border2: rgba(255,255,255,0.18);
-  --gl-fundo:
-    radial-gradient(130% 90% at 10% 0%, rgba(255,255,255,0.30), rgba(255,255,255,0) 52%),
-    linear-gradient(160deg, rgba(255,255,255,0.15), rgba(255,255,255,0.04) 50%, rgba(255,255,255,0.10)),
-    rgba(14,11,46,0.38);
-  --gl-sombra:
-    inset 0 1px 0 rgba(255,255,255,0.5),
-    inset 0 -1px 0 rgba(255,255,255,0.08),
-    0 16px 36px rgba(3,2,25,0.45);
-  --glass-blur: blur(24px) saturate(150%);
-  --shadow-card: var(--gl-sombra);
-  --shadow-float: 0 22px 60px rgba(3,2,25,0.55);
-  --vidro-card: rgba(255,255,255,0.10);
-  --vidro-barra: rgba(255,255,255,0.10);
-  --vidro-gaveta: rgba(22,18,62,0.86);
-  --vidro-painel: rgba(20,17,58,0.92);
-  --blur-barra: blur(24px) saturate(190%);
-  --radius-10: 26px; --radius-12: 26px;
-  font-family: "Figtree", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --glass-blur: blur(26px) saturate(160%);
+  --vidro-card: rgba(var(--glass-ink), 0.46);
+  --vidro-barra: rgba(var(--glass-ink), 0.55);
+  --vidro-gaveta: rgba(var(--glass-ink), 0.86);
+  --vidro-painel: rgba(var(--glass-ink), 0.92);
+  --border: rgba(255,255,255,0.10);
+  --border2: rgba(255,255,255,0.08);
+  --gl-fio: inset 0 1px 0 rgba(255,255,255,0.10);
 }
-/* A cena do `.lg-app`: gradiente índigo, só as orbes (sem feixes nem traços). */
-html:has(body.theme-gl) { background: linear-gradient(180deg, #0b0930 0%, #05041a 100%) fixed; }
-body.theme-gl #ely-shafts,
-body.theme-gl #bg-tracos { display: none; }
-body.theme-gl .aurora { opacity: 0.05; }
-/* As orbes do PC são bem maiores que as do celular: mais apagadas, para o vidro não virar tinta. */
-body.theme-gl #lg-blob-bg { opacity: 0.55; }
-body.theme-gl .lg-blob-1 { --cor: #705cff; }
-body.theme-gl .lg-blob-2 { --cor: #19d3c5; }
-body.theme-gl .lg-blob-3 { --cor: #ff4fa3; }
-body.theme-gl .lg-blob-4 { --cor: #ffb86b; }
-body.theme-gl .lg-blob-5 { --cor: #705cff; }
-
-/* O material `.lg`. */
+body.theme-gl #ely-shafts { display: none; }
+/* Manchas mais fortes: o vidro precisa de cor e forma atrás para parecer vidro. */
+body.theme-gl .lg-blob { filter: saturate(1.25); }
+body.theme-gl .aurora { opacity: 0.16; }
 body.theme-gl .home-card,
 body.theme-gl .hoje-painel,
 body.theme-gl .rotina,
 body.theme-gl .rot-card,
 body.theme-gl .chart-wrap,
 body.theme-gl .bubble.assistant {
-  background: var(--gl-fundo);
-  border: 1px solid rgba(255,255,255,0.30);
-  box-shadow: var(--gl-sombra);
+  background: var(--vidro-card);
+  border-color: var(--border);
+  box-shadow: var(--gl-fio), 0 10px 30px rgba(0,0,0,0.28);
   backdrop-filter: var(--glass-blur);
 }
-body.theme-gl .home-card-title,
-body.theme-gl .hoje-painel h3 { letter-spacing: 0.12em; font-weight: 700; color: rgba(236,241,255,0.58); }
-body.theme-gl .home-greet,
-body.theme-gl .hoje-cabeca h2,
-body.theme-gl .pc-topo h2 {
-  font-family: "Outfit", "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
-  background: linear-gradient(180deg, #ffffff 0%, rgba(255,255,255,0.78) 55%, rgba(190,208,255,0.6) 100%);
-  -webkit-background-clip: text; background-clip: text; color: transparent;
-  filter: drop-shadow(0 2px 14px rgba(140,160,255,0.35));
-}
 body.theme-gl .bubble.user {
-  background: linear-gradient(160deg, rgba(127,170,255,0.34), rgba(127,170,255,0.18));
-  border: 1px solid rgba(190,210,255,0.42); color: var(--text);
-  border-radius: 26px 26px 8px 26px;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.4), 0 10px 26px rgba(3,2,25,0.35);
+  background: rgba(var(--purple-rgb), 0.24);
+  border-color: rgba(var(--purple-rgb), 0.36);
+  color: var(--text);
 }
-body.theme-gl .bubble.assistant { border-radius: 26px 26px 26px 8px; }
 
-/* A barra de abas: pílula de vidro flutuando, com a lente. */
-body.theme-gl #viewtabs {
-  margin: 10px 16px 4px; height: 50px; padding: 0 6px; border-radius: 999px;
-  background: var(--gl-fundo); border: 1px solid rgba(255,255,255,0.30);
-  box-shadow: var(--gl-sombra); backdrop-filter: var(--blur-barra);
-  position: relative;
+/* ═════════════ FUNDO PRÓPRIO ═════════════
+   Papel colorido ou imagem do PC no lugar das manchas animadas. A poeira e os traços somem
+   junto, e um véu escuro leve segura a leitura. */
+body.fundo-proprio #lg-blob-bg,
+body.fundo-proprio #bg-aurora,
+body.fundo-proprio #ely-shafts,
+body.fundo-proprio #bg-tracos { display: none; }
+html.fundo-imagem { background: #000 var(--fundo-img) center / cover no-repeat fixed; }
+html.fundo-papel-nebulosa, .previa-papel-nebulosa {
+  background:
+    radial-gradient(60% 50% at 10% 8%, #6d4aff, transparent 70%),
+    radial-gradient(55% 45% at 95% 22%, #ff4fa3, transparent 70%),
+    radial-gradient(50% 45% at 30% 55%, #22b8cf, transparent 70%),
+    radial-gradient(55% 50% at 90% 75%, #ffb86b, transparent 70%),
+    radial-gradient(55% 50% at 15% 95%, #3b82f6, transparent 70%),
+    radial-gradient(40% 35% at 60% 35%, #a855f7, transparent 70%),
+    #12072e;
 }
-body.theme-gl #vtab-thumb { top: 6px; bottom: 6px; transition: transform 420ms cubic-bezier(0.34, 1.62, 0.52, 1); }
-body.theme-gl #vtab-thumb::after {
-  background: linear-gradient(180deg, rgba(255,255,255,0.36), rgba(255,255,255,0.12));
-  border: 1px solid rgba(255,255,255,0.45);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.6), 0 6px 16px rgba(3,2,25,0.3);
-  transition: transform 220ms cubic-bezier(0.34, 1.62, 0.52, 1);
+html.fundo-papel-por-do-sol, .previa-papel-por-do-sol {
+  background:
+    radial-gradient(60% 50% at 10% 8%, #ff7a45, transparent 70%),
+    radial-gradient(55% 45% at 95% 22%, #ffb347, transparent 70%),
+    radial-gradient(50% 45% at 30% 55%, #e11d74, transparent 70%),
+    radial-gradient(55% 50% at 90% 75%, #7b1fa2, transparent 70%),
+    radial-gradient(55% 50% at 15% 95%, #ffd166, transparent 70%),
+    radial-gradient(40% 35% at 60% 35%, #f43f5e, transparent 70%),
+    #1a0710;
 }
-/* Apertar estica a lente (scaleX 1,16 / scaleY 1,24 no celular; aqui, um pouco menos). */
-body.theme-gl #viewtabs:active #vtab-thumb::after { transform: scaleX(calc(1.08 / var(--w, 1))) scaleY(1.14); }
-body.theme-gl .vtab.active { color: #ffffff; }
-body.theme-gl .vtab:active { transform: scale(0.94); }
-body.theme-gl #topbar { background: rgba(11,9,48,0.35); }
+html.fundo-papel-oceano, .previa-papel-oceano {
+  background:
+    radial-gradient(60% 50% at 10% 8%, #00b4d8, transparent 70%),
+    radial-gradient(55% 45% at 95% 22%, #0077b6, transparent 70%),
+    radial-gradient(50% 45% at 30% 55%, #2ec4b6, transparent 70%),
+    radial-gradient(55% 50% at 90% 75%, #5e60ce, transparent 70%),
+    radial-gradient(55% 50% at 15% 95%, #48cae4, transparent 70%),
+    radial-gradient(40% 35% at 60% 35%, #22c55e, transparent 70%),
+    #021424;
+}
+html[class*="fundo-papel-"] { background-attachment: fixed; }
+body.fundo-proprio::before {
+  content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background: rgba(0,0,0,0.22);
+}
+.fundo-amostra .theme-previa { border-radius: 8px; }
+.previa-imagem { background: linear-gradient(135deg, rgba(var(--purple-rgb),0.35), rgba(var(--cyan-rgb),0.25)); }
 
-/* Sem animação de entrada nos cards da Início: a grade é redesenhada a cada tique (Spotify,
-   foco), e a entrada repetiria o tempo todo. As bolhas do chat já entram com `pop-in`. */
+/* ═════════════ BARRA DE ABAS — jeito do Nuvio ═════════════
+   Lida no `FloatingNavigationBar` do Nuvio e refeita em CSS: pílula escura flutuante
+   (#1C1C1E a 72% com desfoque), ícone em cima e nome embaixo, o seletor da aba ativa em
+   tinta do acento com brilho. Pode ficar no topo, embaixo ou num dos lados (vertical);
+   recolhida, mostra só ícones. O seletor é uma "gelatina" (js/abas.js): estica entre a aba
+   de onde sai e a de destino, segura e cresce, arrasta com o mouse. */
+body.barra-nuvio #viewtabs {
+  position: fixed; z-index: 450;
+  display: flex; align-items: center; gap: 2px;
+  height: auto; padding: 6px;
+  background: rgba(28,28,30,0.72);
+  border: 1px solid rgba(255,255,255,0.08); border-bottom: 1px solid rgba(255,255,255,0.08);
+  backdrop-filter: blur(24px) saturate(140%);
+  box-shadow: 0 10px 34px rgba(0,0,0,0.45);
+  border-radius: 999px;
+  transition: padding 260ms var(--mov-suave);
+}
+body.barra-topo #viewtabs    { top: 50px; left: 50%; transform: translateX(-50%); flex-direction: row; }
+body.barra-baixo #viewtabs   { bottom: 14px; left: 50%; transform: translateX(-50%); flex-direction: row; }
+body.barra-esquerda #viewtabs,
+body.barra-direita #viewtabs { top: 50%; transform: translateY(-50%); translate: 0 21px; flex-direction: column; border-radius: 26px; }
+body.barra-esquerda #viewtabs { left: 12px; }
+body.barra-direita #viewtabs  { right: 12px; }
+
+/* O conteúdo abre espaço para a barra do lado em que ela está. As telas dentro do #layout são
+   absolutas, então o espaço é margem do #layout (padding não as empurraria). */
+body.barra-nuvio #layout { --barra-folga: 0px; height: calc(100vh - 42px); transition: margin 260ms var(--mov-suave), height 260ms var(--mov-suave); }
+body.barra-topo     #layout { --barra-folga: 76px; margin-top: var(--barra-folga); height: calc(100vh - 42px - var(--barra-folga)); }
+body.barra-baixo    #layout { --barra-folga: 84px; height: calc(100vh - 42px - var(--barra-folga)); }
+body.barra-esquerda #layout { --barra-folga: 100px; margin-left: var(--barra-folga); }
+body.barra-direita  #layout { --barra-folga: 100px; margin-right: var(--barra-folga); }
+body.barra-topo.barra-icones     #layout { --barra-folga: 62px; }
+body.barra-baixo.barra-icones    #layout { --barra-folga: 70px; }
+body.barra-esquerda.barra-icones #layout,
+body.barra-direita.barra-icones  #layout { --barra-folga: 78px; }
+
+/* As abas: ícone em cima, nome embaixo. */
+body.barra-nuvio .vtab {
+  flex-direction: column; justify-content: center; gap: 3px;
+  min-width: 68px; height: 50px; padding: 0 10px;
+  border: 0; border-radius: 999px;
+  font-size: 11px; font-weight: 500; color: rgba(235,235,245,0.6);
+  transition: color 160ms var(--mov-curva), background 160ms var(--mov-curva), height 260ms var(--mov-suave);
+}
+body.barra-nuvio .vtab.active { color: var(--purple-bright); font-weight: 600; }
+/* Passar o mouse acende a aba de leve: fica claro qual é a ativa e qual está sob o cursor. */
+body.barra-nuvio .vtab:not(.active):hover { color: var(--text); background: rgba(255,255,255,0.06); }
+body.barra-nuvio .vtab-ico .ico { width: 20px; height: 20px; }
+body.barra-nuvio .vtab-label { display: block; max-height: 14px; overflow: hidden; transition: opacity 200ms, max-height 260ms var(--mov-suave); }
+body.barra-icones .vtab-label { opacity: 0; max-height: 0; }
+body.barra-icones .vtab { height: 40px; min-width: 48px; }
+body.barra-nuvio .vtab-dot { top: 6px; right: 12px; }
+body.barra-nuvio .vtab-fim { margin: 0; }
+
+/* As ações (busca, Central, Rotinas, atualizar) viram ícones dentro da pílula, separadas
+   das abas por um fio. */
+body.barra-nuvio #nav-busca {
+  width: 40px; height: 40px; padding: 0; margin: 0 0 0 6px; justify-content: center;
+  border-radius: 12px; border: 0; background: transparent; color: rgba(235,235,245,0.6);
+}
+body.barra-nuvio #nav-busca .nav-busca-texto, body.barra-nuvio #nav-busca kbd { display: none; }
+body.barra-nuvio .nav-ico, body.barra-nuvio #nav-recolher {
+  width: 40px; height: 40px; margin: 0; border-radius: 12px; border: 0;
+  background: transparent; color: rgba(235,235,245,0.6);
+}
+body.barra-nuvio #nav-busca:hover, body.barra-nuvio .nav-ico:hover, body.barra-nuvio #nav-recolher:hover { background: rgba(255,255,255,0.06); color: var(--text); }
+body.barra-nuvio #nav-atualizar { margin: 0 4px; height: 32px; }
+body.barra-esquerda #nav-busca, body.barra-direita #nav-busca { margin: 6px 0 0; }
+#nav-recolher { display: none; }
+body.barra-nuvio #nav-recolher { display: grid; place-items: center; cursor: pointer; font: inherit; }
+body.barra-nuvio #nav-recolher .ico { transition: transform 260ms var(--mov-suave); }
+body.barra-icones #nav-recolher .ico { transform: rotate(180deg); }
+
+/* O seletor: tinta do acento, borda e brilho. Posição e tamanho vêm do JS (gelatina). */
+body.barra-nuvio #vtab-thumb {
+  position: absolute; top: 0; left: 0; bottom: auto; width: 0; height: 0;
+  transform: none; transition: none; z-index: 0;
+  border-radius: 999px;
+  background: rgba(var(--purple-rgb), 0.18);
+  border: 1px solid rgba(var(--purple-rgb), 0.32);
+  box-shadow: 0 0 18px rgba(var(--purple-rgb), 0.35);
+  scale: 1; transition: scale 220ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+body.barra-nuvio #vtab-thumb::after { content: none; }
+/* Segurar faz o seletor crescer (o detalhe do celular que o Zak gostou). */
+body.barra-nuvio #viewtabs.segurando #vtab-thumb { scale: 1.08; }
+body.barra-nuvio #viewtabs.segurando { cursor: grabbing; }
 
 @media (prefers-reduced-motion: reduce) {
-  body.theme-gl #vtab-thumb, body.theme-dk #vtab-thumb, body.theme-gl #vtab-thumb::after { transition-duration: 0.01s; }
+  body.barra-nuvio #vtab-thumb, body.barra-nuvio .vtab, body.barra-nuvio .vtab-label { transition-duration: 0.01s; }
 }
+
+/* Ajustes → lado da barra. */
+.barra-opcoes { display: flex; flex-wrap: wrap; gap: 6px; }
+.barra-opcao {
+  height: 30px; padding: 0 12px; border-radius: 10px; cursor: pointer;
+  border: 1px solid var(--border); background: rgba(255,255,255,0.03);
+  color: var(--muted); font: inherit; font-size: 12px;
+  transition: background 140ms var(--mov-curva), color 140ms var(--mov-curva);
+}
+.barra-opcao:hover { background: rgba(255,255,255,0.07); color: var(--text); }
+.barra-opcao.ativa { background: rgba(var(--purple-rgb), 0.18); border-color: rgba(var(--purple-rgb), 0.4); color: var(--purple-bright); }

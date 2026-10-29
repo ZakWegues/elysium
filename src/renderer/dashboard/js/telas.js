@@ -79,20 +79,19 @@ function temaDaTela() {
   const destaque = corComputada("--purple-bright", "#9d7fd4");
   vars["--iui-accent"] = destaque;
   vars["--iui-on-accent"] = luminancia(destaque) > 0.5 ? "#111118" : "#ffffff";
-  // 29/10: Dark e Glass — os mesmos valores que o celular manda (`varsDaFamilia` em telas.ts).
-  if (document.body.classList.contains("theme-dk")) {
+  // 30/10: Dark e Glass — superfícies, raios e cores dos gráficos saem do tema (o mesmo que o
+  // celular manda em `varsDaFamilia`). A Stark fica com o padrão do renderer.
+  if (!document.body.classList.contains("theme-stark")) {
+    const vidro = document.body.classList.contains("theme-gl");
     Object.assign(vars, {
-      "--iui-canvas": "#0d0e12", "--iui-surface": "#14161c", "--iui-surface-strong": "#1c1f27",
-      "--iui-border": "#242832", "--iui-border-strong": "#2c3140", "--iui-radius-lg": "18px", "--iui-radius-xl": "22px",
-      "--iui-success": "#58d7a2", "--iui-chart-2": "#58d7a2", "--iui-chart-3": "#ffb86b", "--iui-chart-4": "#ff7aa8",
-      "--iui-font": "Manrope, system-ui, sans-serif", "--iui-mono": '"JetBrains Mono", ui-monospace, monospace',
-    });
-  } else if (document.body.classList.contains("theme-gl")) {
-    Object.assign(vars, {
-      "--iui-canvas": "#15123a", "--iui-surface": "rgba(255,255,255,0.08)", "--iui-surface-strong": "rgba(255,255,255,0.14)",
-      "--iui-border": "rgba(255,255,255,0.16)", "--iui-border-strong": "rgba(255,255,255,0.30)", "--iui-radius-lg": "20px", "--iui-radius-xl": "26px",
-      "--iui-success": "#5af0b0", "--iui-chart-2": "#b79bff", "--iui-chart-3": "#19d3c5", "--iui-chart-4": "#ff4fa3", "--iui-chart-5": "#ffb86b",
-      "--iui-font": "Figtree, system-ui, sans-serif",
+      "--iui-surface": vidro ? "rgba(255,255,255,0.06)" : corComputada("--surface2", "#0e1220"),
+      "--iui-surface-strong": vidro ? "rgba(255,255,255,0.10)" : "rgba(255,255,255,0.06)",
+      "--iui-border": "rgba(255,255,255,0.10)",
+      "--iui-border-strong": vidro ? "rgba(255,255,255,0.20)" : "rgba(255,255,255,0.16)",
+      "--iui-radius-lg": "14px", "--iui-radius-xl": "16px",
+      "--iui-chart-2": corComputada("--cyan", "#9fd8cf"),
+      "--iui-chart-3": corComputada("--blob-1", "#8a6a2e"),
+      "--iui-chart-4": corComputada("--blob-3", "#4a3f6b"),
     });
   }
   return { esquema: escuro ? "escuro" : "claro", vars, reduzirMovimento: reduzirMovimento() };
