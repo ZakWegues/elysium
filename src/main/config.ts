@@ -267,6 +267,8 @@ const DEFAULTS: AppConfig = {
   // COMEÇO da conversa em silêncio: some o system prompt, não a última mensagem. 8192 custa
   // ~0,3 GB a mais de VRAM (4,7 → 5,0 GB no qwen2.5:7b).
   ollamaNumCtx: 8192,
+  // 29/10 (pedido do Zak): o Ollama volta como reserva do Gemini — cota acabou ou caiu, responde o local.
+  ollamaReserva: true,
   fallbackToGroq: true,
   cerebroFerramentas: true,
   // Fase 21: decisão do Zak (09/10) — o Hermes responde tudo que não é atalho. Sem o Hermes

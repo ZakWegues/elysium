@@ -60,8 +60,8 @@ const AJUSTES = [
         dica: "Cobre JSON quebrado e Ollama fora do ar. Não cobre pedido composto pela metade — aquilo é JSON válido." },
       { chave: "evitarGpuOcupada", rotulo: "Usar a nuvem com jogo aberto", tipo: "bool",
         dica: "Um modelo de 7-8B ocupa ~4,7 GB de VRAM enquanto carregado, e leva até 18 s para carregar a frio." },
-      { chave: "ollamaReserva", rotulo: "Ollama de reserva offline", tipo: "bool",
-        dica: "Com a chave do Gemini, o \"local\" roda no Gemini Flash-Lite e o Ollama fica parado. Ligado, o Ollama volta só quando o Gemini falhar (sem internet)." },
+      { chave: "ollamaReserva", rotulo: "Ollama de reserva do Gemini", tipo: "bool",
+        dica: "Ligado (padrão): quando o Gemini falha ou a cota do dia acaba, quem responde é o modelo do PC (Ollama) — no chat, nas telas e nas rotinas. Desligado, cai nos modelos grátis da internet." },
     ],
   },
   {
