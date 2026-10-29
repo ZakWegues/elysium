@@ -83,96 +83,127 @@ body.fundo-proprio::before {
 .fundo-amostra .theme-previa { border-radius: 8px; }
 .previa-imagem { background: linear-gradient(135deg, rgba(var(--purple-rgb),0.35), rgba(var(--cyan-rgb),0.25)); }
 
-/* ═════════════ BARRA DE ABAS — jeito do Nuvio ═════════════
-   Lida no `FloatingNavigationBar` do Nuvio e refeita em CSS: pílula escura flutuante
-   (#1C1C1E a 72% com desfoque), ícone em cima e nome embaixo, o seletor da aba ativa em
-   tinta do acento com brilho. Pode ficar no topo, embaixo ou num dos lados (vertical);
-   recolhida, mostra só ícones. O seletor é uma "gelatina" (js/abas.js): estica entre a aba
-   de onde sai e a de destino, segura e cresce, arrasta com o mouse. */
+/* ═════════════ BARRA DE ABAS — jeito do Nuvio (30–31/10) ═════════════
+   Pílula de vidro escuro FLUTUANDO por cima das telas: ela não empurra nada; as telas só
+   ganham uma folga interna do lado dela (`--fb-*`), e o conteúdo rola por baixo com o
+   desfoque. Topo, baixo ou um dos lados (em pé). Fechada, some, e o botão do canto
+   superior esquerdo (#nav-recolher) abre de novo. O seletor é uma mola por borda (js/abas.js). */
+body.barra-nuvio { --fb-t: 0px; --fb-b: 0px; --fb-l: 0px; --fb-r: 0px; }
+body.barra-topo     { --fb-t: 74px; }
+body.barra-baixo    { --fb-b: 80px; }
+body.barra-esquerda { --fb-l: 100px; }
+body.barra-direita  { --fb-r: 100px; }
+body.barra-fechada { --fb-t: 0px; --fb-b: 0px; --fb-l: 0px; --fb-r: 0px; }
+
+body.barra-nuvio #layout { height: calc(100vh - 42px); }
+/* As telas que rolam: a folga é por dentro, então o conteúdo passa por baixo da barra. */
+body.barra-nuvio #view-inicio { padding: calc(18px + var(--fb-t)) calc(20px + var(--fb-r)) calc(28px + var(--fb-b)) calc(20px + var(--fb-l)); }
+body.barra-nuvio #view-hoje,
+body.barra-nuvio #view-pc,
+body.barra-nuvio #view-rotinas { padding: calc(18px + var(--fb-t)) calc(24px + var(--fb-r)) calc(28px + var(--fb-b)) calc(24px + var(--fb-l)); }
+body.barra-nuvio #layout[data-view="ajustes"] > #drawer-right { padding: var(--fb-t) var(--fb-r) var(--fb-b) var(--fb-l); }
+/* Chat: a faixa do switch e a caixa de texto não podem ficar debaixo da barra. */
+/* O chat vai até as bordas; a barra flutua por cima da caixa de texto (que ganha a folga por
+   dentro) em vez de deixar uma faixa vazia separada. */
+body.barra-nuvio #chat-mode-tabs { top: 0; height: calc(52px + var(--fb-t)); padding-top: var(--fb-t); padding-left: calc(16px + var(--fb-l)); padding-right: calc(16px + var(--fb-r)); }
+body.barra-nuvio #conv-btn { top: calc(10px + var(--fb-t)); left: calc(16px + var(--fb-l)); }
+body.barra-nuvio #layout[data-view="chat"] > #center { top: calc(52px + var(--fb-t)); bottom: 0; left: 0; right: 0; padding-left: var(--fb-l); padding-right: var(--fb-r); }
+body.barra-nuvio #input-bar { padding-bottom: calc(10px + var(--fb-b)); transition: padding 320ms var(--mov-suave); }
+body.barra-nuvio #view-inicio, body.barra-nuvio #view-hoje, body.barra-nuvio #chat-mode-tabs,
+body.barra-nuvio #layout > #center { transition: padding 320ms var(--mov-suave), top 320ms var(--mov-suave), left 320ms var(--mov-suave), right 320ms var(--mov-suave), bottom 320ms var(--mov-suave); }
+
 body.barra-nuvio #viewtabs {
   position: fixed; z-index: 450;
   display: flex; align-items: center; gap: 2px;
   height: auto; padding: 6px;
-  background: rgba(28,28,30,0.72);
-  border: 1px solid rgba(255,255,255,0.08); border-bottom: 1px solid rgba(255,255,255,0.08);
-  backdrop-filter: blur(24px) saturate(140%);
-  box-shadow: 0 10px 34px rgba(0,0,0,0.45);
+  background: rgba(22,22,26,0.52);
+  border: 1px solid rgba(255,255,255,0.09);
+  backdrop-filter: blur(22px) saturate(165%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 12px 36px rgba(0,0,0,0.42);
   border-radius: 999px;
-  transition: padding 260ms var(--mov-suave);
+  transition: opacity 260ms var(--mov-suave), translate 420ms cubic-bezier(0.34, 1.3, 0.64, 1), padding 260ms var(--mov-suave);
 }
-body.barra-topo #viewtabs    { top: 50px; left: 50%; transform: translateX(-50%); flex-direction: row; }
+body.barra-topo #viewtabs    { top: 52px; left: 50%; transform: translateX(-50%); flex-direction: row; }
 body.barra-baixo #viewtabs   { bottom: 14px; left: 50%; transform: translateX(-50%); flex-direction: row; }
 body.barra-esquerda #viewtabs,
-body.barra-direita #viewtabs { top: 50%; transform: translateY(-50%); translate: 0 21px; flex-direction: column; border-radius: 26px; }
+body.barra-direita #viewtabs { top: calc(50% + 21px); transform: translateY(-50%); flex-direction: column; border-radius: 28px; }
 body.barra-esquerda #viewtabs { left: 12px; }
 body.barra-direita #viewtabs  { right: 12px; }
-
-/* O conteúdo abre espaço para a barra do lado em que ela está. As telas dentro do #layout são
-   absolutas, então o espaço é margem do #layout (padding não as empurraria). */
-body.barra-nuvio #layout { --barra-folga: 0px; height: calc(100vh - 42px); transition: margin 260ms var(--mov-suave), height 260ms var(--mov-suave); }
-body.barra-topo     #layout { --barra-folga: 76px; margin-top: var(--barra-folga); height: calc(100vh - 42px - var(--barra-folga)); }
-body.barra-baixo    #layout { --barra-folga: 84px; height: calc(100vh - 42px - var(--barra-folga)); }
-body.barra-esquerda #layout { --barra-folga: 100px; margin-left: var(--barra-folga); }
-body.barra-direita  #layout { --barra-folga: 100px; margin-right: var(--barra-folga); }
-body.barra-topo.barra-icones     #layout { --barra-folga: 62px; }
-body.barra-baixo.barra-icones    #layout { --barra-folga: 70px; }
-body.barra-esquerda.barra-icones #layout,
-body.barra-direita.barra-icones  #layout { --barra-folga: 78px; }
+/* Fechada: desliza para fora pelo próprio lado e some. */
+body.barra-fechada #viewtabs { opacity: 0; pointer-events: none; }
+body.barra-topo.barra-fechada #viewtabs      { translate: 0 -24px; }
+body.barra-baixo.barra-fechada #viewtabs     { translate: 0 24px; }
+body.barra-esquerda.barra-fechada #viewtabs  { translate: -24px 0; }
+body.barra-direita.barra-fechada #viewtabs   { translate: 24px 0; }
 
 /* As abas: ícone em cima, nome embaixo. */
 body.barra-nuvio .vtab {
+  position: relative; z-index: 1;
   flex-direction: column; justify-content: center; gap: 3px;
-  min-width: 68px; height: 50px; padding: 0 10px;
+  min-width: 70px; height: 50px; padding: 0 10px;
   border: 0; border-radius: 999px;
   font-size: 11px; font-weight: 500; color: rgba(235,235,245,0.6);
-  transition: color 160ms var(--mov-curva), background 160ms var(--mov-curva), height 260ms var(--mov-suave);
+  transition: color 180ms var(--mov-curva), background 180ms var(--mov-curva), height 300ms var(--mov-suave), min-width 300ms var(--mov-suave);
 }
 body.barra-nuvio .vtab.active { color: var(--purple-bright); font-weight: 600; }
 /* Passar o mouse acende a aba de leve: fica claro qual é a ativa e qual está sob o cursor. */
-body.barra-nuvio .vtab:not(.active):hover { color: var(--text); background: rgba(255,255,255,0.06); }
+body.barra-nuvio .vtab:not(.active):hover { color: var(--text); background: rgba(255,255,255,0.07); }
+body.barra-nuvio .vtab:active { transform: none; }
 body.barra-nuvio .vtab-ico .ico { width: 20px; height: 20px; }
-body.barra-nuvio .vtab-label { display: block; max-height: 14px; overflow: hidden; transition: opacity 200ms, max-height 260ms var(--mov-suave); }
+body.barra-nuvio .vtab-label { display: block; max-height: 14px; overflow: hidden; transition: opacity 220ms, max-height 300ms var(--mov-suave); }
 body.barra-icones .vtab-label { opacity: 0; max-height: 0; }
-body.barra-icones .vtab { height: 40px; min-width: 48px; }
+body.barra-icones .vtab { height: 40px; min-width: 52px; }
 body.barra-nuvio .vtab-dot { top: 6px; right: 12px; }
 body.barra-nuvio .vtab-fim { margin: 0; }
 
-/* As ações (busca, Central, Rotinas, atualizar) viram ícones dentro da pílula, separadas
-   das abas por um fio. */
-body.barra-nuvio #nav-busca {
-  width: 40px; height: 40px; padding: 0; margin: 0 0 0 6px; justify-content: center;
-  border-radius: 12px; border: 0; background: transparent; color: rgba(235,235,245,0.6);
-}
-body.barra-nuvio #nav-busca .nav-busca-texto, body.barra-nuvio #nav-busca kbd { display: none; }
-body.barra-nuvio .nav-ico, body.barra-nuvio #nav-recolher {
-  width: 40px; height: 40px; margin: 0; border-radius: 12px; border: 0;
-  background: transparent; color: rgba(235,235,245,0.6);
-}
-body.barra-nuvio #nav-busca:hover, body.barra-nuvio .nav-ico:hover, body.barra-nuvio #nav-recolher:hover { background: rgba(255,255,255,0.06); color: var(--text); }
-body.barra-nuvio #nav-atualizar { margin: 0 4px; height: 32px; }
-body.barra-esquerda #nav-busca, body.barra-direita #nav-busca { margin: 6px 0 0; }
-#nav-recolher { display: none; }
-body.barra-nuvio #nav-recolher { display: grid; place-items: center; cursor: pointer; font: inherit; }
-body.barra-nuvio #nav-recolher .ico { transition: transform 260ms var(--mov-suave); }
-body.barra-icones #nav-recolher .ico { transform: rotate(180deg); }
-
-/* O seletor: tinta do acento, borda e brilho. Posição e tamanho vêm do JS (gelatina). */
+/* O seletor: tinta do acento, borda e brilho. Posição e tamanho vêm das molas (js/abas.js). */
 body.barra-nuvio #vtab-thumb {
-  position: absolute; top: 0; left: 0; bottom: auto; width: 0; height: 0;
-  transform: none; transition: none; z-index: 0;
+  position: absolute; left: 0; top: 0; bottom: auto; z-index: 0;
   border-radius: 999px;
   background: rgba(var(--purple-rgb), 0.18);
   border: 1px solid rgba(var(--purple-rgb), 0.32);
-  box-shadow: 0 0 18px rgba(var(--purple-rgb), 0.35);
-  scale: 1; transition: scale 220ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  box-shadow: 0 0 16px rgba(var(--purple-rgb), 0.3);
+  transition: scale 320ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  scale: 1; will-change: transform, width, height;
 }
 body.barra-nuvio #vtab-thumb::after { content: none; }
-/* Segurar faz o seletor crescer (o detalhe do celular que o Zak gostou). */
-body.barra-nuvio #viewtabs.segurando #vtab-thumb { scale: 1.08; }
+/* Segurar faz o seletor crescer, sem passar da barra (a barra tem 6 px de folga). */
+body.barra-nuvio #viewtabs.segurando #vtab-thumb { scale: 1.05; }
 body.barra-nuvio #viewtabs.segurando { cursor: grabbing; }
 
+/* ── O topo: abrir/fechar a barra no canto esquerdo e as ações à direita ── */
+#nav-recolher, #topbar-acoes { -webkit-app-region: no-drag; }
+#nav-recolher {
+  width: 30px; height: 30px; margin-right: 4px; flex-shrink: 0;
+  display: grid; place-items: center; cursor: pointer;
+  border-radius: 9px; color: var(--purple-bright);
+}
+#topbar-acoes { display: flex; align-items: center; gap: 6px; margin-right: 8px; }
+#topbar-acoes #nav-busca { margin: 0; height: 28px; width: min(260px, 26vw); }
+#topbar-acoes .nav-ico { margin: 0; width: 30px; height: 30px; border-radius: 9px; }
+#topbar-acoes #nav-atualizar { margin: 0; }
+
+/* ── Vidro líquido nos botões do topo das telas, nos atalhos e nos chips ──
+   Mesma receita da barra: tinta escura translúcida, desfoque, borda clara fina e um fio
+   de luz no topo. */
+#nav-recolher, #topbar-acoes #nav-busca, #topbar-acoes .nav-ico,
+#conv-btn, .chat-switch, .chat-bolha, .home-chips span, .clima-chips > *, .home-clima-chip, .gp-chips > *, .modo-chip {
+  background: rgba(22,22,26,0.42);
+  border: 1px solid rgba(255,255,255,0.10);
+  backdrop-filter: blur(16px) saturate(160%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+}
+#nav-recolher:hover, #topbar-acoes #nav-busca:hover, #topbar-acoes .nav-ico:hover,
+#conv-btn:hover, .chat-bolha:hover, .gp-chips > *:hover, .modo-chip:hover {
+  background: rgba(var(--purple-rgb), 0.16);
+  border-color: rgba(var(--purple-rgb), 0.32);
+}
+/* Botões do topo das telas sem bolha: quadrado de canto suave. */
+#conv-btn { border-radius: 10px; }
+
 @media (prefers-reduced-motion: reduce) {
-  body.barra-nuvio #vtab-thumb, body.barra-nuvio .vtab, body.barra-nuvio .vtab-label { transition-duration: 0.01s; }
+  /* "Movimento: sempre" nos Ajustes vence o Windows (como no resto do app). */
+  :root:not([data-movimento="sempre"]) body.barra-nuvio #viewtabs, :root:not([data-movimento="sempre"]) body.barra-nuvio #vtab-thumb, :root:not([data-movimento="sempre"]) body.barra-nuvio .vtab, :root:not([data-movimento="sempre"]) body.barra-nuvio .vtab-label { transition-duration: 0.01s; }
 }
 
 /* Ajustes → lado da barra. */

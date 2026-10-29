@@ -156,12 +156,32 @@
 
 <!-- TOPBAR -->
 <div id="topbar">
+  <!-- 31/10: abre e fecha a barra de abas, no canto superior esquerdo. -->
+  <button id="nav-recolher" type="button" title="Fechar a barra de abas" aria-label="Fechar a barra de abas" aria-controls="viewtabs"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-menu"/></svg></button>
   <div class="logo">
     <div class="logo-badge">EL</div>
     <span class="logo-text">ELYSIUM</span>
   </div>
   <div id="status-badge" class="idle">Ocioso</div>
   <div class="topbar-space"></div>
+  <!-- 31/10: busca, Central e Rotinas saíram da barra de abas e moram aqui. -->
+  <div id="topbar-acoes">
+    <!-- A lupa do Ctrl+K, sempre à vista. Não é um campo de verdade: clicar (ou começar a
+         digitar com ela focada) abre a paleta, que já tem o índice e o teclado prontos. Um
+         segundo campo com busca própria seria a mesma paleta escrita duas vezes. -->
+    <button id="nav-busca" type="button" title="Buscar ou comandar (Ctrl+K)" aria-haspopup="dialog">
+      <svg class="ico ico-sm" aria-hidden="true"><use href="#i-search"/></svg>
+      <span class="nav-busca-texto">Buscar ou comandar…</span>
+      <kbd>Ctrl K</kbd>
+    </button>
+    <!-- Fase 23: PC virou a Central de controle e Rotinas virou gaveta — botões próprios. -->
+    <button class="nav-ico" id="nav-central" type="button" title="Central de controle" aria-label="Central de controle"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-sliders"/></svg></button>
+    <button class="nav-ico" id="nav-rotinas" type="button" title="Rotinas" aria-label="Rotinas"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-calendar"/></svg></button>
+    <!-- Aparece só quando uma versão nova terminou de baixar (bloco 95). -->
+    <button id="nav-atualizar" type="button" hidden title="Uma versão nova está pronta para instalar">
+      <svg class="ico ico-sm" aria-hidden="true"><use href="#i-rotate"/></svg><span>Atualizar</span>
+    </button>
+  </div>
   <button class="top-btn min" id="btnMin" title="Minimizar"><svg class="ico" aria-hidden="true"><use href="#i-minus"/></svg></button>
   <button class="top-btn"     id="btnClose" title="Fechar"><svg class="ico" aria-hidden="true"><use href="#i-x"/></svg></button>
 </div>
@@ -172,24 +192,7 @@
   <button class="vtab active" data-view="inicio"  role="tab" aria-selected="true"><span class="vtab-ico"><svg class="ico" aria-hidden="true"><use href="#i-home"/></svg></span><span class="vtab-label">Início</span><span class="vtab-dot"></span></button>
   <button class="vtab"        data-view="chat"    role="tab" aria-selected="false"><span class="vtab-ico"><svg class="ico" aria-hidden="true"><use href="#i-message-circle"/></svg></span><span class="vtab-label">Chat</span><span class="vtab-dot"></span></button>
   <button class="vtab"        data-view="hoje"    role="tab" aria-selected="false"><span class="vtab-ico"><svg class="ico" aria-hidden="true"><use href="#i-sun"/></svg></span><span class="vtab-label">Hoje</span><span class="vtab-dot"></span></button>
-  <!-- A lupa do Ctrl+K, sempre à vista. Não é um campo de verdade: clicar (ou começar a
-       digitar com ela focada) abre a paleta, que já tem o índice e o teclado prontos. Um
-       segundo campo com busca própria seria a mesma paleta escrita duas vezes. -->
-  <button id="nav-busca" type="button" title="Buscar ou comandar (Ctrl+K)" aria-haspopup="dialog">
-    <svg class="ico ico-sm" aria-hidden="true"><use href="#i-search"/></svg>
-    <span class="nav-busca-texto">Buscar ou comandar…</span>
-    <kbd>Ctrl K</kbd>
-  </button>
-  <!-- Fase 23: PC virou a Central de controle e Rotinas virou gaveta — botões próprios. -->
-  <button class="nav-ico" id="nav-central" type="button" title="Central de controle" aria-label="Central de controle"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-sliders"/></svg></button>
-  <button class="nav-ico" id="nav-rotinas" type="button" title="Rotinas" aria-label="Rotinas"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-calendar"/></svg></button>
-  <!-- Aparece só quando uma versão nova terminou de baixar (bloco 95). -->
-  <button id="nav-atualizar" type="button" hidden title="Uma versão nova está pronta para instalar">
-    <svg class="ico ico-sm" aria-hidden="true"><use href="#i-rotate"/></svg><span>Atualizar</span>
-  </button>
   <button class="vtab vtab-fim" data-view="ajustes" role="tab" aria-selected="false"><span class="vtab-ico"><svg class="ico" aria-hidden="true"><use href="#i-settings"/></svg></span><span class="vtab-label">Ajustes</span><span class="vtab-dot"></span></button>
-  <!-- 30/10: recolhe a barra (só ícones) ou mostra os nomes. -->
-  <button id="nav-recolher" type="button" title="Recolher a barra" aria-label="Recolher a barra"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-chevron-left"/></svg></button>
   <span id="vtab-thumb"></span>
 </nav>
 

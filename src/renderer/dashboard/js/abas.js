@@ -20,44 +20,99 @@ const vtabs = document.querySelectorAll(".vtab");
 const VIEW_KEY = "elysium_view";
 
 /**
- * 30/10 — o seletor "gelatina" da barra do Nuvio. Lê a geometria real da aba (as abas não
- * têm o mesmo tamanho, e a barra pode estar deitada ou em pé). Ao trocar de aba, o seletor
- * primeiro ESTICA cobrindo a de origem e a de destino, depois encolhe sobre a nova com um
- * pouco de passagem — a mola do Nuvio, feita com a Web Animations API.
+ * 31/10 — o seletor "gelatina" da barra (o do celular, que o Zak achou perfeito). Cada BORDA
+ * do seletor é uma mola própria: a borda que vai na frente é mais dura e chega antes, a de
+ * trás é mais mole e chega depois — o seletor estica no caminho e volta a ter o tamanho da
+ * aba ao chegar, com um balanço pequeno. Tudo num laço de `requestAnimationFrame` que para
+ * sozinho quando as molas assentam. As bordas ficam presas dentro da barra: o seletor nunca
+ * passa dela.
  */
-let caixaDoPolegar = null;
-function caixaDe(el) {
-  return { x: el.offsetLeft, y: el.offsetTop, w: el.offsetWidth, h: el.offsetHeight };
+const polegar = {
+  // Bordas atuais e velocidades: a = início (esquerda/topo), b = fim (direita/baixo);
+  // c e d são o eixo cruzado (topo/baixo numa barra deitada), sem esticão.
+  a: 0, b: 0, c: 0, d: 0, va: 0, vb: 0, vc: 0, vd: 0,
+  alvo: null, pronto: false, rodando: false, arrastando: false, ultimo: 0,
+};
+function barraDeitada() {
+  return !document.body.classList.contains("barra-esquerda") && !document.body.classList.contains("barra-direita");
 }
-function quadroDo(c) {
-  return { left: `${c.x}px`, top: `${c.y}px`, width: `${c.w}px`, height: `${c.h}px` };
+function bordasDe(el) {
+  return barraDeitada()
+    ? { a: el.offsetLeft, b: el.offsetLeft + el.offsetWidth, c: el.offsetTop, d: el.offsetTop + el.offsetHeight }
+    : { a: el.offsetTop, b: el.offsetTop + el.offsetHeight, c: el.offsetLeft, d: el.offsetLeft + el.offsetWidth };
 }
+function limitesDaBarra() {
+  const barra = document.getElementById("viewtabs");
+  const folga = 4;
+  return barraDeitada()
+    ? { min: folga, max: barra.clientWidth - folga }
+    : { min: folga, max: barra.clientHeight - folga };
+}
+function desenharPolegar() {
+  const thumb = document.getElementById("vtab-thumb");
+  if (!thumb) return;
+  const p = polegar;
+  const deitada = barraDeitada();
+  const x = deitada ? p.a : p.c, y = deitada ? p.c : p.a;
+  const w = deitada ? p.b - p.a : p.d - p.c, h = deitada ? p.d - p.c : p.b - p.a;
+  thumb.style.left = "0px";
+  thumb.style.top = "0px";
+  thumb.style.width = `${Math.max(0, w)}px`;
+  thumb.style.height = `${Math.max(0, h)}px`;
+  thumb.style.transform = `translate(${x}px, ${y}px)`;
+}
+function passoDoPolegar(agora) {
+  const p = polegar;
+  const dt = Math.min(0.032, (agora - (p.ultimo || agora)) / 1000) || 0.016;
+  p.ultimo = agora;
+  const t = p.alvo;
+  if (!t) { p.rodando = false; return; }
+  // Quem vai na frente é mais dura (chega antes); a de trás, mais mole (estica o seletor).
+  const indo = t.a + t.b > p.a + p.b ? 1 : -1;
+  const kFrente = 520, kTras = 210, kCruz = 400;
+  const amort = (k) => 2 * Math.sqrt(k) * 0.72;
+  const mola = (x, v, alvo, k) => { const acc = -k * (x - alvo) - amort(k) * v; v += acc * dt; return [x + v * dt, v]; };
+  [p.a, p.va] = mola(p.a, p.va, t.a, indo < 0 ? kFrente : kTras);
+  [p.b, p.vb] = mola(p.b, p.vb, t.b, indo > 0 ? kFrente : kTras);
+  [p.c, p.vc] = mola(p.c, p.vc, t.c, kCruz);
+  [p.d, p.vd] = mola(p.d, p.vd, t.d, kCruz);
+  const lim = limitesDaBarra();
+  p.a = Math.max(lim.min, p.a); p.b = Math.min(lim.max, p.b);
+  desenharPolegar();
+  const parado = [p.a - t.a, p.b - t.b, p.c - t.c, p.d - t.d].every((d) => Math.abs(d) < 0.3)
+    && [p.va, p.vb, p.vc, p.vd].every((v) => Math.abs(v) < 2);
+  if (parado && !p.arrastando) {
+    Object.assign(p, { a: t.a, b: t.b, c: t.c, d: t.d, va: 0, vb: 0, vc: 0, vd: 0, rodando: false });
+    desenharPolegar();
+    return;
+  }
+  requestAnimationFrame(passoDoPolegar);
+}
+function soltarMolas() {
+  if (polegar.rodando) return;
+  polegar.rodando = true;
+  polegar.ultimo = 0;
+  requestAnimationFrame(passoDoPolegar);
+}
+/** Leva o seletor até a aba ativa: de mola (`animar`) ou direto (abertura, redimensionar). */
 function moverPolegar(animar = true) {
   const ativa = document.querySelector(".vtab.active");
-  const thumb = document.getElementById("vtab-thumb");
-  if (!ativa || !thumb) return;
-  const alvo = caixaDe(ativa);
-  const antes = caixaDoPolegar;
-  caixaDoPolegar = alvo;
-  Object.assign(thumb.style, quadroDo(alvo));
-  const mesma = antes && antes.x === alvo.x && antes.y === alvo.y && antes.w === alvo.w && antes.h === alvo.h;
-  if (!animar || !antes || mesma || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-  const x0 = Math.min(antes.x, alvo.x), y0 = Math.min(antes.y, alvo.y);
-  const esticada = {
-    x: x0, y: y0,
-    w: Math.max(antes.x + antes.w, alvo.x + alvo.w) - x0,
-    h: Math.max(antes.y + antes.h, alvo.y + alvo.h) - y0,
-  };
-  thumb.animate(
-    [quadroDo(antes), { ...quadroDo(esticada), offset: 0.42 }, quadroDo(alvo)],
-    { duration: 460, easing: "cubic-bezier(0.34, 1.32, 0.64, 1)" },
-  );
+  if (!ativa || !document.getElementById("vtab-thumb")) return;
+  polegar.alvo = bordasDe(ativa);
+  // O ajuste "Movimento" do app manda; "auto" segue o Windows (`reduzirMovimento`, telas.js).
+  const mov = document.documentElement.dataset.movimento;
+  const reduzir = mov === "nunca" || (mov !== "sempre" && matchMedia("(prefers-reduced-motion: reduce)").matches);
+  if (!animar || !polegar.pronto || reduzir) {
+    Object.assign(polegar, polegar.alvo, { va: 0, vb: 0, vc: 0, vd: 0, pronto: true });
+    desenharPolegar();
+    return;
+  }
+  soltarMolas();
 }
 // A largura do rótulo muda quando a fonte termina de carregar, e a barra pode mudar de
-// tamanho sem a janela mudar (o rótulo some abaixo de 880px). Um `resize` de janela não
-// cobre nenhum dos dois casos.
+// tamanho sem a janela mudar. Um `resize` de janela não cobre nenhum dos dois casos.
 document.fonts?.ready.then(() => moverPolegar(false));
-new ResizeObserver(() => moverPolegar(false)).observe(document.getElementById("viewtabs"));
+new ResizeObserver(() => moverPolegar(polegar.rodando)).observe(document.getElementById("viewtabs"));
 
 /**
  * A animação de troca é toda CSS (`@starting-style` + `allow-discrete`). Aqui só se muda
@@ -139,36 +194,38 @@ document.addEventListener("keydown", (e) => {
 });
 
 // ─────────────────────────────────────────────────
-// BARRA NO JEITO DO NUVIO (30/10)
+// BARRA NO JEITO DO NUVIO (30–31/10)
 // ─────────────────────────────────────────────────
 //
-// Lado (topo, baixo, esquerda, direita) e recolhida (só ícones) vêm da config e são
-// trocados em Ajustes → Aparência ou pelo botão do fim da barra. Segurar o mouse na barra
-// faz o seletor crescer; arrastar leva ele junto e solta na aba mais perto. Rolar o
-// conteúdo para baixo esconde os nomes (60 px), rolar para cima traz de volta.
+// A barra flutua POR CIMA das telas (não empurra nada): as telas só ganham uma folga
+// interna do lado dela, e o conteúdo passa por baixo com o desfoque. Lado (topo, baixo,
+// esquerda, direita) e aberta/fechada vêm da config; o botão de abrir e fechar fica no
+// canto superior esquerdo da janela. Segurar faz o seletor crescer e arrastar leva ele
+// junto (de mola); rolar o conteúdo para baixo esconde os nomes, rolar para cima traz.
 
 const LADOS = [["topo", "Topo"], ["baixo", "Embaixo"], ["esquerda", "Esquerda"], ["direita", "Direita"]];
-let barraCfg = { lado: "topo", recolhida: false };
+let barraCfg = { lado: "topo", fechada: false };
 
 function aplicarBarra(cfg) {
   const lado = LADOS.some(([l]) => l === cfg?.barraLado) ? cfg.barraLado : "topo";
-  barraCfg = { lado, recolhida: cfg?.barraRecolhida === true };
+  // `barraRecolhida` (nome antigo da config) agora quer dizer "barra fechada".
+  barraCfg = { lado, fechada: cfg?.barraRecolhida === true };
   document.body.classList.add("barra-nuvio");
   for (const [l] of LADOS) document.body.classList.toggle(`barra-${l}`, l === lado);
-  document.body.classList.toggle("barra-icones", barraCfg.recolhida);
+  document.body.classList.toggle("barra-fechada", barraCfg.fechada);
   const botao = document.getElementById("nav-recolher");
   if (botao) {
-    const texto = barraCfg.recolhida ? "Mostrar os nomes" : "Recolher a barra";
+    const texto = barraCfg.fechada ? "Abrir a barra de abas" : "Fechar a barra de abas";
     botao.title = texto;
     botao.setAttribute("aria-label", texto);
+    botao.setAttribute("aria-expanded", barraCfg.fechada ? "false" : "true");
   }
   desenharOpcoesDaBarra();
   requestAnimationFrame(() => moverPolegar(false));
 }
 
 function gravarBarra(patch) {
-  const cfg = { barraLado: barraCfg.lado, barraRecolhida: barraCfg.recolhida, ...patch };
-  aplicarBarra(cfg);
+  aplicarBarra({ barraLado: barraCfg.lado, barraRecolhida: barraCfg.fechada, ...patch });
   window.nx.setConfig(patch).catch(() => {});
 }
 
@@ -177,66 +234,67 @@ function desenharOpcoesDaBarra() {
   if (!caixa) return;
   caixa.innerHTML = LADOS.map(([l, nome]) =>
     `<button type="button" class="barra-opcao${l === barraCfg.lado ? " ativa" : ""}" data-lado="${l}">${nome}</button>`).join("") +
-    `<button type="button" class="barra-opcao${barraCfg.recolhida ? " ativa" : ""}" data-recolher="1">Só ícones</button>`;
+    `<button type="button" class="barra-opcao${barraCfg.fechada ? " ativa" : ""}" data-fechar="1">Fechada</button>`;
 }
 document.getElementById("barra-opcoes")?.addEventListener("click", (e) => {
   const b = e.target.closest(".barra-opcao");
   if (!b) return;
   if (b.dataset.lado) gravarBarra({ barraLado: b.dataset.lado });
-  else gravarBarra({ barraRecolhida: !barraCfg.recolhida });
+  else gravarBarra({ barraRecolhida: !barraCfg.fechada });
 });
-document.getElementById("nav-recolher")?.addEventListener("click", () => gravarBarra({ barraRecolhida: !barraCfg.recolhida }));
+document.getElementById("nav-recolher")?.addEventListener("click", () => gravarBarra({ barraRecolhida: !barraCfg.fechada }));
 
-// Segurar e arrastar o seletor.
+// Segurar e arrastar o seletor: as bordas seguem o mouse de mola, e ao soltar ele vai para
+// a aba mais perto.
 (() => {
   const barra = document.getElementById("viewtabs");
-  const thumb = document.getElementById("vtab-thumb");
-  if (!barra || !thumb) return;
+  if (!barra) return;
   let arrasto = null;
   barra.addEventListener("pointerdown", (e) => {
-    if (e.button !== 0 || !e.target.closest(".vtab")) return;
+    if (e.button !== 0 || !e.target.closest(".vtab") || !polegar.alvo) return;
     barra.classList.add("segurando");
-    arrasto = { x0: e.clientX, y0: e.clientY, caixa: caixaDoPolegar, mexeu: false };
+    arrasto = { p0: barraDeitada() ? e.clientX : e.clientY, alvo0: { ...polegar.alvo }, mexeu: false };
   });
   window.addEventListener("pointermove", (e) => {
-    if (!arrasto || !arrasto.caixa) return;
-    const deitada = barraCfg.lado === "topo" || barraCfg.lado === "baixo";
-    const d = deitada ? e.clientX - arrasto.x0 : e.clientY - arrasto.y0;
+    if (!arrasto) return;
+    const d = (barraDeitada() ? e.clientX : e.clientY) - arrasto.p0;
     if (!arrasto.mexeu && Math.abs(d) < 6) return;
     arrasto.mexeu = true;
-    const c = arrasto.caixa;
-    thumb.style.left = `${deitada ? c.x + d : c.x}px`;
-    thumb.style.top = `${deitada ? c.y : c.y + d}px`;
+    polegar.arrastando = true;
+    const lim = limitesDaBarra();
+    const largura = arrasto.alvo0.b - arrasto.alvo0.a;
+    const a = Math.min(lim.max - largura, Math.max(lim.min, arrasto.alvo0.a + d));
+    polegar.alvo = { ...arrasto.alvo0, a, b: a + largura };
+    soltarMolas();
   });
-  window.addEventListener("pointerup", (e) => {
+  window.addEventListener("pointerup", () => {
     barra.classList.remove("segurando");
     if (!arrasto) return;
     const { mexeu } = arrasto;
     arrasto = null;
+    polegar.arrastando = false;
     if (!mexeu) return;
-    // Solta na aba cujo centro está mais perto do centro do seletor.
-    const t = thumb.getBoundingClientRect();
-    const cx = t.left + t.width / 2, cy = t.top + t.height / 2;
+    const meio = (polegar.alvo.a + polegar.alvo.b) / 2;
     let melhor = null, dist = Infinity;
     for (const b of vtabs) {
-      const r = b.getBoundingClientRect();
-      const dd = Math.hypot(r.left + r.width / 2 - cx, r.top + r.height / 2 - cy);
+      const o = bordasDe(b);
+      const dd = Math.abs((o.a + o.b) / 2 - meio);
       if (dd < dist) { dist = dd; melhor = b; }
     }
     // O clique que vem junto com o pointerup não deve trocar de novo.
     barra.addEventListener("click", (ev) => ev.stopPropagation(), { capture: true, once: true });
     if (melhor && !melhor.classList.contains("active")) switchView(melhor.dataset.view);
     else moverPolegar();
-    void e;
   });
 })();
 
-// Rolar para baixo esconde os nomes; rolar para cima traz de volta (só se não estiver recolhida).
+// Rolar para baixo esconde os nomes; rolar para cima traz de volta.
 (() => {
-  let ultimo = new WeakMap(), acumulado = 0;
+  const ultimo = new WeakMap();
+  let acumulado = 0;
   document.getElementById("layout")?.addEventListener("scroll", (e) => {
     const el = e.target;
-    if (!(el instanceof Element) || barraCfg.recolhida) return;
+    if (!(el instanceof Element) || barraCfg.fechada) return;
     const y = el.scrollTop;
     const delta = y - (ultimo.get(el) ?? y);
     ultimo.set(el, y);
@@ -246,7 +304,5 @@ document.getElementById("nav-recolher")?.addEventListener("click", () => gravarB
     if (y <= 4 && escondida) { document.body.classList.remove("barra-icones"); acumulado = 0; }
     else if (acumulado > 60 && !escondida) { document.body.classList.add("barra-icones"); acumulado = 0; }
     else if (acumulado < -60 && escondida) { document.body.classList.remove("barra-icones"); acumulado = 0; }
-    else return;
-    requestAnimationFrame(() => moverPolegar(false));
   }, { capture: true, passive: true });
 })();
