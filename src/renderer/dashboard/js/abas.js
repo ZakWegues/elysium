@@ -288,7 +288,7 @@ document.getElementById("nav-recolher")?.addEventListener("click", () => gravarB
   });
 })();
 
-// Rolar para baixo esconde os nomes; rolar para cima traz de volta.
+// Rolar para baixo encolhe a barra até só a aba ativa (Glass Nav); rolar para cima abre de novo.
 (() => {
   const ultimo = new WeakMap();
   let acumulado = 0;
@@ -300,9 +300,42 @@ document.getElementById("nav-recolher")?.addEventListener("click", () => gravarB
     ultimo.set(el, y);
     if ((delta > 0 && acumulado < 0) || (delta < 0 && acumulado > 0)) acumulado = 0;
     acumulado += delta;
-    const escondida = document.body.classList.contains("barra-icones");
-    if (y <= 4 && escondida) { document.body.classList.remove("barra-icones"); acumulado = 0; }
-    else if (acumulado > 60 && !escondida) { document.body.classList.add("barra-icones"); acumulado = 0; }
-    else if (acumulado < -60 && escondida) { document.body.classList.remove("barra-icones"); acumulado = 0; }
+    const escondida = document.body.classList.contains("barra-encolhida");
+    if (y <= 4 && escondida) { document.body.classList.remove("barra-encolhida"); acumulado = 0; }
+    else if (acumulado > 60 && !escondida) { document.body.classList.add("barra-encolhida"); acumulado = 0; }
+    else if (acumulado < -60 && escondida) { document.body.classList.remove("barra-encolhida"); acumulado = 0; }
   }, { capture: true, passive: true });
 })();
+
+// Pílula de hover (31/10, ideia do Glass Nav): um segundo seletor, bem fraco, que segue o
+// mouse entre as abas. Fica sob o seletor da aba ativa e some ao sair da barra.
+(() => {
+  const barra = document.getElementById("viewtabs");
+  if (!barra) return;
+  const pilula = document.createElement("span");
+  pilula.id = "vtab-hover";
+  barra.insertBefore(pilula, barra.firstChild);
+  let primeira = true;
+  barra.addEventListener("pointerover", (e) => {
+    const aba = e.target.closest?.(".vtab");
+    if (!aba || aba.classList.contains("active")) { pilula.classList.remove("visivel"); return; }
+    // Na primeira entrada aparece já no lugar; depois desliza de uma aba para outra.
+    if (primeira) pilula.style.transition = "none";
+    pilula.style.width = `${aba.offsetWidth}px`;
+    pilula.style.height = `${aba.offsetHeight}px`;
+    pilula.style.transform = `translate(${aba.offsetLeft}px, ${aba.offsetTop}px)`;
+    if (primeira) { void pilula.offsetWidth; pilula.style.transition = ""; primeira = false; }
+    pilula.classList.add("visivel");
+  });
+  barra.addEventListener("pointerleave", () => { pilula.classList.remove("visivel"); primeira = true; });
+})();
+
+// Spotlight nos cards (31/10): a posição do mouse dentro do card vira --mx/--my, e o CSS
+// desenha uma luz fraca ali. Um ouvinte só, no #layout.
+document.getElementById("layout")?.addEventListener("pointermove", (e) => {
+  const card = e.target.closest?.(".home-card, .hoje-painel");
+  if (!card) return;
+  const r = card.getBoundingClientRect();
+  card.style.setProperty("--mx", `${e.clientX - r.left}px`);
+  card.style.setProperty("--my", `${e.clientY - r.top}px`);
+}, { passive: true });

@@ -151,8 +151,6 @@ body.barra-nuvio .vtab:not(.active):hover { color: var(--text); background: rgba
 body.barra-nuvio .vtab:active { transform: none; }
 body.barra-nuvio .vtab-ico .ico { width: 20px; height: 20px; }
 body.barra-nuvio .vtab-label { display: block; max-height: 14px; overflow: hidden; transition: opacity 220ms, max-height 300ms var(--mov-suave); }
-body.barra-icones .vtab-label { opacity: 0; max-height: 0; }
-body.barra-icones .vtab { height: 40px; min-width: 52px; }
 body.barra-nuvio .vtab-dot { top: 6px; right: 12px; }
 body.barra-nuvio .vtab-fim { margin: 0; }
 
@@ -216,3 +214,84 @@ body.barra-nuvio #viewtabs.segurando { cursor: grabbing; }
 }
 .barra-opcao:hover { background: rgba(255,255,255,0.07); color: var(--text); }
 .barra-opcao.ativa { background: rgba(var(--purple-rgb), 0.18); border-color: rgba(var(--purple-rgb), 0.4); color: var(--purple-bright); }
+
+/* ═════════════ POLIMENTO (31/10) — ideias do 21st.dev, refeitas aqui ═════════════ */
+
+/* Lâmpada (Tubelight): um filete de luz na borda de fora do seletor, com a luz caindo para
+   dentro. A borda "de fora" depende do lado da barra. */
+body.barra-nuvio #vtab-thumb::before,
+body.barra-nuvio #vtab-thumb::after { content: ""; position: absolute; pointer-events: none; }
+body.barra-nuvio #vtab-thumb::before {
+  background: var(--purple-bright); border-radius: 3px;
+  box-shadow: 0 0 10px 1px rgba(var(--purple-rgb), 0.85), 0 0 22px 4px rgba(var(--purple-rgb), 0.35);
+}
+body.barra-topo #vtab-thumb::before,
+body.barra-baixo #vtab-thumb::before { left: 30%; right: 30%; height: 3px; }
+body.barra-topo #vtab-thumb::before { top: -1px; }
+body.barra-baixo #vtab-thumb::before { bottom: -1px; }
+body.barra-esquerda #vtab-thumb::before,
+body.barra-direita #vtab-thumb::before { top: 30%; bottom: 30%; width: 3px; }
+body.barra-esquerda #vtab-thumb::before { left: -1px; }
+body.barra-direita #vtab-thumb::before { right: -1px; }
+/* O ::after antigo (base.css) tinha largura de 1 px, escala e borda: tudo zerado aqui. */
+body.barra-nuvio #vtab-thumb::after { inset: 0; width: auto; transform: none; border: 0; box-shadow: none; backdrop-filter: none; border-radius: inherit; opacity: 0.9; }
+body.barra-topo #vtab-thumb::after      { background: radial-gradient(60% 70% at 50% 0%, rgba(var(--purple-rgb), 0.35), transparent 70%); }
+body.barra-baixo #vtab-thumb::after     { background: radial-gradient(60% 70% at 50% 100%, rgba(var(--purple-rgb), 0.35), transparent 70%); }
+body.barra-esquerda #vtab-thumb::after  { background: radial-gradient(70% 60% at 0% 50%, rgba(var(--purple-rgb), 0.35), transparent 70%); }
+body.barra-direita #vtab-thumb::after   { background: radial-gradient(70% 60% at 100% 50%, rgba(var(--purple-rgb), 0.35), transparent 70%); }
+
+/* O ícone da aba ativa cresce um pouco quando o seletor assenta (Glass Tab Bar). */
+body.barra-nuvio .vtab-ico { transition: transform 420ms cubic-bezier(0.34, 1.56, 0.64, 1) 120ms; }
+body.barra-nuvio .vtab.active .vtab-ico { transform: scale(1.1); }
+
+/* Pílula de hover (Glass Nav): segue o mouse entre as abas, bem fraca, de mola frouxa. */
+#vtab-hover {
+  position: absolute; left: 0; top: 0; z-index: 0; pointer-events: none;
+  border-radius: 999px; background: rgba(255,255,255,0.07);
+  opacity: 0;
+  transition: transform 380ms cubic-bezier(0.3, 1.35, 0.5, 1), width 380ms cubic-bezier(0.3, 1.35, 0.5, 1), height 380ms cubic-bezier(0.3, 1.35, 0.5, 1), opacity 200ms;
+}
+#vtab-hover.visivel { opacity: 1; }
+/* Com a pílula de hover, a aba não precisa mais do fundo próprio no hover. */
+body.barra-nuvio .vtab:not(.active):hover { background: transparent; }
+
+/* Fio de luz no topo da pílula da barra: o vidro com espessura. */
+body.barra-nuvio #viewtabs::before {
+  content: ""; position: absolute; left: 12%; right: 12%; top: 0; height: 1px; pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.28), transparent);
+}
+
+/* Encolhida (Glass Nav): rolando para baixo, só a aba ativa fica; o mouse em cima abre. */
+body.barra-nuvio .vtab { max-width: 140px; }
+body.barra-encolhida #viewtabs:not(:hover) .vtab:not(.active) {
+  max-width: 0; min-width: 0; padding: 0; opacity: 0; pointer-events: none; overflow: hidden;
+}
+body.barra-encolhida #viewtabs:not(:hover) { padding: 4px; }
+body.barra-nuvio .vtab { transition: color 180ms var(--mov-curva), opacity 220ms var(--mov-curva), max-width 420ms cubic-bezier(0.34, 1.2, 0.64, 1), min-width 420ms cubic-bezier(0.34, 1.2, 0.64, 1), padding 420ms cubic-bezier(0.34, 1.2, 0.64, 1); }
+body.barra-esquerda .vtab, body.barra-direita .vtab { transition-property: color, opacity, max-height, min-height, height, padding; }
+body.barra-esquerda.barra-encolhida #viewtabs:not(:hover) .vtab:not(.active),
+body.barra-direita.barra-encolhida #viewtabs:not(:hover) .vtab:not(.active) { max-width: none; min-width: 70px; height: 0; overflow: hidden; }
+
+/* Spotlight nos cards: luz fraca do acento seguindo o cursor, borda que acende no hover. */
+.home-card::after, .hoje-painel::after {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background: radial-gradient(260px circle at var(--mx, 50%) var(--my, 50%), rgba(var(--purple-rgb), 0.11), transparent 65%);
+  opacity: 0; transition: opacity 260ms var(--mov-curva);
+}
+.home-card:hover::after, .hoje-painel:hover::after { opacity: 1; }
+.home-card:hover, .hoje-painel:hover { border-color: rgba(var(--purple-rgb), 0.28); }
+
+/* Aperto e foco nos botões de vidro. */
+#nav-recolher, #topbar-acoes #nav-busca, #topbar-acoes .nav-ico, #conv-btn, .chat-bolha, .gp-chips > *, .modo-chip {
+  transition: transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1), background 160ms var(--mov-curva), border-color 160ms var(--mov-curva);
+}
+#nav-recolher:active, #topbar-acoes #nav-busca:active, #topbar-acoes .nav-ico:active, #conv-btn:active, .chat-bolha:active, .gp-chips > *:active, .modo-chip:active { transform: scale(0.96); }
+body.barra-nuvio .vtab:focus-visible, #nav-recolher:focus-visible, #topbar-acoes button:focus-visible, .chat-bolha:focus-visible {
+  outline: 2px solid rgba(var(--purple-rgb), 0.7); outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-movimento="sempre"]) #vtab-hover,
+  :root:not([data-movimento="sempre"]) body.barra-nuvio .vtab-ico,
+  :root:not([data-movimento="sempre"]) .home-card::after { transition-duration: 0.01s; }
+}
