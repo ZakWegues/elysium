@@ -248,3 +248,45 @@ window.nx.onMailboxMessage((msg) => {
   if (chatMode === "self") renderSelfTimeline();
   if (convPop?.classList.contains("aberto")) loadConversations();
 });
+
+/**
+ * 31/10: confirmação na própria tela do app, no lugar do `confirm()` do sistema (que destoava
+ * do resto e travava a janela inteira). Devolve true no "sim". Esc ou clique fora = não.
+ */
+function confirmarNaTela(titulo, detalhe = "", rotuloSim = "Confirmar") {
+  return new Promise((resolver) => {
+    const voltarFoco = document.activeElement;
+    const veu = document.createElement("div");
+    veu.className = "confirma-veu";
+    veu.innerHTML = `<div class="confirma-caixa" role="alertdialog" aria-modal="true" aria-labelledby="confirma-titulo">
+      <strong id="confirma-titulo"></strong><p class="confirma-detalhe"></p>
+      <div class="confirma-acoes"><button type="button" class="confirma-nao">Cancelar</button><button type="button" class="confirma-sim primario"></button></div></div>`;
+    veu.querySelector("#confirma-titulo").textContent = titulo;
+    const p = veu.querySelector(".confirma-detalhe");
+    if (detalhe) p.textContent = detalhe; else p.remove();
+    veu.querySelector(".confirma-sim").textContent = rotuloSim;
+    const fechar = (sim) => {
+      document.removeEventListener("keydown", tecla, true);
+      veu.classList.remove("aberto");
+      setTimeout(() => veu.remove(), 180);
+      voltarFoco?.focus?.();
+      resolver(sim);
+    };
+    const tecla = (e) => {
+      if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); fechar(false); }
+      else if (e.key === "Tab") {
+        const [nao, sim] = veu.querySelectorAll("button");
+        e.preventDefault();
+        (document.activeElement === sim ? nao : sim).focus();
+      }
+    };
+    veu.addEventListener("click", (e) => {
+      if (e.target === veu || e.target.closest(".confirma-nao")) fechar(false);
+      else if (e.target.closest(".confirma-sim")) fechar(true);
+    });
+    document.addEventListener("keydown", tecla, true);
+    document.body.appendChild(veu);
+    requestAnimationFrame(() => veu.classList.add("aberto"));
+    veu.querySelector(".confirma-sim").focus();
+  });
+}

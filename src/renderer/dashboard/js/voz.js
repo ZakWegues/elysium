@@ -455,6 +455,8 @@ micBtn.addEventListener("click", () => {
   document.addEventListener("keydown", (e) => {
     if (e.code !== "Space" || e.ctrlKey || e.altKey || e.metaKey || e.shiftKey) return;
     if (ehCampo(e.target) || !chatVisivel()) return;
+    // 31/10: com o foco num botão/aba, o Espaço é do botão (acessibilidade), não do microfone.
+    if (e.target instanceof Element && e.target.closest("button, a, [role=button], [role=tab], [role=switch]")) return;
     if (document.querySelector("#paleta-veu.aberto, #gaveta-veu.aberto")) return;
     e.preventDefault();
     if (e.repeat || segurando || appState !== "idle") return;

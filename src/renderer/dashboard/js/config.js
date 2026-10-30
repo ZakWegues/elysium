@@ -104,7 +104,7 @@ async function mostrarGemini() {
 }
 document.getElementById("gemini-save").addEventListener("click", async () => {
   const k = geminiInput.value.trim();
-  if (!k && !confirm("Remover a chave do Gemini? O Hermes volta ao modelo de antes.")) return;
+  if (!k && !(await confirmarNaTela("Remover a chave do Gemini?", "O Hermes volta ao modelo de antes.", "Remover"))) return;
   try {
     await window.nx.setGeminiKey(k);
     addBubble("system", k ? "Chave do Gemini salva. O Hermes está subindo de novo no Gemini." : "Chave do Gemini removida.");

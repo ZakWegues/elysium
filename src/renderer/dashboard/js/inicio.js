@@ -648,7 +648,7 @@ function desenharInicio() {
     return `<section class="home-card${fixo ? " fixo" : ""}" data-card="${id}" data-span="${span}" draggable="${!fixo}"${estilo}>
       <header class="home-card-head">
         <span class="home-card-title">${ico(c.icone, "ico-sm")}<span>${escHtml(c.titulo)}</span></span>
-        <button class="home-card-pin" data-fixar="${id}" title="${fixo ? "Soltar" : "Fixar no topo"}">${ico("pin", "ico-sm")}</button>
+        <button class="home-card-pin" data-fixar="${id}" title="${fixo ? "Soltar" : "Fixar no topo"}" aria-pressed="${fixo}">${ico("pin", "ico-sm")}</button>
         ${fixo ? "" : `<span class="home-card-grip" title="Arraste para reordenar">${ico("grip", "ico-sm")}</span>`}
       </header>
       <div class="home-card-corpo">${c.render(dadosInicio)}</div>

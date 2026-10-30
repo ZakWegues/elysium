@@ -74,7 +74,8 @@ function ritmoCantos() {
   clearInterval(cantoMusicaTimer);
   if (!cantosEstado.dir || layoutEl.getAttribute("data-view") !== "chat") return;
   lerMusicaCanto();
-  cantoMusicaTimer = setInterval(() => { if (!document.hidden) lerMusicaCanto(); }, 10_000);
+  // 31/10: também para com a janela sem foco (a guarda era só a janela escondida).
+  cantoMusicaTimer = setInterval(() => { if (!document.hidden && (typeof focoJanela === "undefined" || focoJanela)) lerMusicaCanto(); }, 10_000);
 }
 
 document.getElementById("center")?.addEventListener("click", async (e) => {

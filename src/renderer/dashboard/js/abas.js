@@ -1,4 +1,4 @@
-// dashboard/js/abas.js — switchView, polegar, Ctrl+1..5.
+// dashboard/js/abas.js — switchView, polegar, Ctrl+1..4.
 //
 // Era um trecho do <script> único do dashboard.html (bloco 76). Scripts clássicos, não
 // módulos: o escopo global é um só, e a ORDEM dos <script> no HTML é a ordem em que o
@@ -183,7 +183,7 @@ document.getElementById("viewtabs")?.addEventListener("keydown", (e) => {
   switchView(lista[j].dataset.view);
 });
 
-// Ctrl+1..6 percorre os destinos, como no navegador. Fica fora do input de comando para
+// Ctrl+1..4 percorre os destinos, como no navegador. Fica fora do input de comando para
 // não roubar a digitação.
 document.addEventListener("keydown", (e) => {
   if (!e.ctrlKey || e.altKey || e.shiftKey) return;

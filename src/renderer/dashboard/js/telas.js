@@ -394,7 +394,8 @@ window.addEventListener("message", async (e) => {
       const url = linkSeguro(m.valor);
       if (!url) { showToast("Link recusado (só https)."); return; }
       // Quem abre é o PC: confirma antes, mostrando o endereço de verdade.
-      if (confirm(`Abrir no navegador?\n\n${url.length > 160 ? url.slice(0, 157) + "…" : url}`)) window.nx.abrirLink(url);
+      void confirmarNaTela("Abrir no navegador?", url.length > 160 ? url.slice(0, 157) + "…" : url, "Abrir")
+        .then((sim) => { if (sim) window.nx.abrirLink(url); });
     } else if (m.acao === "copiar") {
       try { await navigator.clipboard.writeText(m.valor); showToast("Copiado."); }
       catch { showToast("Não consegui copiar."); }
