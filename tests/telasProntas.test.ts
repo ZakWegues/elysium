@@ -82,3 +82,13 @@ describe("telas prontas: os programas passam no validador do renderer (24/10)", 
     expect(sistemaDosDados("roteiro")).toMatch(/JSON/);
   });
 });
+
+describe("variação dos modelos prontos (31/10)", () => {
+  it("a cor do topo é estável por assunto e varia entre assuntos", async () => {
+    const { tomDe } = await import("../src/services/telasProntas");
+    expect(tomDe("Gastos do mês")).toBe(tomDe("gastos do mes"));
+    const cores = new Set(["Gastos do mês", "Viagem a Paris", "Revisão de biologia", "Quiz de história", "Mudança", "Cronograma da prova"].map(tomDe));
+    expect([...cores].every(c => /^chart[1-6]$/.test(c))).toBe(true);
+    expect(cores.size).toBeGreaterThan(2);
+  });
+});

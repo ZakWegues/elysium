@@ -151,6 +151,7 @@ function desenharHoje() {
     : `<div class="hoje-vazio">Nada pendente nas listas.</div>`;
   // Fase 18: rotinas do dia, ideia e card ELYSIUM. Treino só quando se pergunta à Ely.
   el.querySelector("#hoje-rotinas").innerHTML = desenharRotinasHoje(p.rotinasHoje ?? [], p.rotinasRodaram ?? []);
+  el.querySelector("#hoje-atividade").innerHTML = desenharAtividadeHoje(p.atividade ?? []);
   el.querySelector("#hoje-ideia").innerHTML = p.ideia ? `<p>${escHtml(p.ideia)}</p>` : `<div class="hoje-vazio">Sem ideia agora — toque em Outra.</div>`;
   desenharElysiumHoje(p.elysium);
   desenharAmanhaHoje(p.amanha ?? null);
@@ -316,6 +317,15 @@ async function abrirRevisaoSemana() {
       if (e.target.closest("[data-revisao-tarefas]")) { fecharGaveta(); abrirTarefasCheia(); }
     }, { signal }),
   });
+}
+
+/** 31/10: "O que a Ely fez hoje" — da mais nova para a mais velha; as 8 primeiras e "ver mais". */
+function desenharAtividadeHoje(lista) {
+  document.getElementById("hoje-atividade-cont").textContent = lista.length ? String(lista.length) : "";
+  if (!lista.length) return `<div class="hoje-vazio">Nada ainda hoje. Peça algo à Ely (abrir, lembrar, anotar) e aparece aqui.</div>`;
+  const linha = (x) => `<div class="hoje-linha"><span class="hoje-hora">${hojeHoraCurta(x.em)}</span><span>${escHtml(x.texto)}</span></div>`;
+  const resto = lista.slice(8);
+  return lista.slice(0, 8).map(linha).join("") + (resto.length ? `<details class="hoje-mais"><summary>Mais ${resto.length}</summary>${resto.map(linha).join("")}</details>` : "");
 }
 
 /** Rotinas que ainda rodam hoje e as que já rodaram, com ✓/✗ (fase 18). */

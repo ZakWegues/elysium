@@ -35,6 +35,8 @@ export interface ChatSession {
    * `deriveTitle` da primeira fala e o renomear duraria até o usuário responder.
    */
   titleCustom?: boolean;
+  /** 31/10: quem mexeu por último ("continuar no outro aparelho"). Conversa antiga não tem. */
+  aparelho?: "pc" | "celular";
 }
 
 /** Id apagado aqui que o celular ainda não confirmou ter apagado também. */
@@ -170,6 +172,7 @@ export function upsertMessages(
       updatedAt: now,
       favorite:  existing?.favorite  ?? false,
       titleCustom: existing?.titleCustom,
+      aparelho:  "pc",
       messages,
     };
 
@@ -252,4 +255,13 @@ export function toggleFavorite(id: string): boolean | null {
   // evita que ela só suma na próxima gravação, o que pareceria aleatório.
   if (!session.favorite) saveSession(session);
   return session.favorite;
+}
+
+/**
+ * "Continuar no outro aparelho" (31/10, como o Handoff da Apple): a conversa mais recente, se
+ * foi mexida por último em `de` nas últimas 3 horas. Pura.
+ */
+export function conversaParaContinuar(sessoes: ChatSession[], de: "pc" | "celular", agora = Date.now(), janelaMs = 3 * 3_600_000): ChatSession | null {
+  const recente = [...sessoes].sort((a, b) => b.updatedAt - a.updatedAt)[0];
+  return recente && recente.aparelho === de && agora - recente.updatedAt < janelaMs ? recente : null;
 }

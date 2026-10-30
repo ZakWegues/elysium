@@ -211,7 +211,7 @@ export function noteFastRouted(text: string, actions: BrainAction[]): void {
   podarHistorico();
 }
 
-function actionSummary(action: BrainAction): string {
+export function actionSummary(action: BrainAction): string {
   switch (action.action) {
     case "play_music":        return `Toquei "${action.query}" no Spotify.`;
     case "open_url":          return `Abri: ${action.url_or_query}`;

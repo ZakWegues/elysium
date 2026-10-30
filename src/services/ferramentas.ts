@@ -29,7 +29,8 @@ import { horaEm } from "./horaMundo";
 import { rodarComando } from "./comandosIa";
 import { resumirLink } from "./leitorDeLink";
 import type { DefinicaoDeFerramenta } from "./llm";
-import type { BrainAction } from "./brain";
+import { actionSummary, type BrainAction } from "./brain";
+import { contaComoAtividade, registrarAtividade } from "./atividade";
 import { routeAction } from "../actions/router";
 import { getRunningApps, getTopProcesses, getDashboardTelemetry } from "../actions/systemInfo";
 import { climaFalado } from "./clima";
@@ -100,6 +101,8 @@ const s = (description: string, extra: Record<string, unknown> = {}) => ({ type:
 /** Executa uma BrainAction pelo executor de sempre e devolve a fala dele. */
 async function acao(a: BrainAction): Promise<string> {
   const r = await routeAction(a);
+  // 31/10: a linha do tempo "O que a Ely fez hoje" (agente e Hermes passam por aqui).
+  if (contaComoAtividade(a)) registrarAtividade(actionSummary(a));
   return r || "Feito.";
 }
 

@@ -14,6 +14,7 @@ import { ideiaDoDia, testesFeitos } from "./ideiasDoDia";
 import { Novidade, novidadesEmCache } from "./novidades";
 import { estadoAtualizacao, notasDaVersaoAtual, secoesDasNotas } from "./atualizacao";
 import { app } from "electron";
+import { atividadeDeHoje, type ItemDeAtividade } from "./atividade";
 
 /**
  * Central "Hoje" (fase 16, 07/10): o briefing de manhã do Jarvis, numa tela. Junta o que
@@ -25,6 +26,8 @@ import { app } from "electron";
  */
 
 export interface PainelHoje {
+  /** 31/10: "O que a Ely fez hoje" — ações que mudaram algo, da mais nova para a mais velha. */
+  atividade?: ItemDeAtividade[];
   saudacao: string;
   frase: string;
   data: string;
@@ -207,7 +210,7 @@ export async function montarPainelHoje(agora = new Date()): Promise<PainelHoje> 
     seguro(() => ideiaDoDia(fatos, false, agora), null),
     cardElysium(),
   ]);
-  return { ...base, frase, ideia, elysium, novidades: novidadesEmCache(agora), amanha: meuAmanha(tarefas, clima, agora), ocultos: cfg.hojeOcultos ?? [], acompanhamentos: pendentesDeAcompanhamento(agora.getTime()), geradoEm: Date.now() };
+  return { ...base, frase, ideia, elysium, novidades: novidadesEmCache(agora), amanha: meuAmanha(tarefas, clima, agora), ocultos: cfg.hojeOcultos ?? [], acompanhamentos: pendentesDeAcompanhamento(agora.getTime()), atividade: await seguro(() => atividadeDeHoje(agora), [] as ItemDeAtividade[]), geradoEm: Date.now() };
 }
 
 /**

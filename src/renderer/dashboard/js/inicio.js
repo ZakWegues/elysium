@@ -1303,6 +1303,8 @@ document.getElementById("view-inicio")?.addEventListener("click", async (e) => {
       finally { bolha.disabled = false; }
     } else if (s.acao?.aba) {
       switchView(s.acao.aba);
+      // 31/10: "Continuar do celular" / "Retomar" abrem a conversa certa.
+      if (s.acao.conversa) void openConversation(s.acao.conversa, s.acao.continuar === true);
       // Mesmo atraso do painel de rede: a troca de aba fecha a gaveta antes de abrir outra.
       if (s.acao.painel) setTimeout(() => abrirPainelPc(s.acao.painel), 80);
     }

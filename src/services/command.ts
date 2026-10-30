@@ -1,4 +1,5 @@
-import { composeChatReply, decideBrain, noteFastRouted, recordAssistantReply, registrarTurnoUsuario, BrainAction } from "./brain";
+import { actionSummary, composeChatReply, decideBrain, noteFastRouted, recordAssistantReply, registrarTurnoUsuario, BrainAction } from "./brain";
+import { contaComoAtividade, registrarAtividade } from "./atividade";
 import { fastRoute } from "./fastRoute";
 import { agir } from "./agente";
 import { ferramenta } from "./ferramentas";
@@ -85,7 +86,9 @@ async function executarNoContexto(
   // 31/10: "desfaz" (ou o botão "Desfazer" da bolha) — a última ação reversível, sem modelo.
   if (ehPedidoDeDesfazer(text)) {
     registrarTurnoUsuario(text);
+    const havia = ultimoDesfazer();
     const reply = await desfazerUltima();
+    if (havia) registrarAtividade(`Desfez: ${havia.rotulo}`);
     recordAssistantReply(reply);
     ganchos.onToken?.(reply);
     return { actions: [], reply, atalho: true };
@@ -178,6 +181,8 @@ async function executarNoContexto(
     for (const action of actions) {
       replies.push(await resolveAction(action, text, ganchos.onToken, ganchos.canal));
       trackUsage(text, action);
+      // 31/10: a linha do tempo do Hoje (o agente e o Hermes registram em ferramentas.ts).
+      if (contaComoAtividade(action)) registrarAtividade(actionSummary(action));
     }
   }
 

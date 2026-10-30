@@ -24,6 +24,8 @@ export type Rapidas = {
 
 export const RESPOSTAS_PRONTAS_PADRAO = ["pode fazer", "agora não", "explica melhor", "manda no celular"];
 export const MAX_PRONTAS = 6;
+/** Abaixo disto (sem pergunta), é aviso de status: sem respostas prontas. */
+const RESPOSTA_CURTA = 120;
 const MAX_OPCOES = 4;
 const MAX_OPCAO = 40;
 
@@ -98,7 +100,9 @@ function opcoesDaLista(texto: string): string[] {
 /** O que mostrar embaixo da resposta. `prontas` vem dos Ajustes. Pura. */
 export function opcoesDaResposta(reply: string, prontas: string[] = []): Rapidas {
   const vazio: Rapidas = { pergunta: false, sim: false, nao: false, opcoes: [], prontas: limparProntas(prontas) };
-  if (!pedeResposta(reply)) return vazio;
+  // 31/10: resposta curta de status ("Volume em 30%.", "Nada para desfazer.") não pede
+  // "pode fazer"/"explica melhor" — as prontas ficam para perguntas e respostas com conteúdo.
+  if (!pedeResposta(reply)) return reply.trim().length < RESPOSTA_CURTA ? { ...vazio, prontas: [] } : vazio;
   const t = reply.trim().replace(/["'”’»)\]\s]+$/u, "");
   if (/Confirma\? Diga sim\.?$/.test(t)) return { ...vazio, pergunta: true, sim: true, nao: true };
   const pergunta = ultimaFrase(t);

@@ -3,6 +3,9 @@ import { limparProntas, opcoesDaResposta } from "../src/services/respostasRapida
 
 const r = (t: string) => opcoesDaResposta(t);
 
+/** Resposta com conteúdo (mais de 120 caracteres), sem pergunta no fim. */
+const LONGA = "A fotossíntese transforma luz em energia química: a planta usa água e gás carbônico e libera oxigênio. Acontece nos cloroplastos, com a clorofila.";
+
 describe("respostas rápidas (22/10)", () => {
   it("pergunta de sim/não → Sim e Não", () => {
     for (const t of [
@@ -70,10 +73,11 @@ describe("respostas rápidas (22/10)", () => {
     expect(r("Quer que eu procure o arquivo inteiro na pasta de documentos antigos ou deixa?").opcoes).toEqual([]);
   });
 
-  it("prontas: saneadas, sem repetir, no máx. 6, e vêm mesmo sem pergunta", () => {
+  it("prontas: saneadas, sem repetir, no máx. 6; sem pergunta, só em resposta com conteúdo (31/10)", () => {
     expect(limparProntas(["  pode   fazer ", "Pode fazer", 3, "", "a", "b", "c", "d", "e", "f"])).toEqual(["pode fazer", "a", "b", "c", "d", "e"]);
     expect(limparProntas("x")).toEqual([]);
-    expect(opcoesDaResposta("Pronto.", ["agora não"]).prontas).toEqual(["agora não"]);
+    expect(opcoesDaResposta("Pronto.", ["agora não"]).prontas).toEqual([]);
+    expect(opcoesDaResposta(LONGA, ["agora não"]).prontas).toEqual(["agora não"]);
   });
 });
 
@@ -81,10 +85,11 @@ describe("respostas rápidas no frame reply (22/10)", async () => {
   const { rapidasPara } = await import("../src/services/respostasRapidas");
   const { abrirPedido, retomar, terminar, zerarPedidos } = await import("../src/services/retomada");
 
-  it("segue o ajuste: desligado não manda nada; sem pergunta só as prontas", () => {
+  it("segue o ajuste: desligado não manda nada; sem pergunta só as prontas (e só com conteúdo)", () => {
     expect(rapidasPara("Quer que eu abra?", { respostasRapidas: false })).toBeNull();
     expect(rapidasPara("Pronto.", { respostasProntas: [] })).toBeNull();
-    expect(rapidasPara("Pronto.", {})?.prontas).toEqual(["pode fazer", "agora não", "explica melhor", "manda no celular"]);
+    expect(rapidasPara("Pronto.", {})).toBeNull();
+    expect(rapidasPara(LONGA, {})?.prontas).toEqual(["pode fazer", "agora não", "explica melhor", "manda no celular"]);
     expect(rapidasPara("Quer que eu abra?", { respostasProntas: ["x"] })).toMatchObject({ pergunta: true, sim: true, nao: true, prontas: ["x"] });
   });
 

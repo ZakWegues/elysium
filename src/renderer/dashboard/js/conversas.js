@@ -133,7 +133,8 @@ async function loadChatConversations() {
   }
 }
 
-async function openConversation(id) {
+/** `continuar` (31/10): veio do outro aparelho — a Ely segue com o contexto, sem limpar. */
+async function openConversation(id, continuar = false) {
   const session = await window.nx.chatSessionsGet(id);
   if (!session) return;
 

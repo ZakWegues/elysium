@@ -188,6 +188,16 @@ const s = (v: string) => JSON.stringify(v);
 const num = (n: number) => String(Math.round(n * 100) / 100);
 const reais = (expr: string) => `@Format(${expr}, "currency", 2, "BRL")`;
 
+/**
+ * 31/10: a cor do topo varia com o assunto — uma das 6 cores de gráfico do tema (seguem claro e
+ * escuro). O mesmo assunto mantém a cor; assuntos diferentes não saem todos iguais. Pura.
+ */
+export function tomDe(assunto: string): string {
+  let h = 0;
+  for (const c of norm(assunto)) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  return `chart${1 + (h % 6)}`;
+}
+
 // 26/10 (pedido do Zak: telas "muito mais aprimoradas e completas"): os modelos usam as peças da
 // Ely (Hero, StatRow/Stat, Ring, Progress, Timeline, ImageCard, Callout, ScoreBar, Versus, Avatar,
 // WeekGrid, QuizCard). Os dados e os esquemas são os mesmos — só o desenho mudou.
@@ -241,9 +251,9 @@ function programaPainel(d: Dados<"painel">): string {
     ...(d.nota ? [`Callout(${s(d.nota)}, "insight")`] : []),
   ];
   return `root = Col([hero, resumo, Card([Row([Caption("Distribuição"), Spacer(), SegmentedControl($tipo, [{value: "bar", label: "Barras"}, {value: "donut", label: "Rosca"}])], 2, "center"), grafico], "soft", 3), insights, Card([Caption("Detalhes"), tabela], "soft", 3)])
-$tipo = "bar"
+$tipo = ${s(d.categorias.length <= 5 ? "donut" : "bar")}
 dados = ${dados}
-hero = Hero(${s(d.titulo)}, ${s(sub)}, "chart-pie")
+hero = Hero(${s(d.titulo)}, ${s(sub)}, "chart-pie", ${s(tomDe(d.titulo))})
 resumo = StatRow([Stat("Total", ${fmt("@Sum(dados.valor)")}, "wallet"), Stat("Maior", ${s(maior.nome)}, "trending-up", null, null, "warning"), Stat("Média", ${fmt("@Avg(dados.valor)")}, "equal")])
 grafico = Chart($tipo, @Sort(dados, "valor", "desc"), "nome", ["valor"], ${d.moeda ? `"currency", "BRL"` : `"number"`})
 insights = Col([${insights.join(", ")}], 2)
@@ -257,7 +267,7 @@ function programaComparacao(d: Dados<"comparacao">): string {
   const citado = d.itens.map((it, i) => ({ i, pos: v.indexOf(norm(it)) })).filter((x) => x.pos >= 0).sort((a, b) => a.pos - b.pos)[0];
   const cartoes = d.itens.map((it, i) => `ImageCard(${s(it)}, ${s(it)}${d.destaques?.[i] ? `, null, ${s(d.destaques[i])}` : ""})`);
   return `root = Col([hero, Versus([${cartoes.join(", ")}]${citado ? `, ${citado.i}` : ""}), Card([Caption("Lado a lado"), tabela], "soft", 3), veredito])
-hero = Hero(${s(d.titulo)}, ${s(`${d.itens.length} opções · ${d.criterios.length} critérios`)}, "target")
+hero = Hero(${s(d.titulo)}, ${s(`${d.itens.length} opções · ${d.criterios.length} critérios`)}, "target", ${s(tomDe(d.titulo))})
 tabela = Table([${["\"\"", ...d.itens.map(s)].join(", ")}], [${linhas.join(", ")}])
 veredito = Callout(${s(d.veredito)}, "sucesso", "trophy", "Veredito")`;
 }
@@ -265,7 +275,7 @@ veredito = Callout(${s(d.veredito)}, "sucesso", "trophy", "Veredito")`;
 function programaFlashcards(d: Dados<"flashcards">): string {
   const cartoes = d.cartoes.map((c, i) => `c${i} = Flashcard(${s(c.frente)}, ${s(c.verso)}${c.dica ? `, ${s(c.dica)}` : ""})`);
   return `root = Col([hero, Carousel([${d.cartoes.map((_, i) => `c${i}`).join(", ")}], 270), Callout("Toque no cartão para ver a resposta; arraste para o próximo. Errou? Volte nele no fim.", "dica")])
-hero = Hero(${s(d.tema)}, ${s(`${d.cartoes.length} cartões para revisar`)}, "brain")
+hero = Hero(${s(d.tema)}, ${s(`${d.cartoes.length} cartões para revisar`)}, "brain", ${s(tomDe(d.tema))})
 ${cartoes.join("\n")}`;
 }
 
@@ -279,7 +289,7 @@ $r${i} = ""`);
   return `root = Col([hero, Progress(feitas, ${n}, "Respondidas"), ${ps.map((_, i) => `q${i}`).join(", ")}, final, Celebration(pontos == ${n})])
 pontos = ${pontos}
 feitas = ${feitas}
-hero = Hero(${s(d.tema)}, ${s(`${n} perguntas · toque numa opção para responder`)}, "graduation-cap")
+hero = Hero(${s(d.tema)}, ${s(`${n} perguntas · toque numa opção para responder`)}, "graduation-cap", ${s(tomDe(d.tema))})
 final = Card([Row([Ring(pontos, ${n}, "acertos", pontos + "/" + ${n}, pontos == ${n} ? "success" : null), Col([Title(feitas < ${n} ? "Continue!" : (pontos == ${n} ? "Gabaritou!" : (pontos >= ${Math.ceil(n * 0.7)} ? "Mandou bem!" : "Bora revisar?")), "md"), Text(feitas < ${n} ? "Faltam " + (${n} - feitas) + " perguntas." : "Você acertou " + pontos + " de " + ${n} + ".", "sm", "muted")], 1)], 4, "center")], "soft", 3)
 ${blocos.join("\n")}`;
 }
@@ -296,7 +306,7 @@ function programaChecklist(d: Dados<"checklist">): string {
   const total = k, marcados = Array.from({ length: k }, (_, i) => `($c${i} ? 1 : 0)`).join(" + ");
   return `root = Col([topo, ${d.grupos.map((_, i) => `g${i}`).join(", ")}, Celebration(feitos == ${total})])
 feitos = ${marcados}
-topo = Row([Col([Hero(${s(d.titulo)}, ${s(`${total} itens em ${d.grupos.length} grupo${d.grupos.length > 1 ? "s" : ""}`)}, "list-checks")], 1), Ring(feitos, ${total}, "feito", feitos + "/" + ${total}, feitos == ${total} ? "success" : null)], 3, "center")
+topo = Row([Col([Hero(${s(d.titulo)}, ${s(`${total} itens em ${d.grupos.length} grupo${d.grupos.length > 1 ? "s" : ""}`)}, "list-checks", ${s(tomDe(d.titulo))})], 1), Ring(feitos, ${total}, "feito", feitos + "/" + ${total}, feitos == ${total} ? "success" : null)], 3, "center")
 ${grupos.join("\n")}
 ${vars.join("\n")}`;
 }
@@ -311,7 +321,7 @@ function programaRoteiro(d: Dados<"roteiro">): string {
   const itens = d.paradas.map((p, i) => `TimelineItem(${s(p.lugar)}, ${s(p.descricao)}, ${s(p.hora || "")}, null${i === 0 ? "" : `, ${s(busca(p))}`})`);
   return `root = Col([capa, hero, linha${d.dicas.length ? ", dicas" : ""}])
 capa = ImageCard(${s(busca(p0))}, ${s(p0.lugar)}, ${s(p0.descricao)}, ${s(p0.hora ? `Começa às ${p0.hora}` : "Primeira parada")})
-hero = Hero(${s(d.titulo)}, ${s(d.resumo || `${d.paradas.length} paradas${d.cidade ? ` em ${d.cidade}` : ""}`)}, "map-pin")
+hero = Hero(${s(d.titulo)}, ${s(d.resumo || `${d.paradas.length} paradas${d.cidade ? ` em ${d.cidade}` : ""}`)}, "map-pin", ${s(tomDe(d.titulo))})
 linha = Timeline([${itens.join(", ")}])${d.dicas.length ? `\ndicas = Col([${d.dicas.map((t) => `Callout(${s(t)}, "dica")`).join(", ")}], 2)` : ""}`;
 }
 
@@ -319,7 +329,7 @@ function programaCronograma(d: Dados<"cronograma">): string {
   const dias = `[${d.dias.map((dia) => `{dia: ${s(dia.dia)}, itens: [${dia.itens.map((it) => `{hora: ${s(it.hora || "")}, tarefa: ${s(it.tarefa)}}`).join(", ")}]}`).join(", ")}]`;
   const tarefas = d.dias.reduce((a, x) => a + x.itens.length, 0);
   return `root = Col([hero, StatRow([Stat("Dias", ${s(String(d.dias.length))}, "calendar-days"), Stat("Tarefas", ${s(String(tarefas))}, "list-checks")]), WeekGrid(${dias})${d.nota ? `, Callout(${s(d.nota)}, "dica")` : ""}])
-hero = Hero(${s(d.titulo)}, ${s(`${tarefas} tarefas em ${d.dias.length} dia${d.dias.length > 1 ? "s" : ""}`)}, "calendar-days")`;
+hero = Hero(${s(d.titulo)}, ${s(`${tarefas} tarefas em ${d.dias.length} dia${d.dias.length > 1 ? "s" : ""}`)}, "calendar-days", ${s(tomDe(d.titulo))})`;
 }
 
 /** Os dados validados viram o programa. Pura. */

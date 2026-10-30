@@ -628,6 +628,8 @@ const METHODS: Record<string, MethodDef> = {
           createdAt: typeof s.createdAt === "number" ? s.createdAt : Date.now(),
           updatedAt: typeof s.updatedAt === "number" ? s.updatedAt : Date.now(),
           favorite: !!s.favorite,
+          // 31/10: a versão que vence aqui veio do celular — o PC oferece "Continuar do celular".
+          aparelho: "celular",
           messages: s.messages as ChatSession["messages"],
         }),
       };

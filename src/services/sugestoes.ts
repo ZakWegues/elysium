@@ -26,7 +26,7 @@ import { clipboard } from "electron";
 import { listAll } from "./scheduler";
 import { getDashboardTelemetry, getTopProcesses } from "../actions/systemInfo";
 import { getAllPresets } from "./presetsStore";
-import { listSessions } from "./chatSessionsStore";
+import { conversaParaContinuar, listSessions } from "./chatSessionsStore";
 import { getConfig } from "../main/config";
 import * as spotify from "./spotify";
 import { climaAgora } from "./clima";
@@ -51,6 +51,10 @@ export interface Sugestao {
     aba?: string;
     /** Com `aba: "pc"`, abre também um dos painéis dela. */
     painel?: string;
+    /** 31/10: com `aba: "chat"`, abre esta conversa. */
+    conversa?: string;
+    /** Com `conversa`: mantém o contexto da Ely (a conversa continua de onde o celular parou). */
+    continuar?: boolean;
   };
 }
 
@@ -235,6 +239,12 @@ async function candidatas(): Promise<Sugestao[]> {
 
   await tentar(() => {
     const sessoes = listSessions();
+    // 31/10: a conversa que acabou de acontecer no celular vem primeiro, e abre direto nela.
+    const doCelular = conversaParaContinuar(sessoes, "celular");
+    if (doCelular) {
+      c.push({ texto: `Continuar do celular: “${doCelular.title}”`, icone: "smartphone", detalhe: "Conversa de agora há pouco", peso: 7, acao: { aba: "chat", conversa: doCelular.id, continuar: true } });
+      return;
+    }
     const ultima = sessoes.filter(x => x.favorite)[0] ?? sessoes[0];
     if (!ultima) return;
     c.push({
@@ -242,7 +252,7 @@ async function candidatas(): Promise<Sugestao[]> {
       icone: "message-circle",
       detalhe: "Conversa salva",
       peso: 3,
-      acao: { aba: "chat" },
+      acao: { aba: "chat", conversa: ultima.id },
     });
   });
 
