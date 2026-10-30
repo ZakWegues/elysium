@@ -388,3 +388,5 @@
 .iui-row:has(> :is(.iui-image, .iui-box:has(> .iui-image:only-child))) { align-items: flex-start !important; gap: var(--iui-space-group-lg) !important; }
 .iui-row > :is(.iui-image, .iui-box:has(> .iui-image:only-child)) { flex: none !important; width: clamp(120px, 33%, 200px) !important; }
 .iui-row > .iui-box:has(> .iui-image:only-child) > .iui-image, .iui-row > .iui-image { aspect-ratio: 4 / 3 !important; height: auto !important; }
+.iui-chart-reset { position: absolute; top: 4px; right: 4px; z-index: 3; padding: 3px 9px; border: 1px solid var(--iui-border); border-radius: 999px; background: var(--iui-canvas); color: inherit; font: inherit; font-size: 11px; cursor: pointer; opacity: 0.85; }
+.iui-chart-reset:hover { opacity: 1; }

@@ -1,7 +1,7 @@
 "use client";
 
 import { defineComponent } from "@openuidev/react-lang";
-import { useId, useLayoutEffect, useRef, useState, type PointerEvent } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type PointerEvent } from "react";
 import { z } from "zod/v4";
 
 type Row = Record<string, unknown>;
@@ -68,10 +68,40 @@ function Legend({ series }: { series: string[] }) {
   );
 }
 
+/** Fewest points a zoomed chart shows, and the size from which zoom turns on. */
+const ZOOM_MIN = 4;
+const ZOOM_FROM = 9;
+
+/**
+ * Zoom the visible window [start, end) of `total` points by `factor` (< 1 = in) around `at`
+ * (0..1 across the plot), or pan it by `shift` points. Pure.
+ */
+export function zoomWindow(win: [number, number], total: number, op: { factor: number; at: number } | { shift: number }): [number, number] {
+  const [a, b] = win;
+  if ("shift" in op) {
+    const s = Math.max(-a, Math.min(total - b, Math.round(op.shift)));
+    return [a + s, b + s];
+  }
+  const n = b - a;
+  const next = Math.max(Math.min(ZOOM_MIN, total), Math.min(total, Math.round(n * op.factor)));
+  const start = Math.max(0, Math.min(total - next, Math.round(a + op.at * n - op.at * next)));
+  return [start, start + next];
+}
+
 function Cartesian({ spec, width }: { spec: Spec; width: number }) {
   const gradient = useId().replace(/:/g, "");
   const [hover, setHover] = useState<number | null>(null);
-  const { rows, series, type, height, format, x } = spec;
+  const { series, type, height, format, x } = spec;
+  const total = spec.rows.length;
+  const canZoom = total >= ZOOM_FROM;
+  const [win, setWin] = useState<[number, number]>([0, total]);
+  useEffect(() => setWin([0, total]), [total]);
+  const zoomed = canZoom && (win[0] > 0 || win[1] < total);
+  const rows = canZoom ? spec.rows.slice(win[0], win[1]) : spec.rows;
+  const svgRef = useRef<SVGSVGElement>(null);
+  // Pointers on the plot: one = drag to pan (when zoomed), two = pinch.
+  const pointers = useRef(new Map<number, number>());
+  const pinch = useRef<{ dist: number; panX: number } | null>(null);
   const stacked = spec.stacked && type !== "line";
   const tops = rows.map((row) => {
     let total = 0;
@@ -93,15 +123,75 @@ function Cartesian({ spec, width }: { spec: Spec; width: number }) {
   const longest = Math.max(1, ...rows.map((r) => label(r, x).length));
   const every = Math.max(1, Math.ceil((longest * 6.6 + 10) / band));
   const shown = (i: number) => i % every === 0;
+  const at = (clientX: number) => {
+    const box = svgRef.current?.getBoundingClientRect();
+    return box ? Math.max(0, Math.min(1, (clientX - box.left - pad.left) / w)) : 0.5;
+  };
+  // Ctrl+wheel (the trackpad pinch also arrives as Ctrl+wheel): a native listener, since React
+  // wheel handlers are passive and the page would zoom or scroll instead.
+  useEffect(() => {
+    const el = svgRef.current;
+    if (!el || !canZoom) return;
+    const onWheel = (e: WheelEvent) => {
+      if (!e.ctrlKey) return;
+      e.preventDefault();
+      setWin((cur) => zoomWindow(cur, total, { factor: e.deltaY > 0 ? 1.25 : 0.8, at: at(e.clientX) }));
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  });
+  const onDown = (event: PointerEvent<SVGSVGElement>) => {
+    if (!canZoom) return;
+    pointers.current.set(event.pointerId, event.clientX);
+    if (pointers.current.size === 2) {
+      const [p, q] = [...pointers.current.values()];
+      pinch.current = { dist: Math.abs(p - q), panX: (p + q) / 2 };
+    } else pinch.current = { dist: 0, panX: event.clientX };
+  };
+  const onUp = (event: PointerEvent<SVGSVGElement>) => {
+    pointers.current.delete(event.pointerId);
+    if (pointers.current.size === 0) pinch.current = null;
+    else pinch.current = { dist: 0, panX: [...pointers.current.values()][0] };
+  };
   const onMove = (event: PointerEvent<SVGSVGElement>) => {
     const box = event.currentTarget.getBoundingClientRect();
     const i = Math.floor((event.clientX - box.left - pad.left) / band);
     setHover(i >= 0 && i < rows.length ? i : null);
+    if (!pinch.current || !pointers.current.has(event.pointerId)) return;
+    pointers.current.set(event.pointerId, event.clientX);
+    const g = pinch.current;
+    if (pointers.current.size === 2) {
+      const [p, q] = [...pointers.current.values()];
+      const dist = Math.abs(p - q);
+      if (g.dist > 8 && Math.abs(dist / g.dist - 1) > 0.12) {
+        setWin((cur) => zoomWindow(cur, total, { factor: g.dist / dist, at: at((p + q) / 2) }));
+        pinch.current = { dist, panX: (p + q) / 2 };
+      }
+    } else if (zoomed && Math.abs(event.clientX - g.panX) >= band) {
+      setWin((cur) => zoomWindow(cur, total, { shift: (g.panX - event.clientX) / band }));
+      pinch.current = { dist: 0, panX: event.clientX };
+    }
   };
   const tip = hover === null ? null : rows[hover];
   return (
     <div className="iui-chart-plot" style={{ height }}>
-      <svg width={width} height={height} role="img" aria-label={`${type} chart of ${series.join(", ")} by ${x}`} onPointerMove={onMove} onPointerLeave={() => setHover(null)}>
+      <svg
+        ref={svgRef}
+        width={width}
+        height={height}
+        role="img"
+        aria-label={`${type} chart of ${series.join(", ")} by ${x}`}
+        onPointerMove={onMove}
+        onPointerLeave={(e) => {
+          setHover(null);
+          onUp(e);
+        }}
+        onPointerDown={onDown}
+        onPointerUp={onUp}
+        onPointerCancel={onUp}
+        onDoubleClick={() => canZoom && setWin([0, total])}
+        style={canZoom ? { touchAction: "pan-y", cursor: zoomed ? "grab" : undefined } : undefined}
+      >
         <defs>
           {series.map((s, si) => (
             <linearGradient key={s} id={`${gradient}-${si}`} x1="0" x2="0" y1="0" y2="1">
@@ -158,6 +248,11 @@ function Cartesian({ spec, width }: { spec: Spec; width: number }) {
           })}
         {hover !== null && type !== "bar" && <line x1={xAt(hover)} x2={xAt(hover)} y1={pad.top} y2={pad.top + h} className="iui-chart-guide" />}
       </svg>
+      {zoomed && (
+        <button type="button" className="iui-chart-reset" onClick={() => setWin([0, total])}>
+          Ver tudo
+        </button>
+      )}
       {tip && (
         <div className="iui-chart-tooltip" style={{ left: Math.min(Math.max(xAt(hover!), 70), width - 70), top: pad.top }}>
           <strong>{label(tip, x)}</strong>

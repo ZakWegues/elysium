@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { cabeTela, decidirTela, gerarTela, pediuTela, promptDasTelas, type Gerador } from "../src/services/telaInteligente";
+import { cabeTela, decidirTela, gerarTela, pediuTela, promptDasTelas, querTelaLivre, type Gerador } from "../src/services/telaInteligente";
 import { coordsValidas, criarProxy, fotoAceita, reduzirLinha, type Busca } from "../src/services/uiProxy";
 
 const BOM = 'root = Card([Title("Parcela", "md"), Text("R$ 100")])';
@@ -34,6 +34,16 @@ describe("quando a tela sai (22/10)", () => {
   it("voz nunca gera; sem Hermes nem Groq, nada", () => {
     expect(decidirTela("priorizar", "monta uma tela", "voz", true)).toBe("nada");
     expect(decidirTela("priorizar", "planeja meu sábado", "texto", false)).toBe("nada");
+  });
+});
+
+describe("pedido de tela livre (31/10)", () => {
+  it("interativo/completo vão ao gerador livre; o resto usa o modelo pronto", () => {
+    expect(querTelaLivre("monta um painel interativo dos meus gastos")).toBe(true);
+    expect(querTelaLivre("faz um simulador de financiamento completo")).toBe(true);
+    expect(querTelaLivre("quero um quiz diferente sobre a revolução francesa")).toBe(true);
+    expect(querTelaLivre("monta um quiz sobre a revolução francesa")).toBe(false);
+    expect(querTelaLivre("compara iphone e galaxy")).toBe(false);
   });
 });
 

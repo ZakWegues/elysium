@@ -659,6 +659,9 @@ ipcMain.on("audio-data", async (_event, buffer: Buffer) => {
     notify("ELYSIUM", combined);
 
     enviarAoDash("voice:reply", combined);
+    // 31/10: pedido explícito de tela pela voz ("me mostra num gráfico…") também monta a tela,
+    // embaixo da resposta falada. Oferta e "priorizar" continuam só no texto.
+    if (pediuTela(text) && getConfig().respostasInterativas !== "nunca" && provedorDeTelas() !== null) void telaNoChat(text, combined);
     // 22/10: os botões de resposta também valem depois da voz (o microfone segue aberto).
     const rapidasVoz = rapidasPara(combined, getConfig());
     if (rapidasVoz) enviarAoDash("chat:extras", { rapidas: rapidasVoz });

@@ -31,6 +31,14 @@ export function pediuTela(texto: string): boolean {
 }
 
 /**
+ * 31/10: "interativo", "completo", "do zero", "diferente"… = a pessoa quer mais que o modelo pronto;
+ * vai direto ao gerador livre. Puro.
+ */
+export function querTelaLivre(texto: string): boolean {
+  return /\b(interativ[oa]|complet[oa]|detalhad[oa]|personalizad[oa]|do zero|diferente|criativ[oa]|caprichad[oa]|elaborad[oa])\b/.test(norm(texto));
+}
+
+/**
  * Caberia uma tela? Classificador barato (regra + palavra-chave, sem modelo): planejar, comparar,
  * calcular, simular, roteiro, orçamento, dividir conta, estudar… Puro.
  */
@@ -178,7 +186,8 @@ export async function gerarTela(pergunta: string, respostaTexto: string, gerador
   });
   const ouCancela = <T>(p: Promise<T>) => (sinal ? Promise.race([p, cancelado]) : p);
   // 24/10: os pedidos comuns têm tela pronta (o modelo só manda os dados, ou nem isso).
-  const tipo = tipoDeTelaPronta(pergunta) ?? (/\b(disso|isso|dessa|desse)\b/i.test(pergunta) ? tipoDeTelaPronta(respostaTexto) : null);
+  const tipo = querTelaLivre(pergunta) ? null
+    : tipoDeTelaPronta(pergunta) ?? (/\b(disso|isso|dessa|desse)\b/i.test(pergunta) ? tipoDeTelaPronta(respostaTexto) : null);
   if (tipo) {
     const pronta = await telaPronta(tipo, pergunta, respostaTexto, gerador, v, ouCancela, registro, sinal);
     if (pronta) return { ...pronta, ms: Date.now() - t0 };
