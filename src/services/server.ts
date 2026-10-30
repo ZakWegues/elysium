@@ -54,7 +54,7 @@ import { estadoAtualizacao } from "./atualizacao";
 import * as fsAtualizacao from "node:fs";
 import { enderecoPermitido, hostPermitido } from "./redeSegura";
 import { ehDoProprioPc, ExecutorMcp, responderMcp } from "./mcpElysium";
-import { abrirPedido, enviarUi, idValido, parar, pedaco, retomar, soltarDestino, terminar } from "./retomada";
+import { abrirPedido, enviarUi, idValido, parar, pedaco, retomar, soltarDestino, terminar, type Pedido } from "./retomada";
 import { atalhoDeTela, cancelarTelaDoCelular, depoisDaResposta, gerarParaCelular } from "./telasDoCelular";
 import { geradorDeTelas, provedorDeTelas } from "./geradorDeTelas";
 
@@ -902,7 +902,7 @@ function handleUpgrade(
   const enviarAqui = (t: string) => sendToClient(client, t);
   socket.on("close", () => { fechado = true; soltarDestino(enviarAqui); });
 
-  const executar = async (texto: string, canal: "voz" | "texto" = "voz", aoPedaco?: (t: string) => void): Promise<{ reply: string; fontes?: Fonte[]; local?: boolean; rapidas?: Rapidas; podeSugerir?: boolean }> => {
+  const executar = async (texto: string, canal: "voz" | "texto" = "voz", aoPedaco?: (t: string) => void): Promise<{ reply: string; fontes?: Fonte[]; local?: boolean; rapidas?: Rapidas; conversa?: boolean }> => {
     if (!processStream) return { reply: await processCommand(texto, canal) };
     const r = await processStream(texto, aoPedaco ?? ((token) => sendToClient(client, JSON.stringify({ type: "chunk", text: token }))), canal);
     // Bloco 132: as sugestões chegam DEPOIS do reply, numa mensagem própria — o celular já
@@ -914,7 +914,9 @@ function handleUpgrade(
         .then(sugestoes => { if (sugestoes.length) sendToClient(client, JSON.stringify({ type: "sugestoes", sugestoes })); })
         .catch(() => { /* sem chips */ });
     }
-    return { reply: r.reply, fontes: r.fontes, local: r.local, rapidas, podeSugerir: deveSugerir(r.actions, canal) };
+    // `conversa` é o critério da tela (só conversa, sem ação no PC) — vale também para a voz,
+    // que não ganha chips mas pode ganhar a oferta de tela (31/10).
+    return { reply: r.reply, fontes: r.fontes, local: r.local, rapidas, conversa: deveSugerir(r.actions, "texto") };
   };
 
   // A tela vai com o ajuste "Telas com internet" (fotos, mapa e rotas) do momento.
@@ -924,6 +926,40 @@ function handleUpgrade(
   // primeiro frame de entrada — e é aí que o acesso do aparelho é registrado, uma vez só.
   let canalInput: CanalDeInput | null = null;
   let errosDeInput = 0;
+
+  // 31/10: o celular novo anuncia o próximo áudio (`{type:"audio", id, telas}`) antes do frame
+  // binário — aí o áudio vira pedido com id (retomada, tela, oferta), como o texto.
+  let audioAnunciado: { id: string; telas: boolean } | null = null;
+
+  /**
+   * Pedido com id (texto, ou áudio já transcrito): a resposta fica guardada para retomar se o
+   * socket cair. Com `comTelas`, pedido explícito e "sim" à oferta vão direto ao gerador.
+   */
+  function responderPedido(p: Pedido, texto: string, canal: "voz" | "texto", comTelas: boolean, refazer: boolean): void {
+    const modoTelas = getConfig().respostasInterativas;
+    const atalho = comTelas ? atalhoDeTela(texto, refazer, modoTelas, provedorDeTelas() !== null) : null;
+    if (atalho) {
+      // "Sim" à oferta ou pedido explícito: direto para o gerador, sem passar pelo agente.
+      terminar(p, { type: "reply", reply: "Montando a tela…" });
+      void gerarParaCelular(atalho.pergunta, atalho.resposta, geradorDeTelas(), paraUi(p), atalho.daOferta
+        ? { pronto: "Pronto, aqui está como tela.", falhou: "Não consegui montar a tela agora. A resposta em texto continua aí em cima." }
+        : { pronto: "Pronto, aqui está a tela.", falhou: "Não consegui montar a tela agora. Quer que eu responda em texto?" }, p.id);
+      return;
+    }
+    executar(texto, canal, (t) => pedaco(p, t))
+      .then(({ reply, fontes, local, rapidas, conversa }) => {
+        if (p.parado) { desfazerTurno(p.texto, reply); return; }
+        const tela = comTelas ? depoisDaResposta(texto, reply, conversa === true, modoTelas, provedorDeTelas() !== null) : { reply, gerar: false };
+        // Com a oferta no fim, as respostas rápidas viram as da pergunta nova (Sim/Não).
+        const rap = tela.reply !== reply ? rapidasPara(tela.reply, getConfig()) ?? undefined : rapidas;
+        terminar(p, { type: "reply", reply: tela.reply, ...(fontes?.length ? { fontes } : {}), ...(local ? { local } : {}), ...(rap ? { rapidas: rap } : {}) });
+        if (tela.gerar) void gerarParaCelular(texto, reply, geradorDeTelas(), paraUi(p), {}, p.id);
+      })
+      .catch(err => {
+        console.error("[WS] falha ao processar comando:", err);
+        terminar(p, { type: "error", error: mensagemDeErro(err) });
+      });
+  }
 
   function handleTextFrame(text: string): void {
     try {
@@ -960,32 +996,14 @@ function handleUpgrade(
         // Pedido com id: a resposta fica guardada para retomar se o socket cair.
         // 22/10 (Fase 4): o app que desenha telas avisa (`telas: true`); só ele recebe oferta e tela.
         const comTelas = msg.telas === true && msg.canal === "texto";
-        const modoTelas = getConfig().respostasInterativas;
-        const atalho = comTelas ? atalhoDeTela(msg.text, msg.refazer === true, modoTelas, provedorDeTelas() !== null) : null;
         if (msg.refazer === true) desfazerUltimoTurno();
         const p = abrirPedido(msg.id, msg.text, enviarAqui);
         if (!p) { retomar(msg.id, enviarAqui); return; } // o mesmo pedido chegou de novo: só reconecta
-        if (atalho) {
-          // "Sim" à oferta ou pedido explícito: direto para o gerador, sem passar pelo agente.
-          terminar(p, { type: "reply", reply: "Montando a tela…" });
-          void gerarParaCelular(atalho.pergunta, atalho.resposta, geradorDeTelas(), paraUi(p), atalho.daOferta
-            ? { pronto: "Pronto, aqui está como tela.", falhou: "Não consegui montar a tela agora. A resposta em texto continua aí em cima." }
-            : { pronto: "Pronto, aqui está a tela.", falhou: "Não consegui montar a tela agora. Quer que eu responda em texto?" }, msg.id);
-          return;
-        }
-        executar(msg.text, msg.canal === "texto" ? "texto" : "voz", (t) => pedaco(p, t))
-          .then(({ reply, fontes, local, rapidas, podeSugerir }) => {
-            if (p.parado) { desfazerTurno(p.texto, reply); return; }
-            const tela = comTelas ? depoisDaResposta(msg.text!, reply, podeSugerir === true, modoTelas, provedorDeTelas() !== null) : { reply, gerar: false };
-            // Com a oferta no fim, as respostas rápidas viram as da pergunta nova (Sim/Não).
-            const rap = tela.reply !== reply ? rapidasPara(tela.reply, getConfig()) ?? undefined : rapidas;
-            terminar(p, { type: "reply", reply: tela.reply, ...(fontes?.length ? { fontes } : {}), ...(local ? { local } : {}), ...(rap ? { rapidas: rap } : {}) });
-            if (tela.gerar) void gerarParaCelular(msg.text!, reply, geradorDeTelas(), paraUi(p), {}, msg.id as string);
-          })
-          .catch(err => {
-            console.error("[WS] falha ao processar comando de texto:", err);
-            terminar(p, { type: "error", error: mensagemDeErro(err) });
-          });
+        responderPedido(p, msg.text, msg.canal === "texto" ? "texto" : "voz", comTelas, msg.refazer === true);
+        return;
+      }
+      if (msg.type === "audio") {
+        audioAnunciado = idValido(msg.id) ? { id: msg.id, telas: msg.telas === true } : null;
         return;
       }
       if (msg.type === "input") {
@@ -1023,6 +1041,27 @@ function handleUpgrade(
     // Cada áudio é uma transcrição paga na Groq: mais de dois ao mesmo tempo é laço, não gente.
     if (audiosEmCurso >= WS_AUDIOS_SIMULTANEOS) {
       sendToClient(client, JSON.stringify({ type: "error", error: "Ainda estou cuidando dos últimos áudios — tente de novo em instantes." }));
+      return;
+    }
+    const anuncio = audioAnunciado;
+    audioAnunciado = null;
+    if (anuncio) {
+      // Pedido aberto já na chegada: se o socket cair na transcrição, a retomada acha o pedido.
+      const p = abrirPedido(anuncio.id, "", enviarAqui);
+      if (!p) { retomar(anuncio.id, enviarAqui); return; }
+      audiosEmCurso++;
+      try {
+        const text = await transcribe(new Uint8Array(audio));
+        if (!text) { terminar(p, { type: "error", error: "Could not transcribe audio" }); return; }
+        p.texto = text;
+        p.destino?.(JSON.stringify({ type: "transcript", text, id: p.id }));
+        responderPedido(p, text, "voz", anuncio.telas, false);
+      } catch (e) {
+        console.error("[WS] falha ao transcrever áudio:", e);
+        terminar(p, { type: "error", error: mensagemDeErro(e) });
+      } finally {
+        audiosEmCurso--;
+      }
       return;
     }
     audiosEmCurso++;
