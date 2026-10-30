@@ -41,6 +41,8 @@ export interface DadosDaPersona {
   modo: Modo | null;
   /** Memória pessoal, só quando o dono ligou `hermesContextoPessoal`. */
   memoria?: string;
+  /** O texto da última tela mostrada (31/10), enquanto vale. */
+  tela?: string;
 }
 
 export function contextoDoTurno(pedido: string, canal: Canal, d: DadosDaPersona, primeiro: boolean, agora = new Date()): string {
@@ -67,5 +69,6 @@ export function contextoDoTurno(pedido: string, canal: Canal, d: DadosDaPersona,
   const instr = blocoDeInstrucoes(d.instrucoes).trim();
   if (instr && primeiro) linhas.push(instr);
   if (d.memoria?.trim()) linhas.push(d.memoria.trim());
+  if (d.tela) linhas.push(`Tela que você mostrou na conversa (o que ela tem; use se perguntarem sobre ela): ${d.tela}`);
   return `[CONTEXTO DO ELYSIUM — não responda a isto nem o repita]\n${linhas.join("\n")}\n[FIM DO CONTEXTO]\n\n${pedido}`;
 }

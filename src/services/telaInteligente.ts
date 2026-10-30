@@ -174,7 +174,42 @@ async function telaPronta(
  * para gerar, ou `sinal` cancelou — quem chamou confere `sinal.aborted`). `registro` recebe o
  * resultado de cada tentativa (para a bancada e o log).
  */
-export async function gerarTela(pergunta: string, respostaTexto: string, gerador: Gerador, registro?: (r: { tentativa: number; ok: boolean; erros: string[]; ms: number; provedor?: string; modelo?: string | null }) => void, sinal?: AbortSignal): Promise<Tela | null> {
+export async function gerarTela(...args: Parameters<typeof gerarTelaCrua>): Promise<Tela | null> {
+  const tela = await gerarTelaCrua(...args);
+  if (tela) aoMostrar?.(tela.programa);
+  return tela;
+}
+
+/** Quem quer saber de cada tela pronta (31/10: o main põe o texto dela no contexto da Ely). */
+let aoMostrar: ((programa: string) => void) | null = null;
+export function quandoMostrarTela(fn: ((programa: string) => void) | null): void {
+  aoMostrar = fn;
+}
+
+/** Palavras de estilo do OpenUI (tamanho, tom, alinhamento) e ícones — não são conteúdo. */
+const ESTILO = new Set(["sm", "md", "lg", "xl", "muted", "soft", "center", "start", "end", "success", "warning", "danger", "info", "insight", "dica", "primary", "number", "currency", "brl", "bar", "donut", "line", "area", "pie", "desc", "asc", "nome", "valor",
+  "brain", "calendar", "equal", "landmark", "percent", "receipt", "target", "trophy", "users", "wallet", "star", "heart", "clock", "check", "info", "map", "home", "book"]);
+
+/**
+ * O que a tela mostra, em texto corrido (31/10): os textos do programa, sem ícones e palavras de
+ * estilo, com o número quando vem logo depois ({nome: "Mercado", valor: 800} → "Mercado (800)").
+ * É o que a Ely "lembra" da tela no pedido seguinte. Puro.
+ */
+export function textoDaTela(programa: string, max = 1500): string {
+  const vistos = new Set<string>();
+  const partes: string[] = [];
+  for (const m of programa.matchAll(/"((?:[^"\\\n]|\\.)*)"(\s*,\s*(?:\w+\s*:\s*)?(-?\d+(?:\.\d+)?)\b)?/g)) {
+    let t: string;
+    try { t = (JSON.parse(`"${m[1]}"`) as string).trim(); } catch { continue; }
+    if (t.length < 2 || !/[\p{L}\d]/u.test(t) || ESTILO.has(t.toLowerCase()) || /^[a-z0-9]+(-[a-z0-9]+)+$/.test(t) || /^chart\d$/.test(t) || vistos.has(t)) continue;
+    vistos.add(t);
+    partes.push(m[3] !== undefined ? `${t} (${m[3]})` : t);
+  }
+  const texto = partes.join(" · ");
+  return texto.length > max ? `${texto.slice(0, max - 1)}…` : texto;
+}
+
+async function gerarTelaCrua(pergunta: string, respostaTexto: string, gerador: Gerador, registro?: (r: { tentativa: number; ok: boolean; erros: string[]; ms: number; provedor?: string; modelo?: string | null }) => void, sinal?: AbortSignal): Promise<Tela | null> {
   const v = carregarValidador();
   const sistema = promptDasTelas();
   const t0 = Date.now();

@@ -12,7 +12,7 @@ import { ouvirTimers, retomarTimers } from "../services/timers";
 import { deveSugerir, sugerirContinuacoes } from "../services/continuacoes";
 import { rapidasPara } from "../services/respostasRapidas";
 import { ehSim } from "../services/confirmacao";
-import { decidirTela, gerarTela, OFERTA, pediuTela } from "../services/telaInteligente";
+import { decidirTela, gerarTela, OFERTA, pediuTela, quandoMostrarTela, textoDaTela } from "../services/telaInteligente";
 import { geradorDeTelas, provedorDeTelas } from "../services/geradorDeTelas";
 import { proxyDoApp } from "../services/uiProxy";
 import * as path from "node:path";
@@ -57,7 +57,7 @@ import { aCada, esperarOcioso, pararIntervalos } from "./proativo";
 import { notify } from "./notify";
 import { createTray, refreshTray, updateLastCommand, buildIcon as iconePadrao, aoInterromperFala, marcarFalaNaBandeja } from "./tray";
 import { transcribe } from "../services/stt";
-import { clearHistory, desfazerUltimoTurno, registrarFalaDaEly } from "../services/brain";
+import { clearHistory, desfazerUltimoTurno, registrarFalaDaEly, registrarTelaMostrada } from "../services/brain";
 import { modelosDaGroq } from "../services/catalogoGroq";
 import { desligarPalavraDeAtivacao, escutarDuranteFala, ligarPalavraDeAtivacao, Ouvido, podeInterromper } from "../services/palavraAtivacao";
 
@@ -868,6 +868,9 @@ async function telaNoChat(pergunta: string, resposta: string, comResposta = fals
     telasEmCurso.delete(id);
   }
 }
+
+// Toda tela pronta (chat, "Ver como tela" e celular): o texto dela fica no contexto da Ely.
+quandoMostrarTela((programa) => registrarTelaMostrada(textoDaTela(programa)));
 
 /** Telas sendo geradas agora (chat e "Ver como tela"): o Cancelar do esqueleto aborta pelo id. */
 const telasEmCurso = new Map<string, AbortController>();

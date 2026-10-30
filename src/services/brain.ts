@@ -142,7 +142,26 @@ let lastActivity = Date.now();
 let ultimoPedidoEm: number | null = null;
 let ausenciaAntesDoPedido = 0;
 
+/**
+ * A última tela mostrada (31/10), em texto: entra no contexto dos próximos pedidos para "e a 3ª
+ * pergunta do quiz?" funcionar. Some depois de 3 pedidos, numa tela nova ou com a conversa zerada.
+ */
+let telaRecente: { texto: string; pedidos: number } | null = null;
+
+export function registrarTelaMostrada(texto: string): void {
+  telaRecente = texto ? { texto, pedidos: 0 } : null;
+}
+
+export function telaMostrada(): string | null {
+  return telaRecente?.texto ?? null;
+}
+
+function blocoDaTela(): string {
+  return telaRecente ? `\n\n[TELA QUE VOCÊ MOSTROU NA CONVERSA — o que ela tem; use se perguntarem sobre ela]\n${telaRecente.texto}` : "";
+}
+
 export function clearHistory(): void {
+  telaRecente = null;
   history = [];
   limparResumo();
   lastActivity = Date.now();
@@ -164,7 +183,8 @@ function podarHistorico(): void {
 
 /** Reset por inatividade: conversa velha não vale como contexto, nem no resumo. */
 function zerarSeOcioso(now: number): void {
-  if (now - lastActivity > getConfig().chatIdleResetMs) { history = []; limparResumo(); }
+  if (now - lastActivity > getConfig().chatIdleResetMs) { history = []; limparResumo(); telaRecente = null; }
+  if (telaRecente && ++telaRecente.pedidos > 3) telaRecente = null;
   lastActivity = now;
   ausenciaAntesDoPedido = ultimoPedidoEm === null ? 0 : now - ultimoPedidoEm;
   ultimoPedidoEm = now;
@@ -402,7 +422,7 @@ export function contextoRecente(): string {
   const recente = history.slice(0, -1)
     .map(m => (m.role === "user" ? `Usuário: ${m.content}` : `Ely: ${m.content}`))
     .join("\n");
-  return antes ? `(antes disso: ${antes})\n${recente}` : recente;
+  return (antes ? `(antes disso: ${antes})\n${recente}` : recente) + blocoDaTela();
 }
 
 /** A falha técnica em português de gente — a fala que substitui o "não entendi". */
@@ -518,7 +538,7 @@ async function comporResposta(userText: string, onToken: ((token: string) => voi
   if (modo) tocarModo();
   const ultimo = recent[recent.length - 1];
   const messages: ChatMessage[] = [
-    { role: "system", content: CHAT_SYSTEM_PROMPT(canal) + blocoDoModo(modo, canal) + blocoDoMomento(userText) + blocoDeInstrucoes(cfg.instrucoesPessoais) + buildMemoryBlock(userText) + blocoDasConversasAnteriores(userText) + (blocoDoResumo() ? `\n\n[O QUE VEIO ANTES NESTA CONVERSA]\n${blocoDoResumo()}` : "") },
+    { role: "system", content: CHAT_SYSTEM_PROMPT(canal) + blocoDoModo(modo, canal) + blocoDoMomento(userText) + blocoDeInstrucoes(cfg.instrucoesPessoais) + buildMemoryBlock(userText) + blocoDasConversasAnteriores(userText) + (blocoDoResumo() ? `\n\n[O QUE VEIO ANTES NESTA CONVERSA]\n${blocoDoResumo()}` : "") + blocoDaTela() },
     ...recent.map(m => ({ role: m.role, content: m.content })),
     // Rede de segurança: se alguém chamar a composição sem passar pelo roteador, o
     // pedido não estaria no histórico e o modelo responderia ao turno anterior.

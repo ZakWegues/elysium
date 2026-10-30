@@ -5,6 +5,7 @@ import { getConfig, getGeminiKey, nomeDoUsuario, setOverride } from "../../main/
 import { modeloDoHermes } from "../gemini";
 import type { Canal } from "../estiloResposta";
 import { modoAtivo } from "../modos";
+import { telaMostrada } from "../brain";
 import { buildMemoryBlock } from "../memoryStore";
 import { liberacaoAtiva, pedirConfirmacao } from "../confirmacao";
 import { ConexaoHermes } from "./conexao";
@@ -234,6 +235,7 @@ export async function agirViaHermes(texto: string, op: { canal?: Canal; onToken?
     instrucoes: cfg.instrucoesPessoais,
     modo: modoAtivo(),
     memoria: cfg.hermesContextoPessoal ? buildMemoryBlock(texto) : undefined,
+    tela: telaMostrada() ?? undefined,
   }, primeiro);
   sessao.turnos++;
   sessao.ultimoUso = Date.now();
