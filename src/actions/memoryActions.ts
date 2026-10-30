@@ -1,20 +1,23 @@
-import { addFact, listFacts, removeFactByText } from "../services/memoryStore";
+import { addFact, listFacts, removeFactById, removeFactByText } from "../services/memoryStore";
+import { registrarDesfazer } from "../services/desfazer";
 import {
   cancelReminder, cancelReminderByText, createReminder, listPending, Reminder,
 } from "../services/scheduler";
 import { ajustarPeloTexto, ehCompromisso, HORA_PADRAO, interpretarQuando, planejarLembretes } from "../services/planoDeLembrete";
 import { pedidoAtual } from "../services/contextoComando";
-import { criarTarefa, desvincularLembrete, editarTarefa, listarTarefasTodas, marcarMigracao, migracaoFeita, obterTarefa, proximaOcorrencia, type Tarefa } from "../services/tarefas";
+import { apagarTarefa, criarTarefa, desvincularLembrete, editarTarefa, importarTarefas, listarTarefasTodas, marcarMigracao, migracaoFeita, obterTarefa, proximaOcorrencia, type Tarefa } from "../services/tarefas";
 
 // ── memória ───────────────────────────────────────────────────────────────────
 
 export function remember(fact: string): string {
   const { fact: saved, created } = addFact(fact);
+  if (created) registrarDesfazer(`Guardei: ${saved.text}`, () => { removeFactById(saved.id); return `Pronto, esqueci: ${saved.text}.`; });
   return created ? `Guardei: ${saved.text}.` : "Isso eu já sabia.";
 }
 
 export function forget(query: string): string {
   const removed = removeFactByText(query);
+  if (removed) registrarDesfazer(`Esqueci: ${removed.text}`, () => { addFact(removed.text); return `Pronto, lembro de novo: ${removed.text}.`; });
   return removed ? `Esqueci: ${removed.text}.` : "Não achei nada assim na memória.";
 }
 
@@ -59,7 +62,17 @@ function formatWhen(dueAt: number): string {
  * avisos que faltam. Ver `planoDeLembrete.ts` e `tarefas.ts`.
  */
 export function createReminderAction(text: string, dueAt: string, weekly?: boolean, semHora?: boolean): string {
-  return criarLembreteComTarefa(text, dueAt, weekly, semHora).mensagem;
+  const r = criarLembreteComTarefa(text, dueAt, weekly, semHora);
+  // 31/10: desfazer apaga a tarefa e os avisos dela (o semanal, sem tarefa, fica de fora).
+  const tarefa = r.tarefa;
+  if (tarefa) {
+    registrarDesfazer(`Lembrete: ${tarefa.texto}`, () => {
+      for (const id of tarefa.lembreteIds ?? []) cancelReminder(id);
+      apagarTarefa(tarefa.id);
+      return `Pronto, apaguei o lembrete: ${tarefa.texto}.`;
+    });
+  }
+  return r.mensagem;
 }
 
 /**
@@ -207,6 +220,20 @@ export function listRemindersAction(): string {
 
 export function cancelReminderAction(query: string): string {
   const removed = cancelReminderByText(query);
-  if (removed) desvincularLembrete(removed.id);
+  if (removed) {
+    // A tarefa ligada a ele (que pode sumir junto) é guardada antes, para o desfazer (31/10).
+    const tarefa = listarTarefasTodas().find(t => t.lembreteIds?.includes(removed.id));
+    desvincularLembrete(removed.id);
+    registrarDesfazer(`Cancelei: ${removed.text}`, () => {
+      if (removed.kind !== "weekly" && removed.dueAt <= Date.now()) return "Esse lembrete já teria tocado; não dá para trazer de volta.";
+      const novo = createReminder({ text: removed.text, dueAt: removed.dueAt, kind: removed.kind, weekday: removed.weekday });
+      if (tarefa) {
+        const atual = obterTarefa(tarefa.id);
+        if (atual) editarTarefa(atual.id, { lembreteIds: [...(atual.lembreteIds ?? []), novo.id] });
+        else importarTarefas([{ ...tarefa, lembreteIds: [novo.id] }]);
+      }
+      return `Pronto, o lembrete voltou: ${removed.text}.`;
+    });
+  }
   return removed ? `Cancelei o lembrete: ${removed.text}.` : "Não achei esse lembrete.";
 }

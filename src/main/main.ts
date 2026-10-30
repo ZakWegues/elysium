@@ -642,7 +642,7 @@ ipcMain.on("audio-data", async (_event, buffer: Buffer) => {
       // agente, histórico fora de ordem). A tela sabe da fala pelo `tts:falando`.
       falas.push(speak(frase, humor).catch(() => {}));
     };
-    const { reply: combined } = await executarComando(text, {
+    const { reply: combined, desfazer } = await executarComando(text, {
       onActions: (actions) => {
         const label = getActionsLabel(actions);
         enviarAoDash("voice:action-label", label);
@@ -665,6 +665,7 @@ ipcMain.on("audio-data", async (_event, buffer: Buffer) => {
     // 22/10: os botões de resposta também valem depois da voz (o microfone segue aberto).
     const rapidasVoz = rapidasPara(combined, getConfig());
     if (rapidasVoz) enviarAoDash("chat:extras", { rapidas: rapidasVoz });
+    if (desfazer) enviarAoDash("chat:extras", { desfazer });
     state.set("speaking");
     // O que ainda não foi dito: o fim da resposta (ou ela inteira, sem fala antecipada).
     // O `speak` entra na mesma fila, depois das frases já enfileiradas.
@@ -772,7 +773,7 @@ async function enviarTexto(text: string, opcoes?: { refazer?: boolean }): Promis
     // e não conta de novo nas perguntas frequentes.
     if (opcoes?.refazer) desfazerUltimoTurno();
     else registrarPergunta(text);
-    const { reply: combined, fontes, actions, local } = await executarComando(text, {
+    const { reply: combined, fontes, actions, local, desfazer } = await executarComando(text, {
       canal: "texto",
       onActions: (actions) => {
         const label = getActionsLabel(actions);
@@ -803,6 +804,8 @@ async function enviarTexto(text: string, opcoes?: { refazer?: boolean }): Promis
     if (fontes.length) enviarAoDash("chat:extras", { fontes });
     // Fase 18: a nuvem falhou e o local respondeu — o selo "modo local" na bolha.
     if (local) enviarAoDash("chat:extras", { local: true });
+    // 31/10: fez algo reversível — o botão "Desfazer" no rodapé da bolha.
+    if (desfazer) enviarAoDash("chat:extras", { desfazer });
     // 22/10: respostas rápidas. Se ela perguntou algo, a linha é de resposta — sem as
     // sugestões de continuação (uma linha só embaixo da bolha).
     const rapidas = rapidasPara(textoFinal, getConfig());

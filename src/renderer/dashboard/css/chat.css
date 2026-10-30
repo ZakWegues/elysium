@@ -415,6 +415,14 @@
   background: rgba(var(--purple-rgb),0.08); color: var(--text); font: inherit; font-size: 12px; cursor: pointer; text-align: left;
 }
 .chat-sugestoes button:hover { background: rgba(var(--purple-rgb),0.18); }
+/* 31/10: "Desfazer" da última ação reversível — discreto, some sozinho em 30 s. */
+.chat-desfazer { display: flex; transition: opacity var(--mov-saida) var(--mov-suave); }
+.chat-desfazer.saindo { opacity: 0; pointer-events: none; }
+.chat-desfazer button {
+  height: 24px; padding: 0 10px; border-radius: var(--radius-20); border: 1px solid var(--border2);
+  background: var(--surface); color: var(--muted); font: inherit; font-size: 11px; cursor: pointer;
+}
+.chat-desfazer button:hover { color: var(--text); border-color: rgba(var(--purple-rgb),0.45); }
 
 /* 22/10: respostas rápidas — Sim/Não/opções (forte), as prontas e "Outra resposta…". Entram em
    cascata de 30 ms e somem com fade quando ele responde (tokens --mov-* do base.css). */

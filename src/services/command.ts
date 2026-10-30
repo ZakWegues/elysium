@@ -13,6 +13,7 @@ import { ehEntradaDoLive } from "./live";
 import { pedirConfirmacao, responderConfirmacao } from "./confirmacao";
 import { responderRevisao, semMarcas } from "./cartoes";
 import { decidirVocativo, dosarTratamento } from "./vocativo";
+import { desfazerUltima, ehPedidoDeDesfazer, ultimoDesfazer } from "./desfazer";
 
 export type ResultadoComando = {
   actions: BrainAction[];
@@ -24,6 +25,8 @@ export type ResultadoComando = {
   fontes: Fonte[];
   /** Fase 18: a nuvem falhou e quem respondeu foi o cérebro local (o app mostra "modo local"). */
   local?: boolean;
+  /** 31/10: este pedido fez algo reversível — o rótulo vai para o botão "Desfazer" da bolha. */
+  desfazer?: string;
 };
 
 /**
@@ -55,9 +58,11 @@ export function executarComando(text: string, ganchos: GanchosComando = {}): Pro
   return comContexto(ganchos.canal ?? "voz", async () => {
     // 19/10: o "chefe" na medida — sorteado por resposta, só na primeira frase (vocativo.ts).
     const permitido = decidirVocativo();
+    const antes = ultimoDesfazer()?.id;
     const r = await executarNoContexto(text, ganchos);
     const reply = dosarTratamento(r.reply, getConfig().tratamento ?? "", permitido);
-    return { ...r, reply, fontes: fontesDoPedido(), ...(usouReserva() ? { local: true } : {}) };
+    const novo = ultimoDesfazer();
+    return { ...r, reply, fontes: fontesDoPedido(), ...(usouReserva() ? { local: true } : {}), ...(novo && novo.id !== antes ? { desfazer: novo.rotulo } : {}) };
   }, text);
 }
 
@@ -75,6 +80,15 @@ async function executarNoContexto(
     registrarTurnoUsuario(text);
     recordAssistantReply(confirmado);
     return { actions: [], reply: confirmado, atalho: true };
+  }
+
+  // 31/10: "desfaz" (ou o botão "Desfazer" da bolha) — a última ação reversível, sem modelo.
+  if (ehPedidoDeDesfazer(text)) {
+    registrarTurnoUsuario(text);
+    const reply = await desfazerUltima();
+    recordAssistantReply(reply);
+    ganchos.onToken?.(reply);
+    return { actions: [], reply, atalho: true };
   }
 
   // Fase 20: no meio da revisão ("Ely, revisão"), o pedido é a resposta do cartão — a não ser

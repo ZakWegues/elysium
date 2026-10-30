@@ -300,6 +300,13 @@ function anexarExtras(x) {
     // Fase 21: "reserva" cobre os dois casos — o Hermes não respondeu, ou a nuvem caiu e o local respondeu.
     rodape.insertAdjacentHTML("afterbegin", `<div class="chat-local" title="O cérebro principal não respondeu a tempo; quem respondeu foi a reserva — pode ser menos preciso.">reserva</div>`);
   }
+  // 31/10: a ação foi reversível — "Desfazer" por 30 s; o clique manda "desfaz" como pedido.
+  if (x?.desfazer) {
+    timeline.querySelectorAll(".chat-desfazer").forEach(n => n.remove());
+    rodape.insertAdjacentHTML("afterbegin", `<div class="chat-desfazer"><button type="button" data-sugestao="desfaz" title="${escHtml(x.desfazer)}">↶ Desfazer</button></div>`);
+    const linha = rodape.querySelector(".chat-desfazer");
+    setTimeout(() => { linha.classList.add("saindo"); setTimeout(() => linha.remove(), 140); }, 30_000);
+  }
   // 22/10: respostas rápidas — Sim/Não/opções dela + as prontas + "Outra resposta…".
   if (x?.rapidas) {
     rodape.querySelector(".chat-rapidas")?.remove();
@@ -346,7 +353,7 @@ timeline.addEventListener("click", (e) => {
 
 /** As linhas de chips da resposta anterior somem (com fade curto) quando ele responde. */
 function tirarLinhasDeResposta() {
-  timeline.querySelectorAll(".chat-sugestoes, .chat-rapidas").forEach(n => {
+  timeline.querySelectorAll(".chat-sugestoes, .chat-rapidas, .chat-desfazer").forEach(n => {
     n.classList.add("saindo");
     setTimeout(() => n.remove(), 140);
   });

@@ -1,11 +1,11 @@
 import { BrainAction } from "../services/brain";
-import { getAllPresets, findPresetKey, deletePresetByKey } from "../services/presetsStore";
+import { getAllPresets, findPresetKey, deletePresetByKey, savePreset } from "../services/presetsStore";
 import { openUrl } from "./openUrl";
 import { openApp } from "./openApp";
-import { closeApp, closeAppIfOpen } from "./closeApp";
+import { closeApp, closeAppIfOpen, deriveProcessNames } from "./closeApp";
 import { getRunningApps } from "./systemInfo";
 import * as spotifyApi from "../services/spotify";
-import { volumeControl } from "./volumeControl";
+import { lerVolume, volumeControl, type VolumeLevel } from "./volumeControl";
 import { playMusic } from "./playMusic";
 import { writeText } from "./writeText";
 import { createFile } from "./createFile";
@@ -27,7 +27,7 @@ import { askAboutScreen } from "../services/vision";
 import { climaFalado } from "../services/clima";
 import { comecarFoco, focoFalado, pararFoco } from "../services/foco";
 import { resumoDoDia } from "../services/resumoDoDia";
-import { adicionarNaLista, listaFalada, listarListas, obterLista } from "../services/listas";
+import { acharItem, adicionarNaLista, listaFalada, listarListas, obterLista, removerItem } from "../services/listas";
 import { inputHost } from "../services/inputHost";
 import { acharHabito, avancarMeta, listarHabitos, listarMetas, marcarHabito, resumirHabito } from "../services/habitos";
 import { marcarTreinoFalado, registrarCorridaFalada, registrarPesoFalado } from "../services/corpoFalado";
@@ -39,6 +39,7 @@ import { avancarMetaPorNome, falaDaMeta, falaDoHabito, marcarHabitoPorNome } fro
 import { fazerComIsso } from "../services/isso";
 import { aplicarDespejo, descreverDespejo, interpretarFala } from "../services/despejo";
 import { pedirConfirmacao } from "../services/confirmacao";
+import { registrarDesfazer } from "../services/desfazer";
 
 // "a, b e c" — para a voz não ler a lista como enumeração de vírgulas (texto.ts, fase 20).
 import { emFrase } from "../services/texto";
@@ -55,8 +56,8 @@ export async function routeAction(action: BrainAction): Promise<string> {
     case "play_music":        return playMusic(action.query);
     case "open_url":          return openUrl(action.url_or_query);
     case "open_app":          return openApp(action.app_name);
-    case "close_app":         return closeApp(action.app_name);
-    case "volume_control":    return volumeControl(action.level);
+    case "close_app":         return fecharComDesfazer(action.app_name);
+    case "volume_control":    return volumeComDesfazer(action.level);
     case "media_control":     return smartMediaControl(action.operation);
     case "window_management": return windowManagement(action.target_app, action.operation);
     case "write_text":        return writeText(action.content, action.description);
@@ -91,6 +92,13 @@ export async function routeAction(action: BrainAction): Promise<string> {
       return "Pronto.";
     case "list_add": {
       const r = adicionarNaLista(action.list, action.items);
+      if (r.adicionados.length) {
+        registrarDesfazer(`Lista ${r.lista.nome}: ${emFrase(r.adicionados)}`, () => {
+          const lista = obterLista(r.lista.nome);
+          for (const t of r.adicionados) { const item = lista && acharItem(lista, t); if (lista && item) removerItem(lista.id, item.id); }
+          return `Pronto, tirei ${emFrase(r.adicionados)} da lista ${r.lista.nome}.`;
+        });
+      }
       if (action.list === "Notas" && r.adicionados.length) return "Anotei.";
       if (!r.adicionados.length) return `${emFrase(r.repetidos)} já ${r.repetidos.length > 1 ? "estão" : "está"} na lista ${r.lista.nome}.`;
       return `Pus ${emFrase(r.adicionados)} na lista ${r.lista.nome}${r.repetidos.length ? ` (${emFrase(r.repetidos)} já estava)` : ""}.`;
@@ -183,8 +191,38 @@ function listPresetsReply(): string {
 function deletePreset(presetName: string): string {
   const key = findPresetKey(presetName);
   if (!key) return `Preset "${presetName}" não encontrado.`;
+  const entrada = getAllPresets()[key];
   deletePresetByKey(key);
+  registrarDesfazer(`Preset ${key} removido`, () => { savePreset(key, entrada); return `Pronto, o preset "${key}" voltou.`; });
   return `Preset "${key}" removido.`;
+}
+
+/** Volume com desfazer (31/10): o nível e o mudo de antes voltam. */
+async function volumeComDesfazer(level: VolumeLevel): Promise<string> {
+  const antes = await lerVolume().catch(() => null);
+  const r = await volumeControl(level);
+  if (antes) {
+    registrarDesfazer(r.replace(/\.$/, ""), async () => {
+      await volumeControl(antes.nivel);
+      await volumeControl(antes.mudo ? "mute" : "unmute");
+      return `Volume de volta a ${antes.nivel}%${antes.mudo ? ", no mudo" : ""}.`;
+    });
+  }
+  return r;
+}
+
+/** Fechar com desfazer (31/10): só se estava aberto; desfazer reabre (o que não foi salvo não volta). */
+async function fecharComDesfazer(appName: string): Promise<string> {
+  const nomes = deriveProcessNames(appName).map(n => n.toLowerCase());
+  const estavaAberto = (await getRunningApps().catch(() => [])).some(a => nomes.includes(a.name.toLowerCase()));
+  const r = await closeApp(appName);
+  if (estavaAberto && r.endsWith("fechado.")) {
+    registrarDesfazer(`${appName} fechado`, async () => {
+      await openApp(appName);
+      return `Reabri ${appName}. O que não estava salvo não volta.`;
+    });
+  }
+  return r;
 }
 
 /** "Modo matemática", "sai do modo", "cria um modo…" (fase 20). */
