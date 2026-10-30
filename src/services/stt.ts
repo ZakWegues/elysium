@@ -32,6 +32,8 @@ export async function transcribe(audio: Uint8Array): Promise<string> {
   let res: Response;
   try {
     res = await fetch(GROQ_STT_URL, {
+      // 31/10: o pedido de voz não pode ficar pendurado sem prazo.
+      signal: AbortSignal.timeout(30_000),
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}` },
       body: form,

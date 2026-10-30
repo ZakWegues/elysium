@@ -41,6 +41,8 @@ export const mensagemDaTela = z.discriminatedUnion("tipo", [
   z.object({ tipo: z.literal("pedido"), id: z.number().int().positive(), rota: z.enum(["fotos", "rota"]), params: z.record(z.string().max(30), texto(300)) }),
   z.object({ tipo: z.literal("erro"), mensagem: texto(1000) }),
   z.object({ tipo: z.literal("rolar"), dy: z.number().min(-2000).max(2000) }),
+  // 31/10: Esc com o foco DENTRO da tela (o teclado vai para o iframe, não para o host).
+  z.object({ tipo: z.literal("tecla"), tecla: z.enum(["Escape"]) }),
 ]);
 export type MensagemDaTela = z.infer<typeof mensagemDaTela>;
 

@@ -34,6 +34,8 @@ import { rapidasPara, type Rapidas } from "./respostasRapidas";
 import { getConfig } from "../main/config";
 import { proxyDoApp } from "./uiProxy";
 import * as crypto from "node:crypto";
+import Store from "electron-store";
+import { NoncesVistos, verificarAssinatura } from "./assinatura";
 import type { Socket } from "node:net";
 import { transcribe } from "./stt";
 import { getSystemTelemetry } from "../actions/systemInfo";
@@ -267,7 +269,34 @@ export function setActiveToken(token: string): void {
   if (mudou) for (const c of [...wsClients]) { try { c.socket.destroy(); } catch { /* já caiu */ } wsClients.delete(c); }
 }
 
+const noncesVistos = new NoncesVistos();
+const seguranca = new Store<{ assinaturaVista: boolean }>({ name: "seguranca", defaults: { assinaturaVista: false } });
+
+/**
+ * 31/10: o Bearer em texto claro só continua valendo onde o caminho já é protegido — o próprio
+ * PC e o Tailscale (criptografado). Na rede de casa, depois que o celular novo (que assina os
+ * pedidos) apareceu uma vez, o Bearer é recusado: um token capturado na rede não serve mais.
+ */
+export function bearerPermitido(endereco: string | undefined, assinaturaVista: boolean): boolean {
+  if (!assinaturaVista) return true;
+  let e = (endereco ?? "").toLowerCase();
+  if (e.startsWith("::ffff:")) e = e.slice(7);
+  if (e === "::1" || e.startsWith("127.")) return true;
+  const m = /^100\.(\d{1,3})\./.exec(e);
+  if (m && Number(m[1]) >= 64 && Number(m[1]) <= 127) return true; // 100.64/10 (Tailscale)
+  return /^fd7a:115c:a1e0:/.test(e);                                  // IPv6 do Tailscale
+}
+
 function authorized(req: http.IncomingMessage): boolean {
+  // 31/10: pedido assinado (ver assinatura.ts) — o token não viaja.
+  const assinatura = req.headers["x-elysium-assinatura"];
+  if (typeof assinatura === "string") {
+    const r = verificarAssinatura(assinatura, req.method ?? "GET", req.url ?? "/", activeToken, Math.floor(Date.now() / 1000), noncesVistos);
+    // Só um aparelho DE FORA (o celular) liga a obrigatoriedade — um teste no próprio PC não.
+    if (r.ok && !seguranca.get("assinaturaVista") && !ehDoProprioPc(req.socket.remoteAddress)) seguranca.set("assinaturaVista", true);
+    return r.ok;
+  }
+  if (!bearerPermitido(req.socket.remoteAddress, seguranca.get("assinaturaVista"))) return false;
   const hdr = req.headers["authorization"] ?? "";
   if (typeof hdr === "string" && hdr.startsWith("Bearer ")) {
     const supplied = hdr.slice(7).trim();
@@ -538,7 +567,7 @@ function makeHandler(
         "Content-Disposition": `attachment; filename="elysium-m-${String(cel.versao).replace(/[^0-9A-Za-z.-]/g, "")}.apk"`,
         "Cache-Control": "no-store",
       });
-      fsAtualizacao.createReadStream(cel.arquivo).pipe(res);
+      fsAtualizacao.createReadStream(cel.arquivo).on("error", () => { if (!res.headersSent) sendJson(res, 404, { error: "Arquivo indisponível" }); else res.destroy(); }).pipe(res);
       return;
     }
 
@@ -1092,11 +1121,14 @@ export function startServer(
   });
 
   // Telemetry broadcast every 5 s to all connected WS clients
+  // 31/10: sem sobreposição — se uma leitura demorar mais de 5 s, a próxima espera.
+  let lendo = false;
   setInterval(async () => {
-    if (wsClients.size === 0) return;
+    if (wsClients.size === 0 || lendo) return;
+    lendo = true;
     try {
       const telem = await getSystemTelemetry();
       broadcastTelemetry(telem);
-    } catch { /* best effort */ }
+    } catch { /* best effort */ } finally { lendo = false; }
   }, 5_000);
 }

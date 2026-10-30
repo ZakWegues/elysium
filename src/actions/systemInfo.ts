@@ -55,7 +55,11 @@ if ($zones) {
  */
 const FORCE_UTF8 = "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8\n";
 
-function runPs(script: string): Promise<string> {
+/**
+ * 31/10: com prazo. O WMI às vezes trava, e sem prazo a promessa ficava pendurada para sempre —
+ * a telemetria do celular e do dashboard parava sem erro e o PowerShell nunca morria.
+ */
+function runPs(script: string, prazoMs = 15_000): Promise<string> {
   const encoded = Buffer.from(FORCE_UTF8 + script, "utf16le").toString("base64");
   return new Promise<string>((resolve) => {
     const ps = spawn("powershell.exe", [
@@ -64,9 +68,10 @@ function runPs(script: string): Promise<string> {
     ], { stdio: "pipe" });
 
     let out = "";
+    const prazo = setTimeout(() => { try { ps.kill(); } catch { /* já saiu */ } resolve("Não consegui obter essa informação."); }, prazoMs);
     ps.stdout?.on("data", (d: Buffer) => { out += d.toString(); });
-    ps.on("close", () => resolve(out.trim() || "Não consegui obter essa informação."));
-    ps.on("error", () => resolve("Não consegui obter essa informação."));
+    ps.on("close", () => { clearTimeout(prazo); resolve(out.trim() || "Não consegui obter essa informação."); });
+    ps.on("error", () => { clearTimeout(prazo); resolve("Não consegui obter essa informação."); });
   });
 }
 
@@ -370,9 +375,14 @@ export async function getDashboardTelemetry(): Promise<DashboardTelemetry> {
 
 // ── Kill process ──────────────────────────────────────────────────────────────
 
+/** 31/10: processos do Windows que, se mortos, derrubam a sessão (mesma lista do closeApp). */
+const PROCESSOS_DO_SISTEMA = ["csrss", "winlogon", "wininit", "lsass", "services", "smss", "svchost", "dwm", "system", "registry", "fontdrvhost", "explorer"];
+
 export async function killProcess(pid: number): Promise<void> {
   // Só número inteiro positivo chega ao script (o RPC já confere; aqui é a última porta).
   if (!Number.isInteger(pid) || pid <= 4) throw new Error("pid inválido");
+  const nome = (await runPs(`(Get-Process -Id ${pid} -ErrorAction SilentlyContinue).ProcessName`, 8000)).trim().toLowerCase();
+  if (PROCESSOS_DO_SISTEMA.includes(nome)) throw new Error(`"${nome}" é do Windows — fechar derrubaria a sessão.`);
   const script = `Stop-Process -Id ${pid} -Force -ErrorAction SilentlyContinue`;
   await runPs(script);
 }

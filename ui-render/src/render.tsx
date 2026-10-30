@@ -191,6 +191,11 @@ addEventListener("wheel", (e) => {
   enviarAoHost({ tipo: "rolar", dy: Math.max(-2000, Math.min(2000, dy)) });
 }, { passive: false });
 
+// 31/10: Esc dentro da tela cheia fecha (o host não recebe a tecla com o foco aqui dentro).
+addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && modoAtual() === "cheia") enviarAoHost({ tipo: "tecla", tecla: "Escape" });
+});
+
 definirModo("previa");
 ligarPonte();
 createRoot(document.getElementById("raiz")!).render(<Tela />);

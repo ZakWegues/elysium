@@ -57,6 +57,11 @@ export function registrarAcesso(req: IncomingMessage, autorizado: boolean): void
   if (autorizado) { a.pedidos++; a.ultimaVez = agora; a.cliente = tipoDeCliente(req.headers["user-agent"]); }
   else a.recusas++;
   memoria[ip] = a;
+  // 31/10: teto — IPv6 de privacidade e varreduras na rede criavam um registro por endereço, para sempre.
+  const ips = Object.keys(memoria);
+  if (ips.length > 50) {
+    for (const velho of ips.sort((x, y) => memoria[x].ultimaVez - memoria[y].ultimaVez).slice(0, ips.length - 50)) delete memoria[velho];
+  }
   gravarDepois();
 }
 

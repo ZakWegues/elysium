@@ -27,6 +27,9 @@ export function caminhoProibido(caminho: string, proibidas: string[]): boolean {
   const c = path.resolve(caminho).toLowerCase();
   if (/^[a-z]:\\(windows|program files( \(x86\))?|programdata)(\\|$)/i.test(c)) return true;
   if (/\\appdata\\/i.test(c)) return true;
+  // 31/10: chaves e segredos fora do AppData — SSH, GPG, Hermes, nuvens, Docker, Git.
+  if (/\\\.(ssh|gnupg|hermes|aws|azure|docker|kube)(\\|$)/i.test(c)) return true;
+  if (/\.(pem|key|pfx|p12|kdbx|ovpn)$|(^|\\)id_(rsa|ed25519|ecdsa)(\.pub)?$|(^|\\)\.env(\.[a-z]+)?$|(^|\\)\.git-credentials$/i.test(c)) return true;
   return dentroDe(c, proibidas);
 }
 

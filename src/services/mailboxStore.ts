@@ -163,6 +163,17 @@ const store = new Store<MailboxStoreShape>({
 });
 
 /**
+ * 31/10: os recados ficam em memória. O electron-store relê e decodifica o arquivo inteiro a
+ * cada `get` — e o celular pede a lista a toda hora; com anexos e meses de recados isso virava
+ * I/O síncrono no processo principal a cada pedido. Toda escrita passa por aqui também.
+ */
+let cacheMensagens: MailboxStoreShape["messages"] | null = null;
+const mensagens = {
+  get: (): MailboxStoreShape["messages"] => (cacheMensagens ??= store.get("messages")),
+  set: (v: MailboxStoreShape["messages"]): void => { cacheMensagens = v; store.set("messages", v); },
+};
+
+/**
  * Teto e validade das lápides. Um celular que nunca mais sincroniza não pode fazer este
  * registro crescer para sempre; 180 dias é muito mais que a janela real de um aparelho
  * fora do ar.
@@ -282,9 +293,9 @@ export function addMessage(from: MailboxSender, input: NewMailboxItemInput): { i
     text: input.text?.trim() || null,
     attachment, createdAt, readAt: null, sessionId,
   };
-  const items = store.get("messages");
+  const items = mensagens.get();
   items.push(item);
-  store.set("messages", items);
+  mensagens.set(items);
   tocarSessao(sessionId, createdAt, item.text);
   // Emite a variante desktop (com filePath) — este evento só é consumido dentro do
   // processo principal (main.ts encaminha pro renderer via IPC), nunca sai por HTTP.
@@ -359,7 +370,7 @@ export async function receberUpload(
 
 /** O arquivo de um anexo, para a rota `/raw` mandar em stream. undefined = sem anexo ou sumiu. */
 export function getAttachmentFile(id: string): { filePath: string; name: string; mimeType: string; sizeBytes: number } | undefined {
-  const item = store.get("messages").find(i => i.id === id);
+  const item = mensagens.get().find(i => i.id === id);
   if (!item?.attachment || !isKnownAttachmentPath(item.attachment.filePath)) return undefined;
   if (!fs.existsSync(item.attachment.filePath)) return undefined;
   const mime = !item.attachment.mimeType || item.attachment.mimeType === "application/octet-stream" ? mimePorNome(item.attachment.name) : item.attachment.mimeType;
@@ -368,7 +379,7 @@ export function getAttachmentFile(id: string): { filePath: string; name: string;
 
 export function listMessages(sessionId?: string | null): MailboxMessageMeta[] {
   garantirSessoes();
-  const todas = store.get("messages");
+  const todas = mensagens.get();
   // Sem filtro devolve a thread inteira, como sempre devolveu. É isso que mantém um app
   // antigo (que não conhece sessão) funcionando contra um PC já atualizado.
   const filtradas = sessionId ? todas.filter(m => (m.sessionId ?? SESSAO_INICIAL) === sessionId) : todas;
@@ -378,13 +389,13 @@ export function listMessages(sessionId?: string | null): MailboxMessageMeta[] {
 /** Mesma thread, mas com filePath do anexo — só pra consumo interno do processo desktop (IPC), nunca por HTTP. */
 export function listMessagesForDesktop(sessionId?: string | null): MailboxMessageMetaDesktop[] {
   garantirSessoes();
-  const todas = store.get("messages");
+  const todas = mensagens.get();
   const filtradas = sessionId ? todas.filter(m => (m.sessionId ?? SESSAO_INICIAL) === sessionId) : todas;
   return filtradas.map(toDesktopMeta);
 }
 
 export function getMessageContent(id: string): MailboxMessageContent | undefined {
-  const item = store.get("messages").find((i) => i.id === id);
+  const item = mensagens.get().find((i) => i.id === id);
   if (!item) return undefined;
   let attachment: (MailboxAttachmentMeta & { base64: string }) | null = null;
   if (item.attachment) {
@@ -400,22 +411,22 @@ export function getMessageContent(id: string): MailboxMessageContent | undefined
 }
 
 export function ackMessage(id: string): boolean {
-  const items = store.get("messages");
+  const items = mensagens.get();
   const item = items.find((i) => i.id === id);
   if (!item) return false;
   item.readAt = Date.now();
-  store.set("messages", items);
+  mensagens.set(items);
   return true;
 }
 
 /** Boot-check: marca readAt nas mensagens vindas do celular ainda não vistas pelo PC. Retorna as que acabaram de ser marcadas. */
 export function checkAndMarkUnseenFromMobile(): MailboxMessageMeta[] {
-  const items = store.get("messages");
+  const items = mensagens.get();
   const pending = items.filter((i) => i.from === "mobile" && i.readAt == null);
   if (pending.length === 0) return [];
   const now = Date.now();
   for (const i of pending) i.readAt = now;
-  store.set("messages", items);
+  mensagens.set(items);
   return pending.map(toMeta);
 }
 
@@ -455,7 +466,7 @@ export function deriveMailboxTitle(texto: string | null | undefined): string {
  */
 function garantirSessoes(): void {
   const sessions = store.get("sessions") ?? [];
-  const messages = store.get("messages");
+  const messages = mensagens.get();
   const orfas = messages.filter(m => !m.sessionId);
   if (orfas.length === 0) return;
 
@@ -477,7 +488,7 @@ function garantirSessoes(): void {
   if (orfas.length > 0) {
     for (const m of orfas) m.sessionId = SESSAO_INICIAL;
     base.updatedAt = Math.max(base.updatedAt, ...orfas.map(m => m.createdAt));
-    store.set("messages", messages);
+    mensagens.set(messages);
   }
   store.set("sessions", sessions);
 }
@@ -556,11 +567,11 @@ function podarSessoes(): void {
   if (sobrando.length === 0) return;
 
   const mortas = new Set(sobrando.map(s => s.id));
-  const messages = store.get("messages");
+  const messages = mensagens.get();
   for (const m of messages) {
     if (mortas.has(m.sessionId ?? SESSAO_INICIAL)) apagarAnexo(m);
   }
-  store.set("messages", messages.filter(m => !mortas.has(m.sessionId ?? SESSAO_INICIAL)));
+  mensagens.set(messages.filter(m => !mortas.has(m.sessionId ?? SESSAO_INICIAL)));
   store.set("sessions", sessions.filter(s => !mortas.has(s.id)));
 
   const ativa = store.get("activeSessionId");
@@ -570,7 +581,7 @@ function podarSessoes(): void {
 /** Mais recentes primeiro, com a contagem de recados de cada uma. */
 export function listMailboxSessions(): MailboxSessionMeta[] {
   const sessions = lerSessoes();
-  const messages = store.get("messages");
+  const messages = mensagens.get();
   const contagem = new Map<string, number>();
   for (const m of messages) {
     const sid = m.sessionId ?? SESSAO_INICIAL;
@@ -642,11 +653,11 @@ export function deleteMailboxSession(id: string): boolean {
   gravarLapide(id);
   if (!sessions.some(s => s.id === id)) return false;
 
-  const messages = store.get("messages");
+  const messages = mensagens.get();
   for (const m of messages) {
     if ((m.sessionId ?? SESSAO_INICIAL) === id) apagarAnexo(m);
   }
-  store.set("messages", messages.filter(m => (m.sessionId ?? SESSAO_INICIAL) !== id));
+  mensagens.set(messages.filter(m => (m.sessionId ?? SESSAO_INICIAL) !== id));
   store.set("sessions", sessions.filter(s => s.id !== id));
   if (store.get("activeSessionId") === id) store.set("activeSessionId", null);
   return true;
@@ -655,11 +666,11 @@ export function deleteMailboxSession(id: string): boolean {
 /** 🔴 DESTRUTIVO. Apaga um recado só — o DELETE que faltava no contrato (§16 C15). */
 export function deleteMailboxMessage(id: string): boolean {
   garantirSessoes();
-  const messages = store.get("messages");
+  const messages = mensagens.get();
   const alvo = messages.find(m => m.id === id);
   if (!alvo) return false;
   apagarAnexo(alvo);
-  store.set("messages", messages.filter(m => m.id !== id));
+  mensagens.set(messages.filter(m => m.id !== id));
   return true;
 }
 

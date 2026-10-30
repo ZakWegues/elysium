@@ -26,7 +26,16 @@ export function pastaDeLogs(): string {
   return pasta;
 }
 
+/** 31/10: chaves do Gemini (AIza…), do Google (ya29., refresh 1//) e cabeçalho de assinatura. */
+const OUTRAS_CHAVES: [RegExp, string][] = [
+  [/AIza[0-9A-Za-z_-]{30,}/g, "AIza***"],
+  [/ya29\.[0-9A-Za-z._-]{20,}/g, "ya29.***"],
+  [/\b1\/\/[0-9A-Za-z_-]{20,}/g, "1//***"],
+  [/v1:\d{9,11}:[A-Za-z0-9_-]{8,64}:[0-9a-f]{64}/g, "v1:***"],
+];
+
 export function mascarar(texto: string): string {
+  for (const [re, troca] of OUTRAS_CHAVES) texto = texto.replace(re, troca);
   return texto
     .replace(/gsk_[A-Za-z0-9]{12,}/g, "gsk_[oculto]")
     // Fase 20: o segredo do cliente OAuth do Google também.

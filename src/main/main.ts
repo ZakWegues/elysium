@@ -31,7 +31,7 @@ import { aplicarBackup, lerBackup, montarBackup } from "../services/backup";
 import { montarDiagnostico } from "../services/diagnostico";
 import { esquecerAparelhos, listarAparelhos } from "../services/aparelhos";
 import * as QRCode from "qrcode";
-import { getConfig, getApiKey, setApiKey, hasApiKey, setOverride, patchDeConfigSeguro, getOrCreateServerToken, getOrCreateMcpToken, regenerateServerToken, AppConfig, getGithubToken, setGithubToken, setGoogleCliente, getGeminiKey, setGeminiKey } from "./config";
+import { getConfig, getApiKey, setApiKey, hasApiKey, setOverride, patchDeConfigSeguro, getOrCreateServerToken, getOrCreateMcpToken, regenerateServerToken, AppConfig, getGithubToken, setGithubToken, setGoogleCliente, getGeminiKey, setGeminiKey, DEFAULTS } from "./config";
 import { limparCacheClima } from "../services/clima";
 import { getLocalIPv4, getAllLocalIPv4 } from "./network";
 import { inputHost } from "../services/inputHost";
@@ -1053,8 +1053,9 @@ ipcMain.handle("config:reset-defaults", () => {
     silenceMs: 2500,
     maxRecordMs: 120000,
     sttModel: "whisper-large-v3",
-    brainModel: "llama-3.3-70b-versatile",
-    routerModel: "llama-3.3-70b-versatile",
+    // 31/10: os padrões de verdade (o llama-3.3-70b foi aposentado pela Groq).
+    brainModel: DEFAULTS.brainModel,
+    routerModel: DEFAULTS.routerModel,
     chatHistoryTurns: 6,
     chatIdleResetMs: 300000,
   });
@@ -1156,7 +1157,10 @@ ipcMain.handle("backup:importar", async () => {
     properties: ["openFile"],
   });
   if (escolha.canceled || !escolha.filePaths[0]) return { cancelado: true };
-  const b = lerBackup(JSON.parse(fs.readFileSync(escolha.filePaths[0], "utf8")));
+  let bruto: unknown;
+  try { bruto = JSON.parse(fs.readFileSync(escolha.filePaths[0], "utf8")); }
+  catch { throw new Error("Esse arquivo não é um backup do ELYSIUM (JSON inválido)."); }
+  const b = lerBackup(bruto);
   // Confirmação no main, como os destrutivos do rpcBridge: importar muda ajustes e soma
   // rotinas — quem decide é o diálogo do sistema, não um clique perdido na tela.
   const { response } = await dialog.showMessageBox(alvo as BrowserWindow, {

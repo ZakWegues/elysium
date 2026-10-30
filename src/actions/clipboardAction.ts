@@ -13,6 +13,8 @@ async function transformText(instruction: string, content: string): Promise<stri
   let res: Response;
   try {
     res = await fetch(GROQ_CHAT_URL, {
+      // 31/10: sem prazo, a ação travava para sempre se a Groq não respondesse.
+      signal: AbortSignal.timeout(20_000),
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,

@@ -37,6 +37,7 @@ function mensagemDaTela(m) {
     }
     case "erro": return ehTexto(m.mensagem, 1000) ? { tipo: "erro", mensagem: m.mensagem } : null;
     case "rolar": return typeof m.dy === "number" && Number.isFinite(m.dy) && Math.abs(m.dy) <= 2000 ? { tipo: "rolar", dy: m.dy } : null;
+    case "tecla": return m.tecla === "Escape" ? { tipo: "tecla", tecla: "Escape" } : null;
     default: return null;
   }
 }
@@ -157,7 +158,8 @@ function animarEsqueleto(ctrl) {
  * Devolve o controle: mostrar(programa), falhar(motivo), e `aoCancelar`/`aoTentarDeNovo`.
  */
 function montarTela(bolha, { programa = null, estado = null, msgId = null } = {}) {
-  bolha.parentElement?.querySelector(`.tela-ely[data-de="${bolha.dataset.telaId}"]`)?.remove();
+  const antiga = bolha.parentElement?.querySelector(`.tela-ely[data-de="${bolha.dataset.telaId}"]`);
+  if (antiga) { vigia.unobserve(antiga); antiga.remove(); }
   const id = bolha.dataset.telaId || (bolha.dataset.telaId = `t${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`);
   const caixa = document.createElement("div");
   caixa.className = "tela-ely gerando";
@@ -208,6 +210,7 @@ function montarTela(bolha, { programa = null, estado = null, msgId = null } = {}
   });
 
   caixas.set(caixa, ctrl);
+  caixasVivas.add(caixa);
   if (programa) ctrl.mostrar(programa);
   return ctrl;
 }
@@ -220,7 +223,21 @@ function criarQuadro(ctrl) {
   // O contentWindow existe já; as mensagens só são aceitas dele.
   telasAbertas.set(f.contentWindow, ctrl);
   // O "pronta" pode sair antes de alguém ouvir: manda também no load.
-  f.addEventListener("load", () => iniciar(ctrl));
+  vigiarCargas(f, ctrl);
+}
+
+/**
+ * 31/10: só a PRIMEIRA carga do iframe é a tela. Uma segunda (a página navegou para outro
+ * lugar) deixa de ser ouvida e não recebe mais programa nem estado — senão uma página de fora
+ * herdaria a confiança da tela (o `contentWindow` é o mesmo depois de navegar).
+ */
+function vigiarCargas(f, ctrl) {
+  let cargas = 0;
+  f.addEventListener("load", () => {
+    if (++cargas === 1) { iniciar(ctrl); return; }
+    telasAbertas.delete(f.contentWindow);
+    console.warn("[telas] a tela navegou para fora — parei de ouvir");
+  });
 }
 
 function novoIframe() {
@@ -270,7 +287,7 @@ function abrirTelaCheia(ctrl) {
   document.body.appendChild(camada);
   const cheia = { cheia: true, base: ctrl, iframe: f, caixa: camada };
   telasAbertas.set(f.contentWindow, cheia);
-  f.addEventListener("load", () => iniciar(cheia));
+  vigiarCargas(f, cheia);
   requestAnimationFrame(() => camada.classList.add("aberta"));
 
   const fechar = () => {
@@ -299,6 +316,8 @@ function abrirTelaCheia(ctrl) {
 // Fora da vista por 30 s (rolou para longe, trocou de aba), o iframe sai e a caixa guarda a
 // altura; voltando para perto da vista (800 px antes), ele é recriado com o estado salvo.
 const caixas = new WeakMap();
+/** As caixas no chat, para soltar do observer as que saírem (WeakMap não se percorre). */
+const caixasVivas = new Set();
 const SONO_MS = 30_000;
 const vigia = new IntersectionObserver((entradas) => {
   for (const e of entradas) {
@@ -356,6 +375,9 @@ window.addEventListener("message", async (e) => {
       setTimeout(() => ctrl.caixa.querySelector(".tela-esqueleto")?.remove(), 320);
       if (isAtBottom()) setTimeout(scrollToBottom, 60);
     }
+  } else if (m.tipo === "tecla") {
+    // 31/10: Esc com o foco dentro da tela cheia.
+    if (ctrl.cheia) cheiaAberta?.fechar();
   } else if (m.tipo === "rolar") {
     // A roda do mouse em cima da prévia rola o chat (o iframe a engoliria).
     if (!ctrl.cheia) timeline.scrollTop += m.dy;
@@ -471,5 +493,12 @@ function restaurarTela(bolha, mensagem) {
 /** Ao sair do chat ou trocar de conversa, as telas fechadas param de ouvir. */
 function fecharTelasForaDaTela() {
   for (const [janela, ctrl] of telasAbertas) if (!ctrl.cheia && !ctrl.caixa.isConnected) telasAbertas.delete(janela);
+  // 31/10: caixas que saíram do chat deixam de ser vigiadas (o observer as mantinha vivas, com
+  // iframe e contexto WebGL, até fechar o app).
+  for (const caixa of caixasVivas) if (!caixa.isConnected) {
+    vigia.unobserve(caixa);
+    clearTimeout(caixas.get(caixa)?.timerSono);
+    caixasVivas.delete(caixa);
+  }
 }
 new MutationObserver(fecharTelasForaDaTela).observe(timeline, { childList: true });

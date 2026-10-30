@@ -376,10 +376,7 @@
           <option value="groq">Nuvem — Groq</option>
         </select>
         <small>O local é o padrão porque o prompt de roteamento tem ~3,4 mil tokens e o plano
-        gratuito da Groq devolve 429 já na segunda chamada seguida. Medido em 20/09/2026 na
-        bancada do agente (20 pedidos compostos e condicionais × 3): <code>qwen2.5:7b</code>
-        acertou 80% em 1,0 s, <code>llama3.1:8b</code> 73% em 2,1 s, <code>llama3.2:3b</code>
-        60% e age em conversa. Rode <code>scripts/bench-agente.mjs</code> para medir de novo.</small>
+        gratuito da Groq devolve 429 já na segunda chamada seguida. Medido em 30/10/2026 nesta máquina: <code>qwen3.5:4b</code> acertou 97% no roteador e foi o melhor no agente com ferramentas (o LFM3 foi testado e ficou atrás). Rode <code>scripts/bench-agente.mjs</code> para medir de novo.</small>
       </div>
       <div class="field">
         <label for="chatProvider">Conversa (o que ele fala)</label>
@@ -391,8 +388,8 @@
       </div>
       <div class="field">
         <label for="ollamaRouterModel">Modelo local</label>
-        <input type="text" id="ollamaRouterModel" placeholder="qwen2.5:7b" spellcheck="false">
-        <small>Precisa estar baixado (<code>ollama pull qwen2.5:7b</code>). Vale para roteamento
+        <input type="text" id="ollamaRouterModel" placeholder="qwen3.5:4b" spellcheck="false">
+        <small>Precisa estar baixado (<code>ollama pull qwen3.5:4b</code>). Vale para roteamento
         e conversa. Ocupa ~4,9 GB e leva ~18 s para entrar na GPU a frio — por isso o tempo de
         permanência abaixo é generoso.</small>
       </div>
@@ -502,21 +499,29 @@
      * um tema no dashboard, acrescente também nesta tabela.
      */
     const THEMES = {
-      ely:         { family: "ely", purple: "#d9b168", bg: "#0a0c14", surface: "#131726" },
-      "ely-dusk":  { family: "ely", purple: "#f0a850", bg: "#0b0818", surface: "#171232" },
-      "ely-ether": { family: "ely", purple: "#a8c4d8", bg: "#080b12", surface: "#111624" },
-
-      lg:          { family: "lg", purple: "#6d4aff", bg: "#f2f1f7", surface: "rgba(255,255,255,0.82)" },
-      "lg-tide":   { family: "lg", purple: "#1e7fd4", bg: "#eef4f9", surface: "rgba(255,255,255,0.82)" },
-      "lg-amber":  { family: "lg", purple: "#c2602c", bg: "#f8f3ec", surface: "rgba(255,255,255,0.82)" },
-      // 20/10: o Minimal segue o Windows no dashboard; aqui, a versão clara neutra basta.
-      minimal:     { family: "lg", purple: "#0078d4", bg: "#ffffff", surface: "#f6f6f7" },
+      // 31/10: os mesmos nove temas do dashboard (Dark, Glass e Stark em três cores). Esta janela
+      // só usa a cor de destaque, o fundo e a superfície; todos são escuros.
+      "dark-elisio":     { family: "ely", purple: "#d9b168", bg: "#0a0c14", surface: "#131726" },
+      "dark-mare":       { family: "ely", purple: "#a8c4d8", bg: "#080b12", surface: "#111624" },
+      "dark-crepusculo": { family: "ely", purple: "#f0a850", bg: "#0b0818", surface: "#171232" },
+      "glass-elisio":     { family: "ely", purple: "#f0a060", bg: "#120905", surface: "#22140c" },
+      "glass-mare":       { family: "ely", purple: "#6cb6ff", bg: "#040d1a", surface: "#0c1a2e" },
+      "glass-crepusculo": { family: "ely", purple: "#a58cff", bg: "#0a0720", surface: "#171236" },
+      stark:         { family: "ely", purple: "#3cc8f0", bg: "#05080f", surface: "#0b1220" },
+      "stark-mark":  { family: "ely", purple: "#ff5a4e", bg: "#0b0607", surface: "#170c0e" },
+      "stark-noite": { family: "ely", purple: "#7fb8d8", bg: "#03050a", surface: "#0a0f18" },
     };
 
     const THEME_FAMILIES = ["lg", "ely"];
 
-    /** Mesma tabela do dashboard — ver o comentário lá sobre escolha gravada em disco. */
-    const TEMAS_APOSENTADOS = { default: "ely", ocean: "ely-ether", ember: "ely-dusk", forest: "ely" };
+    /** Mesma tabela do dashboard (js/temas.js) — escolha antiga gravada em disco vira tema vivo. */
+    const TEMAS_APOSENTADOS = {
+      default: "dark-elisio", ocean: "dark-mare", ember: "dark-crepusculo", forest: "dark-elisio",
+      ely: "dark-elisio", "ely-dusk": "dark-crepusculo", "ely-ether": "dark-mare",
+      lg: "glass-crepusculo", "lg-tide": "glass-mare", "lg-amber": "glass-elisio",
+      renascenca: "dark-elisio", "renascenca-veneza": "dark-mare", "renascenca-roma": "dark-crepusculo",
+      minimal: "dark-mare", dark: "dark-elisio", glass: "glass-crepusculo",
+    };
 
     function hexToRgbList(hex) {
       const m = /^#?([0-9a-f]{6})$/i.exec(String(hex).trim());
@@ -526,7 +531,7 @@
     }
 
     function applyTheme(id) {
-      const p = THEMES[TEMAS_APOSENTADOS[id] || id] || THEMES.ely;
+      const p = THEMES[TEMAS_APOSENTADOS[id] || id] || THEMES["dark-elisio"];
 
       for (const fam of THEME_FAMILIES) {
         document.body.classList.toggle(`theme-${fam}`, fam === p.family);
@@ -568,7 +573,7 @@
 
       setSelect("routerProvider", cfg.routerProvider ?? "ollama");
       setSelect("chatProvider",   cfg.chatProvider   ?? "ollama");
-      document.getElementById("ollamaRouterModel").value = cfg.ollamaRouterModel ?? "qwen2.5:7b";
+      document.getElementById("ollamaRouterModel").value = cfg.ollamaRouterModel ?? "qwen3.5:4b";
       document.getElementById("fallbackToGroq").checked   = cfg.fallbackToGroq !== false;
       document.getElementById("evitarGpuOcupada").checked = cfg.evitarGpuOcupada !== false;
       checarOllama();
@@ -586,7 +591,7 @@
      */
     async function checarOllama() {
       const alvo = document.getElementById("ollamaStatus");
-      const modelo = document.getElementById("ollamaRouterModel").value.trim() || "qwen2.5:7b";
+      const modelo = document.getElementById("ollamaRouterModel").value.trim() || "qwen3.5:4b";
       alvo.innerHTML = "<small>verificando o Ollama…</small>";
       try {
         const r = await window.elysiumConfig.ollamaStatus(modelo);
@@ -699,10 +704,10 @@
         routerModel: document.getElementById("routerModel").value,
         routerProvider:    document.getElementById("routerProvider").value,
         chatProvider:      document.getElementById("chatProvider").value,
-        ollamaRouterModel: document.getElementById("ollamaRouterModel").value.trim() || "qwen2.5:7b",
+        ollamaRouterModel: document.getElementById("ollamaRouterModel").value.trim() || "qwen3.5:4b",
         // O mesmo modelo atende roteamento e conversa: manter dois campos para o que na
         // prática é sempre o mesmo valor seria pedir para eles divergirem sem querer.
-        ollamaChatModel:   document.getElementById("ollamaRouterModel").value.trim() || "qwen2.5:7b",
+        ollamaChatModel:   document.getElementById("ollamaRouterModel").value.trim() || "qwen3.5:4b",
         fallbackToGroq:    document.getElementById("fallbackToGroq").checked,
         evitarGpuOcupada:  document.getElementById("evitarGpuOcupada").checked,
         autoLaunch: document.getElementById("autoLaunchToggle").checked,

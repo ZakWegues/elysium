@@ -37,6 +37,8 @@ export const FONTES_EXTERNAS = new Set([
 const ALTO_IMPACTO = new Set([
   "energia", "fechar_programa", "lembrar_fato", "esquecer_fato", "criar_rotina", "apagar_rotina",
   "rodar_rotina", "escrever_texto", "criar_arquivo", "abrir_programa", "rodar_preset",
+  // 31/10: tirar um arquivo do PC por instrução escondida numa página é o vazamento clássico.
+  "enviar_arquivo",
 ]);
 
 /** Ferramentas que fazem o PC acessar um endereço — o jeito clássico de vazar dado numa URL. */

@@ -240,7 +240,7 @@ export interface AppConfig {
   homeNotas: string;
 }
 
-const DEFAULTS: AppConfig = {
+export const DEFAULTS: AppConfig = {
   shortcut: "Control+Shift+J",
   atalhoSelecao: "Control+Shift+E",
   autoLaunch: true,

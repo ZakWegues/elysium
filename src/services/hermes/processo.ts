@@ -174,7 +174,7 @@ export async function subirServidor(exe: string, perfil = PERFIL_PADRAO, prazoMs
   while (Date.now() - inicio < prazoMs) {
     if (morreu) throw new Error(`o Hermes ${morreu}: ${cauda.replace(/\s+/g, " ").slice(-300)}`);
     try {
-      const r = await fetch(`http://127.0.0.1:${porta}/api/status`);
+      const r = await fetch(`http://127.0.0.1:${porta}/api/status`, { signal: AbortSignal.timeout(3000) });
       if (r.ok) return { url: `ws://127.0.0.1:${porta}/api/ws?token=${encodeURIComponent(token)}`, porta, filho };
     } catch { /* ainda subindo */ }
     await new Promise(r => setTimeout(r, 500));

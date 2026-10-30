@@ -47,8 +47,10 @@ Start-Sleep -Milliseconds 30
       "-NonInteractive",
       "-EncodedCommand", encoded,
     ], { stdio: "pipe" });
-    ps.on("close", () => resolve());
-    ps.on("error", () => resolve());
+    // 31/10: prazo — um PowerShell travado não pode ficar vivo para sempre.
+    const prazo = setTimeout(() => { try { ps.kill(); } catch { /* já saiu */ } resolve(); }, 8000);
+    ps.on("close", () => { clearTimeout(prazo); resolve(); });
+    ps.on("error", () => { clearTimeout(prazo); resolve(); });
   });
 }
 

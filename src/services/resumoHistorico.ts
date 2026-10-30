@@ -40,9 +40,13 @@ export function limparResumo(): void {
 }
 
 /** Turnos que saíram do histórico: entram nos pendentes e disparam a compactação. */
+/** 31/10: teto dos turnos crus enquanto a compactação não consegue rodar (sem modelo). */
+const MAX_PENDENTES = 8;
+
 export function guardarTurnosPodados(turnos: TurnoResumo[]): void {
   if (!turnos.length) return;
   pendentes.push(...turnos);
+  if (pendentes.length > MAX_PENDENTES) pendentes = pendentes.slice(-MAX_PENDENTES);
   compactarEmSegundoPlano();
 }
 
@@ -90,7 +94,7 @@ function iniciarCompactacao(): void {
       } catch (e) {
         // Sem modelo, os turnos ficam crus (limitados) em vez de sumir.
         console.warn("[resumo] compactação falhou:", (e as Error).message);
-        pendentes = [...emVoo.slice(-4), ...pendentes];
+        pendentes = [...emVoo.slice(-4), ...pendentes].slice(-MAX_PENDENTES);
         emVoo = [];
         break;
       }
