@@ -36,7 +36,7 @@ const THEMES = {
   "stark-noite": { name: "Noite",  grupo: "stark", family: "ely", stark: true, purple: "#7fb8d8", purpleBright: "#cfeaff", cyan: "#64ffda", cyanDark: "#3fcfae", bg: "#03050a", surface: "#0a0f18", surface2: "#070b12", glassInk: "8,13,22", blobs: ["#1a2a3a", "#123a35", "#20283a"], shaft: "#7fb8d8" },
 };
 
-const GRUPOS = [["dark", "Dark"], ["glass", "Glass"], ["stark", "Stark"]];
+const GRUPOS_DE_TEMA = [["dark", "Dark"], ["glass", "Glass"], ["stark", "Stark"]];
 
 /** Todas as famílias existentes, para limpar a classe anterior sem adivinhação. */
 const THEME_FAMILIES = ["ely"];
@@ -154,7 +154,7 @@ function renderThemeSwatches() {
   const wrap = document.getElementById("theme-swatches");
   if (!wrap) return;
   wrap.innerHTML = "";
-  for (const [grupo, rotulo] of GRUPOS) {
+  for (const [grupo, rotulo] of GRUPOS_DE_TEMA) {
     const bloco = document.createElement("div");
     bloco.innerHTML = `<div class="theme-familia">${rotulo}</div><div class="theme-grade"></div>`;
     const grade = bloco.querySelector(".theme-grade");

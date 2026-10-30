@@ -365,3 +365,49 @@ document.addEventListener("keydown", (e) => {
     paletaAberta ? fecharPaleta() : abrirPaleta();
   }
 }, true);
+
+// ─────────────────────────────────────────────────
+// AJUDA DE ATALHOS (31/10) — tecla "?" fora de campo de texto, como no Gmail/GitHub.
+// ─────────────────────────────────────────────────
+const ATALHOS = [
+  ["Geral", [["Ctrl+K", "Buscar ou comandar"], ["Ctrl+Shift+J", "Falar com a Ely (de qualquer lugar)"], ["Espaço", "Falar enquanto segura"], ["Esc", "Parar a fala ou fechar"], ["Ctrl+1–4", "Trocar de aba"], ["?", "Esta ajuda"]]],
+  ["Chat", [["Enter", "Enviar"], ["Shift+Enter", "Nova linha"], ["Alt+1–4", "Responder com os botões rápidos"], ["Ctrl+F", "Buscar na conversa"]]],
+  ["Tarefas (tela cheia)", [["N", "Nova tarefa"], ["↑ / ↓", "Andar pela lista"], ["Espaço", "Concluir"], ["Enter", "Editar"], ["Delete", "Apagar"]]],
+  ["Estudo", [["Espaço", "Virar o cartão"], ["1 / 2", "Errei / acertei"]]],
+];
+
+function abrirAjudaDeAtalhos() {
+  if (document.querySelector(".atalhos-veu")) return;
+  const voltarFoco = document.activeElement;
+  const veu = document.createElement("div");
+  veu.className = "confirma-veu atalhos-veu";
+  // "+" = juntas; " / " = uma ou outra.
+  const tecla = (t) => t.split(" / ").map((alt) => alt.split("+").map((k) => `<kbd>${escHtml(k)}</kbd>`).join("")).join(" <span class=\"atalho-ou\">ou</span> ");
+  veu.innerHTML = `<div class="confirma-caixa atalhos-caixa" role="dialog" aria-modal="true" aria-labelledby="atalhos-titulo" tabindex="-1">
+    <strong id="atalhos-titulo">Atalhos do teclado</strong>
+    <div class="atalhos-grupos">${ATALHOS.map(([grupo, itens]) => `<section><h4>${escHtml(grupo)}</h4>${itens.map(([t, o]) => `<div class="atalho-linha"><span>${escHtml(o)}</span><span>${tecla(t)}</span></div>`).join("")}</section>`).join("")}</div>
+    <div class="confirma-acoes"><button type="button" class="confirma-nao">Fechar</button></div></div>`;
+  const fechar = () => {
+    document.removeEventListener("keydown", aoTeclar, true);
+    veu.classList.remove("aberto");
+    setTimeout(() => veu.remove(), 180);
+    voltarFoco?.focus?.();
+  };
+  const aoTeclar = (e) => {
+    if (e.key === "Escape" || e.key === "?") { e.preventDefault(); e.stopPropagation(); fechar(); }
+    else if (e.key === "Tab") { e.preventDefault(); veu.querySelector(".confirma-nao").focus(); }
+  };
+  veu.addEventListener("click", (e) => { if (e.target === veu || e.target.closest(".confirma-nao")) fechar(); });
+  document.addEventListener("keydown", aoTeclar, true);
+  document.body.appendChild(veu);
+  requestAnimationFrame(() => veu.classList.add("aberto"));
+  veu.querySelector(".confirma-nao").focus();
+}
+
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "?" || e.ctrlKey || e.altKey || e.metaKey) return;
+  const alvo = e.target;
+  if (alvo instanceof HTMLElement && (alvo.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(alvo.tagName))) return;
+  e.preventDefault();
+  abrirAjudaDeAtalhos();
+});

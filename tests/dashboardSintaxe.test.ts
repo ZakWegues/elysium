@@ -14,3 +14,22 @@ describe("sintaxe dos scripts do dashboard", () => {
     });
   }
 });
+
+// 31/10: os scripts dividem o mesmo escopo global — um `const` de topo com o nome de outro
+// arquivo derruba o segundo inteiro ("already been declared"). Foi o `GRUPOS` de temas.js,
+// que desligou a paleta (Ctrl+K) da 2.23.0 à 2.28.0.
+describe("nomes de topo dos scripts do dashboard", () => {
+  it("nenhum const/let/class/function repetido entre arquivos", () => {
+    const vistos = new Map<string, string>();
+    const repetidos: string[] = [];
+    for (const f of readdirSync(DIR).filter(n => n.endsWith(".js"))) {
+      const s = readFileSync(join(DIR, f), "utf8");
+      for (const m of s.matchAll(/^(?:const|let|class|function\*?|async function)\s+([A-Za-z_$][\w$]*)/gm)) {
+        const outro = vistos.get(m[1]);
+        if (outro && outro !== f) repetidos.push(`${m[1]} (${outro} e ${f})`);
+        else vistos.set(m[1], f);
+      }
+    }
+    expect(repetidos).toEqual([]);
+  });
+});
