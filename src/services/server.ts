@@ -28,7 +28,7 @@
 import * as http from "node:http";
 import * as https from "node:https";
 import { assinarImpressao, certificadoDoServidor } from "./tlsCert";
-import { desfazerTurno, desfazerUltimoTurno, registrarEstadoDaTela } from "./brain";
+import { desfazerTurno, desfazerUltimoTurno, registrarEstadoDaTela, telaMostrada } from "./brain";
 import type { ResultadoComando } from "./command";
 import type { Fonte } from "./contextoComando";
 import { deveSugerir, sugerirContinuacoes } from "./continuacoes";
@@ -58,7 +58,7 @@ import { enderecoPermitido, hostPermitido } from "./redeSegura";
 import { ehDoProprioPc, ExecutorMcp, responderMcp } from "./mcpElysium";
 import { abrirPedido, enviarUi, idValido, parar, pedaco, retomar, soltarDestino, terminar, type Pedido } from "./retomada";
 import { atalhoDeTela, cancelarTelaDoCelular, depoisDaResposta, gerarParaCelular } from "./telasDoCelular";
-import { estadoEmTexto, textoDaTela } from "./telaInteligente";
+import { estadoEmTexto, pediuTela, textoDaTela } from "./telaInteligente";
 import { geradorDeTelas, provedorDeTelas } from "./geradorDeTelas";
 
 const WS_MAGIC = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
@@ -960,7 +960,7 @@ function handleUpgrade(
     executar(texto, canal, (t) => pedaco(p, t))
       .then(({ reply, fontes, local, rapidas, conversa, desfazer, memoria }) => {
         if (p.parado) { desfazerTurno(p.texto, reply); return; }
-        const tela = comTelas ? depoisDaResposta(texto, reply, conversa === true, modoTelas, provedorDeTelas() !== null) : { reply, gerar: false };
+        const tela = comTelas ? depoisDaResposta(texto, reply, conversa === true && !(telaMostrada() !== null && !pediuTela(texto)), modoTelas, provedorDeTelas() !== null) : { reply, gerar: false };
         // Com a oferta no fim, as respostas rápidas viram as da pergunta nova (Sim/Não).
         const rap = tela.reply !== reply ? rapidasPara(tela.reply, getConfig()) ?? undefined : rapidas;
         terminar(p, { type: "reply", reply: tela.reply, ...(fontes?.length ? { fontes } : {}), ...(local ? { local } : {}), ...(rap ? { rapidas: rap } : {}), ...(desfazer ? { desfazer } : {}), ...(memoria ? { memoria } : {}) });

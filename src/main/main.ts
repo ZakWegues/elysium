@@ -57,7 +57,7 @@ import { aCada, esperarOcioso, pararIntervalos } from "./proativo";
 import { notify } from "./notify";
 import { createTray, refreshTray, updateLastCommand, buildIcon as iconePadrao, aoInterromperFala, marcarFalaNaBandeja } from "./tray";
 import { transcribe } from "../services/stt";
-import { clearHistory, desfazerUltimoTurno, registrarEstadoDaTela, registrarFalaDaEly, registrarTelaMostrada } from "../services/brain";
+import { clearHistory, desfazerUltimoTurno, registrarEstadoDaTela, registrarFalaDaEly, registrarTelaMostrada, telaMostrada } from "../services/brain";
 import { modelosDaGroq } from "../services/catalogoGroq";
 import { desligarPalavraDeAtivacao, escutarDuranteFala, ligarPalavraDeAtivacao, Ouvido, podeInterromper } from "../services/palavraAtivacao";
 
@@ -794,7 +794,9 @@ async function enviarTexto(text: string, opcoes?: { refazer?: boolean }): Promis
     // se a Ely oferece ("Quer que eu monte isso como tela?") ou nada. Só em conversa (sem ação no
     // PC) e só se a resposta já não termina perguntando outra coisa.
     // "Priorizar" monta mesmo se a resposta terminou perguntando (a tela substitui a pergunta).
-    const decisao = deveSugerir(actions, "texto") && (getConfig().respostasInterativas === "priorizar" || !pedeResposta(combined))
+    // 31/10: pergunta sobre a tela que já está aí ("qual a resposta da 3ª?") não ganha oferta de outra tela.
+    const sobreATela = telaMostrada() !== null && !pediuTela(text);
+    const decisao = deveSugerir(actions, "texto") && !sobreATela && (getConfig().respostasInterativas === "priorizar" || !pedeResposta(combined))
       ? decidirTela(getConfig().respostasInterativas, text, "texto", provedorDeTelas() !== null)
       : "nada";
     const textoFinal = decisao === "oferecer" ? `${combined}\n\n${OFERTA}` : combined;

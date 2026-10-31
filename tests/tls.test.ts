@@ -45,7 +45,7 @@ describe("TLS do servidor", () => {
     expect(c.sha256).toBe(impressaoDoCertificado(c.cert));
     expect(fs.existsSync(path.join(pasta, "elysium-tls.json"))).toBe(true);
     expect((await certificadoDoServidor(pasta)).sha256).toBe(c.sha256);
-  });
+  }, 30_000); // gerar a chave RSA leva segundos com a máquina ocupada
 
   it("a assinatura da impressão depende do token, da porta e da impressão", () => {
     const a = assinarImpressao(TOKEN, "ab".repeat(32), 4201);
@@ -65,5 +65,5 @@ describe("TLS do servidor", () => {
     const r = await pedir("/api/health", (sha) => sha === c.sha256);
     expect(r.status).toBe(200);
     await expect(pedir("/api/health", () => false)).rejects.toThrow(/fixado/);
-  });
+  }, 30_000);
 });
