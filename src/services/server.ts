@@ -26,7 +26,7 @@
  */
 
 import * as http from "node:http";
-import { desfazerTurno, desfazerUltimoTurno } from "./brain";
+import { desfazerTurno, desfazerUltimoTurno, registrarEstadoDaTela } from "./brain";
 import type { ResultadoComando } from "./command";
 import type { Fonte } from "./contextoComando";
 import { deveSugerir, sugerirContinuacoes } from "./continuacoes";
@@ -56,6 +56,7 @@ import { enderecoPermitido, hostPermitido } from "./redeSegura";
 import { ehDoProprioPc, ExecutorMcp, responderMcp } from "./mcpElysium";
 import { abrirPedido, enviarUi, idValido, parar, pedaco, retomar, soltarDestino, terminar, type Pedido } from "./retomada";
 import { atalhoDeTela, cancelarTelaDoCelular, depoisDaResposta, gerarParaCelular } from "./telasDoCelular";
+import { estadoEmTexto, textoDaTela } from "./telaInteligente";
 import { geradorDeTelas, provedorDeTelas } from "./geradorDeTelas";
 
 const WS_MAGIC = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
@@ -902,7 +903,7 @@ function handleUpgrade(
   const enviarAqui = (t: string) => sendToClient(client, t);
   socket.on("close", () => { fechado = true; soltarDestino(enviarAqui); });
 
-  const executar = async (texto: string, canal: "voz" | "texto" = "voz", aoPedaco?: (t: string) => void): Promise<{ reply: string; fontes?: Fonte[]; local?: boolean; rapidas?: Rapidas; conversa?: boolean; desfazer?: string }> => {
+  const executar = async (texto: string, canal: "voz" | "texto" = "voz", aoPedaco?: (t: string) => void): Promise<{ reply: string; fontes?: Fonte[]; local?: boolean; rapidas?: Rapidas; conversa?: boolean; desfazer?: string; memoria?: { id: string; text: string }[] }> => {
     if (!processStream) return { reply: await processCommand(texto, canal) };
     const r = await processStream(texto, aoPedaco ?? ((token) => sendToClient(client, JSON.stringify({ type: "chunk", text: token }))), canal);
     // Bloco 132: as sugestões chegam DEPOIS do reply, numa mensagem própria — o celular já
@@ -916,7 +917,7 @@ function handleUpgrade(
     }
     // `conversa` é o critério da tela (só conversa, sem ação no PC) — vale também para a voz,
     // que não ganha chips mas pode ganhar a oferta de tela (31/10).
-    return { reply: r.reply, fontes: r.fontes, local: r.local, rapidas, conversa: deveSugerir(r.actions, "texto"), ...(r.desfazer ? { desfazer: r.desfazer } : {}) };
+    return { reply: r.reply, fontes: r.fontes, local: r.local, rapidas, conversa: deveSugerir(r.actions, "texto"), ...(r.desfazer ? { desfazer: r.desfazer } : {}), ...(r.memoria ? { memoria: r.memoria } : {}) };
   };
 
   // A tela vai com o ajuste "Telas com internet" (fotos, mapa e rotas) do momento.
@@ -947,12 +948,12 @@ function handleUpgrade(
       return;
     }
     executar(texto, canal, (t) => pedaco(p, t))
-      .then(({ reply, fontes, local, rapidas, conversa, desfazer }) => {
+      .then(({ reply, fontes, local, rapidas, conversa, desfazer, memoria }) => {
         if (p.parado) { desfazerTurno(p.texto, reply); return; }
         const tela = comTelas ? depoisDaResposta(texto, reply, conversa === true, modoTelas, provedorDeTelas() !== null) : { reply, gerar: false };
         // Com a oferta no fim, as respostas rápidas viram as da pergunta nova (Sim/Não).
         const rap = tela.reply !== reply ? rapidasPara(tela.reply, getConfig()) ?? undefined : rapidas;
-        terminar(p, { type: "reply", reply: tela.reply, ...(fontes?.length ? { fontes } : {}), ...(local ? { local } : {}), ...(rap ? { rapidas: rap } : {}), ...(desfazer ? { desfazer } : {}) });
+        terminar(p, { type: "reply", reply: tela.reply, ...(fontes?.length ? { fontes } : {}), ...(local ? { local } : {}), ...(rap ? { rapidas: rap } : {}), ...(desfazer ? { desfazer } : {}), ...(memoria ? { memoria } : {}) });
         if (tela.gerar) void gerarParaCelular(texto, reply, geradorDeTelas(), paraUi(p), {}, p.id);
       })
       .catch(err => {
@@ -963,7 +964,7 @@ function handleUpgrade(
 
   function handleTextFrame(text: string): void {
     try {
-      const msg = JSON.parse(text) as { type?: string; text?: string; canal?: string; refazer?: boolean; ev?: unknown; id?: unknown; telas?: unknown; pergunta?: unknown; resposta?: unknown };
+      const msg = JSON.parse(text) as { type?: string; text?: string; canal?: string; refazer?: boolean; ev?: unknown; id?: unknown; telas?: unknown; pergunta?: unknown; resposta?: unknown; programa?: unknown; vars?: unknown };
       // 21/10: batimento do celular — sem resposta em 2 tentativas ele reabre o socket.
       if (msg.type === "ping") { sendToClient(client, JSON.stringify({ type: "pong" })); return; }
       if (msg.type === "retomar") {
@@ -985,6 +986,13 @@ function handleUpgrade(
         const p = abrirPedido(msg.id, pergunta, enviarAqui);
         if (!p) { retomar(msg.id, enviarAqui); return; }
         void gerarParaCelular(pergunta, msg.resposta.slice(0, 6000), geradorDeTelas(), paraUi(p), { falhou: undefined }, msg.id);
+        return;
+      }
+      // 31/10: o que foi feito numa tela do celular (checklist, quiz) entra no contexto da Ely.
+      if (msg.type === "tela.estado") {
+        if (typeof msg.programa === "string" && msg.programa.length <= 60_000 && msg.vars && typeof msg.vars === "object") {
+          registrarEstadoDaTela(estadoEmTexto(msg.programa, msg.vars as Record<string, unknown>), textoDaTela(msg.programa));
+        }
         return;
       }
       if (msg.type === "parar") {

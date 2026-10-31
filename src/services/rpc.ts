@@ -18,12 +18,14 @@ import { createReminderAction, criarLembreteComTarefa, proximaDaRepeticao, reage
 import { adiarPara, ehCompromisso, interpretarQuando, interpretarTexto, planejarLembretes, type Adiamento } from "./planoDeLembrete";
 import { app, clipboard } from "electron";
 import { ACOES_VALIDAS } from "./brain";
+import { aceitarPadrao, padroesParaOferecer, silenciarPadrao, textoDaOferta } from "./padroes";
 import { estadoDoApp } from "./estadoApp";
 import * as path from "node:path";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import { getAllLocalIPv4 } from "../main/network";
-import { clientesConectados } from "./server";
+import { broadcastNotify, clientesConectados } from "./server";
+import { apagarTelaSalva, atualizarEstadoSalvo, listarTelasSalvas, obterTelaSalva, salvarTela } from "./telasSalvas";
 import { getConfig, patchDeConfigSeguro, setOverride, type AppConfig } from "../main/config";
 import { aplicarConfigHermes, estadoHermes } from "./hermes/cerebro";
 
@@ -72,7 +74,7 @@ import { addFact, listFacts, removeFactById, editFact } from "./memoryStore";
 import { cancelReminder, createReminder, listAll, ReminderKind } from "./scheduler";
 import {
   listarRotinas, salvarRotina, apagarRotina, alternarRotina, executarRotina, proximoDisparo, descreverGatilho,
-  entregasPendentes, historicoEntregas, confirmarEntregas, Rotina,
+  entregasPendentes, historicoEntregas, confirmarEntregas, enfileirarEntrega, Rotina,
 } from "./rotinas";
 import { ROTULO_EVENTO } from "./eventos";
 import { getPushPrefs, registerToken, setPushPrefs, unregisterToken, PushCategory } from "./push";
@@ -882,6 +884,57 @@ const METHODS: Record<string, MethodDef> = {
       });
       return { rotina: { ...rotina, proxima: proximoDisparo(rotina), quando: descreverGatilho(rotina) } };
     },
+  },
+  // 31/10: telas salvas (telasSalvas.ts) — guardar uma tela com o estado e reabrir no PC ou no celular.
+  "telas.salvas.listar": { handler: async () => ({ telas: listarTelasSalvas() }) },
+  "telas.salvas.obter": {
+    handler: async (params) => {
+      const t = obterTelaSalva(requireString(params, "id"));
+      if (!t) throw new RpcError(404, "tela não encontrada");
+      return { tela: t };
+    },
+  },
+  "telas.salvas.salvar": {
+    handler: async (params) => {
+      const programa = requireString(params, "programa");
+      if (programa.length > 60_000) throw new RpcError(400, "tela grande demais");
+      const estado = params.estado && typeof params.estado === "object" ? params.estado as Record<string, unknown> : undefined;
+      const t = salvarTela(programa, estado, optionalString(params, "titulo"));
+      return { tela: { id: t.id, titulo: t.titulo, em: t.em } };
+    },
+  },
+  "telas.salvas.estado": {
+    handler: async (params) => {
+      const estado = params.estado && typeof params.estado === "object" ? params.estado as Record<string, unknown> : null;
+      if (!estado) throw new RpcError(400, "estado ausente");
+      return { ok: atualizarEstadoSalvo(requireString(params, "id"), estado) };
+    },
+  },
+  "telas.salvas.apagar": {
+    handler: async (params) => ({ deleted: apagarTelaSalva(requireString(params, "id")) }),
+  },
+  "telas.salvas.mandar": {
+    // Avisa o celular (notificação + fila de entregas): a tela fica no Hoje → Telas salvas.
+    handler: async (params) => {
+      const t = obterTelaSalva(requireString(params, "id"));
+      if (!t) throw new RpcError(404, "tela não encontrada");
+      broadcastNotify(enfileirarEntrega({ tipo: "aviso", titulo: "Tela do PC", corpo: `“${t.titulo}” está no Hoje → Telas salvas.`, ref: `tela:${t.id}` }));
+      return { ok: true };
+    },
+  },
+  // 31/10: rotinas aprendidas (padroes.ts) — a oferta do Início e do Hoje.
+  "padroes.listar": {
+    handler: async () => ({ padroes: padroesParaOferecer().map(p => ({ ...p, texto: textoDaOferta(p) })) }),
+  },
+  "padroes.aceitar": {
+    handler: async (params) => {
+      const r = aceitarPadrao(requireString(params, "chave"));
+      if (!r) throw new RpcError(404, "esse padrão não existe mais");
+      return { rotina: { ...r, proxima: proximoDisparo(r), quando: descreverGatilho(r) } };
+    },
+  },
+  "padroes.silenciar": {
+    handler: async (params) => { silenciarPadrao(requireString(params, "chave")); return { ok: true }; },
   },
   "rotinas.delete": {
     destructive: true,

@@ -152,6 +152,7 @@ function desenharHoje() {
   // Fase 18: rotinas do dia, ideia e card ELYSIUM. Treino só quando se pergunta à Ely.
   el.querySelector("#hoje-rotinas").innerHTML = desenharRotinasHoje(p.rotinasHoje ?? [], p.rotinasRodaram ?? []);
   el.querySelector("#hoje-atividade").innerHTML = desenharAtividadeHoje(p.atividade ?? []);
+  void carregarTelasSalvas();
   el.querySelector("#hoje-ideia").innerHTML = p.ideia ? `<p>${escHtml(p.ideia)}</p>` : `<div class="hoje-vazio">Sem ideia agora — toque em Outra.</div>`;
   desenharElysiumHoje(p.elysium);
   desenharAmanhaHoje(p.amanha ?? null);
@@ -327,6 +328,32 @@ function desenharAtividadeHoje(lista) {
   const resto = lista.slice(8);
   return lista.slice(0, 8).map(linha).join("") + (resto.length ? `<details class="hoje-mais"><summary>Mais ${resto.length}</summary>${resto.map(linha).join("")}</details>` : "");
 }
+
+/** 31/10: Telas salvas — abre em tela cheia com o estado de quando foi salva; ✕ apaga. */
+async function carregarTelasSalvas() {
+  const sec = document.getElementById("hoje-telas-salvas-sec");
+  if (!sec) return;
+  let telas = [];
+  try { telas = (await window.nx.rpc("telas.salvas.listar")).result?.telas ?? []; } catch { /* PC sem o método */ }
+  sec.hidden = !telas.length;
+  document.getElementById("hoje-telas-cont").textContent = telas.length ? String(telas.length) : "";
+  document.getElementById("hoje-telas-salvas").innerHTML = telas.map(t =>
+    `<div class="hoje-linha hoje-tela-salva"><button type="button" class="hoje-tela-abrir" data-tela-salva="${escHtml(t.id)}">${ico("maximize", "ico-sm")}<span>${escHtml(t.titulo)}</span></button><button type="button" class="hoje-tela-apagar" data-tela-apagar="${escHtml(t.id)}" title="Apagar" aria-label="Apagar ${escHtml(t.titulo)}">${ico("x", "ico-sm")}</button></div>`).join("");
+}
+
+document.addEventListener("click", async (e) => {
+  const abrir = e.target.closest?.("[data-tela-salva]");
+  const apagar = e.target.closest?.("[data-tela-apagar]");
+  if (abrir) {
+    try {
+      const t = (await window.nx.rpc("telas.salvas.obter", { id: abrir.dataset.telaSalva })).result?.tela;
+      if (t) abrirTelaCheia({ programa: t.programa, estado: t.estado ?? null, salvaId: t.id, iframe: null });
+    } catch { showToast("Não consegui abrir a tela."); }
+  } else if (apagar) {
+    try { await window.nx.rpc("telas.salvas.apagar", { id: apagar.dataset.telaApagar }); void carregarTelasSalvas(); }
+    catch { showToast("Não consegui apagar."); }
+  }
+});
 
 /** Rotinas que ainda rodam hoje e as que já rodaram, com ✓/✗ (fase 18). */
 function desenharRotinasHoje(proximas, rodaram) {

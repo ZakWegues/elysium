@@ -30,6 +30,7 @@ import { conversaParaContinuar, listSessions } from "./chatSessionsStore";
 import { getConfig } from "../main/config";
 import * as spotify from "./spotify";
 import { climaAgora } from "./clima";
+import { contarOferta, padroesParaOferecer, textoDaOferta } from "./padroes";
 
 export interface Sugestao {
   texto: string;
@@ -253,6 +254,20 @@ async function candidatas(): Promise<Sugestao[]> {
       detalhe: "Conversa salva",
       peso: 3,
       acao: { aba: "chat", conversa: ultima.id },
+    });
+  });
+
+  // 31/10: rotina aprendida — o mesmo pedido quase todo dia na mesma hora (padroes.ts).
+  await tentar(() => {
+    const p = padroesParaOferecer()[0];
+    if (!p) return;
+    contarOferta(p.chave);
+    c.push({
+      texto: `Criar rotina: “${p.pedido}” às ${p.hora}`,
+      icone: "clock",
+      detalhe: textoDaOferta(p),
+      peso: 6,
+      acao: { metodo: "padroes.aceitar", params: { chave: p.chave }, aviso: `Rotina criada: todo dia às ${p.hora}.` },
     });
   });
 

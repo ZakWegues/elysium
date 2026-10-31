@@ -209,6 +209,31 @@ export function textoDaTela(programa: string, max = 1500): string {
   return texto.length > max ? `${texto.slice(0, max - 1)}…` : texto;
 }
 
+/**
+ * O que a pessoa FEZ na tela, em texto (31/10): cada variável de estado (`$c0`, `$r1`…) vira o
+ * rótulo que vem logo depois dela no programa — `Checkbox($c0, "Camiseta")` + `true` →
+ * "Camiseta: marcado"; `QuizCard($r0, "1. Capital da França?", …)` + "Paris" → "1. Capital da
+ * França?: Paris". Sem rótulo, ou sem resposta (""), fica de fora. Puro.
+ */
+export function estadoEmTexto(programa: string, vars: Record<string, unknown>, max = 1200): string {
+  const partes: string[] = [];
+  for (const [nome, valor] of Object.entries(vars ?? {})) {
+    if (!/^\$?\w+$/.test(nome)) continue;
+    const v = nome.startsWith("$") ? nome : `$${nome}`;
+    const m = new RegExp(`\\${v}\\s*,\\s*"((?:[^"\\\\\\n]|\\\\.)*)"`).exec(programa);
+    if (!m) continue;
+    let rotulo: string;
+    try { rotulo = (JSON.parse(`"${m[1]}"`) as string).trim(); } catch { continue; }
+    if (!rotulo) continue;
+    const dito = valor === true ? "marcado" : valor === false ? "desmarcado"
+      : typeof valor === "number" ? String(valor)
+      : typeof valor === "string" && valor.trim() ? valor.trim().slice(0, 120) : null;
+    if (dito) partes.push(`${rotulo}: ${dito}`);
+  }
+  const t = partes.join(" · ");
+  return t.length > max ? `${t.slice(0, max - 1)}…` : t;
+}
+
 async function gerarTelaCrua(pergunta: string, respostaTexto: string, gerador: Gerador, registro?: (r: { tentativa: number; ok: boolean; erros: string[]; ms: number; provedor?: string; modelo?: string | null }) => void, sinal?: AbortSignal): Promise<Tela | null> {
   const v = carregarValidador();
   const sistema = promptDasTelas();

@@ -307,6 +307,12 @@ function anexarExtras(x) {
     const linha = rodape.querySelector(".chat-desfazer");
     setTimeout(() => { linha.classList.add("saindo"); setTimeout(() => linha.remove(), 140); }, 30_000);
   }
+  // 31/10: o que da memória esta resposta usou — clicar abre a memória para corrigir.
+  if (x?.memoria?.length && !rodape.querySelector(".chat-memoria")) {
+    const itens = x.memoria.map(f => escHtml(f.text.length > 60 ? `${f.text.slice(0, 59)}…` : f.text)).join(" · ");
+    rodape.insertAdjacentHTML("beforeend", `<button type="button" class="chat-memoria" title="O que eu usei da memória. Clique para ver ou corrigir.">Lembrei: ${itens}</button>`);
+    rodape.querySelector(".chat-memoria").addEventListener("click", () => { switchView("pc"); setTimeout(() => abrirPainelPc("memoria"), 80); });
+  }
   // 22/10: respostas rápidas — Sim/Não/opções dela + as prontas + "Outra resposta…".
   if (x?.rapidas) {
     rodape.querySelector(".chat-rapidas")?.remove();

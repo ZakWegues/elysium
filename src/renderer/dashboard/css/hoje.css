@@ -258,3 +258,11 @@ button.hoje-habito-nome:hover, button.hoje-meta-nome:hover { text-decoration: un
 /* Fase 23: novidades do dia — três colunas curtas (IA, cinema, em alta). */
 .hoje-noticias { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
 .hoje-noticia p { margin: 6px 0 0; font-size: 12.5px; line-height: 1.5; color: var(--text); }
+
+/* 31/10: Telas salvas — a linha inteira abre; o ✕ apaga. */
+.hoje-tela-salva { gap: 6px; }
+.hoje-tela-abrir { flex: 1; display: flex; align-items: center; gap: 8px; min-width: 0; padding: 4px 0; border: 0; background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.hoje-tela-abrir span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hoje-tela-abrir:hover span { text-decoration: underline; }
+.hoje-tela-apagar { display: grid; place-items: center; width: 26px; height: 26px; border: 0; border-radius: 999px; background: none; color: var(--muted); cursor: pointer; }
+.hoje-tela-apagar:hover { color: var(--red); background: rgba(255,255,255,0.06); }

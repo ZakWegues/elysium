@@ -279,7 +279,7 @@ function abrirTelaCheia(ctrl) {
   camada.setAttribute("aria-modal", "true");
   camada.setAttribute("aria-label", "Tela da Ely");
   camada.innerHTML = `<div class="tela-cheia-painel">
-    <div class="tela-cheia-topo"><span>Tela da Ely</span><button type="button" class="tela-cheia-fechar" title="Fechar (Esc)"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-x"/></svg></button></div>
+    <div class="tela-cheia-topo"><span>Tela da Ely</span><span class="tela-cheia-acoes"><button type="button" class="tela-cheia-salvar">${ctrl.salvaId ? "Salva" : "Salvar"}</button><button type="button" class="tela-cheia-celular">Mandar pro celular</button></span><button type="button" class="tela-cheia-fechar" title="Fechar (Esc)"><svg class="ico ico-sm" aria-hidden="true"><use href="#i-x"/></svg></button></div>
   </div>`;
   const f = novoIframe();
   f.classList.add("tela-cheia-quadro");
@@ -303,12 +303,40 @@ function abrirTelaCheia(ctrl) {
   };
   const tecla = (e) => {
     if (e.key === "Escape") { e.stopPropagation(); fechar(); }
-    else if (e.key === "Tab") { e.preventDefault(); camada.querySelector(".tela-cheia-fechar").focus(); }
+    else if (e.key === "Tab") {
+      // O foco fica nos botões do topo (o iframe recebe o dele pelo clique).
+      e.preventDefault();
+      const bs = [...camada.querySelectorAll(".tela-cheia-topo button")];
+      const i = bs.indexOf(document.activeElement);
+      bs[(i + (e.shiftKey ? bs.length - 1 : 1)) % bs.length]?.focus();
+    }
   };
   document.addEventListener("keydown", tecla, true);
   camada.addEventListener("click", (e) => { if (e.target === camada || e.target.closest(".tela-cheia-fechar")) fechar(); });
+  camada.querySelector(".tela-cheia-salvar").addEventListener("click", () => void salvarTelaCheia(ctrl, camada));
+  camada.querySelector(".tela-cheia-celular").addEventListener("click", async () => {
+    const id = ctrl.salvaId ?? await salvarTelaCheia(ctrl, camada);
+    if (!id) return;
+    try { await window.nx.rpc("telas.salvas.mandar", { id }); showToast("Mandei pro celular: está no Hoje → Telas salvas."); }
+    catch { showToast("Não consegui avisar o celular."); }
+  });
   cheiaAberta = { fechar };
   camada.querySelector(".tela-cheia-fechar").focus();
+}
+
+/** 31/10: guarda a tela (com o estado) nas Telas salvas; devolve o id. */
+async function salvarTelaCheia(ctrl, camada) {
+  try {
+    const r = await window.nx.rpc("telas.salvas.salvar", { programa: ctrl.programa, ...(ctrl.estado ? { estado: ctrl.estado } : {}) });
+    const id = r?.result?.tela?.id;
+    if (!id) throw new Error("sem id");
+    ctrl.salvaId = id;
+    const b = camada.querySelector(".tela-cheia-salvar");
+    if (b) b.textContent = "Salva";
+    showToast("Salva em Hoje → Telas salvas.");
+    if (typeof carregarTelasSalvas === "function") void carregarTelasSalvas();
+    return id;
+  } catch { showToast("Não consegui salvar a tela."); return null; }
 }
 
 // ── telas que dormem ─────────────────────────────────────────────────────────────────────
@@ -347,6 +375,8 @@ function iniciar(ctrl) {
 
 /** Programa e estado vão junto da mensagem no histórico da conversa (conversas.js). */
 let timerGravar = null;
+/** 31/10: o estado da tela vai ao main (contexto da Ely) com meio segundo de folga. */
+let timerEstadoAoMain = null;
 function guardarNaMensagem(ctrl) {
   if (!ctrl.msgId || typeof chatMessages === "undefined") return;
   const m = chatMessages.find((x) => x.id === ctrl.msgId);
@@ -403,6 +433,13 @@ window.addEventListener("message", async (e) => {
   } else if (m.tipo === "estado") {
     base.estado = m.vars;
     guardarNaMensagem(base);
+    // 31/10: a Ely fica sabendo do que foi marcado/respondido (meio segundo de folga entre cliques).
+    clearTimeout(timerEstadoAoMain);
+    timerEstadoAoMain = setTimeout(() => {
+      if (base.programa) window.nx.uiEstado?.(base.programa, m.vars);
+      // Tela salva: o estado novo fica guardado junto.
+      if (base.salvaId) window.nx.rpc("telas.salvas.estado", { id: base.salvaId, estado: m.vars }).catch(() => {});
+    }, 500);
   } else if (m.tipo === "pedido") {
     let r;
     try { r = await window.nx.uiPedido(m.rota, m.params); } catch { r = { erro: "falhou" }; }

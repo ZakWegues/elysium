@@ -15,6 +15,7 @@ import { pedirConfirmacao, responderConfirmacao } from "./confirmacao";
 import { responderRevisao, semMarcas } from "./cartoes";
 import { decidirVocativo, dosarTratamento } from "./vocativo";
 import { desfazerUltima, ehPedidoDeDesfazer, ultimoDesfazer } from "./desfazer";
+import { fatosUsados } from "./memoryStore";
 
 export type ResultadoComando = {
   actions: BrainAction[];
@@ -28,6 +29,8 @@ export type ResultadoComando = {
   local?: boolean;
   /** 31/10: este pedido fez algo reversível — o rótulo vai para o botão "Desfazer" da bolha. */
   desfazer?: string;
+  /** 31/10: fatos da memória que a resposta usou — o rodapé "Lembrei: …". */
+  memoria?: { id: string; text: string }[];
 };
 
 /**
@@ -63,7 +66,8 @@ export function executarComando(text: string, ganchos: GanchosComando = {}): Pro
     const r = await executarNoContexto(text, ganchos);
     const reply = dosarTratamento(r.reply, getConfig().tratamento ?? "", permitido);
     const novo = ultimoDesfazer();
-    return { ...r, reply, fontes: fontesDoPedido(), ...(usouReserva() ? { local: true } : {}), ...(novo && novo.id !== antes ? { desfazer: novo.rotulo } : {}) };
+    const memoria = fatosUsados(text, reply);
+    return { ...r, reply, fontes: fontesDoPedido(), ...(usouReserva() ? { local: true } : {}), ...(novo && novo.id !== antes ? { desfazer: novo.rotulo } : {}), ...(memoria.length ? { memoria } : {}) };
   }, text);
 }
 
@@ -182,7 +186,8 @@ async function executarNoContexto(
       replies.push(await resolveAction(action, text, ganchos.onToken, ganchos.canal));
       trackUsage(text, action);
       // 31/10: a linha do tempo do Hoje (o agente e o Hermes registram em ferramentas.ts).
-      if (contaComoAtividade(action)) registrarAtividade(actionSummary(action));
+      // Com uma ação só, o pedido vai junto: é ele que uma rotina aprendida repete (padroes.ts).
+      if (contaComoAtividade(action)) registrarAtividade(actionSummary(action), Date.now(), actions.length === 1 ? text : undefined);
     }
   }
 

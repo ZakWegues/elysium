@@ -38,9 +38,9 @@ const AJUSTES = [
   {
     grupo: "Cérebro",
     nota: "O local é o padrão porque o prompt de roteamento tem ~3,4 mil tokens e o plano " +
-          "gratuito da Groq devolve 429 já na segunda chamada seguida. Medido em 20/09/2026 na " +
-          "bancada do agente (20 pedidos compostos e condicionais × 3): qwen2.5:7b acertou 80% em " +
-          "1,0 s, llama3.1:8b 73% em 2,1 s, llama3.2:3b 60% e age em conversa.",
+          "gratuito da Groq devolve 429 já na segunda chamada seguida. O modelo local é o " +
+          "qwen3.5:4b (o único baixado no Ollama deste PC); com a chave do Gemini, o \"local\" vai " +
+          "para a nuvem e a GPU fica livre.",
     campos: [
       // Fase 21: o Hermes Agent instalado no PC pensa e age; o resto desta seção vira a reserva.
       { chave: "cerebro", rotulo: "Cérebro principal", tipo: "select", opcoes: [
@@ -108,7 +108,9 @@ const AJUSTES = [
       { chave: "vozBaixaDeNoite", rotulo: "Falar mais baixo à noite", tipo: "bool",
         dica: "Das 22 h às 7 h a Ely fala 30% mais baixo." },
       { chave: "resumoAutomatico", rotulo: "Resumo do dia pela manhã", tipo: "bool",
-        dica: "Na primeira volta ao PC entre 6 e 11 h (depois de 1 h parado ou ao destravar a tela), ele fala clima, lembretes, rotinas e o que pede atenção. Uma vez por dia. A qualquer hora: diga “bom dia” ou “resumo do dia”." },
+        dica: "Na primeira volta ao PC dentro do horário abaixo (depois de 1 h parado ou ao destravar a tela), ele fala clima, lembretes, rotinas, o que fez por você ontem e o que pede atenção. Uma vez por dia. A qualquer hora: diga “bom dia” ou “resumo do dia”." },
+      { chave: "resumoHoras", rotulo: "Horário do resumo", tipo: "select", opcoes: [
+        ["5-10", "5 h às 10 h"], ["6-11", "6 h às 11 h"], ["7-12", "7 h às 12 h"], ["8-13", "8 h às 13 h"], ["9-14", "9 h às 14 h"]] },
       { chave: "palavraDeAtivacao", rotulo: "Acordar ao ouvir “Ely”", tipo: "bool",
         dica: "Diga “Ely” (ou “ei Ely”; “Elysium” também vale) e ela começa a ouvir, sem o atalho. Reconhecimento do próprio Windows, offline: nenhum áudio sai do PC. Deixa o microfone aberto o tempo todo (~0,3% de CPU)." },
       { chave: "continuarConversa", rotulo: "Responder sem chamar de novo", tipo: "bool",

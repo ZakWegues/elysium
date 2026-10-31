@@ -7,7 +7,12 @@ import type { BrainAction } from "./brain";
  * listar, buscar na web, conversa) ficam de fora: não fizeram nada. Guarda 7 dias, no máximo 300.
  */
 
-export interface ItemDeAtividade { em: number; texto: string }
+export interface ItemDeAtividade {
+  em: number;
+  texto: string;
+  /** 31/10: o pedido como foi dito (só quando ele virou UMA ação) — é o que uma rotina aprendida executa. */
+  pedido?: string;
+}
 
 const store = new Store<{ itens: ItemDeAtividade[] }>({ name: "atividade", defaults: { itens: [] } });
 
@@ -25,11 +30,12 @@ export function contaComoAtividade(a: BrainAction): boolean {
   return !SO_CONSULTA.has(a.action);
 }
 
-export function registrarAtividade(texto: string, agora = Date.now()): void {
+export function registrarAtividade(texto: string, agora = Date.now(), pedido?: string): void {
   const t = texto.replace(/\s+/g, " ").trim().slice(0, 160);
   if (!t) return;
   const itens = store.get("itens").filter(i => agora - i.em < SETE_DIAS);
-  itens.push({ em: agora, texto: t });
+  const p = pedido?.replace(/\s+/g, " ").trim().slice(0, 200);
+  itens.push({ em: agora, texto: t, ...(p ? { pedido: p } : {}) });
   store.set("itens", itens.slice(-MAXIMO));
 }
 
@@ -37,6 +43,18 @@ export function registrarAtividade(texto: string, agora = Date.now()): void {
 export function atividadeDeHoje(agora = new Date(), limite = 40): ItemDeAtividade[] {
   const inicio = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate()).getTime();
   return store.get("itens").filter(i => i.em >= inicio && i.em <= agora.getTime()).reverse().slice(0, limite);
+}
+
+/** As de ontem (o dia inteiro), da mais velha para a mais nova — para o resumo da manhã. */
+export function atividadeDeOntem(agora = new Date()): ItemDeAtividade[] {
+  const hoje = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate()).getTime();
+  const ontem = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate() - 1).getTime();
+  return store.get("itens").filter(i => i.em >= ontem && i.em < hoje);
+}
+
+/** Todas as guardadas (7 dias), da mais velha para a mais nova — para achar padrões. */
+export function todaAtividade(): ItemDeAtividade[] {
+  return store.get("itens");
 }
 
 /** Só para os testes. */

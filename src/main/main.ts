@@ -12,7 +12,7 @@ import { ouvirTimers, retomarTimers } from "../services/timers";
 import { deveSugerir, sugerirContinuacoes } from "../services/continuacoes";
 import { rapidasPara } from "../services/respostasRapidas";
 import { ehSim } from "../services/confirmacao";
-import { decidirTela, gerarTela, OFERTA, pediuTela, quandoMostrarTela, textoDaTela } from "../services/telaInteligente";
+import { decidirTela, estadoEmTexto, gerarTela, OFERTA, pediuTela, quandoMostrarTela, textoDaTela } from "../services/telaInteligente";
 import { geradorDeTelas, provedorDeTelas } from "../services/geradorDeTelas";
 import { proxyDoApp } from "../services/uiProxy";
 import * as path from "node:path";
@@ -57,7 +57,7 @@ import { aCada, esperarOcioso, pararIntervalos } from "./proativo";
 import { notify } from "./notify";
 import { createTray, refreshTray, updateLastCommand, buildIcon as iconePadrao, aoInterromperFala, marcarFalaNaBandeja } from "./tray";
 import { transcribe } from "../services/stt";
-import { clearHistory, desfazerUltimoTurno, registrarFalaDaEly, registrarTelaMostrada } from "../services/brain";
+import { clearHistory, desfazerUltimoTurno, registrarEstadoDaTela, registrarFalaDaEly, registrarTelaMostrada } from "../services/brain";
 import { modelosDaGroq } from "../services/catalogoGroq";
 import { desligarPalavraDeAtivacao, escutarDuranteFala, ligarPalavraDeAtivacao, Ouvido, podeInterromper } from "../services/palavraAtivacao";
 
@@ -90,7 +90,7 @@ import { garantirOllama } from "../services/ollamaVivo";
 import { registerRpcBridge } from "./rpcBridge";
 import { vigiarDisco } from "../actions/armazenamento";
 import { comecarFoco, estadoFoco, iniciarFoco, pararFoco } from "../services/foco";
-import { resumoDoDia } from "../services/resumoDoDia";
+import { janelaDoResumo, resumoDoDia } from "../services/resumoDoDia";
 import { conectarAgenda, desconectarAgenda, estadoAgenda, vigiarAgenda } from "../services/agenda";
 import Store from "electron-store";
 import { closeApp } from "../actions/closeApp";
@@ -454,7 +454,8 @@ async function resumoDaManha(): Promise<void> {
   try {
     if (!getConfig().resumoAutomatico) return;
     const agora = new Date();
-    if (agora.getHours() < 6 || agora.getHours() >= 11) return;
+    const [de, ate] = janelaDoResumo(getConfig().resumoHoras);
+    if (agora.getHours() < de || agora.getHours() >= ate) return;
     const dia = agora.toDateString();
     if (resumoStore.get("ultimoDia") === dia) return;
     resumoStore.set("ultimoDia", dia);
@@ -642,7 +643,7 @@ ipcMain.on("audio-data", async (_event, buffer: Buffer) => {
       // agente, histórico fora de ordem). A tela sabe da fala pelo `tts:falando`.
       falas.push(speak(frase, humor).catch(() => {}));
     };
-    const { reply: combined, desfazer } = await executarComando(text, {
+    const { reply: combined, desfazer, memoria } = await executarComando(text, {
       onActions: (actions) => {
         const label = getActionsLabel(actions);
         enviarAoDash("voice:action-label", label);
@@ -666,6 +667,7 @@ ipcMain.on("audio-data", async (_event, buffer: Buffer) => {
     const rapidasVoz = rapidasPara(combined, getConfig());
     if (rapidasVoz) enviarAoDash("chat:extras", { rapidas: rapidasVoz });
     if (desfazer) enviarAoDash("chat:extras", { desfazer });
+    if (memoria) enviarAoDash("chat:extras", { memoria });
     state.set("speaking");
     // O que ainda não foi dito: o fim da resposta (ou ela inteira, sem fala antecipada).
     // O `speak` entra na mesma fila, depois das frases já enfileiradas.
@@ -773,7 +775,7 @@ async function enviarTexto(text: string, opcoes?: { refazer?: boolean }): Promis
     // e não conta de novo nas perguntas frequentes.
     if (opcoes?.refazer) desfazerUltimoTurno();
     else registrarPergunta(text);
-    const { reply: combined, fontes, actions, local, desfazer } = await executarComando(text, {
+    const { reply: combined, fontes, actions, local, desfazer, memoria } = await executarComando(text, {
       canal: "texto",
       onActions: (actions) => {
         const label = getActionsLabel(actions);
@@ -806,6 +808,7 @@ async function enviarTexto(text: string, opcoes?: { refazer?: boolean }): Promis
     if (local) enviarAoDash("chat:extras", { local: true });
     // 31/10: fez algo reversível — o botão "Desfazer" no rodapé da bolha.
     if (desfazer) enviarAoDash("chat:extras", { desfazer });
+    if (memoria) enviarAoDash("chat:extras", { memoria });
     // 22/10: respostas rápidas. Se ela perguntou algo, a linha é de resposta — sem as
     // sugestões de continuação (uma linha só embaixo da bolha).
     const rapidas = rapidasPara(textoFinal, getConfig());
@@ -874,6 +877,11 @@ quandoMostrarTela((programa) => registrarTelaMostrada(textoDaTela(programa)));
 
 /** Telas sendo geradas agora (chat e "Ver como tela"): o Cancelar do esqueleto aborta pelo id. */
 const telasEmCurso = new Map<string, AbortController>();
+// 31/10: o que foi feito numa tela do chat (checklist marcado, respostas do quiz) — contexto da Ely.
+ipcMain.on("ui:estado", (_e, programa: unknown, vars: unknown) => {
+  if (typeof programa !== "string" || programa.length > 60_000 || !vars || typeof vars !== "object") return;
+  registrarEstadoDaTela(estadoEmTexto(programa, vars as Record<string, unknown>), textoDaTela(programa));
+});
 ipcMain.on("ui:cancelar", (_e, id: unknown) => {
   if (typeof id === "string") telasEmCurso.get(id)?.abort();
 });

@@ -121,6 +121,8 @@ export interface AppConfig {
   nomeDoUsuario: string;
   /** Fala o resumo do dia na primeira volta ao PC entre 6 e 11 h (fase 13). */
   resumoAutomatico: boolean;
+  /** 31/10: a janela do resumo da manhã, "de-até" em horas (padrão "6-11"). */
+  resumoHoras: string;
   /** Das 22 h às 7 h a voz sai 30% mais baixa (02/10). */
   vozBaixaDeNoite: boolean;
   /** Bipe curto ao começar e ao parar de ouvir (02/10). */
@@ -298,6 +300,7 @@ export const DEFAULTS: AppConfig = {
   atualizarDeMadrugada: true,
   nomeDoUsuario: "",
   resumoAutomatico: false,
+  resumoHoras: "6-11",
   vozBaixaDeNoite: true,
   somDeEscuta: true,
   falaAntecipada: true,
@@ -423,7 +426,9 @@ const CANDIDATOS_GROQ: Record<string, string[]> = {
 };
 
 /** Mesma ideia do lado local. Vale para roteamento e conversa. */
-const CANDIDATOS_OLLAMA = ["qwen3.5:4b", "qwen2.5:7b", "llama3.1:8b", "llama3.1", "llama3.2"];
+// 31/10: só o qwen3.5:4b — os outros foram tirados do Ollama do PC; curar para um modelo que não
+// está baixado trocaria um erro claro por outro.
+const CANDIDATOS_OLLAMA = ["qwen3.5:4b"];
 
 function primeiroVivo(candidatos: string[], mortos: Set<string>): string | null {
   return candidatos.find(m => !mortos.has(m)) ?? null;

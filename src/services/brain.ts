@@ -145,19 +145,28 @@ let ausenciaAntesDoPedido = 0;
 /**
  * A última tela mostrada (31/10), em texto: entra no contexto dos próximos pedidos para "e a 3ª
  * pergunta do quiz?" funcionar. Some depois de 3 pedidos, numa tela nova ou com a conversa zerada.
+ * `estado`: o que o usuário fez nela (checklist marcado, respostas do quiz) — mexer conta como usar, e
+ * os 3 pedidos recomeçam.
  */
-let telaRecente: { texto: string; pedidos: number } | null = null;
+let telaRecente: { texto: string; estado?: string; pedidos: number } | null = null;
 
 export function registrarTelaMostrada(texto: string): void {
   telaRecente = texto ? { texto, pedidos: 0 } : null;
 }
 
+export function registrarEstadoDaTela(estado: string, texto?: string): void {
+  if (!estado && !telaRecente) return;
+  telaRecente = { texto: texto || telaRecente?.texto || "", ...(estado ? { estado } : {}), pedidos: 0 };
+}
+
 export function telaMostrada(): string | null {
-  return telaRecente?.texto ?? null;
+  if (!telaRecente) return null;
+  return telaRecente.estado ? `${telaRecente.texto}\nO que o usuário fez nela: ${telaRecente.estado}` : telaRecente.texto;
 }
 
 function blocoDaTela(): string {
-  return telaRecente ? `\n\n[TELA QUE VOCÊ MOSTROU NA CONVERSA — o que ela tem; use se perguntarem sobre ela]\n${telaRecente.texto}` : "";
+  const t = telaMostrada();
+  return t ? `\n\n[TELA QUE VOCÊ MOSTROU NA CONVERSA — o que ela tem; use se perguntarem sobre ela]\n${t}` : "";
 }
 
 export function clearHistory(): void {

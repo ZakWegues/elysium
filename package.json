@@ -1,6 +1,6 @@
 {
   "name": "elysium",
-  "version": "2.34.0",
+  "version": "2.35.0",
   "description": "ELYSIUM — assistente de voz desktop para Windows (Electron + Groq)",
   "author": "Zak",
   "license": "MIT",
@@ -47,7 +47,11 @@
       "createStartMenuShortcut": true,
       "shortcutName": "ELYSIUM"
     },
-    "afterPack": "scripts/fusiveis.cjs"
+    "afterPack": "scripts/fusiveis.cjs",
+    "electronLanguages": [
+      "pt-BR",
+      "en-US"
+    ]
   },
   "dependencies": {
     "auto-launch": "^5.0.6",

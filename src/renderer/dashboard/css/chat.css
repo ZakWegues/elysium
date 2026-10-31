@@ -528,6 +528,9 @@
 
 /* Fase 18: a resposta veio do cérebro local porque a nuvem falhou. */
 .chat-local { display: inline-block; margin: 2px 0 4px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; }
+/* 31/10: "Lembrei: …" — o que da memória a resposta usou; clicar abre a memória. */
+.chat-memoria { display: block; margin: 4px 0 2px; padding: 0; border: 0; background: none; color: var(--muted); font: inherit; font-size: 11.5px; text-align: left; cursor: pointer; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chat-memoria:hover { color: var(--text); text-decoration: underline; }
 
 /* Fase 18: tabelas no chat do PC (o celular já desenhava). Rola na horizontal se não couber. */
 .md-tabela { overflow-x: auto; margin: 6px 0; }
@@ -658,3 +661,9 @@ body.com-esfera #chat-vazio { padding-top: min(40vh, 340px); }
 }
 .bolha-menu button .ico { color: var(--purple-bright); }
 .bolha-menu button:hover, .bolha-menu button:focus-visible { background: rgba(var(--purple-rgb), 0.14); outline: none; }
+
+/* 31/10: Salvar e Mandar pro celular, no topo da tela cheia. */
+.tela-cheia-acoes { display: flex; gap: 6px; margin-left: auto; margin-right: 6px; }
+.tela-cheia-acoes button { padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px; background: rgba(255,255,255,0.04); color: var(--text); font: inherit; font-size: 12.5px; cursor: pointer; }
+.tela-cheia-acoes button:hover { background: rgba(255,255,255,0.09); }
+.tela-cheia-acoes button:focus-visible { outline: 2px solid var(--purple-bright); outline-offset: 2px; }

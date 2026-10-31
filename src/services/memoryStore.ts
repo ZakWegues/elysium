@@ -204,3 +204,23 @@ export function recusarSugestao(id: string): boolean {
   store.set("recusadas", [...store.get("recusadas"), chave(s.text)].slice(-MAX_RECUSADAS));
   return true;
 }
+
+/**
+ * Os fatos da memória que esta resposta USOU (31/10) — o rodapé "Lembrei: …" do chat. Injetado
+ * não basta (são até 12 por pedido): conta só o fato que estava no prompt E cuja maioria dos
+ * radicais aparece na resposta. Heurística sem modelo; erra para menos, não para mais.
+ */
+export function fatosUsados(pedido: string, resposta: string, fatos = listFacts()): { id: string; text: string }[] {
+  const daResposta = radicais(resposta);
+  if (!daResposta.size) return [];
+  return escolherFatos(fatos, pedido)
+    .filter(f => {
+      const rf = radicais(f.text);
+      if (rf.size < 2) return false;
+      let comuns = 0;
+      for (const r of rf) if (daResposta.has(r)) comuns++;
+      return comuns / rf.size >= 0.5;
+    })
+    .slice(0, 3)
+    .map(f => ({ id: f.id, text: f.text }));
+}
