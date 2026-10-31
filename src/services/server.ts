@@ -26,6 +26,8 @@
  */
 
 import * as http from "node:http";
+import * as https from "node:https";
+import { assinarImpressao, certificadoDoServidor } from "./tlsCert";
 import { desfazerTurno, desfazerUltimoTurno, registrarEstadoDaTela } from "./brain";
 import type { ResultadoComando } from "./command";
 import type { Fonte } from "./contextoComando";
@@ -241,6 +243,14 @@ export function broadcastMailboxEvent(direction: "toMobile" | "toDesktop", id: s
 // Mutável (não const de closure) para que regenerar o token (pareamento do
 // Portal) invalide sessões antigas imediatamente, sem precisar reiniciar o app.
 let activeToken = "";
+/** 31/10: a porta TLS e a impressão do certificado, quando o servidor seguro subiu. */
+let tls: { porta: number; sha256: string } | null = null;
+
+/** Para o `tls.info`: porta, impressão e a assinatura dela com o token (o celular confere). */
+export function infoTls(): { porta: number; sha256: string; assinatura: string } | null {
+  if (!tls || !activeToken) return null;
+  return { ...tls, assinatura: assinarImpressao(activeToken, tls.sha256, tls.porta) };
+}
 
 /** Atualiza o token aceito pelo servidor em runtime — ver src/main/main.ts (pairing:regenerate-token). */
 /**
@@ -1143,6 +1153,24 @@ export function startServer(
       (socket as Socket).destroy();
     }
   });
+
+  // 31/10: TLS na porta seguinte (4201), com o mesmo atendimento e o mesmo WebSocket. O celular
+  // novo fixa o certificado (tls.info) e passa a usar https/wss; o app antigo segue no 4200.
+  void certificadoDoServidor().then((c) => {
+    const seguro = https.createServer({ key: c.key, cert: c.cert }, makeHandler(processCommand));
+    seguro.maxConnections = 200;
+    seguro.headersTimeout = 15_000;
+    seguro.requestTimeout = 120_000;
+    seguro.on("upgrade", (req, socket, head) => {
+      if (req.url?.startsWith("/api/stream")) handleUpgrade(processCommand, processStream, req, socket as Socket, head);
+      else (socket as Socket).destroy();
+    });
+    // Handshake malfeito (scanner, cliente antigo falando http na porta TLS): só fecha.
+    seguro.on("tlsClientError", (_e, sock) => sock.destroy());
+    seguro.on("error", (e: NodeJS.ErrnoException) => console.warn(`[ELYSIUM server] TLS na porta ${port + 1} não subiu: ${e.message}`));
+    seguro.on("listening", () => { tls = { porta: port + 1, sha256: c.sha256 }; console.log(`[ELYSIUM server] TLS em 0.0.0.0:${port + 1}`); });
+    seguro.listen(port + 1, "0.0.0.0");
+  }).catch((e) => console.warn("[ELYSIUM server] sem certificado, sem TLS:", e instanceof Error ? e.message : e));
 
   server.on("listening", () => {
     servidor.ouvindo = true;

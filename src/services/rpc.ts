@@ -24,7 +24,7 @@ import * as path from "node:path";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import { getAllLocalIPv4 } from "../main/network";
-import { broadcastNotify, clientesConectados } from "./server";
+import { broadcastNotify, clientesConectados, infoTls } from "./server";
 import { apagarTelaSalva, atualizarEstadoSalvo, listarTelasSalvas, obterTelaSalva, salvarTela } from "./telasSalvas";
 import { getConfig, patchDeConfigSeguro, setOverride, type AppConfig } from "../main/config";
 import { aplicarConfigHermes, estadoHermes } from "./hermes/cerebro";
@@ -923,6 +923,9 @@ const METHODS: Record<string, MethodDef> = {
     },
   },
   // 31/10: rotinas aprendidas (padroes.ts) — a oferta do Início e do Hoje.
+  // 31/10: a porta TLS e a impressão do certificado, assinadas com o token (o celular fixa e passa
+  // a usar https/wss). null = o servidor seguro não subiu.
+  "tls.info": { handler: async () => ({ tls: infoTls() }) },
   "padroes.listar": {
     handler: async () => ({ padroes: padroesParaOferecer().map(p => ({ ...p, texto: textoDaOferta(p) })) }),
   },

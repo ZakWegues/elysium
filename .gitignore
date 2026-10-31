@@ -18,6 +18,8 @@ scripts/bench-resultados/
 .env.*
 !.env.example
 elysium-config.json
+# 31/10: certificado e chave do TLS (os testes de servidor geram na raiz, onde o app falso aponta).
+elysium-tls.json
 auth.json
 credentials.json
 google-services.json
