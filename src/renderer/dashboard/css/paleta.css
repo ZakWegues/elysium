@@ -37,7 +37,7 @@
    painel com TEXTO, e texto pede alfa alto. O véu de trás é o glassBackdrop do celular. */
 #paleta-veu {
   position: fixed; inset: 0; z-index: 400;
-  background: rgba(0,0,0,0.42);
+  background: var(--veu);
   display: none; opacity: 0;
   transition: opacity var(--mov-micro) linear, display var(--mov-micro) allow-discrete;
 }
@@ -49,7 +49,7 @@
   border-radius: 20px; overflow: hidden;
   background: var(--vidro-painel); border: 1px solid var(--border2);
   box-shadow: var(--shadow-float, 0 12px 40px rgba(0,0,0,0.5));
-  backdrop-filter: blur(100px) saturate(160%);
+  backdrop-filter: var(--blur-painel);
   transition: transform var(--mov-base) var(--mov-suave), opacity var(--mov-base) var(--mov-suave);
 }
 @starting-style { #paleta-veu.aberto #paleta { transform: translateX(-50%) translateY(-10px); opacity: 0; } }

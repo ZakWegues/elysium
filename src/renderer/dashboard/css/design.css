@@ -299,7 +299,7 @@ body.barra-nuvio .vtab:focus-visible, #nav-recolher:focus-visible, #topbar-acoes
 /* Confirmação do próprio app (31/10) — no lugar do confirm() do sistema. */
 .confirma-veu {
   position: fixed; inset: 0; z-index: 900; display: grid; place-items: center;
-  background: rgba(0,0,0,0.45); backdrop-filter: blur(6px); opacity: 0; transition: opacity 180ms var(--mov-curva);
+  background: var(--veu); backdrop-filter: blur(6px); opacity: 0; transition: opacity 180ms var(--mov-curva);
 }
 .confirma-veu.aberto { opacity: 1; }
 .confirma-caixa {

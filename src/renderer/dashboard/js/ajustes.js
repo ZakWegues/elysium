@@ -72,6 +72,10 @@ const AJUSTES = [
     campos: [
       { chave: "movimento", rotulo: "Animações", tipo: "select", opcoes: [
         ["auto", "Seguir o Windows"], ["sempre", "Sempre animar"], ["nunca", "Nunca animar"]] },
+      // 31/10: a lente nas bordas das barras e painéis (js/liquido.js).
+      { chave: "vidroLiquido", rotulo: "Vidro líquido", tipo: "select", opcoes: [
+        ["ligado", "Ligado"], ["leve", "Leve"], ["desligado", "Desligado"]],
+        dica: "As barras e painéis entortam o fundo nas bordas, como vidro grosso. No tema Glass é inteiro, no Dark é metade, no Stark não tem. Se o PC sofrer, use Leve ou Desligado." },
       // Fase 21: a esfera 3D no fundo do Chat.
       { chave: "esferaChat", rotulo: "Esfera no Chat", tipo: "bool",
         dica: "Uma esfera 3D no fundo da conversa: gira e respira parada; quando você fala (ciano) ou a Ely fala (roxo, a cada palavra), ela ondula e se mexe. Âmbar enquanto ela pensa." },
@@ -551,6 +555,7 @@ document.addEventListener("change", async (e) => {
   // Aplica na hora o que é visual; esperar reiniciar para ver o efeito de um seletor de
   // aparência é o tipo de coisa que faz parecer que não funcionou.
   if (chave === "movimento") document.documentElement.dataset.movimento = String(valor);
+  if (chave === "vidroLiquido") aplicarVidroLiquido(String(valor));
   try { await window.nx.setConfig({ [chave]: valor }); cfgAtual[chave] = valor; showToast("Salvo."); }
   catch { showToast("Não consegui salvar."); }
 });

@@ -217,6 +217,8 @@ export interface AppConfig {
    * necessariamente quer um app parado. O padrão continua sendo obedecer.
    */
   movimento: "auto" | "sempre" | "nunca";
+  /** 31/10: o vidro líquido do dashboard (distorção do fundo nas barras e painéis). */
+  vidroLiquido: "ligado" | "leve" | "desligado";
   climaCidade: string;
   climaLat: number | null;
   climaLon: number | null;
@@ -325,6 +327,7 @@ export const DEFAULTS: AppConfig = {
   barraRecolhida: false,
   layout: { order: ["perf", "storage", "taskmgr"], hidden: [] },
   movimento: "auto",
+  vidroLiquido: "ligado",
   climaCidade: "",
   climaLat: null,
   climaLon: null,

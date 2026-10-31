@@ -510,7 +510,7 @@
 
 /* Tela cheia: camada por cima do app; o painel entra com fade + escala; a tela rola sozinha. */
 .tela-cheia { position: fixed; inset: 0; z-index: 1200; display: grid; place-items: center; padding: 28px;
-  background: rgba(0,0,0,0.5); backdrop-filter: blur(6px); opacity: 0; transition: opacity var(--mov-base) var(--mov-suave); }
+  background: var(--veu-forte); backdrop-filter: blur(6px); opacity: 0; transition: opacity var(--mov-base) var(--mov-suave); }
 .tela-cheia.aberta { opacity: 1; }
 .tela-cheia-painel { display: flex; flex-direction: column; width: min(860px, 100%); height: min(900px, 100%); overflow: hidden;
   border: 1px solid var(--border2); border-radius: 18px; background: var(--surface); box-shadow: 0 24px 64px rgba(0,0,0,0.45);

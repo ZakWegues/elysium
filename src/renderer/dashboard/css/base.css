@@ -37,6 +37,9 @@
   --blur-barra:  blur(22px) saturate(150%);
   --blur-gaveta: blur(34px) saturate(165%);
   --blur-painel: blur(44px) saturate(180%);
+  /* Véus atrás de paleta, confirmações e tela cheia (31/10: eram quatro tons soltos). */
+  --veu: rgba(0,0,0,0.44);
+  --veu-forte: rgba(0,0,0,0.5);
   --red:       #e05252;
   --green:     #3ecf8e;
   --yellow:    #f0c040;
