@@ -127,7 +127,10 @@ function mostrarStop() {
   const ativa = appState === "speaking" || ttsFalando || pensando;
   if (ativa && !stopZone.classList.contains("visivel")) {
     // Abaixo das abas e, no Chat, abaixo do seletor IA/Celular (não cobre nenhum dos dois).
-    const fundos = ["viewtabs", "chat-mode-tabs"].map((id) => document.getElementById(id)?.getBoundingClientRect()).filter((r) => r && r.height > 0).map((r) => r.bottom);
+    // 31/10: a barra de abas só conta quando está no topo e aberta (embaixo ou nos lados, o bottom
+    // dela jogava a pílula para o meio ou o fim da tela).
+    const barraEmCima = document.body.classList.contains("barra-topo") && !document.body.classList.contains("barra-fechada");
+    const fundos = [barraEmCima ? "viewtabs" : null, "chat-mode-tabs"].filter(Boolean).map((id) => document.getElementById(id)?.getBoundingClientRect()).filter((r) => r && r.height > 0).map((r) => r.bottom);
     stopZone.style.top = `${Math.round(Math.max(48, ...fundos) + 10)}px`;
   }
   stopZone.classList.toggle("visivel", ativa);

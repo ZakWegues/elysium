@@ -43,7 +43,9 @@ function bordasDe(el) {
 }
 function limitesDaBarra() {
   const barra = document.getElementById("viewtabs");
-  const folga = 4;
+  // 31/10: segurando, o seletor cresce 5% a partir do centro (design.css) — a folga cobre a metade
+  // disso dos DOIS lados; antes ele vazava pela direita.
+  const folga = 4 + (barra.classList.contains("segurando") ? Math.max(0, polegar.b - polegar.a) * 0.025 : 0);
   return barraDeitada()
     ? { min: folga, max: barra.clientWidth - folga }
     : { min: folga, max: barra.clientHeight - folga };
@@ -59,7 +61,11 @@ function desenharPolegar() {
   thumb.style.top = "0px";
   thumb.style.width = `${Math.max(0, w)}px`;
   thumb.style.height = `${Math.max(0, h)}px`;
-  thumb.style.transform = `translate(${x}px, ${y}px)`;
+  // 31/10: a posição vai na propriedade `translate`, não no `transform`: o `scale` do "segurando"
+  // (design.css) multiplica o que está no transform — na última aba, 222 px viravam 233 e o seletor
+  // vazava pela direita. O translate individual é aplicado por fora da escala.
+  thumb.style.transform = "none";
+  thumb.style.translate = `${x}px ${y}px`;
 }
 function passoDoPolegar(agora) {
   const p = polegar;
@@ -112,7 +118,28 @@ function moverPolegar(animar = true) {
 // A largura do rótulo muda quando a fonte termina de carregar, e a barra pode mudar de
 // tamanho sem a janela mudar. Um `resize` de janela não cobre nenhum dos dois casos.
 document.fonts?.ready.then(() => moverPolegar(false));
-new ResizeObserver(() => moverPolegar(polegar.rodando)).observe(document.getElementById("viewtabs"));
+new ResizeObserver(() => { moverPolegar(polegar.rodando); medirFolgaDaBarra(); }).observe(document.getElementById("viewtabs"));
+
+/**
+ * 31/10: a folga das telas (--fb-*) sai do tamanho REAL da pílula, não de um número fixo. Com 74 px
+ * fixos a pílula do topo (52 px + ~64 px de altura) cobria a metade de cima do switch IA/Celular e
+ * o começo do Início, do Hoje e das Rotinas. Fechada: as regras do CSS (0) valem.
+ */
+function medirFolgaDaBarra() {
+  const corpo = document.body.style;
+  for (const v of ["--fb-t", "--fb-b", "--fb-l", "--fb-r"]) corpo.removeProperty(v);
+  const barra = document.getElementById("viewtabs");
+  const layout = document.getElementById("layout");
+  if (!barra || !layout || document.body.classList.contains("barra-fechada")) return;
+  const b = barra.getBoundingClientRect(), l = layout.getBoundingClientRect();
+  if (!b.width || !b.height) return;
+  const c = document.body.classList, folga = 10;
+  if (c.contains("barra-topo")) corpo.setProperty("--fb-t", `${Math.max(0, Math.round(b.bottom - l.top + folga))}px`);
+  else if (c.contains("barra-baixo")) corpo.setProperty("--fb-b", `${Math.max(0, Math.round(l.bottom - b.top + folga))}px`);
+  else if (c.contains("barra-esquerda")) corpo.setProperty("--fb-l", `${Math.max(0, Math.round(b.right - l.left + folga))}px`);
+  else if (c.contains("barra-direita")) corpo.setProperty("--fb-r", `${Math.max(0, Math.round(l.right - b.left + folga))}px`);
+}
+window.addEventListener("resize", medirFolgaDaBarra);
 
 /**
  * A animação de troca é toda CSS (`@starting-style` + `allow-discrete`). Aqui só se muda
@@ -221,7 +248,7 @@ function aplicarBarra(cfg) {
     botao.setAttribute("aria-expanded", barraCfg.fechada ? "false" : "true");
   }
   desenharOpcoesDaBarra();
-  requestAnimationFrame(() => moverPolegar(false));
+  requestAnimationFrame(() => { moverPolegar(false); medirFolgaDaBarra(); });
 }
 
 function gravarBarra(patch) {

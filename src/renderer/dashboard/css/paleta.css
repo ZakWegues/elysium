@@ -36,7 +36,7 @@
    Um campo, uma lista, teclado. Mesma escada de vidro do popover (--vidro-painel): é um
    painel com TEXTO, e texto pede alfa alto. O véu de trás é o glassBackdrop do celular. */
 #paleta-veu {
-  position: fixed; inset: 0; z-index: 400;
+  position: fixed; inset: 0; z-index: 600; /* 31/10: acima da barra de abas (450) */
   background: var(--veu);
   display: none; opacity: 0;
   transition: opacity var(--mov-micro) linear, display var(--mov-micro) allow-discrete;
@@ -100,7 +100,8 @@
 }
 
 #preset-pop, .pop {
-  position: fixed; z-index: 300;
+  /* 31/10: acima da barra de abas (450) — perto dela o popover ficava por baixo. */
+  position: fixed; z-index: 460;
   width: 296px;
   padding: 12px; border-radius: 22px;
   /* 🔴 ANTES ISTO SÓ PARECIA VIDRO. O `backdrop-filter` estava declarado, mas o fundo era

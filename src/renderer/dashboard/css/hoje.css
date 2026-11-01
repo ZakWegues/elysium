@@ -160,7 +160,9 @@
 /* Aberta, a aba para de rolar e vai ao topo: a tela cheia cobre exatamente o que se vê. */
 #view-hoje.tc-aberta { overflow: hidden; }
 #tarefas-cheia {
-  position: absolute; inset: 0; z-index: 20; overflow-y: auto; padding: 18px 22px 40px;
+  position: absolute; inset: 0; z-index: 20; overflow-y: auto;
+  /* 31/10: com a folga da barra flutuante (antes o cabeçalho ficava embaixo dela). */
+  padding: calc(18px + var(--fb-t, 0px)) calc(22px + var(--fb-r, 0px)) calc(40px + var(--fb-b, 0px)) calc(22px + var(--fb-l, 0px));
   background: var(--bg); display: flex; flex-direction: column; gap: 10px;
 }
 #tarefas-cheia[hidden] { display: none; }

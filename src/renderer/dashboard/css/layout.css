@@ -54,7 +54,8 @@
 
 /* ── DRAWER BACKDROP ─────────────────────────────────────── */
 #drawer-backdrop {
-  display: none; position: absolute; inset: 0; z-index: 400;
+  /* 31/10: acima da barra de abas (450) e abaixo das gavetas (500). */
+  display: none; position: absolute; inset: 0; z-index: 480;
   background: rgba(0,0,0,0.4);
 }
 #drawer-backdrop.show { display: block; }

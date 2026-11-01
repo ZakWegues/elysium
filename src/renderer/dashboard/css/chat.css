@@ -132,7 +132,8 @@
 
 /* Toast de feedback rápido (copiar/salvar) */
 #toast-el {
-  position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+  /* 31/10: acima da barra de abas quando ela está embaixo. */
+  position: fixed; bottom: calc(20px + var(--fb-b, 0px)); left: 50%; transform: translateX(-50%);
   background: var(--surface); border: 1px solid var(--border2); color: var(--text);
   padding: 8px 16px; border-radius: var(--radius-8); font-size: 12px; z-index: 9999;
   box-shadow: 0 4px 16px rgba(0,0,0,0.35); opacity: 0; transition: opacity 0.2s; pointer-events: none;
@@ -399,7 +400,11 @@
 ::highlight(busca-chat) { background-color: rgba(250, 204, 21, 0.28); color: inherit; }
 ::highlight(busca-chat-atual) { background-color: rgba(250, 204, 21, 0.75); color: #111; }
 /* Com a busca aberta, a primeira bolha não pode ficar escondida atrás dela. */
-#center:has(#chat-busca:not([hidden])) #timeline { padding-top: 56px; }
+#center:has(#chat-busca:not([hidden])) #timeline,
+#center:has(#chat-busca:not([hidden])) #timeline-self { padding-top: 56px; }
+/* 31/10: trocar IA ↔ Celular entra com um fade curto, em vez de a lista saltar. */
+@keyframes troca-modo { from { opacity: 0; transform: translateY(4px); } }
+#timeline:not(.hidden), #timeline-self:not(.hidden) { animation: troca-modo 180ms var(--mov-suave, ease-out); }
 
 /* Fontes da busca (bloco 131) e sugestões de próxima pergunta (bloco 132). */
 .chat-extras { align-self: flex-start; max-width: 82%; display: flex; flex-direction: column; gap: 6px; margin-top: -2px; }
@@ -667,3 +672,11 @@ body.com-esfera #chat-vazio { padding-top: min(40vh, 340px); }
 .tela-cheia-acoes button { padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px; background: rgba(255,255,255,0.04); color: var(--text); font: inherit; font-size: 12.5px; cursor: pointer; }
 .tela-cheia-acoes button:hover { background: rgba(255,255,255,0.09); }
 .tela-cheia-acoes button:focus-visible { outline: 2px solid var(--purple-bright); outline-offset: 2px; }
+
+/* 31/10: recados sem nenhuma mensagem — o estado vazio no meio, no tom do "Boa noite" do modo IA. */
+.self-vazio { margin: auto; max-width: 420px; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; color: var(--muted); padding: 24px; }
+.self-vazio .ico { width: 28px; height: 28px; color: var(--purple-bright); opacity: 0.8; }
+.self-vazio b { color: var(--text); font-size: 16px; }
+.self-vazio span { font-size: 13px; line-height: 1.5; }
+#timeline-self:has(.self-vazio) { display: flex; }
+#timeline-self.hidden:has(.self-vazio) { display: none; }

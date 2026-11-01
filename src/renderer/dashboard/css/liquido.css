@@ -35,3 +35,7 @@ html[data-movimento="nunca"] .lq { background-image: none !important; }
 @media (prefers-reduced-motion: reduce) {
   html:not([data-movimento="sempre"]) .lq { background-image: none !important; }
 }
+
+/* 31/10: a faixa IA/Celular encosta no chat (fundo opaco): com a tinta rala ela virava uma janela
+   viva para as manchas e a tela parecia "cortada ao meio". Aqui a tinta acompanha o chat. */
+body.theme-gl #chat-mode-tabs.lq, body.theme-ely #chat-mode-tabs.lq { background-color: rgba(var(--glass-ink), 0.86) !important; }

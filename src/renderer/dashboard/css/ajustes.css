@@ -71,7 +71,8 @@
   display: flex; align-items: center; justify-content: center;
 }
 #gaveta-fechar:hover { background: rgba(var(--purple-rgb),0.16); color: var(--text); }
-#gaveta-corpo { flex: 1; overflow-y: auto; padding: 8px 18px 22px; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+/* 31/10: o fim fica acima da barra de abas quando ela está embaixo (a pílula flutua por cima). */
+#gaveta-corpo { flex: 1; overflow-y: auto; padding: 8px 18px calc(22px + var(--fb-b, 0px)); scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
 #gaveta-corpo::-webkit-scrollbar { width: 4px; }
 #gaveta-corpo::-webkit-scrollbar-thumb { background: var(--border); border-radius: var(--radius-4); }
 /* Dentro da gaveta a grade rótulo/controle vira uma coluna: 520px não comportam as duas. */
@@ -235,3 +236,7 @@
 }
 .atu-form button:hover { background: rgba(var(--purple-rgb),0.24); }
 #comandos-corpo .home-item button { margin-left: auto; background: none; border: none; color: var(--muted); cursor: pointer; }
+
+/* 31/10: dentro da gaveta quem rola é a gaveta. Os blocos que vieram de popover (o QR do Celular,
+   presets…) traziam o max-height de 56vh do popover e eram cortados ao meio, com um vão embaixo. */
+#gaveta-corpo .pop-corpo { max-height: none; overflow: visible; }

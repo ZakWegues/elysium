@@ -9,7 +9,9 @@
 // Força por tema: Glass inteiro, Dark metade, Stark nada. O ajuste "Vidro líquido" (Aparência)
 // liga, deixa leve ou desliga; "Nunca animar" tira o brilho que segue o cursor.
 
-const LQ_ALVOS = "#viewtabs, #topbar, #input-bar, #chat-mode-tabs, .chat-switch, #paleta, .modal-box, #drawer-left, #drawer-right";
+// 31/10 (2.37): só o que FLUTUA. Barra de cima, caixa de digitar, faixa IA/Celular e gavetas encostam
+// nas bordas da janela, e a lente fazia nelas uma moldura de refração solta no meio da tela.
+const LQ_ALVOS = "#viewtabs, .chat-switch, #paleta, .modal-box";
 /** Deslocamento máximo (px) na aresta, no Glass com o ajuste ligado. */
 const LQ_FORCA = 72;
 

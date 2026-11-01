@@ -151,6 +151,11 @@ function buildAttachmentEl(attachment) {
 function renderSelfTimeline() {
   const wasBottom = timelineSelf.scrollHeight - timelineSelf.scrollTop <= timelineSelf.clientHeight + 60;
   timelineSelf.innerHTML = "";
+  // 31/10: sem recados, um estado vazio no meio (como o do modo IA) — a área ficava em branco.
+  if (!selfMessages.length) {
+    timelineSelf.innerHTML = `<div class="self-vazio"><svg class="ico" aria-hidden="true"><use href="#i-smartphone"/></svg><b>Recados com o celular</b><span>O que você escrever aqui aparece no app do celular, e o que mandar de lá aparece aqui. Arquivos também.</span></div>`;
+    return;
+  }
   selfMessages.forEach(m => {
     const bubble = document.createElement("div");
     bubble.className = "bubble " + (m.from === "pc" ? "user" : "assistant");
