@@ -126,7 +126,7 @@ body.barra-nuvio #viewtabs {
 body.barra-topo #viewtabs    { top: 52px; left: 50%; transform: translateX(-50%); flex-direction: row; }
 body.barra-baixo #viewtabs   { bottom: 14px; left: 50%; transform: translateX(-50%); flex-direction: row; }
 body.barra-esquerda #viewtabs,
-body.barra-direita #viewtabs { top: calc(50% + 21px); transform: translateY(-50%); flex-direction: column; border-radius: 28px; }
+body.barra-direita #viewtabs { top: calc(50% + var(--topo, 42px) / 2); transform: translateY(-50%); flex-direction: column; border-radius: 28px; }
 body.barra-esquerda #viewtabs { left: 12px; }
 body.barra-direita #viewtabs  { right: 12px; }
 /* Fechada: desliza para fora pelo próprio lado e some. */
@@ -326,3 +326,38 @@ body.barra-nuvio .vtab:focus-visible, #nav-recolher:focus-visible, #topbar-acoes
 .atalho-linha kbd { display: inline-block; min-width: 20px; margin-left: 4px; padding: 1px 6px; border: 1px solid var(--border); border-bottom-width: 2px; border-radius: 6px; background: rgba(255,255,255,0.04); font: 11px var(--mono); text-align: center; color: var(--text); }
 .atalho-ou { margin: 0 2px 0 4px; font-size: 11px; color: var(--muted); }
 .atalho-linha span:last-child { flex-shrink: 0; white-space: nowrap; }
+
+/* ═════════════ TOPO SEM FAIXA (04/11) ═════════════
+   A faixa escura de cima saiu, como no celular: o topo virou uma camada transparente por cima das
+   telas (continua arrastando a janela) e os botões flutuam em vidro líquido (js/liquido.js). O
+   conteúdo rola por baixo; as telas sobram `--topo` no --fb-t, e com a barra de abas no topo a
+   medida dela (abas.js) já conta daqui. O logo saiu; o estado da Ely ficou, numa pílula. */
+body { --topo: 52px; }
+body.barra-nuvio, body.barra-fechada { --fb-t: var(--topo); }
+#topbar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 470;
+  height: var(--topo); padding: 0 12px; gap: 8px;
+  background: transparent !important; border-bottom: none !important;
+  backdrop-filter: none !important; box-shadow: none !important;
+}
+#topbar .logo { display: none; }
+body.barra-nuvio #layout, #layout { height: 100vh; }
+#topbar #status-badge {
+  -webkit-app-region: no-drag; margin-left: 0;
+  height: 30px; padding: 0 12px; display: inline-flex; align-items: center;
+  background: rgba(22,22,26,0.42); border-color: rgba(255,255,255,0.10);
+  backdrop-filter: blur(16px) saturate(160%);
+}
+#topbar .top-btn {
+  width: 30px; height: 30px; border-radius: 9px;
+  background: rgba(22,22,26,0.42); border: 1px solid rgba(255,255,255,0.10);
+  backdrop-filter: blur(16px) saturate(160%);
+  transition: background 0.2s, color 0.2s, transform 0.12s;
+}
+#topbar .top-btn:active { transform: scale(0.94); }
+/* A faixa do switch IA/Celular também perde o fundo: só a pílula flutua. */
+body.barra-nuvio #chat-mode-tabs { background: transparent !important; border: none !important; backdrop-filter: none !important; box-shadow: none !important; }
+/* A gaveta começa abaixo do topo: o − e o × da janela continuam à vista com ela aberta. */
+#gaveta { top: var(--topo); border-top-left-radius: 16px; }
+/* Parado, o selo ficava apagado demais sobre o vidro. */
+#topbar #status-badge:not(.listening):not(.processing):not(.speaking):not(.error) { color: rgba(232,234,240,0.72); }

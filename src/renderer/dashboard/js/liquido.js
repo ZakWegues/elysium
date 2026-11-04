@@ -11,7 +11,8 @@
 
 // 31/10 (2.37): só o que FLUTUA. Barra de cima, caixa de digitar, faixa IA/Celular e gavetas encostam
 // nas bordas da janela, e a lente fazia nelas uma moldura de refração solta no meio da tela.
-const LQ_ALVOS = "#viewtabs, .chat-switch, #paleta, .modal-box";
+// 04/11: e os botões soltos do topo (a faixa de cima saiu).
+const LQ_ALVOS = "#viewtabs, .chat-switch, #paleta, .modal-box, #topbar button, #topbar #status-badge";
 /** Deslocamento máximo (px) na aresta, no Glass com o ajuste ligado. */
 const LQ_FORCA = 72;
 
@@ -106,12 +107,14 @@ function lqAplicar(el) {
   const img = filtro.querySelector("feImage");
   for (const [a, v] of [["x", 0], ["y", 0], ["width", w], ["height", h]]) img.setAttribute(a, v);
   img.setAttribute("href", lqMapa(w, h, r));
-  filtro.querySelector("feDisplacementMap").setAttribute("scale", String(escala));
+  // Num botão de 30 px, 72 px de deslocamento rasgaria o fundo: a lente acompanha o tamanho.
+  const forca = Math.min(escala, Math.min(w, h) * 0.6);
+  filtro.querySelector("feDisplacementMap").setAttribute("scale", String(forca));
   // O desfoque que a superfície já tinha continua, depois da lente.
   const base = (getComputedStyle(el).getPropertyValue("--lq-blur") || "blur(14px) saturate(165%)").trim();
   el.style.backdropFilter = `url(#${id}) ${base}`;
   el.classList.add("lq");
-  lqFiltros.set(el, { id, w, h, r, escala });
+  lqFiltros.set(el, { id, w, h, r, escala, forca });
 }
 
 function lqTirar(el) {
@@ -157,6 +160,35 @@ document.addEventListener("pointermove", (e) => {
   el.style.setProperty("--mx", `${Math.round(e.clientX - r.left)}px`);
   el.style.setProperty("--my", `${Math.round(e.clientY - r.top)}px`);
 }, { passive: true });
+
+/**
+ * 04/11: a gota, como no celular — apertar um botão do topo afunda a lente (a borda puxa mais o
+ * que está atrás) e soltar volta. Só muda o `scale` do filtro, sem refazer o mapa.
+ */
+function lqGota(el, fator) {
+  const a = lqFiltros.get(el);
+  const mapa = a && lqSvg.querySelector(`#${a.id} feDisplacementMap`);
+  if (!mapa) return;
+  const de = parseFloat(mapa.getAttribute("scale")) || a.forca, para = a.forca * fator, t0 = performance.now();
+  const passo = (t) => {
+    const f = Math.min(1, (t - t0) / 160);
+    mapa.setAttribute("scale", String(de + (para - de) * (1 - (1 - f) ** 3)));
+    if (f < 1) requestAnimationFrame(passo);
+  };
+  requestAnimationFrame(passo);
+}
+document.addEventListener("pointerdown", (e) => {
+  const el = e.target instanceof Element ? e.target.closest("#topbar .lq") : null;
+  if (!el) return;
+  lqGota(el, 1.8);
+  const soltar = () => {
+    lqGota(el, 1);
+    document.removeEventListener("pointerup", soltar);
+    document.removeEventListener("pointercancel", soltar);
+  };
+  document.addEventListener("pointerup", soltar);
+  document.addEventListener("pointercancel", soltar);
+});
 
 /** Chamado pelo ajuste "Vidro líquido" (ligado | leve | desligado). */
 function aplicarVidroLiquido(modo) {

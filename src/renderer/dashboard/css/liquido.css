@@ -39,3 +39,11 @@ html[data-movimento="nunca"] .lq { background-image: none !important; }
 /* 31/10: a faixa IA/Celular encosta no chat (fundo opaco): com a tinta rala ela virava uma janela
    viva para as manchas e a tela parecia "cortada ao meio". Aqui a tinta acompanha o chat. */
 body.theme-gl #chat-mode-tabs.lq, body.theme-ely #chat-mode-tabs.lq { background-color: rgba(var(--glass-ink), 0.86) !important; }
+
+/* 04/11: os botões soltos do topo — vidro de verdade, mas com pouco reflexo (o Zak: "pouco
+   reflexo forçado"): fio de luz fraco, sombra curta e sem o brilho que segue o cursor. */
+#topbar button, #topbar #status-badge { --lq-blur: blur(14px) saturate(165%); }
+#topbar .lq {
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.10), 0 4px 14px rgba(0,0,0,0.30) !important;
+  background-image: none !important;
+}
