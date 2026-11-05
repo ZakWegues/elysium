@@ -157,8 +157,16 @@ export interface AppConfig {
   geminiModelo?: string;
   /** 24/10: com a chave do Gemini, o Ollama só entra se o Gemini falhar e isto estiver ligado. */
   ollamaReserva?: boolean;
+  /**
+   * 05/11: modo sem censura. Ligado, a conversa é escrita pelo modelo local (qwen3.5-heretic:4b),
+   * a pesquisa continua no Gemini (o resultado vai para o local escrever a resposta) e as ações
+   * seguem pelo roteador. Ver `semCensura.ts`.
+   */
+  semCensura?: boolean;
   /** 29/10: a troca única para o qwen3.5:4b já rodou. */
   modeloLocalQwen35Aplicado?: boolean;
+  /** 05/11: a troca única para o qwen3.5-heretic:4b (sem censura) já rodou. */
+  modeloHereticAplicado?: boolean;
   /** 26/10: quem dá a voz — "gemini" (padrão com a chave) ou "edge" (as vozes da Microsoft). */
   vozProvedor?: "gemini" | "edge";
   /** 26/10: a voz pronta do Gemini (Kore, Aoede, Sulafat…). */
@@ -267,10 +275,10 @@ export const DEFAULTS: AppConfig = {
   // compostos e condicionais × 3), o qwen2.5:7b acertou 80% em 1,0 s (p50) contra 73% em
   // 2,1 s do llama3.1:8b, com o mesmo prompt e as mesmas 33 ferramentas. O llama3.2:3b
   // ficou em 60% e AGE em conversa ("quanto é 15% de 200" → volume): descartado.
-  // 29/10: qwen3.5:4b — medido nesta máquina (RTX 5050 8 GB): 81 tok/s contra 62 do qwen2.5:7b,
+  // 29/10: qwen3.5-heretic:4b — medido nesta máquina (RTX 5050 8 GB): 81 tok/s contra 62 do qwen2.5:7b,
   // mesmas respostas em conversa, JSON e ferramenta, metade da VRAM. Pensamento desligado (llm.ts).
-  ollamaRouterModel: "qwen3.5:4b",
-  ollamaChatModel: "qwen3.5:4b",
+  ollamaRouterModel: "qwen3.5-heretic:4b",
+  ollamaChatModel: "qwen3.5-heretic:4b",
   // 🔴 Era "60s", pensado para o llama3.2 (3B, ~2 GB), que recarregava em 2-4 s. O
   // llama3.1:8b ocupa ~4,9 GB e **medimos 18,3 s de carregamento a frio**. Com 60 s,
   // qualquer pausa de um minuto na conversa fazia o comando seguinte esperar 18 s sem
@@ -285,6 +293,7 @@ export const DEFAULTS: AppConfig = {
   ollamaNumCtx: 8192,
   // 29/10 (pedido do Zak): o Ollama volta como reserva do Gemini — cota acabou ou caiu, responde o local.
   ollamaReserva: true,
+  semCensura: false,
   fallbackToGroq: true,
   cerebroFerramentas: true,
   // Fase 21: decisão do Zak (09/10) — o Hermes responde tudo que não é atalho. Sem o Hermes
@@ -426,9 +435,9 @@ const CANDIDATOS_GROQ: Record<string, string[]> = {
 };
 
 /** Mesma ideia do lado local. Vale para roteamento e conversa. */
-// 31/10: só o qwen3.5:4b — os outros foram tirados do Ollama do PC; curar para um modelo que não
+// 31/10: só o qwen3.5-heretic:4b — os outros foram tirados do Ollama do PC; curar para um modelo que não
 // está baixado trocaria um erro claro por outro.
-const CANDIDATOS_OLLAMA = ["qwen3.5:4b"];
+const CANDIDATOS_OLLAMA = ["qwen3.5-heretic:4b"];
 
 function primeiroVivo(candidatos: string[], mortos: Set<string>): string | null {
   return candidatos.find(m => !mortos.has(m)) ?? null;
@@ -545,10 +554,14 @@ export function migrarCerebroHibrido(o: Partial<AppConfig>): Partial<AppConfig> 
   return o.chatProvider === "groq" ? { cerebroHibridoAplicado: true } : { cerebroHibridoAplicado: true, chatProvider: "auto" };
 }
 
-/** Troca única para o qwen3.5:4b (29/10, o Zak pediu o melhor modelo local para esta máquina). */
+/**
+ * Troca única do modelo local. 29/10: qwen3.5:4b. 05/11: qwen3.5-heretic:4b — a mesma base sem
+ * censura (HERETIC, mradermacher i1-Q4_K_M), 66 tok/s e os mesmos acertos na bancada; o
+ * qwen3.5:4b saiu do Ollama do PC.
+ */
 export function migrarModeloLocal(o: Partial<AppConfig>): Partial<AppConfig> | null {
-  if (o.modeloLocalQwen35Aplicado) return null;
-  return { modeloLocalQwen35Aplicado: true, ollamaRouterModel: "qwen3.5:4b", ollamaChatModel: "qwen3.5:4b" };
+  if (o.modeloHereticAplicado) return null;
+  return { modeloHereticAplicado: true, ollamaRouterModel: "qwen3.5-heretic:4b", ollamaChatModel: "qwen3.5-heretic:4b" };
 }
 
 export function getConfig(): AppConfig {
@@ -637,6 +650,7 @@ export function patchDeConfigSeguro(patch: Partial<AppConfig>): Partial<AppConfi
   if ("fundoDash" in limpo && !fundoDashValido(limpo.fundoDash)) delete limpo.fundoDash;
   if ("barraLado" in limpo && !["topo", "baixo", "esquerda", "direita"].includes(String(limpo.barraLado))) delete limpo.barraLado;
   if ("barraRecolhida" in limpo) limpo.barraRecolhida = limpo.barraRecolhida === true;
+  if ("semCensura" in limpo) limpo.semCensura = limpo.semCensura === true;
   if ("respostasInterativas" in limpo && !["nunca", "pedir", "perguntar", "priorizar"].includes(String(limpo.respostasInterativas))) delete limpo.respostasInterativas;
   return limpo;
 }

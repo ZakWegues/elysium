@@ -33,7 +33,7 @@ contextBridge.exposeInMainWorld("nx", {
   /** Fontes da busca e sugestões de próxima pergunta, depois da resposta (blocos 131/132). */
   /** Um timer com nome acabou (bloco 136) — o card Timer se redesenha. */
   onTimerAcabou:   (cb: (t: unknown) => void) => { ipcRenderer.on("timer:acabou", (_e, t) => cb(t)); },
-  onChatExtras:    (cb: (x: { fontes?: { titulo: string; url: string }[]; sugestoes?: string[]; local?: boolean; desfazer?: string; memoria?: { id: string; text: string }[]; rapidas?: { pergunta: boolean; sim: boolean; nao: boolean; opcoes: string[]; prontas: string[] } }) => void) => { ipcRenderer.on("chat:extras", (_e, x) => cb(x)); },
+  onChatExtras:    (cb: (x: { fontes?: { titulo: string; url: string }[]; sugestoes?: string[]; local?: boolean; semCensura?: boolean; desfazer?: string; memoria?: { id: string; text: string }[]; rapidas?: { pergunta: boolean; sim: boolean; nao: boolean; opcoes: string[]; prontas: string[] } }) => void) => { ipcRenderer.on("chat:extras", (_e, x) => cb(x)); },
   // 22/10: telas inteligentes — o esqueleto/programa da tela, o "Ver como tela" e os pedidos dela (fotos, rota).
   onChatTela:      (cb: (x: { id: string; estado?: "gerando"; programa?: string; falhou?: boolean; cancelada?: boolean; texto?: string; pergunta?: string; resposta?: string }) => void) => { ipcRenderer.on("chat:tela", (_e, x) => cb(x)); },
   uiVerComoTela:   (pergunta: string, resposta: string, id?: string) => ipcRenderer.invoke("ui:ver-como-tela", pergunta, resposta, id),

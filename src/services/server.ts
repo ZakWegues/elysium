@@ -913,7 +913,7 @@ function handleUpgrade(
   const enviarAqui = (t: string) => sendToClient(client, t);
   socket.on("close", () => { fechado = true; soltarDestino(enviarAqui); });
 
-  const executar = async (texto: string, canal: "voz" | "texto" = "voz", aoPedaco?: (t: string) => void): Promise<{ reply: string; fontes?: Fonte[]; local?: boolean; rapidas?: Rapidas; conversa?: boolean; desfazer?: string; memoria?: { id: string; text: string }[] }> => {
+  const executar = async (texto: string, canal: "voz" | "texto" = "voz", aoPedaco?: (t: string) => void): Promise<{ reply: string; fontes?: Fonte[]; local?: boolean; semCensura?: boolean; rapidas?: Rapidas; conversa?: boolean; desfazer?: string; memoria?: { id: string; text: string }[] }> => {
     if (!processStream) return { reply: await processCommand(texto, canal) };
     const r = await processStream(texto, aoPedaco ?? ((token) => sendToClient(client, JSON.stringify({ type: "chunk", text: token }))), canal);
     // Bloco 132: as sugestões chegam DEPOIS do reply, numa mensagem própria — o celular já
@@ -927,7 +927,7 @@ function handleUpgrade(
     }
     // `conversa` é o critério da tela (só conversa, sem ação no PC) — vale também para a voz,
     // que não ganha chips mas pode ganhar a oferta de tela (31/10).
-    return { reply: r.reply, fontes: r.fontes, local: r.local, rapidas, conversa: deveSugerir(r.actions, "texto"), ...(r.desfazer ? { desfazer: r.desfazer } : {}), ...(r.memoria ? { memoria: r.memoria } : {}) };
+    return { reply: r.reply, fontes: r.fontes, local: r.local, ...(r.semCensura ? { semCensura: true } : {}), rapidas, conversa: deveSugerir(r.actions, "texto"), ...(r.desfazer ? { desfazer: r.desfazer } : {}), ...(r.memoria ? { memoria: r.memoria } : {}) };
   };
 
   // A tela vai com o ajuste "Telas com internet" (fotos, mapa e rotas) do momento.
@@ -958,12 +958,12 @@ function handleUpgrade(
       return;
     }
     executar(texto, canal, (t) => pedaco(p, t))
-      .then(({ reply, fontes, local, rapidas, conversa, desfazer, memoria }) => {
+      .then(({ reply, fontes, local, semCensura, rapidas, conversa, desfazer, memoria }) => {
         if (p.parado) { desfazerTurno(p.texto, reply); return; }
         const tela = comTelas ? depoisDaResposta(texto, reply, conversa === true && !(telaMostrada() !== null && !pediuTela(texto)), modoTelas, provedorDeTelas() !== null) : { reply, gerar: false };
         // Com a oferta no fim, as respostas rápidas viram as da pergunta nova (Sim/Não).
         const rap = tela.reply !== reply ? rapidasPara(tela.reply, getConfig()) ?? undefined : rapidas;
-        terminar(p, { type: "reply", reply: tela.reply, ...(fontes?.length ? { fontes } : {}), ...(local ? { local } : {}), ...(rap ? { rapidas: rap } : {}), ...(desfazer ? { desfazer } : {}), ...(memoria ? { memoria } : {}) });
+        terminar(p, { type: "reply", reply: tela.reply, ...(fontes?.length ? { fontes } : {}), ...(local ? { local } : {}), ...(semCensura ? { semCensura } : {}), ...(rap ? { rapidas: rap } : {}), ...(desfazer ? { desfazer } : {}), ...(memoria ? { memoria } : {}) });
         if (tela.gerar) void gerarParaCelular(texto, reply, geradorDeTelas(), paraUi(p), {}, p.id);
       })
       .catch(err => {

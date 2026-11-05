@@ -775,7 +775,7 @@ async function enviarTexto(text: string, opcoes?: { refazer?: boolean }): Promis
     // e não conta de novo nas perguntas frequentes.
     if (opcoes?.refazer) desfazerUltimoTurno();
     else registrarPergunta(text);
-    const { reply: combined, fontes, actions, local, desfazer, memoria } = await executarComando(text, {
+    const { reply: combined, fontes, actions, local, desfazer, memoria, semCensura } = await executarComando(text, {
       canal: "texto",
       onActions: (actions) => {
         const label = getActionsLabel(actions);
@@ -808,6 +808,8 @@ async function enviarTexto(text: string, opcoes?: { refazer?: boolean }): Promis
     if (fontes.length) enviarAoDash("chat:extras", { fontes });
     // Fase 18: a nuvem falhou e o local respondeu — o selo "modo local" na bolha.
     if (local) enviarAoDash("chat:extras", { local: true });
+    // 05/11: respondida pelo modelo local no modo sem censura — o selo "sem censura".
+    if (semCensura) enviarAoDash("chat:extras", { semCensura: true });
     // 31/10: fez algo reversível — o botão "Desfazer" no rodapé da bolha.
     if (desfazer) enviarAoDash("chat:extras", { desfazer });
     if (memoria) enviarAoDash("chat:extras", { memoria });

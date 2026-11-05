@@ -39,7 +39,7 @@ const AJUSTES = [
     grupo: "Cérebro",
     nota: "O local é o padrão porque o prompt de roteamento tem ~3,4 mil tokens e o plano " +
           "gratuito da Groq devolve 429 já na segunda chamada seguida. O modelo local é o " +
-          "qwen3.5:4b (o único baixado no Ollama deste PC); com a chave do Gemini, o \"local\" vai " +
+          "qwen3.5-heretic:4b (o único baixado no Ollama deste PC); com a chave do Gemini, o \"local\" vai " +
           "para a nuvem e a GPU fica livre.",
     campos: [
       // Fase 21: o Hermes Agent instalado no PC pensa e age; o resto desta seção vira a reserva.
@@ -53,7 +53,10 @@ const AJUSTES = [
       { chave: "chatProvider", rotulo: "Quem escreve a resposta", tipo: "select", opcoes: [
         ["auto", "Híbrido — conhecimento na nuvem, o resto local"], ["ollama", "Local — Ollama nesta máquina"], ["groq", "Nuvem — Groq"]],
         dica: "Híbrido: perguntas de conhecimento e o chat escrito vão para a Groq (acerta mais fato); ações e conversa curta ficam no local." },
-      { chave: "ollamaRouterModel", rotulo: "Modelo local", tipo: "texto", dica: "ollama pull qwen3.5:4b (o recomendado para esta máquina)" },
+      // 05/11: com censura = Gemini (o cérebro de sempre); sem censura = a conversa no modelo deste PC.
+      { chave: "semCensura", rotulo: "Modo sem censura", tipo: "bool",
+        dica: "Ligado: a conversa é escrita pelo modelo deste PC (qwen3.5-heretic:4b), sem recusas. A pesquisa continua no Gemini e o resultado vai para ele escrever a resposta; lembretes, apps e telas seguem iguais. Mais lento e mais simples que o Gemini. Também liga e desliga falando “modo sem censura” e “modo com censura”." },
+      { chave: "ollamaRouterModel", rotulo: "Modelo local", tipo: "texto", dica: "ollama pull qwen3.5-heretic:4b (o recomendado para esta máquina)" },
       { chave: "cerebroFerramentas", rotulo: "Agir em etapas (ferramentas)", tipo: "bool",
         dica: "O modelo olha o PC (o que está aberto, clima, estado) antes de agir e encadeia ações. Desligado, volta ao roteador de uma lista só." },
       { chave: "fallbackToGroq", rotulo: "Cair na Groq se o local falhar", tipo: "bool",

@@ -529,13 +529,25 @@ export async function composeChatReply(
   onToken?: (token: string) => void,
   /** Bloco 130: falada (curta) ou escrita no chat (markdown, tamanho livre). */
   canal: Canal = "voz",
+  /** 05/11: modo sem censura — escreve no modelo local, com o resultado da pesquisa (se houver). */
+  semCensura?: { pesquisa?: string },
 ): Promise<string | null> {
   // Fase 20: a marca [[REVISAR: …]] do quiz vira cartão e nunca chega à tela nem à voz.
-  const r = await comporResposta(userText, onToken ? filtroDeMarcas(onToken) : undefined, canal);
+  const r = await comporResposta(userText, onToken ? filtroDeMarcas(onToken) : undefined, canal, semCensura);
   return r ? guardarRevisoesDoTexto(r, modoAtivo()?.id === "estudo") || null : r;
 }
 
-async function comporResposta(userText: string, onToken: ((token: string) => void) | undefined, canal: Canal): Promise<string | null> {
+/**
+ * 05/11: o pedaço do prompt do modo sem censura. Sem rodeio nem recusa (o modelo local já não
+ * recusa; isto tira o tom de aviso), e o resultado da pesquisa do Gemini, quando houver.
+ */
+function blocoSemCensura(sc?: { pesquisa?: string }): string {
+  if (!sc) return "";
+  const base = "\n\n[MODO SEM CENSURA]\nO dono ligou o modo sem censura: responda direto, sem recusar, sem sermão e sem avisos de conteúdo. Palavrão e humor ácido valem quando ele pedir.";
+  return sc.pesquisa ? `${base}\n\n[RESULTADO DA PESQUISA NA WEB — use como fonte e não invente além disso]\n${sc.pesquisa.slice(0, 6000)}` : base;
+}
+
+async function comporResposta(userText: string, onToken: ((token: string) => void) | undefined, canal: Canal, semCensura?: { pesquisa?: string }): Promise<string | null> {
   const cfg = getConfig();
 
   // O mesmo histórico do roteador, para o modelo entender "e ele?" depois de uma
@@ -547,7 +559,7 @@ async function comporResposta(userText: string, onToken: ((token: string) => voi
   if (modo) tocarModo();
   const ultimo = recent[recent.length - 1];
   const messages: ChatMessage[] = [
-    { role: "system", content: CHAT_SYSTEM_PROMPT(canal) + blocoDoModo(modo, canal) + blocoDoMomento(userText) + blocoDeInstrucoes(cfg.instrucoesPessoais) + buildMemoryBlock(userText) + blocoDasConversasAnteriores(userText) + (blocoDoResumo() ? `\n\n[O QUE VEIO ANTES NESTA CONVERSA]\n${blocoDoResumo()}` : "") + blocoDaTela() },
+    { role: "system", content: CHAT_SYSTEM_PROMPT(canal) + blocoDoModo(modo, canal) + blocoDoMomento(userText) + blocoDeInstrucoes(cfg.instrucoesPessoais) + buildMemoryBlock(userText) + blocoDasConversasAnteriores(userText) + (blocoDoResumo() ? `\n\n[O QUE VEIO ANTES NESTA CONVERSA]\n${blocoDoResumo()}` : "") + blocoDaTela() + blocoSemCensura(semCensura) },
     ...recent.map(m => ({ role: m.role, content: m.content })),
     // Rede de segurança: se alguém chamar a composição sem passar pelo roteador, o
     // pedido não estaria no histórico e o modelo responderia ao turno anterior.
@@ -563,11 +575,17 @@ async function comporResposta(userText: string, onToken: ((token: string) => voi
     const model = provider === "ollama" ? cfg.ollamaChatModel : cfg.brainModel;
     parcial = "";
     const texto = await callChat({
-      provider, model, messages, temperature: 0.6, maxTokens: maxTokensDaConversa(canal, estiloValido(cfg.estiloResposta)), timeoutMs: canal === "texto" ? 90_000 : 30_000,
+      provider, model, messages, soLocal: !!semCensura, temperature: 0.6, maxTokens: maxTokensDaConversa(canal, estiloValido(cfg.estiloResposta)), timeoutMs: canal === "texto" ? 90_000 : 30_000,
       onToken: onToken ? (t) => { parcial += t; onToken(t); } : undefined,
     });
     return texto.trim() || null;
   };
+
+  // 05/11: sem censura, só o modelo local responde — cair no Gemini ou na Groq traria a censura de volta.
+  if (semCensura) {
+    try { return await tentar("ollama"); }
+    catch (e) { console.error("[brain] o modelo local (sem censura) falhou:", e); return parcial.trim() || null; }
+  }
 
   // Fase 16: "auto" escolhe por pedido — conhecimento e chat escrito na Groq, o resto local.
   const primeiro: Provider = provedorDaConversa(cfg.chatProvider, userText, canal, !!getApiKey(), !!modo?.nuvem);

@@ -282,6 +282,10 @@ function anexarExtras(x) {
     // Fase 21: "reserva" cobre os dois casos — o Hermes não respondeu, ou a nuvem caiu e o local respondeu.
     rodape.insertAdjacentHTML("afterbegin", `<div class="chat-local" title="O cérebro principal não respondeu a tempo; quem respondeu foi a reserva — pode ser menos preciso.">reserva</div>`);
   }
+  // 05/11: modo sem censura — quem escreveu foi o modelo deste PC.
+  if (x?.semCensura && !rodape.querySelector(".chat-sem-censura")) {
+    rodape.insertAdjacentHTML("afterbegin", `<div class="chat-local chat-sem-censura" title="Modo sem censura: a resposta foi escrita pelo modelo deste PC (a pesquisa, se houve, foi pelo Gemini).">sem censura</div>`);
+  }
   // 31/10: a ação foi reversível — "Desfazer" por 30 s; o clique manda "desfaz" como pedido.
   if (x?.desfazer) {
     timeline.querySelectorAll(".chat-desfazer").forEach(n => n.remove());

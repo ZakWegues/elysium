@@ -16,6 +16,7 @@ import { responderRevisao, semMarcas } from "./cartoes";
 import { decidirVocativo, dosarTratamento } from "./vocativo";
 import { desfazerUltima, ehPedidoDeDesfazer, ultimoDesfazer } from "./desfazer";
 import { fatosUsados } from "./memoryStore";
+import { pedidoDeModoCensura, responderSemCensura, semCensuraLigado, trocarModoCensura } from "./semCensura";
 
 export type ResultadoComando = {
   actions: BrainAction[];
@@ -27,6 +28,8 @@ export type ResultadoComando = {
   fontes: Fonte[];
   /** Fase 18: a nuvem falhou e quem respondeu foi o cérebro local (o app mostra "modo local"). */
   local?: boolean;
+  /** 05/11: respondida pelo modelo local no modo sem censura (selo na bolha). */
+  semCensura?: boolean;
   /** 31/10: este pedido fez algo reversível — o rótulo vai para o botão "Desfazer" da bolha. */
   desfazer?: string;
   /** 31/10: fatos da memória que a resposta usou — o rodapé "Lembrei: …". */
@@ -87,6 +90,14 @@ async function executarNoContexto(
     return { actions: [], reply: confirmado, atalho: true };
   }
 
+  // 05/11: "modo sem censura" / "modo com censura" liga e desliga sem modelo nenhum.
+  const censura = pedidoDeModoCensura(text);
+  if (censura !== null) {
+    const reply = trocarModoCensura(censura);
+    ganchos.onToken?.(reply);
+    return { actions: [], reply, atalho: true };
+  }
+
   // 31/10: "desfaz" (ou o botão "Desfazer" da bolha) — a última ação reversível, sem modelo.
   if (ehPedidoDeDesfazer(text)) {
     registrarTurnoUsuario(text);
@@ -135,7 +146,20 @@ async function executarNoContexto(
   // Ely. Qualquer falha — fora do ar, demorou a começar, erro do modelo — cai no cérebro de
   // sempre logo abaixo, com o selo "reserva".
   let turnoRegistrado = false;
-  if (!shortcut && getConfig().cerebro === "hermes") {
+  // 05/11: modo sem censura — conversa e pesquisa respondidas pelo modelo local; as ações que
+  // o roteador decidir seguem pelo fluxo de baixo (sem Hermes nem agente: já estão decididas).
+  if (!shortcut && semCensuraLigado()) {
+    registrarTurnoUsuario(text);
+    turnoRegistrado = true;
+    const sc = await responderSemCensura(text, ganchos.canal ?? "voz", ganchos.onToken);
+    if (sc.reply !== null) {
+      recordAssistantReply(sc.reply);
+      trackUsage(text, { action: "chat" });
+      return { actions: sc.acoes, reply: sc.reply, atalho: false, semCensura: true };
+    }
+    actions = sc.acoes;
+  }
+  if (!actions && getConfig().cerebro === "hermes") {
     registrarTurnoUsuario(text);
     turnoRegistrado = true;
     // Fase 23: o bloco "FONTES:" do Hermes não aparece no streaming; vira os chips de fonte.
@@ -155,7 +179,7 @@ async function executarNoContexto(
   // O cérebro com ferramentas (bloco 78): olha o PC, age em etapas e escreve a resposta.
   // "CHAT" vira a composição de sempre (com streaming); falha do provedor cai no roteador
   // clássico logo abaixo — ele continua inteiro como rede de segurança.
-  if (!shortcut && getConfig().cerebroFerramentas !== false) {
+  if (!actions && getConfig().cerebroFerramentas !== false) {
     if (!turnoRegistrado) registrarTurnoUsuario(text);
     const r = await agir(text, {
       canal: ganchos.canal,

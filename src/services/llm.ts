@@ -121,6 +121,8 @@ export interface ChatPedido {
    * resposta longa não pode ser morta por ser longa, e um modelo travado ainda é pego.
    */
   onToken?: (token: string) => void;
+  /** 05/11: vai direto ao Ollama, sem passar pelo Gemini (modo sem censura). */
+  soLocal?: boolean;
 }
 
 /** Erro de provedor com a causa legível, para quem chama decidir se cai no fallback. */
@@ -344,7 +346,7 @@ async function lerLinhas(
 }
 
 export async function callChat(p: ChatPedido): Promise<string> {
-  if (noGemini(p)) {
+  if (!p.soLocal && noGemini(p)) {
     try { return await chamarGroq(p, true); }
     catch (e) { if (!getConfig().ollamaReserva) throw e; }
   }
