@@ -107,6 +107,9 @@ body.barra-nuvio #layout[data-view="ajustes"] > #drawer-right { padding: var(--f
    dentro) em vez de deixar uma faixa vazia separada. */
 body.barra-nuvio #chat-mode-tabs { top: 0; height: calc(52px + var(--fb-t)); padding-top: var(--fb-t); padding-left: calc(16px + var(--fb-l)); padding-right: calc(16px + var(--fb-r)); }
 body.barra-nuvio #conv-btn { top: calc(10px + var(--fb-t)); left: calc(16px + var(--fb-l)); }
+/* O de presets é o par do de conversas, no outro canto: sem isto ele ficou embaixo do × da janela
+   quando o topo perdeu a faixa (05/11). */
+body.barra-nuvio #preset-btn { top: calc(8px + var(--fb-t)); right: calc(16px + var(--fb-r)); }
 body.barra-nuvio #layout[data-view="chat"] > #center { top: calc(52px + var(--fb-t)); bottom: 0; left: 0; right: 0; padding-left: var(--fb-l); padding-right: var(--fb-r); }
 body.barra-nuvio #input-bar { padding-bottom: calc(10px + var(--fb-b)); transition: padding 320ms var(--mov-suave); }
 body.barra-nuvio #view-inicio, body.barra-nuvio #view-hoje, body.barra-nuvio #chat-mode-tabs,
@@ -365,6 +368,8 @@ body.barra-nuvio #layout, #layout { height: 100vh; }
 body.barra-nuvio #chat-mode-tabs { background: transparent !important; border: none !important; backdrop-filter: none !important; box-shadow: none !important; }
 /* A gaveta começa abaixo do topo: o − e o × da janela continuam à vista com ela aberta. */
 #gaveta { top: var(--topo); border-top-left-radius: 16px; }
+/* Com a barra de abas no topo, a gaveta começa embaixo dela: o título e o × ficavam tampados (05/11). */
+body.barra-topo #gaveta { top: var(--fb-t); }
 /* Parado, o selo ficava apagado demais sobre o vidro. */
 #topbar #status-badge:not(.listening):not(.processing):not(.speaking):not(.error) { color: rgba(232,234,240,0.72); }
 

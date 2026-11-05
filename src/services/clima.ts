@@ -39,6 +39,11 @@ export interface Clima {
   horas?: { hora: number; temp: number; icone: string; chuva: boolean }[];
   /** Amanhã, só o resumo: máxima, mínima e ícone do dia. */
   amanha?: { max: number; min: number; icone: string };
+  /** Os próximos dias depois de hoje (até 6), para a gaveta do clima: data local "AAAA-MM-DD". */
+  dias?: { data: string; max: number; min: number; icone: string; chuvaProb?: number }[];
+  /** Nascer e pôr do sol de hoje, "HH:MM" na hora local da cidade. */
+  nascer?: string;
+  porDoSol?: string;
 }
 
 /**
@@ -110,8 +115,8 @@ export async function climaAgora(): Promise<Clima | null> {
     `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
     `&current=temperature_2m,weather_code,apparent_temperature,relative_humidity_2m,wind_speed_10m` +
     `&hourly=temperature_2m,weather_code` +
-    `&daily=temperature_2m_max,temperature_2m_min,weather_code` +
-    `&timezone=auto&forecast_days=2`;
+    `&daily=temperature_2m_max,temperature_2m_min,weather_code,sunrise,sunset,precipitation_probability_max` +
+    `&timezone=auto&forecast_days=7`;
 
   try {
     // Timeout curto e explícito: o `fetch` do Node espera indefinidamente por padrão, e
@@ -125,7 +130,7 @@ export async function climaAgora(): Promise<Clima | null> {
     const j = await r.json() as {
       current?: { temperature_2m?: number; weather_code?: number; apparent_temperature?: number; relative_humidity_2m?: number; wind_speed_10m?: number };
       hourly?: { time?: string[]; temperature_2m?: number[]; weather_code?: number[] };
-      daily?: { temperature_2m_max?: number[]; temperature_2m_min?: number[]; weather_code?: number[] };
+      daily?: { time?: string[]; temperature_2m_max?: number[]; temperature_2m_min?: number[]; weather_code?: number[]; sunrise?: string[]; sunset?: string[]; precipitation_probability_max?: (number | null)[] };
     };
 
     const temp = j.current?.temperature_2m;
@@ -163,6 +168,18 @@ export async function climaAgora(): Promise<Clima | null> {
         icone: descreverWmo(j.daily.weather_code?.[1] ?? 3).icone,
       };
     }
+    const d = j.daily;
+    if (d?.time && d.temperature_2m_max) {
+      dado.dias = d.time.slice(1).map((data, k) => ({
+        data,
+        max: d.temperature_2m_max![k + 1],
+        min: d.temperature_2m_min?.[k + 1] ?? d.temperature_2m_max![k + 1],
+        icone: descreverWmo(d.weather_code?.[k + 1] ?? 3).icone,
+        chuvaProb: d.precipitation_probability_max?.[k + 1] ?? undefined,
+      })).filter(x => typeof x.max === "number");
+    }
+    if (d?.sunrise?.[0]) dado.nascer = d.sunrise[0].slice(11, 16);
+    if (d?.sunset?.[0]) dado.porDoSol = d.sunset[0].slice(11, 16);
     ultimaFalha = null;
     cache = { em: Date.now(), dado };
     return dado;

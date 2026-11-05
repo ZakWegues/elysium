@@ -213,7 +213,7 @@ body.redimensionando, body.redimensionando * { user-select: none !important; cur
 /* Card fixo: fica no topo e não sai do lugar quando os outros são arrastados. */
 .home-card.fixo { border-color: rgba(var(--purple-rgb),0.34); }
 .home-card-pin {
-  width: 22px; height: 22px; border: none; border-radius: 50%; cursor: pointer;
+  width: 28px; height: 28px; border: none; border-radius: 50%; cursor: pointer;
   background: none; color: var(--muted); opacity: 0;
   display: flex; align-items: center; justify-content: center; margin-left: auto;
   transition: opacity var(--mov-micro) var(--mov-curva), color var(--mov-micro) var(--mov-curva);
@@ -442,11 +442,29 @@ body.redimensionando, body.redimensionando * { user-select: none !important; cur
 .lista-titulo { font-size: 12px; font-weight: 600; margin-bottom: 4px; display: flex; gap: 6px; align-items: baseline; }
 .lista-titulo em { font-style: normal; font-size: 10.5px; color: var(--muted); font-weight: 400; }
 .lista-item.feito .home-item-txt span { text-decoration: line-through; opacity: 0.55; }
-.lista-check { width: 22px; height: 22px; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--purple-bright); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; }
-.lista-item button[data-lista-remover], .timers-nomeados button { margin-left: auto; background: none; border: none; color: var(--muted); cursor: pointer; opacity: 0.6; }
+.lista-check { width: 24px; height: 24px; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--purple-bright); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; }
+.lista-item button[data-lista-remover], .timers-nomeados button { margin-left: auto; min-width: 26px; min-height: 26px; display: inline-flex; align-items: center; justify-content: center; background: none; border: none; color: var(--muted); cursor: pointer; opacity: 0.6; }
 .lista-item button[data-lista-remover]:hover, .timers-nomeados button:hover { opacity: 1; color: var(--text); }
 .lista-nova { display: flex; gap: 6px; margin-top: 6px; }
 .lista-nova input { flex: 1; min-width: 0; padding: 6px 9px; border-radius: var(--radius-7); border: 1px solid var(--border); background: rgba(var(--purple-rgb),0.06); color: var(--text); font: inherit; font-size: 12px; outline: none; }
 .lista-nova input:focus { border-color: var(--purple); }
 .lista-nova button { width: 30px; border-radius: var(--radius-7); border: 1px solid var(--border); background: transparent; color: var(--text); cursor: pointer; }
 .timers-nomeados { margin-top: 8px; }
+
+/* Card que só tem o aviso de vazio não guarda altura nem estica até o vizinho da linha: virava
+   um caixote com uma frase no canto (05/11). */
+.home-card:has(> .home-card-corpo > .home-empty:only-child) { height: auto !important; align-self: start; }
+
+/* Gaveta do clima (05/11): sol de hoje e os próximos dias — antes ela repetia o card e sobrava
+   meia gaveta vazia. */
+.clima-sol { display: flex; gap: 18px; margin-top: 16px; font-size: 11.5px; color: var(--muted); }
+.clima-sol span { display: inline-flex; align-items: center; gap: 6px; }
+.clima-sol b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+.clima-titulo { margin: 18px 0 8px; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+.clima-dias { display: flex; flex-direction: column; gap: 4px; }
+.clima-dia { display: grid; grid-template-columns: 64px 20px 1fr 40px 36px; align-items: center; gap: 8px; padding: 9px 12px; border-radius: var(--radius-8); background: rgba(var(--purple-rgb),0.05); font-size: 12px; color: var(--muted); }
+.clima-dia span { color: var(--text); text-transform: capitalize; }
+.clima-dia .ico { color: var(--purple-bright); }
+.clima-dia em { font-style: normal; font-size: 11px; color: var(--cyan); }
+.clima-dia b { text-align: right; color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+.clima-dia i { font-style: normal; text-align: right; font-variant-numeric: tabular-nums; }

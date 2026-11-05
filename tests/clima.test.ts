@@ -15,7 +15,12 @@ const resposta = {
     temperature_2m: [21, 22, 22, 20, 19, 17, 17, 16],
     weather_code: [3, 3, 3, 61, 3, 3, 3, 3],
   },
-  daily: { temperature_2m_max: [22.4, 26.1], temperature_2m_min: [14.2, 15.0], weather_code: [3, 0] },
+  daily: {
+    time: ["2026-09-18", "2026-09-19", "2026-09-20"],
+    temperature_2m_max: [22.4, 26.1, 24.0], temperature_2m_min: [14.2, 15.0, 16.3], weather_code: [3, 0, 63],
+    sunrise: ["2026-09-18T06:01", "2026-09-19T06:00", "2026-09-20T05:59"], sunset: ["2026-09-18T18:04", "2026-09-19T18:05", "2026-09-20T18:05"],
+    precipitation_probability_max: [10, null, 80],
+  },
 };
 
 beforeEach(() => {
@@ -43,6 +48,16 @@ describe("clima — parse", () => {
     expect(c!.horas!.map(h => h.hora)).toEqual([14, 15, 16, 17, 18, 19]);
     expect(c!.horas![2]).toMatchObject({ hora: 16, icone: "droplet", chuva: true });
     expect(c!.amanha).toEqual({ max: 26.1, min: 15.0, icone: "sun" });
+  });
+
+  it("lê os próximos dias (sem hoje) e o nascer e o pôr do sol", async () => {
+    const c = await (await carregar()).climaAgora();
+    expect(c!.dias).toEqual([
+      { data: "2026-09-19", max: 26.1, min: 15.0, icone: "sun", chuvaProb: undefined },
+      { data: "2026-09-20", max: 24.0, min: 16.3, icone: "droplet", chuvaProb: 80 },
+    ]);
+    expect(c!.nascer).toBe("06:01");
+    expect(c!.porDoSol).toBe("18:04");
   });
 
   it("sem cidade não consulta nada", async () => {

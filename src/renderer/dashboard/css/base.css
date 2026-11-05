@@ -203,11 +203,11 @@ body.vivo .ely-shaft { animation-duration: 12s, 4s; }
    espera acumulada passa a ser sentida como lentidão. */
 .mov-lista > * { animation: mov-entra var(--mov-base) var(--mov-suave) both; }
 .mov-lista > *:nth-child(1) { animation-delay: 0ms; }
-.mov-lista > *:nth-child(2) { animation-delay: 30ms; }
-.mov-lista > *:nth-child(3) { animation-delay: 60ms; }
-.mov-lista > *:nth-child(4) { animation-delay: 90ms; }
-.mov-lista > *:nth-child(5) { animation-delay: 120ms; }
-.mov-lista > *:nth-child(n+6) { animation-delay: 150ms; }
+.mov-lista > *:nth-child(2) { animation-delay: 20ms; }
+.mov-lista > *:nth-child(3) { animation-delay: 40ms; }
+.mov-lista > *:nth-child(4) { animation-delay: 60ms; }
+.mov-lista > *:nth-child(5) { animation-delay: 80ms; }
+.mov-lista > *:nth-child(n+6) { animation-delay: 100ms; }
 
 /* ── Troca de aba ─────────────────────────────────────────
    `@starting-style` diz de onde a animação parte na PRIMEIRA vez que o elemento

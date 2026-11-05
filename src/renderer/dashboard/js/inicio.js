@@ -115,6 +115,22 @@ function ligarTickMusica() {
 // sinais mais reconhecíveis de interface gerada por IA; larguras diferentes vêm do que
 // cada card tem para mostrar.
 
+/** O que só a gaveta do clima mostra (05/11): sol de hoje e os próximos dias. Antes a gaveta
+ *  repetia o card e sobrava meia tela vazia. */
+function climaDaGaveta(c) {
+  if (!c) return "";
+  const sol = c.nascer && c.porDoSol
+    ? `<div class="clima-sol"><span>${ico("sun", "ico-sm")} nasce <b>${c.nascer}</b></span><span>${ico("moon", "ico-sm")} põe <b>${c.porDoSol}</b></span></div>` : "";
+  const nomes = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
+  const dias = (c.dias ?? []).length
+    ? `<h4 class="clima-titulo">Próximos dias</h4><div class="clima-dias">` + c.dias.map((d, i) => {
+        const nome = i === 0 ? "amanhã" : nomes[new Date(d.data + "T12:00").getDay()];
+        const prob = typeof d.chuvaProb === "number" && d.chuvaProb >= 20 ? `<em>${Math.round(d.chuvaProb)}%</em>` : "<em></em>";
+        return `<div class="clima-dia"><span>${nome}</span>${ico(d.icone, "ico-sm")}${prob}<b>${Math.round(d.max)}°</b><i>${Math.round(d.min)}°</i></div>`;
+      }).join("") + `</div>` : "";
+  return sol + dias;
+}
+
 const CARDS = {
   sugestoes: {
     titulo: "Para agora", icone: "zap", span: 2, precisa: ["sugestoes"],
@@ -445,7 +461,7 @@ const CARDS = {
       // podia ser criado por voz ou pelo celular. Agora dá para digitar.
       return lista + `<form class="lembrete-novo">
         <input type="text" name="texto" placeholder="Lembrar de…" autocomplete="off">
-        <input type="time" name="hora" required>
+        <input type="time" name="hora" required aria-label="Hora do lembrete">
         <button type="submit" title="Criar lembrete">${ico("check", "ico-sm")}</button>
       </form>`;
     },
@@ -1217,7 +1233,7 @@ document.getElementById("view-inicio")?.addEventListener("click", async (e) => {
   if (chip) {
     abrirGaveta({
       titulo: "Lá fora", icone: "cloud", classe: "gaveta-clima",
-      html: `<div class="home-card-corpo">${CARDS.clima.render(dadosInicio)}</div>
+      html: `<div class="home-card-corpo">${CARDS.clima.render(dadosInicio)}</div>${climaDaGaveta(dadosInicio.clima)}
         <div class="home-quick" style="margin-top:14px"><button data-gaveta-clima-cidade>${ico("globe", "ico-sm")}<span>Trocar cidade</span></button></div>`,
       aoAbrir: (corpo, signal) => corpo.addEventListener("click", (ev) => {
         if (ev.target.closest("[data-gaveta-clima-cidade]")) abrirSecao("clima");

@@ -598,7 +598,7 @@
 body.com-esfera #chat-vazio .marca { display: none; }
 /* Fase 22: com o chat vazio, o cursor sobre a esfera vira mãozinha (clique = pulso, duplo = ouvir). */
 #center.sobre-esfera { cursor: pointer; }
-#chat-vazio .dica-ptt { margin-top: 10px; font-size: 11px; opacity: 0.55; }
+#chat-vazio .dica-ptt { margin-top: 10px; font-size: 11px; }
 /* Copiado: o botão da bolha vira ✓ e o duplo clique deixa um ✓ no canto por 1 s. */
 .bolha-acoes button.feito { color: var(--green); }
 .bolha-ok {

@@ -11,7 +11,7 @@
 //   - brilho: três faixas suaves no aro, com a luz vindo de cima à esquerda (45°), e um fio de
 //     1,2 px na aresta — fraco de propósito (o Zak: "pouco reflexo forçado").
 //
-// Força por tema: Glass inteiro, Dark metade, Stark nada. O ajuste "Vidro líquido" (Aparência)
+// Força por tema: Glass inteiro, Dark 80%, Stark nada. O ajuste "Vidro líquido" (Aparência)
 // liga, deixa leve ou desliga; "Nunca animar" tira o brilho que segue o cursor.
 
 // Só o que FLUTUA (a caixa de digitar volta em 04/11 com tinta grossa, ver liquido.css).
@@ -49,7 +49,8 @@ let lqModo = "ligado";
 function lqFator() {
   if (lqModo === "desligado") return 0;
   const b = document.body.classList;
-  const tema = b.contains("theme-stark") ? 0 : b.contains("theme-gl") ? 1 : 0.5;
+  // 05/11: o Dark com 80% (era metade): o Zak quer o vidro bem visível.
+  const tema = b.contains("theme-stark") ? 0 : b.contains("theme-gl") ? 1 : 0.8;
   return tema * (lqModo === "leve" ? 0.45 : 1);
 }
 
