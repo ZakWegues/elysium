@@ -43,9 +43,9 @@ function bordasDe(el) {
 }
 function limitesDaBarra() {
   const barra = document.getElementById("viewtabs");
-  // 31/10: segurando, o seletor cresce 5% a partir do centro (design.css) — a folga cobre a metade
-  // disso dos DOIS lados; antes ele vazava pela direita.
-  const folga = 4 + (barra.classList.contains("segurando") ? Math.max(0, polegar.b - polegar.a) * 0.025 : 0);
+  // Segurando, o seletor cresce 12% a partir do centro (design.css, 04/11) — a folga cobre a
+  // metade disso dos DOIS lados; antes ele vazava pela direita.
+  const folga = 4 + (barra.classList.contains("segurando") ? Math.max(0, polegar.b - polegar.a) * 0.06 : 0);
   return barraDeitada()
     ? { min: folga, max: barra.clientWidth - folga }
     : { min: folga, max: barra.clientHeight - folga };
@@ -280,6 +280,8 @@ document.getElementById("nav-recolher")?.addEventListener("click", () => gravarB
   barra.addEventListener("pointerdown", (e) => {
     if (e.button !== 0 || !e.target.closest(".vtab") || !polegar.alvo) return;
     barra.classList.add("segurando");
+    // Segurado, o seletor vira lente (js/liquido.js): a varredura pega a classe nova.
+    lqLogo();
     arrasto = { p0: barraDeitada() ? e.clientX : e.clientY, alvo0: { ...polegar.alvo }, mexeu: false };
   });
   window.addEventListener("pointermove", (e) => {
@@ -296,6 +298,7 @@ document.getElementById("nav-recolher")?.addEventListener("click", () => gravarB
   });
   window.addEventListener("pointerup", () => {
     barra.classList.remove("segurando");
+    lqLogo();
     if (!arrasto) return;
     const { mexeu } = arrasto;
     arrasto = null;

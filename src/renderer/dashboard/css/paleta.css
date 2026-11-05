@@ -29,7 +29,6 @@
 #preset-btn { display: none; }
 #layout[data-view="chat"] #preset-btn { display: flex; }
 #preset-btn:hover { background: rgba(var(--purple-rgb),0.20); }
-#preset-btn:active { transform: scale(0.94); }
 #preset-btn[aria-expanded="true"] { background: rgba(var(--purple-rgb),0.28); }
 
 /* ── Paleta de comandos (Ctrl+K) ──────────────────────────
@@ -218,7 +217,6 @@
   font-size: 11.5px; color: var(--text); cursor: pointer;
 }
 .pop-check:hover { background: rgba(var(--purple-rgb),0.08); }
-.pop-check input { accent-color: var(--purple); cursor: pointer; }
 .pop-form-acoes { display: flex; gap: 7px; justify-content: flex-end; }
 .pop-form-acoes button {
   padding: 7px 14px; border-radius: var(--radius-7);
@@ -310,7 +308,6 @@
   transition: background var(--mov-micro) var(--mov-curva), transform var(--mov-micro) var(--mov-curva);
 }
 .nav-ico:hover, .nav-ico:focus-visible { background: rgba(var(--purple-rgb), 0.16); outline: none; }
-.nav-ico:active { transform: scale(0.94); }
 
 /* As views emprestadas: dentro da gaveta elas aparecem, sem o padding de aba. */
 #layout[data-view] #gaveta-corpo #view-pc,

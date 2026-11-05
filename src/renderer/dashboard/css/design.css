@@ -166,38 +166,49 @@ body.barra-nuvio #vtab-thumb {
 }
 body.barra-nuvio #vtab-thumb::after { content: none; }
 /* Segurar faz o seletor crescer, sem passar da barra (a barra tem 6 px de folga). */
-body.barra-nuvio #viewtabs.segurando #vtab-thumb { scale: 1.05; }
+body.barra-nuvio #viewtabs.segurando #vtab-thumb {
+  scale: 1.12 1.18; z-index: 3; pointer-events: none;
+  background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.22);
+  box-shadow: 0 7px 11px rgba(0,0,0,0.28);
+}
 /* A escala cresce do centro (a base.css usa a borda esquerda, do seletor antigo). */
 body.barra-nuvio #vtab-thumb { transform-origin: center center; }
 body.barra-nuvio #viewtabs.segurando { cursor: grabbing; }
+/* Arrastar o seletor (ou apertar e esticar um botão do topo) não pode selecionar texto. */
+#viewtabs, #topbar { user-select: none; }
 
 /* ── O topo: abrir/fechar a barra no canto esquerdo e as ações à direita ── */
 #nav-recolher, #topbar-acoes { -webkit-app-region: no-drag; }
 #nav-recolher {
   width: 30px; height: 30px; margin-right: 4px; flex-shrink: 0;
   display: grid; place-items: center; cursor: pointer;
-  border-radius: 9px; color: var(--purple-bright);
+  color: var(--purple-bright);
 }
 #topbar-acoes { display: flex; align-items: center; gap: 6px; margin-right: 8px; }
 #topbar-acoes #nav-busca { margin: 0; height: 28px; width: min(260px, 26vw); }
-#topbar-acoes .nav-ico { margin: 0; width: 30px; height: 30px; border-radius: 9px; }
+#topbar-acoes .nav-ico { margin: 0; width: 30px; height: 30px; }
 #topbar-acoes #nav-atualizar { margin: 0; }
 
-/* ── Vidro líquido nos botões do topo das telas, nos atalhos e nos chips ──
-   Mesma receita da barra: tinta escura translúcida, desfoque, borda clara fina e um fio
-   de luz no topo. */
-#nav-recolher, #topbar-acoes #nav-busca, #topbar-acoes .nav-ico,
-#conv-btn, .chat-switch, .chat-bolha, .home-chips span, .clima-chips > *, .home-clima-chip, .gp-chips > *, .modo-chip {
-  background: rgba(22,22,26,0.42);
-  border: 1px solid rgba(255,255,255,0.10);
-  backdrop-filter: blur(16px) saturate(160%);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+/* ── Vidro dos botões, chips e ilhas (04/11, receita da Glisse) ──
+   Tinta escura translúcida, desfoque baixo (a lente de js/liquido.js é que faz o vidro), aro
+   interno de meio pixel e sombra curta. Botão só de ícone é círculo; com texto, pílula. */
+#topbar button, #topbar #status-badge, #conv-btn, .chat-switch, .chat-bolha,
+.home-chips span, .clima-chips > *, .home-clima-chip, .gp-chips > *, .modo-chip,
+.save-btn, .send-btn, .mic-btn, #preset-btn, .pop-form-acoes button, #home-btn-personalizar, #pc-reler, .hoje-botoes button {
+  background: rgba(var(--glass-ink, 22,22,26), 0.62);
+  border: 0.5px solid rgba(255,255,255,0.14);
+  backdrop-filter: blur(3px) saturate(150%);
+  box-shadow: inset 0 0.5px 0 rgba(255,255,255,0.12), 0 1px 3px rgba(0,0,0,0.25);
+  border-radius: 999px;
 }
-#nav-recolher:hover, #topbar-acoes #nav-busca:hover, #topbar-acoes .nav-ico:hover,
-#conv-btn:hover, .chat-bolha:hover, .gp-chips > *:hover, .modo-chip:hover {
-  background: rgba(var(--purple-rgb), 0.16);
-  border-color: rgba(var(--purple-rgb), 0.32);
+#topbar button:hover, #conv-btn:hover, .chat-bolha:hover, .gp-chips > *:hover, .modo-chip:hover,
+.save-btn:hover, .send-btn:hover, .mic-btn:hover, #preset-btn:hover, .pop-form-acoes button:hover,
+#home-btn-personalizar:hover, #pc-reler:hover, .hoje-botoes button:hover {
+  background: rgba(var(--purple-rgb), 0.18);
+  border-color: rgba(var(--purple-rgb), 0.34);
 }
+/* Os de ação ficam com a cor do tema, como os "filled" da Glisse. */
+.save-btn, .send-btn, .mic-btn.active, #preset-btn[aria-expanded="true"] { background: rgba(var(--purple-rgb), 0.32); color: var(--purple-bright); }
 /* Botões do topo das telas sem bolha: quadrado de canto suave. */
 #conv-btn { border-radius: 10px; }
 
@@ -288,7 +299,10 @@ body.barra-direita.barra-encolhida #viewtabs:not(:hover) .vtab:not(.active) { ma
 #nav-recolher, #topbar-acoes #nav-busca, #topbar-acoes .nav-ico, #conv-btn, .chat-bolha, .gp-chips > *, .modo-chip {
   transition: transform 220ms cubic-bezier(0.34, 1.56, 0.64, 1), background 160ms var(--mov-curva), border-color 160ms var(--mov-curva);
 }
-#nav-recolher:active, #topbar-acoes #nav-busca:active, #topbar-acoes .nav-ico:active, #conv-btn:active, .chat-bolha:active, .gp-chips > *:active, .modo-chip:active { transform: scale(0.96); }
+/* O aperto dos botões de vidro é a mola de js/mola.js (cresce e estica); o `transform` de
+   :active somaria com ela. */
+.chat-bolha:active { transform: scale(0.96); }
+.mola-apertado:active { transform: none !important; }
 body.barra-nuvio .vtab:focus-visible, #nav-recolher:focus-visible, #topbar-acoes button:focus-visible, .chat-bolha:focus-visible {
   outline: 2px solid rgba(var(--purple-rgb), 0.7); outline-offset: 2px;
 }
@@ -345,19 +359,74 @@ body.barra-nuvio #layout, #layout { height: 100vh; }
 #topbar #status-badge {
   -webkit-app-region: no-drag; margin-left: 0;
   height: 30px; padding: 0 12px; display: inline-flex; align-items: center;
-  background: rgba(22,22,26,0.42); border-color: rgba(255,255,255,0.10);
-  backdrop-filter: blur(16px) saturate(160%);
 }
-#topbar .top-btn {
-  width: 30px; height: 30px; border-radius: 9px;
-  background: rgba(22,22,26,0.42); border: 1px solid rgba(255,255,255,0.10);
-  backdrop-filter: blur(16px) saturate(160%);
-  transition: background 0.2s, color 0.2s, transform 0.12s;
-}
-#topbar .top-btn:active { transform: scale(0.94); }
+#topbar .top-btn { width: 30px; height: 30px; }
 /* A faixa do switch IA/Celular também perde o fundo: só a pílula flutua. */
 body.barra-nuvio #chat-mode-tabs { background: transparent !important; border: none !important; backdrop-filter: none !important; box-shadow: none !important; }
 /* A gaveta começa abaixo do topo: o − e o × da janela continuam à vista com ela aberta. */
 #gaveta { top: var(--topo); border-top-left-radius: 16px; }
 /* Parado, o selo ficava apagado demais sobre o vidro. */
 #topbar #status-badge:not(.listening):not(.processing):not(.speaking):not(.error) { color: rgba(232,234,240,0.72); }
+
+/* ═════════════ FAIXAS E CAIXINHAS NO JEITO DA GLISSE (04/11) ═════════════
+   Faixa: trilho de 6 px com a parte cheia na cor do tema e polegar de pílula branco; segurado,
+   ele cresce, fica transparente e vira lente (filtro de js/liquido.js em --lq-polegar-faixa). */
+.cfg-faixa input[type="range"], .pc-vol input[type="range"], .mus-vol input[type="range"] {
+  -webkit-appearance: none; appearance: none; height: 30px; background: transparent; cursor: pointer;
+  --cheio: 50%;
+}
+.cfg-faixa input[type="range"]::-webkit-slider-runnable-track, .pc-vol input[type="range"]::-webkit-slider-runnable-track,
+.mus-vol input[type="range"]::-webkit-slider-runnable-track {
+  height: 6px; border-radius: 999px;
+  background: linear-gradient(to right, rgba(var(--purple-rgb),0.85) var(--cheio), rgba(0,0,0,0.3) var(--cheio));
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.35), inset 0 0 0 0.5px rgba(255,255,255,0.10);
+}
+.cfg-faixa input[type="range"]::-webkit-slider-thumb, .pc-vol input[type="range"]::-webkit-slider-thumb,
+.mus-vol input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 36px; height: 24px; margin-top: -9px; border-radius: 999px;
+  background: #fff; box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  transition: width 240ms cubic-bezier(0.34, 1.56, 0.64, 1), height 240ms cubic-bezier(0.34, 1.56, 0.64, 1),
+              margin-top 240ms cubic-bezier(0.34, 1.56, 0.64, 1), background 140ms linear;
+}
+.cfg-faixa input[type="range"]:active::-webkit-slider-thumb, .pc-vol input[type="range"]:active::-webkit-slider-thumb,
+.mus-vol input[type="range"]:active::-webkit-slider-thumb {
+  width: 46px; height: 30px; margin-top: -12px;
+  background: rgba(255,255,255,0.10);
+  backdrop-filter: var(--lq-polegar-faixa, blur(1px)) brightness(1.15);
+  box-shadow: inset 0 0.5px 0 rgba(255,255,255,0.5), inset 0 0 0 0.5px rgba(255,255,255,0.3), 0 6px 18px rgba(0,0,0,0.22);
+}
+input[type="range"]:disabled::-webkit-slider-thumb { background: rgba(255,255,255,0.4); }
+
+/* Caixinhas de ligar (Personalizar a Início, presets): o mesmo interruptor, pequeno. */
+.home-toggle input, .pop-check input {
+  -webkit-appearance: none; appearance: none; flex-shrink: 0; margin: 0; cursor: pointer;
+  position: relative; width: 30px; height: 18px; border-radius: 999px;
+  background: rgba(0,0,0,0.28); border: 0.5px solid rgba(255,255,255,0.12);
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.35);
+  transition: background var(--mov-micro) var(--mov-curva);
+}
+.home-toggle input::before, .pop-check input::before {
+  content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 999px;
+  background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  transition: translate 340ms cubic-bezier(0.34, 1.56, 0.64, 1), width 200ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.home-toggle input:checked, .pop-check input:checked { background: rgba(var(--purple-rgb),0.85); }
+.home-toggle input:checked::before, .pop-check input:checked::before { translate: 12px 0; }
+.home-toggle input:active::before, .pop-check input:active::before { width: 18px; }
+.home-toggle input:checked:active::before, .pop-check input:checked:active::before { translate: 8px 0; }
+
+/* Tarefas e checklists: caixinha redonda de vidro, que enche com a cor do tema ao marcar. */
+.hoje-testar input, .tc-check input[type="checkbox"] {
+  -webkit-appearance: none; appearance: none; flex-shrink: 0; cursor: pointer;
+  position: relative; width: 18px; height: 18px; border-radius: 50%;
+  background: rgba(var(--glass-ink, 22,22,26), 0.5); border: 1px solid rgba(255,255,255,0.22);
+  backdrop-filter: blur(3px);
+  transition: background var(--mov-micro) var(--mov-curva), scale 220ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.hoje-testar input:active, .tc-check input[type="checkbox"]:active { scale: 0.9; }
+.hoje-testar input:checked, .tc-check input[type="checkbox"]:checked { background: rgba(var(--purple-rgb),0.85); border-color: transparent; }
+.hoje-testar input:checked::after, .tc-check input[type="checkbox"]:checked::after {
+  content: ""; position: absolute; left: 5.5px; top: 2.5px; width: 4px; height: 8px;
+  border: solid #fff; border-width: 0 2px 2px 0; rotate: 45deg;
+}

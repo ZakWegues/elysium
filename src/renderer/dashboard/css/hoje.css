@@ -150,7 +150,7 @@
 .hoje-sub:first-child { margin-top: 0; }
 .hoje-novidades { margin: 0; padding-left: 18px; font-size: 13px; line-height: 1.55; color: var(--text); }
 .hoje-testar { display: flex; gap: 9px; align-items: flex-start; padding: 5px 0; font-size: 13px; color: var(--text); cursor: pointer; }
-.hoje-testar input { margin-top: 2px; accent-color: var(--purple-bright); }
+.hoje-testar input { margin-top: 1px; }
 .hoje-testar.feito span { color: var(--muted); text-decoration: line-through; }
 .hoje-alerta.aviso { margin-bottom: 8px; }
 

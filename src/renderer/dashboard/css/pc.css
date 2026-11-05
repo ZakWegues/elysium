@@ -53,7 +53,7 @@
 .pc-midia-agora .artista { font-size: 10.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pc-midia-agora .vazio { font-size: 11.5px; color: var(--muted); }
 .pc-vol { display: flex; align-items: center; gap: 8px; min-width: 200px; color: var(--muted); }
-.pc-vol input[type="range"] { flex: 1; min-width: 0; accent-color: var(--purple); cursor: pointer; }
+.pc-vol input[type="range"] { flex: 1; min-width: 0; }
 .pc-vol span { font-size: 10.5px; min-width: 28px; text-align: right; font-variant-numeric: tabular-nums; }
 .pc-vol button { width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--border); background: none; color: var(--muted); cursor: pointer; display: flex; align-items: center; justify-content: center; }
 .pc-vol button:hover { background: rgba(var(--purple-rgb),0.16); color: var(--text); }

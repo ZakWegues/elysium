@@ -1,81 +1,174 @@
-// dashboard/js/liquido.js — vidro líquido de verdade (31/10).
+// dashboard/js/liquido.js — vidro líquido de verdade (31/10; óptica nova em 04/11).
 //
-// O Zak pediu "Liquid Glass de verdade, com distorção do fundo". O desfoque sozinho não dobra
-// nada; aqui cada superfície ganha um filtro SVG próprio com um MAPA DE DESLOCAMENTO do tamanho
-// dela: a borda funciona como lente (o fundo é puxado para dentro e entorta perto da aresta, como
-// na curva de um vidro grosso), o meio fica quase limpo. O filtro entra pelo `backdrop-filter`
-// (`url(#lq-N)` antes do desfoque) — só o Chromium faz isso, e o Electron é Chromium.
+// Cada superfície ganha um filtro SVG com MAPA DE DESLOCAMENTO do tamanho dela, aplicado pelo
+// `backdrop-filter` (`url(#lq-N)` antes do desfoque) — só o Chromium faz isso, e o Electron é
+// Chromium. 04/11: a óptica segue a da biblioteca Glisse (github.com/0kzh/glisse, MIT):
+//   - "painel" (ilhas, menus, botões): um domo — o aro (25% do lado menor) puxa o fundo para
+//     dentro em arco, o miolo fica limpo;
+//   - "lente" (polegares segurados): superfície squircle e refração de Snell com n = 1,5 — o
+//     deslocamento sai em px de verdade, do ângulo de entrada e da espessura do vidro;
+//   - dispersão: R, G e B deslocados em escalas diferentes (1,08 / 1,04 / 1) e somados;
+//   - brilho: três faixas suaves no aro, com a luz vindo de cima à esquerda (45°), e um fio de
+//     1,2 px na aresta — fraco de propósito (o Zak: "pouco reflexo forçado").
 //
 // Força por tema: Glass inteiro, Dark metade, Stark nada. O ajuste "Vidro líquido" (Aparência)
 // liga, deixa leve ou desliga; "Nunca animar" tira o brilho que segue o cursor.
 
-// 31/10 (2.37): só o que FLUTUA. Barra de cima, caixa de digitar, faixa IA/Celular e gavetas encostam
-// nas bordas da janela, e a lente fazia nelas uma moldura de refração solta no meio da tela.
-// 04/11: e os botões soltos do topo (a faixa de cima saiu).
-const LQ_ALVOS = "#viewtabs, .chat-switch, #paleta, .modal-box, #topbar button, #topbar #status-badge";
-/** Deslocamento máximo (px) na aresta, no Glass com o ajuste ligado. */
-const LQ_FORCA = 72;
+// Só o que FLUTUA (a caixa de digitar volta em 04/11 com tinta grossa, ver liquido.css).
+const LQ_PAINEIS = [
+  "#viewtabs", ".chat-switch", "#paleta", ".modal-box", "#input-bar", "#toast-el",
+  ".pop", "#preset-pop", ".modo-pop", ".bolha-menu", ".tc-menu",
+].join(", ");
+// Botões e chips: o mesmo domo, e a mola de apertar (js/mola.js).
+const LQ_BOTOES = [
+  "#topbar button", "#topbar #status-badge", ".save-btn", ".send-btn", ".mic-btn", "#preset-btn",
+  "#conv-btn", ".pop-form-acoes button", "#home-btn-personalizar", "#pc-reler", ".hoje-botoes button",
+  ".home-chips span", ".modo-chip", ".home-clima-chip", ".gp-chips > *", ".clima-chips > *",
+].join(", ");
+// Lentes (perfil "lente", marcadas com data-lq-perfil): o seletor da barra enquanto segurado.
+const LQ_LENTES = "#viewtabs.segurando #vtab-thumb";
+const LQ_ALVOS = `${LQ_PAINEIS}, ${LQ_BOTOES}, ${LQ_LENTES}`;
+/** Filtros vivos no máximo: os maiores visíveis ganham a lente; o resto fica só com o desfoque. */
+const LQ_TETO = 40;
+/** Força do domo: fração do lado menor (Glisse: 0,45), com teto para as gavetas grandes. */
+const LQ_DOMO = 0.45, LQ_DOMO_MAX = 60;
 
 const lqSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
 lqSvg.setAttribute("aria-hidden", "true");
 lqSvg.style.cssText = "position:absolute;width:0;height:0;overflow:hidden";
 document.body.appendChild(lqSvg);
 
-/** elemento → { id, w, h, r } do filtro que está nele. */
+/** elemento → chave do filtro que está nele. */
 const lqFiltros = new Map();
+/** chave → { id, usos } — elementos do mesmo tamanho dividem o filtro (os chips, os botões). */
+const lqCache = new Map();
 let lqSeq = 0;
 let lqModo = "ligado";
 
-/** Quanto entorta agora: tema × ajuste. 0 = sem vidro líquido. */
-function lqEscala() {
+/** Tema × ajuste, de 0 a 1. 0 = sem vidro líquido. */
+function lqFator() {
   if (lqModo === "desligado") return 0;
   const b = document.body.classList;
   const tema = b.contains("theme-stark") ? 0 : b.contains("theme-gl") ? 1 : 0.5;
-  return LQ_FORCA * tema * (lqModo === "leve" ? 0.45 : 1);
+  return tema * (lqModo === "leve" ? 0.45 : 1);
+}
+
+/** Distância (negativa por dentro) ao retângulo arredondado e a normal para fora. */
+function lqSdf(px, py, hx, hy, rr) {
+  const qx = Math.abs(px) - hx, qy = Math.abs(py) - hy;
+  let dist, nx, ny;
+  if (qx > 0 && qy > 0) { const l = Math.hypot(qx, qy) || 1; dist = l - rr; nx = qx / l; ny = qy / l; }
+  else if (qx > qy) { dist = qx - rr; nx = 1; ny = 0; }
+  else { dist = qy - rr; nx = 0; ny = 1; }
+  return { dentro: -dist, nx: nx * (Math.sign(px) || 1), ny: ny * (Math.sign(py) || 1) };
+}
+
+/** Geometria da lente (Glisse): bisel e espessura em px, e o maior deslocamento que ela dá. */
+function lqLente(w, h) {
+  const m = Math.min(w, h);
+  const bisel = Math.min(10, Math.max(4, m * 0.12)), espessura = Math.min(24, Math.max(8, m * 0.2));
+  // Na aresta o raio entra quase rasante: tan(90° − asin(1/1,5)) × espessura.
+  return { bisel, espessura, max: Math.tan(Math.PI / 2 - Math.asin(1 / 1.5)) * (espessura + bisel) };
+}
+
+/** Quanto desloca (0–1, para dentro) a `dentro` px da aresta, em cada perfil. */
+function lqPerfil(perfil, dentro, w, h, g) {
+  if (perfil === "lente") {
+    if (dentro >= g.bisel) return 0;
+    const t = Math.max(0, dentro) / g.bisel;
+    const sup = (1 - (1 - t) ** 4) ** 0.25;
+    const entrada = Math.atan((1 - t) ** 3 / Math.max(sup ** 3, 1e-4));
+    const saida = Math.asin(Math.sin(entrada) / 1.5);
+    return (Math.tan(entrada - saida) * (g.espessura + sup * g.bisel)) / g.max;
+  }
+  // Domo: aro de 25% do lado menor; o arco é íngreme na aresta e some no miolo.
+  const aro = Math.min(w, h) * 0.25;
+  if (dentro >= aro) return 0;
+  const t = 1 - Math.max(0, dentro) / aro;
+  return 1 - Math.sqrt(1 - t * t);
 }
 
 /**
- * O mapa: canal R = deslocamento em x, G = em y (0,5 = parado). Perto da aresta do retângulo
- * arredondado o vetor aponta para dentro, com força crescendo em curva até a borda. Feito em meia
- * resolução (o feImage estica) — uma barra de 1000×60 são 15 mil pixels.
+ * O mapa: canal R = deslocamento em x, G = em y (0,5 = parado), o vetor aponta para dentro. E o
+ * brilho: alfa branco no aro, mais forte onde a normal encara a luz (cima-esquerda). Meia
+ * resolução nos dois (o feImage estica).
  */
-function lqMapa(w, h, r) {
+function lqMapas(perfil, w, h, r) {
   const k = 0.5;
   const cw = Math.max(2, Math.round(w * k)), ch = Math.max(2, Math.round(h * k));
-  const c = document.createElement("canvas");
-  c.width = cw; c.height = ch;
-  const ctx = c.getContext("2d");
-  const img = ctx.createImageData(cw, ch);
-  const rr = Math.min(r, w / 2, h / 2);
-  const borda = Math.max(10, Math.min(34, Math.min(w, h) * 0.5));
-  const hx = w / 2 - rr, hy = h / 2 - rr;
+  const fazer = () => { const c = document.createElement("canvas"); c.width = cw; c.height = ch; return c; };
+  const cm = fazer(), cl = fazer();
+  const xm = cm.getContext("2d"), xl = cl.getContext("2d");
+  const im = xm.createImageData(cw, ch), il = xl.createImageData(cw, ch);
+  const rr = Math.min(r, w / 2, h / 2), hx = w / 2 - rr, hy = h / 2 - rr;
+  const g = lqLente(w, h);
+  const faixa = perfil === "lente" ? g.bisel : Math.min(w, h) * 0.25;
   for (let j = 0; j < ch; j++) {
     for (let i = 0; i < cw; i++) {
       const px = (i + 0.5) / k - w / 2, py = (j + 0.5) / k - h / 2;
-      const qx = Math.abs(px) - hx, qy = Math.abs(py) - hy;
-      // Distância (negativa por dentro) ao retângulo arredondado e a normal para fora.
-      let dist, nx, ny;
-      if (qx > 0 && qy > 0) {
-        const l = Math.hypot(qx, qy) || 1;
-        dist = l - rr; nx = qx / l; ny = qy / l;
-      } else if (qx > qy) {
-        dist = qx - rr; nx = 1; ny = 0;
-      } else {
-        dist = qy - rr; nx = 0; ny = 1;
-      }
-      nx *= Math.sign(px) || 1; ny *= Math.sign(py) || 1;
-      const dentro = -dist;
-      const t = dentro < borda ? 1 - Math.max(0, dentro) / borda : 0;
-      const m = t * t;
+      const { dentro, nx, ny } = lqSdf(px, py, hx, hy, rr);
+      const m = lqPerfil(perfil, dentro, w, h, g);
       const o = (j * cw + i) * 4;
-      img.data[o] = Math.round(255 * (0.5 - 0.5 * nx * m));
-      img.data[o + 1] = Math.round(255 * (0.5 - 0.5 * ny * m));
-      img.data[o + 2] = 128;
-      img.data[o + 3] = 255;
+      im.data[o] = Math.round(255 * (0.5 - 0.5 * nx * m));
+      im.data[o + 1] = Math.round(255 * (0.5 - 0.5 * ny * m));
+      im.data[o + 2] = 128;
+      im.data[o + 3] = 255;
+      // Brilho: luz a 45° de cima-esquerda; o lado oposto devolve um reflexo mais fraco.
+      const luz = -(nx + ny) * Math.SQRT1_2;
+      const glint = Math.max(luz, 0) ** 3, refl = Math.max(-luz, 0) ** 3;
+      const d = Math.max(0, dentro) / Math.max(faixa, 1);
+      let a = 0;
+      if (d < 1) {
+        const bandas = [0.18, 0.42, 0.66].reduce((s, c) => s + Math.exp(-(((d - c) / 0.22) ** 2)), 0) / 3;
+        a = bandas * (0.06 + 0.8 * glint + 0.35 * refl) * 0.85 * 0.35;
+      }
+      if (dentro >= 0 && dentro < 1.22) a += 0.22 * (0.35 + 0.65 * glint);
+      il.data[o] = il.data[o + 1] = il.data[o + 2] = 255;
+      il.data[o + 3] = Math.round(255 * Math.min(1, a));
     }
   }
-  ctx.putImageData(img, 0, 0);
-  return c.toDataURL();
+  xm.putImageData(im, 0, 0);
+  xl.putImageData(il, 0, 0);
+  return { mapa: cm.toDataURL(), luz: cl.toDataURL() };
+}
+
+/**
+ * Um filtro: três deslocamentos (um por canal, em escalas diferentes), somados de volta, e o
+ * brilho por cima em `screen`. Mesmo tamanho, raio, perfil e força = mesmo filtro.
+ */
+function lqFiltro(perfil, w, h, r, fator) {
+  const forca = perfil === "lente" ? lqLente(w, h).max * fator : Math.min(LQ_DOMO_MAX, LQ_DOMO * Math.min(w, h)) * fator;
+  const chave = `${perfil}|${w}|${h}|${r}|${forca.toFixed(1)}`;
+  const achado = lqCache.get(chave);
+  if (achado) { achado.usos++; return chave; }
+  const id = `lq-${++lqSeq}`;
+  const { mapa, luz } = lqMapas(perfil, w, h, r);
+  const caixa = `x="0" y="0" width="${w}" height="${h}"`;
+  const canal = (s, m, nome) =>
+    `<feDisplacementMap in="SourceGraphic" in2="mapa" scale="${(forca * s).toFixed(2)}" xChannelSelector="R" yChannelSelector="G" result="d${nome}"/>` +
+    `<feColorMatrix in="d${nome}" type="matrix" values="${m} 0 0 0 1 0" result="${nome}"/>`;
+  const filtro = document.createElementNS("http://www.w3.org/2000/svg", "filter");
+  filtro.id = id;
+  for (const [a, v] of [["x", 0], ["y", 0], ["width", w], ["height", h], ["filterUnits", "userSpaceOnUse"], ["primitiveUnits", "userSpaceOnUse"], ["color-interpolation-filters", "sRGB"]]) filtro.setAttribute(a, v);
+  filtro.innerHTML =
+    `<feImage ${caixa} href="${mapa}" preserveAspectRatio="none" result="mapa"/>` +
+    canal(1.08, "1 0 0 0 0  0 0 0 0 0  0 0 0 0 0 ", "r") +
+    canal(1.04, "0 0 0 0 0  0 1 0 0 0  0 0 0 0 0 ", "g") +
+    canal(1, "0 0 0 0 0  0 0 0 0 0  0 0 1 0 0 ", "b") +
+    `<feComposite in="r" in2="g" operator="arithmetic" k2="1" k3="1" result="rg"/>` +
+    `<feComposite in="rg" in2="b" operator="arithmetic" k2="1" k3="1" result="cor"/>` +
+    `<feImage ${caixa} href="${luz}" preserveAspectRatio="none" result="luz"/>` +
+    `<feBlend in="luz" in2="cor" mode="screen"/>`;
+  lqSvg.appendChild(filtro);
+  lqCache.set(chave, { id, usos: 1 });
+  return chave;
+}
+
+function lqSoltar(chave) {
+  const f = lqCache.get(chave);
+  if (!f || --f.usos > 0) return;
+  lqSvg.querySelector(`#${f.id}`)?.remove();
+  lqCache.delete(chave);
 }
 
 function lqRaio(el, w, h) {
@@ -85,58 +178,48 @@ function lqRaio(el, w, h) {
 
 /** Aplica (ou refaz, se o tamanho mudou) o filtro de um elemento. */
 function lqAplicar(el) {
-  const escala = lqEscala();
-  const atual = lqFiltros.get(el);
-  if (!escala) { if (atual) lqTirar(el); return; }
+  const fator = lqFator();
   const w = Math.round(el.offsetWidth), h = Math.round(el.offsetHeight);
-  if (w < 24 || h < 24) return;
-  const r = lqRaio(el, w, h);
-  if (atual && atual.w === w && atual.h === h && atual.r === r && atual.escala === escala) return;
-  const id = atual?.id ?? `lq-${++lqSeq}`;
-  let filtro = lqSvg.querySelector(`#${id}`);
-  if (!filtro) {
-    filtro = document.createElementNS("http://www.w3.org/2000/svg", "filter");
-    filtro.id = id;
-    filtro.setAttribute("filterUnits", "userSpaceOnUse");
-    filtro.setAttribute("primitiveUnits", "userSpaceOnUse");
-    filtro.setAttribute("color-interpolation-filters", "sRGB");
-    filtro.innerHTML = '<feImage result="mapa" preserveAspectRatio="none"/><feDisplacementMap in="SourceGraphic" in2="mapa" xChannelSelector="R" yChannelSelector="G"/>';
-    lqSvg.appendChild(filtro);
-  }
-  for (const [a, v] of [["x", 0], ["y", 0], ["width", w], ["height", h]]) filtro.setAttribute(a, v);
-  const img = filtro.querySelector("feImage");
-  for (const [a, v] of [["x", 0], ["y", 0], ["width", w], ["height", h]]) img.setAttribute(a, v);
-  img.setAttribute("href", lqMapa(w, h, r));
-  // Num botão de 30 px, 72 px de deslocamento rasgaria o fundo: a lente acompanha o tamanho.
-  const forca = Math.min(escala, Math.min(w, h) * 0.6);
-  filtro.querySelector("feDisplacementMap").setAttribute("scale", String(forca));
+  if (!fator || w < 24 || h < 24) { lqTirar(el); return; }
+  const perfil = el.dataset.lqPerfil === "lente" ? "lente" : "painel";
+  const chave = lqFiltro(perfil, w, h, Math.round(lqRaio(el, w, h)), fator);
+  const atual = lqFiltros.get(el);
+  if (atual === chave) { lqSoltar(chave); return; }
+  if (atual) lqSoltar(atual);
   // O desfoque que a superfície já tinha continua, depois da lente.
-  const base = (getComputedStyle(el).getPropertyValue("--lq-blur") || "blur(14px) saturate(165%)").trim();
-  el.style.backdropFilter = `url(#${id}) ${base}`;
+  const base = (getComputedStyle(el).getPropertyValue("--lq-blur") || "blur(3px) saturate(150%)").trim();
+  el.style.backdropFilter = `url(#${lqCache.get(chave).id}) ${base}`;
   el.classList.add("lq");
-  lqFiltros.set(el, { id, w, h, r, escala, forca });
+  lqFiltros.set(el, chave);
 }
 
 function lqTirar(el) {
   const atual = lqFiltros.get(el);
-  if (atual) lqSvg.querySelector(`#${atual.id}`)?.remove();
+  if (atual) lqSoltar(atual);
   lqFiltros.delete(el);
   el.style.backdropFilter = "";
   el.classList.remove("lq");
 }
 
 const lqTamanho = new ResizeObserver((entradas) => {
-  for (const e of entradas) lqAplicar(e.target);
+  for (const e of entradas) if (lqFiltros.has(e.target)) lqAplicar(e.target);
 });
 
-/** Procura superfícies novas (modais e a paleta nascem depois) e esquece as que saíram. */
+/**
+ * Procura superfícies novas (modais, menus e a paleta nascem depois), esquece as que saíram e
+ * guarda a lente para as LQ_TETO maiores visíveis: três deslocamentos por superfície custam.
+ */
 function lqVarrer() {
-  for (const el of document.querySelectorAll(LQ_ALVOS)) {
+  const visiveis = [...document.querySelectorAll(LQ_ALVOS)]
+    .filter((el) => el.offsetWidth >= 24 && el.offsetHeight >= 24 && el.getClientRects().length)
+    .sort((a, b) => b.offsetWidth * b.offsetHeight - a.offsetWidth * a.offsetHeight);
+  const vivos = new Set(visiveis.slice(0, LQ_TETO));
+  for (const el of [...lqFiltros.keys()]) {
+    if (!vivos.has(el)) { lqTamanho.unobserve(el); lqTirar(el); }
+  }
+  for (const el of vivos) {
     if (!lqFiltros.has(el)) lqTamanho.observe(el);
     lqAplicar(el);
-  }
-  for (const el of [...lqFiltros.keys()]) {
-    if (!el.isConnected) { lqTamanho.unobserve(el); lqTirar(el); }
   }
 }
 
@@ -145,12 +228,9 @@ function lqLogo() {
   if (lqPendente) return;
   lqPendente = requestAnimationFrame(() => { lqPendente = 0; lqVarrer(); });
 }
-new MutationObserver(lqLogo).observe(document.body, { childList: true, subtree: true });
+new MutationObserver(lqLogo).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["hidden", "data-view"] });
 // Troca de tema muda a força (Glass/Dark/Stark).
-new MutationObserver(() => {
-  for (const el of lqFiltros.keys()) { const a = lqFiltros.get(el); if (a) a.escala = -1; }
-  lqLogo();
-}).observe(document.body, { attributes: true, attributeFilter: ["class"] });
+new MutationObserver(lqLogo).observe(document.body, { attributes: true, attributeFilter: ["class"] });
 
 /** O brilho que acompanha o cursor DENTRO da superfície (só ele; nada segue o mouse fora). */
 document.addEventListener("pointermove", (e) => {
@@ -162,40 +242,32 @@ document.addEventListener("pointermove", (e) => {
 }, { passive: true });
 
 /**
- * 04/11: a gota, como no celular — apertar um botão do topo afunda a lente (a borda puxa mais o
- * que está atrás) e soltar volta. Só muda o `scale` do filtro, sem refazer o mapa.
+ * A lente dos polegares (switch e faixa segurados, seletor da barra): um filtro de perfil
+ * "lente" por tamanho, publicado numa variável CSS — pseudo-elemento não recebe estilo inline.
  */
-function lqGota(el, fator) {
-  const a = lqFiltros.get(el);
-  const mapa = a && lqSvg.querySelector(`#${a.id} feDisplacementMap`);
-  if (!mapa) return;
-  const de = parseFloat(mapa.getAttribute("scale")) || a.forca, para = a.forca * fator, t0 = performance.now();
-  const passo = (t) => {
-    const f = Math.min(1, (t - t0) / 160);
-    mapa.setAttribute("scale", String(de + (para - de) * (1 - (1 - f) ** 3)));
-    if (f < 1) requestAnimationFrame(passo);
-  };
-  requestAnimationFrame(passo);
+function lqPolegares() {
+  const fator = lqFator();
+  const raiz = document.documentElement.style;
+  for (const [nome, w, h] of [["--lq-polegar-switch", 30, 26], ["--lq-polegar-faixa", 46, 30]]) {
+    const chave = raiz.getPropertyValue(`${nome}-chave`);
+    if (!fator) { if (chave) lqSoltar(chave); raiz.removeProperty(nome); raiz.removeProperty(`${nome}-chave`); continue; }
+    const nova = lqFiltro("lente", w, h, Math.round(h / 2), fator);
+    // Mesmo filtro de antes (a classe do body muda por muita coisa além do tema): nada a trocar.
+    if (nova === chave) { lqSoltar(nova); continue; }
+    if (chave) lqSoltar(chave);
+    raiz.setProperty(nome, `url(#${lqCache.get(nova).id})`);
+    raiz.setProperty(`${nome}-chave`, nova);
+  }
 }
-document.addEventListener("pointerdown", (e) => {
-  const el = e.target instanceof Element ? e.target.closest("#topbar .lq") : null;
-  if (!el) return;
-  lqGota(el, 1.8);
-  const soltar = () => {
-    lqGota(el, 1);
-    document.removeEventListener("pointerup", soltar);
-    document.removeEventListener("pointercancel", soltar);
-  };
-  document.addEventListener("pointerup", soltar);
-  document.addEventListener("pointercancel", soltar);
-});
 
 /** Chamado pelo ajuste "Vidro líquido" (ligado | leve | desligado). */
 function aplicarVidroLiquido(modo) {
   lqModo = modo === "leve" || modo === "desligado" ? modo : "ligado";
   document.documentElement.dataset.vidro = lqModo;
-  for (const el of lqFiltros.keys()) { const a = lqFiltros.get(el); if (a) a.escala = -1; }
+  for (const el of [...lqFiltros.keys()]) lqTirar(el);
+  lqPolegares();
   lqVarrer();
 }
+new MutationObserver(lqPolegares).observe(document.body, { attributes: true, attributeFilter: ["class"] });
 
 window.nx?.getConfig?.().then((c) => aplicarVidroLiquido(c?.vidroLiquido)).catch(() => aplicarVidroLiquido("ligado"));

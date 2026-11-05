@@ -156,7 +156,6 @@
   font-size: 11.5px; color: var(--muted); cursor: pointer; user-select: none;
 }
 .home-toggle:has(input:checked) { color: var(--text); background: rgba(var(--purple-rgb),0.16); }
-.home-toggle input { accent-color: var(--purple); cursor: pointer; }
 
 .home-grid {
   display: grid; gap: 14px;
@@ -303,7 +302,7 @@ body.redimensionando, body.redimensionando * { user-select: none !important; cur
 .mus-ctrl button:hover { background: rgba(var(--purple-rgb),0.26); }
 
 .mus-vol { display: flex; align-items: center; gap: 9px; margin-top: 13px; color: var(--muted); }
-.mus-vol input[type="range"] { flex: 1; min-width: 0; accent-color: var(--purple); cursor: pointer; }
+.mus-vol input[type="range"] { flex: 1; min-width: 0; }
 #mus-vol-val { font-size: 10.5px; min-width: 24px; text-align: right; font-variant-numeric: tabular-nums; }
 
 /* ── Clima ────────────────────────────────────────────── */
