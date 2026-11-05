@@ -277,6 +277,7 @@ function perfilDoCelular(c: AppConfig) {
     respostasInterativas: c.respostasInterativas ?? "perguntar",
     // 05/11: modo sem censura (o celular liga e desliga pelo mesmo perfil).
     semCensura: c.semCensura === true,
+    semCensuraSoLocal: c.semCensuraSoLocal === true,
   };
 }
 
@@ -1449,12 +1450,13 @@ const METHODS: Record<string, MethodDef> = {
   },
   "perfil.set": {
     handler: async (params) => {
-      const patch: { estiloResposta?: string; instrucoesPessoais?: string; tratamento?: string; respostasRapidas?: boolean; respostasProntas?: unknown; respostasInterativas?: unknown; semCensura?: boolean } = {};
+      const patch: { estiloResposta?: string; instrucoesPessoais?: string; tratamento?: string; respostasRapidas?: boolean; respostasProntas?: unknown; respostasInterativas?: unknown; semCensura?: boolean; semCensuraSoLocal?: boolean } = {};
       if (typeof params["tratamento"] === "string") patch.tratamento = params["tratamento"].trim().slice(0, 30);
       if (params["estiloResposta"] !== undefined) patch.estiloResposta = estiloValido(params["estiloResposta"]);
       // 22/10: respostas rápidas e telas interativas (saneadas no patchDeConfigSeguro).
       if (typeof params["respostasRapidas"] === "boolean") patch.respostasRapidas = params["respostasRapidas"];
       if (typeof params["semCensura"] === "boolean") patch.semCensura = params["semCensura"];
+      if (typeof params["semCensuraSoLocal"] === "boolean") patch.semCensuraSoLocal = params["semCensuraSoLocal"];
       if (params["respostasProntas"] !== undefined) patch.respostasProntas = params["respostasProntas"];
       if (params["respostasInterativas"] !== undefined) patch.respostasInterativas = params["respostasInterativas"];
       if (typeof params["instrucoesPessoais"] === "string") patch.instrucoesPessoais = params["instrucoesPessoais"].trim().slice(0, MAX_INSTRUCOES);

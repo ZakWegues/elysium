@@ -54,6 +54,8 @@ const AJUSTES = [
         ["auto", "Híbrido — conhecimento na nuvem, o resto local"], ["ollama", "Local — Ollama nesta máquina"], ["groq", "Nuvem — Groq"]],
         dica: "Híbrido: perguntas de conhecimento e o chat escrito vão para a Groq (acerta mais fato); ações e conversa curta ficam no local." },
       // 05/11: com censura = Gemini (o cérebro de sempre); sem censura = a conversa no modelo deste PC.
+      { chave: "semCensuraSoLocal", rotulo: "Sem censura — só o PC", tipo: "bool",
+        dica: "Dentro do modo sem censura: NADA vai para o Gemini, nem a pesquisa. Tudo é respondido pelo modelo deste PC, do próprio conhecimento. Use quando o Gemini recusa antes de o local responder. Perde a busca na web e o “me lembra de X” escrito livre (os atalhos diretos continuam)." },
       { chave: "semCensura", rotulo: "Modo sem censura", tipo: "bool",
         dica: "Ligado: a conversa é escrita pelo modelo deste PC (qwen3.5-heretic:4b), sem recusas. A pesquisa continua no Gemini e o resultado vai para ele escrever a resposta; lembretes, apps e telas seguem iguais. Mais lento e mais simples que o Gemini. Também liga e desliga falando “modo sem censura” e “modo com censura”." },
       { chave: "ollamaRouterModel", rotulo: "Modelo local", tipo: "texto", dica: "ollama pull qwen3.5-heretic:4b (o recomendado para esta máquina)" },

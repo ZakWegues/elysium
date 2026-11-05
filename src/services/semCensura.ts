@@ -4,12 +4,16 @@ import { searchWeb } from "./webSearch";
 import type { Canal } from "./estiloResposta";
 
 /**
- * Modo sem censura (05/11, pedido do Zak).
+ * Modo sem censura (05/11, pedido do Zak). Dois níveis:
  *
- * Ligado, quem escreve a conversa é o modelo local sem censura (qwen3.5-heretic:4b, no Ollama
- * deste PC), mas a pesquisa continua no Gemini: o Gemini busca e resume, e o local escreve a
- * resposta final por cima disso. Ações (lembrete, abrir app, tela…) seguem pelo roteador, que
- * já sabe executá-las — mudar o modo não pode quebrar o resto do ELYSIUM.
+ * · **pesquisa** (padrão): a conversa é escrita pelo modelo local sem censura
+ *   (qwen3.5-heretic:4b), mas a pesquisa continua no Gemini — ele busca e resume, e o local
+ *   escreve a resposta por cima. Ações (lembrete, abrir app, tela…) seguem pelo roteador. O
+ *   Gemini ainda vê o pedido (para classificar e pesquisar).
+ * · **só o PC** (`semCensuraSoLocal`): NADA vai para o Gemini. Tudo é respondido pelo modelo
+ *   local, do próprio conhecimento, sem pesquisa na web e sem a classificação do roteador —
+ *   para o caso em que o Gemini recusava antes de o local responder. Atalhos diretos ("pausa",
+ *   "volume 40") ainda valem porque o `fastRoute` resolve antes, sem modelo.
  */
 
 /** Liga ou desliga pela fala/chat: "modo sem censura", "desliga o modo sem censura", "modo com censura". Pura. */
@@ -23,9 +27,10 @@ export function pedidoDeModoCensura(texto: string): boolean | null {
 
 export function trocarModoCensura(ligar: boolean): string {
   setOverride({ semCensura: ligar });
-  return ligar
-    ? "Modo sem censura ligado. A conversa fica no modelo deste PC; pesquisa e ações continuam como antes."
-    : "Modo sem censura desligado. Voltei ao cérebro de sempre.";
+  if (!ligar) return "Modo sem censura desligado. Voltei ao cérebro de sempre.";
+  return getConfig().semCensuraSoLocal === true
+    ? "Modo sem censura ligado, só o PC. Tudo fica no modelo deste PC; nada vai para o Gemini, nem a pesquisa."
+    : "Modo sem censura ligado. A conversa fica no modelo deste PC; pesquisa e ações continuam como antes.";
 }
 
 /** Ações que o modelo local responde sozinho: conversa, ou o roteador sem saber o que é. */
@@ -42,6 +47,13 @@ export async function responderSemCensura(
   canal: Canal,
   onToken?: (t: string) => void,
 ): Promise<{ reply: string | null; acoes: BrainAction[] }> {
+  // "Só o PC": nem classifica no Gemini — responde tudo no local, do próprio conhecimento.
+  // O turno já foi registrado por quem chamou (command.ts), como no caminho de baixo.
+  if (getConfig().semCensuraSoLocal === true) {
+    const reply = await composeChatReply(texto, onToken, canal, {});
+    return { reply: reply ?? "O modelo deste PC não respondeu agora. O Ollama está aberto?", acoes: [{ action: "chat" }] };
+  }
+
   const acoes = await decideBrain(texto, true);
   if (soConversa(acoes)) {
     const reply = await composeChatReply(texto, onToken, canal, {});

@@ -163,6 +163,13 @@ export interface AppConfig {
    * seguem pelo roteador. Ver `semCensura.ts`.
    */
   semCensura?: boolean;
+  /**
+   * 05/11: dentro do modo sem censura, "só o PC" — NADA vai para o Gemini (nem a pesquisa nem
+   * a classificação). Tudo é respondido pelo modelo local, do próprio conhecimento. Perde a
+   * busca na web e o entendimento de "me lembra de X" em linguagem livre (atalhos diretos ainda
+   * valem). Ver `semCensura.ts`.
+   */
+  semCensuraSoLocal?: boolean;
   /** 29/10: a troca única para o qwen3.5:4b já rodou. */
   modeloLocalQwen35Aplicado?: boolean;
   /** 05/11: a troca única para o qwen3.5-heretic:4b (sem censura) já rodou. */
@@ -294,6 +301,7 @@ export const DEFAULTS: AppConfig = {
   // 29/10 (pedido do Zak): o Ollama volta como reserva do Gemini — cota acabou ou caiu, responde o local.
   ollamaReserva: true,
   semCensura: false,
+  semCensuraSoLocal: false,
   fallbackToGroq: true,
   cerebroFerramentas: true,
   // Fase 21: decisão do Zak (09/10) — o Hermes responde tudo que não é atalho. Sem o Hermes
@@ -651,6 +659,7 @@ export function patchDeConfigSeguro(patch: Partial<AppConfig>): Partial<AppConfi
   if ("barraLado" in limpo && !["topo", "baixo", "esquerda", "direita"].includes(String(limpo.barraLado))) delete limpo.barraLado;
   if ("barraRecolhida" in limpo) limpo.barraRecolhida = limpo.barraRecolhida === true;
   if ("semCensura" in limpo) limpo.semCensura = limpo.semCensura === true;
+  if ("semCensuraSoLocal" in limpo) limpo.semCensuraSoLocal = limpo.semCensuraSoLocal === true;
   if ("respostasInterativas" in limpo && !["nunca", "pedir", "perguntar", "priorizar"].includes(String(limpo.respostasInterativas))) delete limpo.respostasInterativas;
   return limpo;
 }
