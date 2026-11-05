@@ -232,7 +232,7 @@
 .home-saudacao { display: flex; align-items: center; gap: 13px; min-width: 0; }
 .home-celular {
   display: inline-flex; align-items: center; gap: 7px; margin-top: 2px; padding: 6px 0;
-  background: none; border: none; color: var(--muted); font: inherit; font-size: 11.5px; cursor: pointer;
+  background: none; border: none; color: color-mix(in srgb, var(--text) 62%, transparent); font: inherit; font-size: 11.5px; cursor: pointer;
   transition: color var(--mov-micro) var(--mov-curva);
 }
 .home-celular[hidden] { display: none; }

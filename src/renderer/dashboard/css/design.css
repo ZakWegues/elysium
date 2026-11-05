@@ -169,10 +169,15 @@ body.barra-nuvio #vtab-thumb {
 }
 body.barra-nuvio #vtab-thumb::after { content: none; }
 /* Segurar faz o seletor crescer, sem passar da barra (a barra tem 6 px de folga). */
+/* 05/11: segurado continua na cor do tema (era branco/cinza, e o aro ficava de outra cor).
+   O brilho de dentro inclina com a velocidade do arrasto (--inclina, de -1 a 1, js/abas.js). */
 body.barra-nuvio #viewtabs.segurando #vtab-thumb {
   scale: 1.12 1.18; z-index: 3; pointer-events: none;
-  background: rgba(255,255,255,0.06); border-color: rgba(255,255,255,0.22);
-  box-shadow: 0 7px 11px rgba(0,0,0,0.28);
+  border-color: rgba(var(--purple-rgb), 0.55);
+  box-shadow: inset 0 0 0 0.5px rgba(var(--purple-rgb), 0.35), 0 0 18px rgba(var(--purple-rgb), 0.28), 0 7px 11px rgba(0,0,0,0.28);
+}
+body.barra-nuvio #viewtabs.segurando #vtab-thumb::after {
+  background: radial-gradient(55% 80% at calc(50% + var(--inclina, 0) * 38%) 18%, rgba(var(--purple-rgb), 0.32), transparent 70%) !important;
 }
 /* A escala cresce do centro (a base.css usa a borda esquerda, do seletor antigo). */
 body.barra-nuvio #vtab-thumb { transform-origin: center center; }

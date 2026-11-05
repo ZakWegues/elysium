@@ -66,6 +66,10 @@ function desenharPolegar() {
   // vazava pela direita. O translate individual é aplicado por fora da escala.
   thumb.style.transform = "none";
   thumb.style.translate = `${x}px ${y}px`;
+  // Segurado, o brilho de dentro inclina para onde o seletor corre (a velocidade das molas, que
+  // já volta a zero sozinha quando ele para). Só na barra deitada: o brilho mora no eixo x.
+  const inclina = deitada ? Math.max(-1, Math.min(1, (p.va + p.vb) / 2 / 1400)) : 0;
+  thumb.style.setProperty("--inclina", inclina.toFixed(2));
 }
 function passoDoPolegar(agora) {
   const p = polegar;
@@ -280,8 +284,8 @@ document.getElementById("nav-recolher")?.addEventListener("click", () => gravarB
   barra.addEventListener("pointerdown", (e) => {
     if (e.button !== 0 || !e.target.closest(".vtab") || !polegar.alvo) return;
     barra.classList.add("segurando");
-    // Segurado, o seletor vira lente (js/liquido.js): a varredura pega a classe nova.
-    lqLogo();
+    // Segurado, o seletor vira lente (js/liquido.js).
+    lqSo(document.getElementById("vtab-thumb"), true);
     arrasto = { p0: barraDeitada() ? e.clientX : e.clientY, alvo0: { ...polegar.alvo }, mexeu: false };
   });
   window.addEventListener("pointermove", (e) => {
@@ -298,7 +302,7 @@ document.getElementById("nav-recolher")?.addEventListener("click", () => gravarB
   });
   window.addEventListener("pointerup", () => {
     barra.classList.remove("segurando");
-    lqLogo();
+    lqSo(document.getElementById("vtab-thumb"), false);
     if (!arrasto) return;
     const { mexeu } = arrasto;
     arrasto = null;

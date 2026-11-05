@@ -20,8 +20,8 @@ body.theme-ely :is(#paleta, .modal-box, .pop, #preset-pop, .modo-pop, .bolha-men
 /* A caixa de digitar encosta no chat (fundo opaco): tinta grossa, senão ela vira uma janela viva
    para as manchas e a tela parece "cortada" (31/10). */
 body.theme-gl #input-bar, body.theme-ely #input-bar { background-color: rgba(var(--glass-ink), 0.86) !important; }
-/* Segurado, o seletor é vidro limpo, como o polegar da Glisse. */
-#viewtabs.segurando #vtab-thumb { background-color: rgba(255,255,255,0.06) !important; }
+/* Segurado, o seletor é vidro limpo com um véu do acento: segue o tema (05/11). */
+#viewtabs.segurando #vtab-thumb { background-color: rgba(var(--purple-rgb), 0.1) !important; }
 
 /* As ilhas grandes flutuam: aro de meio pixel e sombra longa (os botões têm a curta, design.css). */
 body:not(.theme-stark) :is(#viewtabs, #paleta, .modal-box, .pop, #preset-pop, .modo-pop, .bolha-menu, .tc-menu, #toast-el) {

@@ -12,15 +12,11 @@
      ritmos que não coincidem é o que tira a cara de loop;
    · uma AURORA por cima: dois gradientes cônicos gigantes girando devagar (90 s e 130 s,
      sentidos opostos), nas cores do tema. É só transform, composto na GPU;
-   · PARALLAX com o mouse: a camada inteira desloca até 14 px na direção do ponteiro,
-     com transição longa. O JS escreve duas variáveis por quadro, nada mais;
    · reage ao ESTADO: ouvindo/pensando/falando acelera a deriva e acende a aurora
      (`body.vivo`). O fundo respira junto com a conversa. */
-#lg-blob-bg, #ely-shafts, #bg-tracos, #bg-poeira {
-  transform: translate(calc(var(--par-x, 0) * 14px), calc(var(--par-y, 0) * 10px));
-  transition: transform 1.6s var(--mov-suave);
-}
-#bg-tracos, #bg-poeira { transform: translate(calc(var(--par-x, 0) * 26px), calc(var(--par-y, 0) * 18px)); }
+/* 05/11: o parallax com o mouse saiu. Ele escrevia duas variáveis no <html> a cada movimento:
+   estilo da página inteira recalculado e o fundo andando embaixo de todos os vidros, que
+   refaziam a lente a cada quadro — era a travada do PC. */
 /* 25/10: o desfoque vem pronto no gradiente (perfil gaussiano do antigo blur(36px), 72 px para cada
    lado). Com filter: blur a GPU refazia o desfoque a cada quadro da animação. */
 .lg-blob { position: absolute; border-radius: 50%; will-change: transform, opacity; }

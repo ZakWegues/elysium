@@ -30,8 +30,13 @@ const LQ_LENTES = "#viewtabs.segurando #vtab-thumb";
 const LQ_ALVOS = `${LQ_PAINEIS}, ${LQ_BOTOES}, ${LQ_LENTES}`;
 /** Filtros vivos no máximo: os maiores visíveis ganham a lente; o resto fica só com o desfoque. */
 const LQ_TETO = 40;
-/** Força do domo: fração do lado menor (Glisse: 0,45), com teto para as gavetas grandes. */
-const LQ_DOMO = 0.45, LQ_DOMO_MAX = 60;
+/** Força do domo: fração do lado menor (a Glisse usa 0,45; mais intenso desde 05/11),
+ *  com teto para as gavetas grandes. A lente dos polegares ganha o mesmo reforço. */
+const LQ_DOMO = 0.62, LQ_DOMO_MAX = 84, LQ_LENTE_GANHO = 1.35;
+/** A lente segurada estica com a mola pixel a pixel: o tamanho dela anda em degraus deste
+ *  tamanho (sempre para cima, o filtro cobre o elemento inteiro), senão cada pixel era um
+ *  mapa novo e o arrasto travava (05/11). */
+const LQ_DEGRAU_LENTE = 6;
 
 const lqSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
 lqSvg.setAttribute("aria-hidden", "true");
@@ -94,7 +99,19 @@ function lqPerfil(perfil, dentro, w, h, g) {
  * brilho: alfa branco no aro, mais forte onde a normal encara a luz (cima-esquerda). Meia
  * resolução nos dois (o feImage estica).
  */
+const lqMapasGuardados = new Map();
 function lqMapas(perfil, w, h, r) {
+  const chave = `${perfil}|${w}|${h}|${r}`;
+  const achado = lqMapasGuardados.get(chave);
+  if (achado) { lqMapasGuardados.delete(chave); lqMapasGuardados.set(chave, achado); return achado; }
+  const feito = lqDesenharMapas(perfil, w, h, r);
+  lqMapasGuardados.set(chave, feito);
+  // Os mais antigos saem: cada par de PNG é pequeno, mas a lista não cresce sem fim.
+  if (lqMapasGuardados.size > 64) lqMapasGuardados.delete(lqMapasGuardados.keys().next().value);
+  return feito;
+}
+
+function lqDesenharMapas(perfil, w, h, r) {
   const k = 0.5;
   const cw = Math.max(2, Math.round(w * k)), ch = Math.max(2, Math.round(h * k));
   const fazer = () => { const c = document.createElement("canvas"); c.width = cw; c.height = ch; return c; };
@@ -121,7 +138,9 @@ function lqMapas(perfil, w, h, r) {
       let a = 0;
       if (d < 1) {
         const bandas = [0.18, 0.42, 0.66].reduce((s, c) => s + Math.exp(-(((d - c) / 0.22) ** 2)), 0) / 3;
-        a = bandas * (0.06 + 0.8 * glint + 0.35 * refl) * 0.85 * 0.35;
+        // Na lente as três faixas viravam anéis em volta do polegar (o "contorno zoado"): ali
+        // fica só um terço delas, e o brilho mora no fio da aresta.
+        a = bandas * (0.06 + 0.8 * glint + 0.35 * refl) * 0.85 * 0.35 * (perfil === "lente" ? 0.3 : 1);
       }
       if (dentro >= 0 && dentro < 1.22) a += 0.22 * (0.35 + 0.65 * glint);
       il.data[o] = il.data[o + 1] = il.data[o + 2] = 255;
@@ -138,7 +157,7 @@ function lqMapas(perfil, w, h, r) {
  * brilho por cima em `screen`. Mesmo tamanho, raio, perfil e força = mesmo filtro.
  */
 function lqFiltro(perfil, w, h, r, fator) {
-  const forca = perfil === "lente" ? lqLente(w, h).max * fator : Math.min(LQ_DOMO_MAX, LQ_DOMO * Math.min(w, h)) * fator;
+  const forca = perfil === "lente" ? lqLente(w, h).max * LQ_LENTE_GANHO * fator : Math.min(LQ_DOMO_MAX, LQ_DOMO * Math.min(w, h)) * fator;
   const chave = `${perfil}|${w}|${h}|${r}|${forca.toFixed(1)}`;
   const achado = lqCache.get(chave);
   if (achado) { achado.usos++; return chave; }
@@ -180,9 +199,10 @@ function lqRaio(el, w, h) {
 /** Aplica (ou refaz, se o tamanho mudou) o filtro de um elemento. */
 function lqAplicar(el) {
   const fator = lqFator();
-  const w = Math.round(el.offsetWidth), h = Math.round(el.offsetHeight);
+  let w = Math.round(el.offsetWidth), h = Math.round(el.offsetHeight);
   if (!fator || w < 24 || h < 24) { lqTirar(el); return; }
   const perfil = el.dataset.lqPerfil === "lente" ? "lente" : "painel";
+  if (perfil === "lente") { w = Math.ceil(w / LQ_DEGRAU_LENTE) * LQ_DEGRAU_LENTE; h = Math.ceil(h / LQ_DEGRAU_LENTE) * LQ_DEGRAU_LENTE; }
   const chave = lqFiltro(perfil, w, h, Math.round(lqRaio(el, w, h)), fator);
   const atual = lqFiltros.get(el);
   if (atual === chave) { lqSoltar(chave); return; }
@@ -223,6 +243,28 @@ function lqVarrer() {
     lqAplicar(el);
   }
 }
+
+/** Liga ou tira a lente de um elemento só, sem varrer a página (o seletor ao segurar: a
+ *  varredura inteira forçava layout de todos os alvos bem no quadro do clique). */
+function lqSo(el, ligar) {
+  if (ligar) { lqTamanho.observe(el); lqAplicar(el); }
+  else { lqTamanho.unobserve(el); lqTirar(el); }
+}
+
+/** Desenha de antemão os mapas que o seletor usa quando é segurado e esticado (a largura dele
+ *  e alguns degraus acima): assim o primeiro arrasto não para para desenhar. */
+function lqAquecerSeletor() {
+  const t = document.getElementById("vtab-thumb");
+  if (!t || !lqFator()) return;
+  const h = Math.ceil(t.offsetHeight / LQ_DEGRAU_LENTE) * LQ_DEGRAU_LENTE;
+  const w0 = Math.ceil(t.offsetWidth / LQ_DEGRAU_LENTE) * LQ_DEGRAU_LENTE;
+  if (w0 < 24 || h < 24) return;
+  for (let k = -1; k <= 6; k++) {
+    const w = w0 + k * LQ_DEGRAU_LENTE;
+    lqMapas("lente", w, h, Math.round(lqRaio(t, w, h)));
+  }
+}
+(window.requestIdleCallback ?? setTimeout)(() => lqAquecerSeletor(), { timeout: 3000 });
 
 let lqPendente = 0;
 function lqLogo() {

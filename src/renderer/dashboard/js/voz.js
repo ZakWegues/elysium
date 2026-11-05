@@ -1,4 +1,4 @@
-// dashboard/js/voz.js — ondas, máquina de estado, kill switch, ponte nx.*, parallax do fundo, campo de texto, mídia.
+// dashboard/js/voz.js — ondas, máquina de estado, kill switch, ponte nx.*, campo de texto, mídia.
 //
 // Era um trecho do <script> único do dashboard.html (bloco 76). Scripts clássicos, não
 // módulos: o escopo global é um só, e a ORDEM dos <script> no HTML é a ordem em que o
@@ -189,27 +189,6 @@ document.addEventListener("keydown", (e) => {
 // ELYSIUM API BRIDGE
 // ─────────────────────────────────────────────────
 window.nx.onState(setState);
-
-// ── Fundo vivo (bloco 69): parallax pelo mouse e reação ao estado ──
-//
-// Duas variáveis CSS (-1..1) escritas no máximo uma vez por quadro; as camadas do fundo
-// as leem com transição longa, então o movimento é sempre suave mesmo com o mouse
-// pulando. Fora da janela, volta ao centro devagar.
-{
-  let px = 0, py = 0, agendado = false;
-  const aplicar = () => {
-    agendado = false;
-    document.documentElement.style.setProperty("--par-x", px.toFixed(3));
-    document.documentElement.style.setProperty("--par-y", py.toFixed(3));
-  };
-  document.addEventListener("mousemove", (e) => {
-    if (!movimentoLigado()) return;
-    px = (e.clientX / innerWidth) * 2 - 1;
-    py = (e.clientY / innerHeight) * 2 - 1;
-    if (!agendado) { agendado = true; requestAnimationFrame(aplicar); }
-  }, { passive: true });
-  document.addEventListener("mouseleave", () => { px = 0; py = 0; requestAnimationFrame(aplicar); });
-}
 
 window.nx.onAudioLevel((level) => {
   if (appState !== "listening") return;
