@@ -288,16 +288,36 @@ new MutationObserver((registros) => {
     if (r.type === "attributes" || lqMudouAlvo(r.addedNodes) || lqMudouAlvo(r.removedNodes)) { lqLogo(); return; }
   }
 }).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["hidden", "data-view"] });
-// Troca de tema muda a força (Glass/Dark/Stark).
-new MutationObserver(lqLogo).observe(document.body, { attributes: true, attributeFilter: ["class"] });
+// Troca de tema muda a força (Glass/Dark/Stark). 09/11: só ela — o body troca de classe por muita
+// coisa (foco da janela, estado da voz, redimensionar), e cada troca era uma varredura inteira.
+function lqTemaDoBody() {
+  const b = document.body.classList;
+  return b.contains("theme-stark") ? "stark" : b.contains("theme-gl") ? "gl" : "dark";
+}
+let lqTemaVisto = lqTemaDoBody();
+new MutationObserver(() => {
+  const t = lqTemaDoBody();
+  if (t === lqTemaVisto) return;
+  lqTemaVisto = t;
+  lqLogo();
+}).observe(document.body, { attributes: true, attributeFilter: ["class"] });
 
 /** O brilho que acompanha o cursor DENTRO da superfície (só ele; nada segue o mouse fora). */
+// 09/11: no máximo uma escrita por quadro (o mouse manda vários eventos por quadro, e cada
+// escrita invalida o estilo da superfície e de tudo dentro dela).
+let lqCursor = null, lqCursorPendente = 0;
 document.addEventListener("pointermove", (e) => {
   const el = e.target instanceof Element ? e.target.closest(".lq") : null;
   if (!el) return;
-  const r = el.getBoundingClientRect();
-  el.style.setProperty("--mx", `${Math.round(e.clientX - r.left)}px`);
-  el.style.setProperty("--my", `${Math.round(e.clientY - r.top)}px`);
+  lqCursor = { el, x: e.clientX, y: e.clientY };
+  if (lqCursorPendente) return;
+  lqCursorPendente = requestAnimationFrame(() => {
+    lqCursorPendente = 0;
+    const { el: alvo, x, y } = lqCursor;
+    const r = alvo.getBoundingClientRect();
+    alvo.style.setProperty("--mx", `${Math.round(x - r.left)}px`);
+    alvo.style.setProperty("--my", `${Math.round(y - r.top)}px`);
+  });
 }, { passive: true });
 
 /**

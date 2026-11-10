@@ -177,7 +177,11 @@ export async function gerarGemini(p: PedidoGemini, busca: Busca = fetch, chave =
   // Esgotado hoje conta como falha (vai para o fim), mesmo sem medição.
   const ms = new Map(medido ?? []);
   for (const m of [...flash, ...lite]) if (cotaEsgotada(m)) ms.set(m, null);
-  const ordem = ordemDeTentativa(p.leve ? [...ordenarPorVelocidade(lite, ms), ...ordenarPorVelocidade(flash, ms)] : [...ordenarPorVelocidade(flash, ms), ...ordenarPorVelocidade(lite, ms)], ms).slice(0, 3);
+  const todos = ordemDeTentativa(p.leve ? [...ordenarPorVelocidade(lite, ms), ...ordenarPorVelocidade(flash, ms)] : [...ordenarPorVelocidade(flash, ms), ...ordenarPorVelocidade(lite, ms)], ms);
+  // 09/11: sem cota (do dia ou numa pausa de 429) nem entra — ia para o fim, mas com três
+  // tentativas no máximo ainda gastava uma ou duas antes de desistir. Todos sem cota: tenta assim mesmo.
+  const comCota = todos.filter((m) => !cotaEsgotada(m));
+  const ordem = (comCota.length ? comCota : todos).slice(0, 3);
   for (const modelo of ordem) {
     if (p.sinal?.aborted) return null;
     const corpo = {

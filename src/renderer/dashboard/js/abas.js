@@ -36,19 +36,44 @@ const polegar = {
 function barraDeitada() {
   return !document.body.classList.contains("barra-esquerda") && !document.body.classList.contains("barra-direita");
 }
+/**
+ * 09/11: as medidas da barra ficam guardadas. Lidas na hora (offsetLeft, clientWidth) logo depois
+ * de trocar de aba, elas obrigavam o layout da página inteira no meio da troca (25–33 ms na
+ * Início), e o seletor ainda relia a largura a cada quadro da mola. As abas não mudam de lugar ao
+ * trocar de tela: as medidas só caem quando a barra ou uma aba muda de tamanho, ou de lado.
+ */
+let medidasDaBarra = null;
+function esquecerMedidasDaBarra() { medidasDaBarra = null; }
+function medidas() {
+  if (medidasDaBarra) return medidasDaBarra;
+  const barra = document.getElementById("viewtabs");
+  const deitada = barraDeitada();
+  const abas = new Map();
+  for (const el of barra.querySelectorAll(".vtab")) {
+    abas.set(el, deitada
+      ? { a: el.offsetLeft, b: el.offsetLeft + el.offsetWidth, c: el.offsetTop, d: el.offsetTop + el.offsetHeight }
+      : { a: el.offsetTop, b: el.offsetTop + el.offsetHeight, c: el.offsetLeft, d: el.offsetLeft + el.offsetWidth });
+  }
+  medidasDaBarra = { deitada, largura: barra.clientWidth, altura: barra.clientHeight, abas };
+  return medidasDaBarra;
+}
 function bordasDe(el) {
-  return barraDeitada()
-    ? { a: el.offsetLeft, b: el.offsetLeft + el.offsetWidth, c: el.offsetTop, d: el.offsetTop + el.offsetHeight }
-    : { a: el.offsetTop, b: el.offsetTop + el.offsetHeight, c: el.offsetLeft, d: el.offsetLeft + el.offsetWidth };
+  const m = medidas();
+  if (m.deitada !== barraDeitada()) { esquecerMedidasDaBarra(); return bordasDe(el); }
+  const b = m.abas.get(el);
+  if (b) return { ...b };
+  esquecerMedidasDaBarra();
+  return { ...medidas().abas.get(el) ?? { a: 0, b: 0, c: 0, d: 0 } };
 }
 function limitesDaBarra() {
   const barra = document.getElementById("viewtabs");
   // Segurando, o seletor cresce 12% a partir do centro (design.css, 04/11) — a folga cobre a
   // metade disso dos DOIS lados; antes ele vazava pela direita.
   const folga = 4 + (barra.classList.contains("segurando") ? Math.max(0, polegar.b - polegar.a) * 0.06 : 0);
-  return barraDeitada()
-    ? { min: folga, max: barra.clientWidth - folga }
-    : { min: folga, max: barra.clientHeight - folga };
+  const m = medidas();
+  return m.deitada
+    ? { min: folga, max: m.largura - folga }
+    : { min: folga, max: m.altura - folga };
 }
 function desenharPolegar() {
   const thumb = document.getElementById("vtab-thumb");
@@ -121,8 +146,13 @@ function moverPolegar(animar = true) {
 }
 // A largura do rótulo muda quando a fonte termina de carregar, e a barra pode mudar de
 // tamanho sem a janela mudar. Um `resize` de janela não cobre nenhum dos dois casos.
-document.fonts?.ready.then(() => moverPolegar(false));
-new ResizeObserver(() => { moverPolegar(polegar.rodando); medirFolgaDaBarra(); }).observe(document.getElementById("viewtabs"));
+document.fonts?.ready.then(() => { esquecerMedidasDaBarra(); moverPolegar(false); });
+{
+  const ro = new ResizeObserver(() => { esquecerMedidasDaBarra(); moverPolegar(polegar.rodando); medirFolgaDaBarra(); });
+  ro.observe(document.getElementById("viewtabs"));
+  // Uma aba pode mudar de largura sem a barra mudar (rótulo que some, contador novo).
+  document.querySelectorAll("#viewtabs .vtab").forEach((el) => ro.observe(el));
+}
 
 /**
  * 31/10: a folga das telas (--fb-*) sai do tamanho REAL da pílula, não de um número fixo. Com 74 px
@@ -252,7 +282,7 @@ function aplicarBarra(cfg) {
     botao.setAttribute("aria-expanded", barraCfg.fechada ? "false" : "true");
   }
   desenharOpcoesDaBarra();
-  requestAnimationFrame(() => { moverPolegar(false); medirFolgaDaBarra(); });
+  requestAnimationFrame(() => { esquecerMedidasDaBarra(); moverPolegar(false); medirFolgaDaBarra(); });
 }
 
 function gravarBarra(patch) {
