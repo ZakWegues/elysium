@@ -148,7 +148,9 @@ function moverPolegar(animar = true) {
 // tamanho sem a janela mudar. Um `resize` de janela não cobre nenhum dos dois casos.
 document.fonts?.ready.then(() => { esquecerMedidasDaBarra(); moverPolegar(false); });
 {
-  const ro = new ResizeObserver(() => { esquecerMedidasDaBarra(); moverPolegar(polegar.rodando); medirFolgaDaBarra(); });
+  // 10/11: de mola sempre (encolher/abrir a barra mexe a aba ativa de lugar: sem mola o seletor
+  // pulava a cada quadro, "teletransportando").
+  const ro = new ResizeObserver(() => { esquecerMedidasDaBarra(); moverPolegar(true); medirFolgaDaBarra(); });
   ro.observe(document.getElementById("viewtabs"));
   // Uma aba pode mudar de largura sem a barra mudar (rótulo que some, contador novo).
   document.querySelectorAll("#viewtabs .vtab").forEach((el) => ro.observe(el));
@@ -160,18 +162,27 @@ document.fonts?.ready.then(() => { esquecerMedidasDaBarra(); moverPolegar(false)
  * o começo do Início, do Hoje e das Rotinas. Fechada: as regras do CSS (0) valem.
  */
 function medirFolgaDaBarra() {
+  // 10/11: calcula as quatro e só escreve a que mudou. Apagar e regravar as variáveis no body a
+  // cada chamada recalculava o estilo da página inteira — e o ResizeObserver chama isto a cada
+  // quadro enquanto a barra encolhe ou abre.
   const corpo = document.body.style;
-  for (const v of ["--fb-t", "--fb-b", "--fb-l", "--fb-r"]) corpo.removeProperty(v);
+  const novo = { "--fb-t": "", "--fb-b": "", "--fb-l": "", "--fb-r": "" };
   const barra = document.getElementById("viewtabs");
   const layout = document.getElementById("layout");
-  if (!barra || !layout || document.body.classList.contains("barra-fechada")) return;
-  const b = barra.getBoundingClientRect(), l = layout.getBoundingClientRect();
-  if (!b.width || !b.height) return;
-  const c = document.body.classList, folga = 10;
-  if (c.contains("barra-topo")) corpo.setProperty("--fb-t", `${Math.max(0, Math.round(b.bottom - l.top + folga))}px`);
-  else if (c.contains("barra-baixo")) corpo.setProperty("--fb-b", `${Math.max(0, Math.round(l.bottom - b.top + folga))}px`);
-  else if (c.contains("barra-esquerda")) corpo.setProperty("--fb-l", `${Math.max(0, Math.round(b.right - l.left + folga))}px`);
-  else if (c.contains("barra-direita")) corpo.setProperty("--fb-r", `${Math.max(0, Math.round(l.right - b.left + folga))}px`);
+  if (barra && layout && !document.body.classList.contains("barra-fechada")) {
+    const b = barra.getBoundingClientRect(), l = layout.getBoundingClientRect();
+    if (b.width && b.height) {
+      const c = document.body.classList, folga = 10;
+      if (c.contains("barra-topo")) novo["--fb-t"] = `${Math.max(0, Math.round(b.bottom - l.top + folga))}px`;
+      else if (c.contains("barra-baixo")) novo["--fb-b"] = `${Math.max(0, Math.round(l.bottom - b.top + folga))}px`;
+      else if (c.contains("barra-esquerda")) novo["--fb-l"] = `${Math.max(0, Math.round(b.right - l.left + folga))}px`;
+      else if (c.contains("barra-direita")) novo["--fb-r"] = `${Math.max(0, Math.round(l.right - b.left + folga))}px`;
+    }
+  }
+  for (const [v, val] of Object.entries(novo)) {
+    if (corpo.getPropertyValue(v) === val) continue;
+    if (val) corpo.setProperty(v, val); else corpo.removeProperty(v);
+  }
 }
 window.addEventListener("resize", medirFolgaDaBarra);
 
@@ -180,6 +191,7 @@ window.addEventListener("resize", medirFolgaDaBarra);
  * o atributo — e é justamente por não haver snapshot cobrindo a página que a barrinha
  * volta a ser vista deslizando.
  */
+let inicioAtualizadoEm = 0;
 function switchView(view) {
   // Trocar de aba com a gaveta aberta devolve o que estava nela (o QR ao popover, etc.).
   // Fase 23: PC e Rotinas saíram da barra e viraram gavetas (central.js). Quem ainda pede a
@@ -203,9 +215,16 @@ function switchView(view) {
   // existe em vez de duplicar a lógica dos dois timelines.
   // A Caixa deixou de ser aba: virou o lado direito do switch, dentro do Chat.
 
-  if (view === "chat") { requestAnimationFrame(() => moverPolegar(false)); carregarBolhasChat(); }
+  // 10/11: o Chat refazia a posição do seletor SEM mola no quadro seguinte (o seletor pulava
+  // direto para a aba); agora só remede e segue de mola como as outras abas.
+  if (view === "chat") { requestAnimationFrame(() => { esquecerMedidasDaBarra(); moverPolegar(true); }); carregarBolhasChat(); }
   if (view === "hoje") carregarHoje();
-  if (view === "inicio") atualizarInicio().then(ligarArrasto);
+  // Voltar à Início buscava TODOS os dados de novo e redesenhava a grade inteira meio segundo
+  // depois da troca (um tranco no meio da animação). Dados de menos de 30 s ficam.
+  if (view === "inicio" && Date.now() - inicioAtualizadoEm > 30_000) {
+    inicioAtualizadoEm = Date.now();
+    atualizarInicio().then(ligarArrasto);
+  }
   // Os canvas nascem dentro de um painel oculto, e elemento em `display:none` mede zero.
   // Só ao entrar na aba dá para saber a largura real.
 }
@@ -370,6 +389,15 @@ document.getElementById("nav-recolher")?.addEventListener("click", () => gravarB
     else if (acumulado < -60 && escondida) { document.body.classList.remove("barra-encolhida"); acumulado = 0; }
   }, { capture: true, passive: true });
 })();
+
+// 10/11: encolhida, a barra NÃO abre mais com o mouse em cima (abria e fechava sozinha ao passar
+// o mouse); clicar nela abre, como no celular, e rolar para cima também.
+document.getElementById("viewtabs")?.addEventListener("click", (e) => {
+  if (!document.body.classList.contains("barra-encolhida")) return;
+  document.body.classList.remove("barra-encolhida");
+  e.stopPropagation();
+  e.preventDefault();
+}, true);
 
 // Pílula de hover (31/10, ideia do Glass Nav): um segundo seletor, bem fraco, que segue o
 // mouse entre as abas. Fica sob o seletor da aba ativa e some ao sair da barra.

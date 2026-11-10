@@ -827,6 +827,13 @@ function ligarArrasto() {
   // lugar para alguém esquecer de atualizar.
   ligarRedimensionamento();
 
+  // 10/11: arrastar o volume (ou selecionar num campo) dentro de um card arrastava o card junto:
+  // o `draggable` do card vale para tudo dentro dele. Começou num controle, o card não arrasta.
+  grade.addEventListener("pointerdown", (e) => {
+    const card = e.target.closest(".home-card");
+    if (!card || card.classList.contains("fixo")) return;
+    card.draggable = !e.target.closest("input, textarea, select, button, a, [contenteditable]");
+  }, true);
   grade.addEventListener("dragstart", (e) => {
     const card = e.target.closest(".home-card");
     if (!card || card.classList.contains("fixo")) return;
@@ -1074,9 +1081,12 @@ document.getElementById("view-inicio")?.addEventListener("click", async (e) => {
     const id = fixar.dataset.fixar;
     const fixos = estadoCards.fixos ?? [];
     estadoCards.fixos = fixos.includes(id) ? fixos.filter(x => x !== id) : [...fixos, id];
-    await salvarCards();
-    await atualizarInicio();
+    // 10/11: fixar e mover só reordenam o que já está na tela — redesenha com os dados que já
+    // estão aqui e grava por trás. Antes esperava gravar e buscar TODOS os dados da Início de
+    // novo (clima, Spotify, PC…), e o fixar parecia não funcionar.
+    desenharInicio();
     ligarArrasto();
+    salvarCards();
     if (document.getElementById("home-personalizar")?.classList.contains("aberto")) {
       abrirPersonalizar(); abrirPersonalizar();   // redesenha a lista sem fechá-la
     }
@@ -1096,9 +1106,9 @@ document.getElementById("view-inicio")?.addEventListener("click", async (e) => {
     nova.splice(para, 0, ...nova.splice(de, 1));
     let k = 0;
     estadoCards.ordem = estadoCards.ordem.map(x => (vis.includes(x) ? nova[k++] : x));
-    await salvarCards();
-    await atualizarInicio();
+    desenharInicio();
     ligarArrasto();
+    salvarCards();
     abrirPersonalizar(); abrirPersonalizar();
     return;
   }
@@ -1363,9 +1373,11 @@ document.getElementById("view-inicio")?.addEventListener("change", async (e) => 
   estadoCards.ocultos = t.checked
     ? estadoCards.ocultos.filter(x => x !== id)
     : [...estadoCards.ocultos, id];
-  await salvarCards();
-  await atualizarInicio();
+  // Aparece/some na hora; o card que acabou de ligar recebe os dados dele logo em seguida.
+  desenharInicio();
   ligarArrasto();
+  salvarCards();
+  if (t.checked) atualizarInicio().then(ligarArrasto);
 });
 
 document.getElementById("view-inicio")?.addEventListener("submit", async (e) => {

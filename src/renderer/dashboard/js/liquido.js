@@ -37,6 +37,8 @@ const LQ_DOMO = 0.62, LQ_DOMO_MAX = 84, LQ_LENTE_GANHO = 1.35;
  *  tamanho (sempre para cima, o filtro cobre o elemento inteiro), senão cada pixel era um
  *  mapa novo e o arrasto travava (05/11). */
 const LQ_DEGRAU_LENTE = 6;
+/** 10/11: o reflexo das bordas 4× mais forte (pedido do dono); a lente dos polegares fica como estava. */
+const LQ_REFLEXO = 4;
 
 const lqSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
 lqSvg.setAttribute("aria-hidden", "true");
@@ -143,6 +145,7 @@ function lqDesenharMapas(perfil, w, h, r) {
         a = bandas * (0.06 + 0.8 * glint + 0.35 * refl) * 0.85 * 0.35 * (perfil === "lente" ? 0.3 : 1);
       }
       if (dentro >= 0 && dentro < 1.22) a += 0.22 * (0.35 + 0.65 * glint);
+      if (perfil !== "lente") a *= LQ_REFLEXO;
       il.data[o] = il.data[o + 1] = il.data[o + 2] = 255;
       il.data[o + 3] = Math.round(255 * Math.min(1, a));
     }
@@ -222,8 +225,31 @@ function lqTirar(el) {
   el.classList.remove("lq");
 }
 
+/**
+ * 10/11: superfície mudando de tamanho (a barra encolhendo ao rolar, a caixa do chat crescendo)
+ * refazia o mapa da lente a CADA quadro da animação — canvas, PNG e filtro novos por quadro, e o
+ * filtro velho com o tamanho errado deixava uma linha de reflexo solta na borda. Agora a lente
+ * sai enquanto o tamanho anda e volta quando ele assenta (140 ms parado). A lente dos polegares
+ * já anda em degraus e continua na hora.
+ */
+const lqEsperando = new Map();
 const lqTamanho = new ResizeObserver((entradas) => {
-  for (const e of entradas) if (lqFiltros.has(e.target)) lqAplicar(e.target);
+  for (const e of entradas) {
+    const el = e.target;
+    if (!lqFiltros.has(el) && !lqEsperando.has(el)) continue;
+    if (el.dataset.lqPerfil === "lente") { lqAplicar(el); continue; }
+    const chave = lqFiltros.get(el);
+    if (chave) {
+      const [, w, h] = chave.split("|");
+      if (+w === Math.round(el.offsetWidth) && +h === Math.round(el.offsetHeight)) continue;
+      lqTirar(el);
+    }
+    clearTimeout(lqEsperando.get(el));
+    lqEsperando.set(el, setTimeout(() => {
+      lqEsperando.delete(el);
+      if (el.isConnected) lqAplicar(el);
+    }, 140));
+  }
 });
 
 /**
@@ -238,7 +264,11 @@ function lqVarrer() {
   for (const el of [...lqFiltros.keys()]) {
     if (!vivos.has(el)) { lqTamanho.unobserve(el); lqTirar(el); }
   }
+  for (const [el, t] of [...lqEsperando]) {
+    if (!vivos.has(el)) { clearTimeout(t); lqEsperando.delete(el); lqTamanho.unobserve(el); }
+  }
   for (const el of vivos) {
+    if (lqEsperando.has(el)) continue;
     if (!lqFiltros.has(el)) lqTamanho.observe(el);
     lqAplicar(el);
   }
