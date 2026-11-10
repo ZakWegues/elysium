@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("electron", () => ({ app: { getPath: () => process.env.TEMP ?? "." } }));
 vi.mock("../src/main/config", () => ({ getGeminiKey: () => "chave-de-teste" }));
 const { audioDaInteracao, audioDoGenerate, duracaoDoWav, estiloDaFala, pcmParaWav, sintetizarVozGemini, vozGeminiValida } = await import("../src/services/vozGemini");
-const { diaDaCota, limiteDo429, usoNoLogDoHermes } = await import("../src/services/cotaGemini");
+const { diaDaCota, limiteDo429, tipoDo429, usoNoLogDoHermes } = await import("../src/services/cotaGemini");
 
 const pcm = Buffer.alloc(48_000); // 1 s de silêncio a 24 kHz, 16 bits
 const wavB64 = pcmParaWav(pcm).toString("base64");
@@ -56,6 +56,16 @@ describe("cota do Gemini (26/10)", () => {
     const corpo = JSON.stringify({ error: { code: 429, status: "RESOURCE_EXHAUSTED", details: [{ "@type": "type.googleapis.com/google.rpc.QuotaFailure", violations: [{ quotaMetric: "generativelanguage.googleapis.com/generate_requests_per_model_per_day", quotaId: "GenerateRequestsPerDayPerProjectPerModel-FreeTier", quotaValue: "100" }] }] } });
     expect(limiteDo429(corpo)).toBe(100);
     expect(limiteDo429("sem json")).toBeNull();
+  });
+
+  it("429 por minuto não é a cota do dia: só uma pausa, com o tempo do RetryInfo", () => {
+    const porMinuto = JSON.stringify({ error: { code: 429, details: [
+      { "@type": "type.googleapis.com/google.rpc.QuotaFailure", violations: [{ quotaMetric: "generativelanguage.googleapis.com/generate_content_free_tier_requests", quotaId: "GenerateRequestsPerMinutePerProjectPerModel-FreeTier", quotaValue: "10" }] },
+      { "@type": "type.googleapis.com/google.rpc.RetryInfo", retryDelay: "37s" }] } });
+    expect(tipoDo429(porMinuto)).toEqual({ porDia: false, esperaMs: 37_000 });
+    const porDia = JSON.stringify({ error: { details: [{ violations: [{ quotaId: "GenerateRequestsPerDayPerProjectPerModel-FreeTier", quotaValue: "20" }] }] } });
+    expect(tipoDo429(porDia).porDia).toBe(true);
+    expect(tipoDo429("quota")).toEqual({ porDia: false, esperaMs: null });
   });
 
   it("conta as chamadas do Hermes ao Gemini do dia, no log dele", () => {

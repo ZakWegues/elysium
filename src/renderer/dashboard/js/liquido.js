@@ -271,7 +271,23 @@ function lqLogo() {
   if (lqPendente) return;
   lqPendente = requestAnimationFrame(() => { lqPendente = 0; lqVarrer(); });
 }
-new MutationObserver(lqLogo).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["hidden", "data-view"] });
+/**
+ * 09/11: a resposta da Ely chega aos pedaços (`textContent` da bolha a cada pedaço) e cada um
+ * era uma mutação de childList — a página inteira era varrida a cada quadro do streaming.
+ * Agora só conta nó que é ou contém um alvo de vidro; texto e bolhas não disparam nada.
+ */
+function lqMudouAlvo(nos) {
+  for (const n of nos) {
+    if (n.nodeType !== 1) continue;
+    if (n.matches(LQ_ALVOS) || n.querySelector(LQ_ALVOS)) return true;
+  }
+  return false;
+}
+new MutationObserver((registros) => {
+  for (const r of registros) {
+    if (r.type === "attributes" || lqMudouAlvo(r.addedNodes) || lqMudouAlvo(r.removedNodes)) { lqLogo(); return; }
+  }
+}).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["hidden", "data-view"] });
 // Troca de tema muda a força (Glass/Dark/Stark).
 new MutationObserver(lqLogo).observe(document.body, { attributes: true, attributeFilter: ["class"] });
 

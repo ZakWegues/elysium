@@ -38,9 +38,29 @@ export function escolherModelos(nomes: string[]): Modelos {
 
 let lista: { em: number; chave: string; modelos: Modelos } | null = null;
 
+/**
+ * 09/11: a API ainda LISTA o 2.5 Flash e o Flash-Lite, mas responde 404 neles — cada pesquisa
+ * gastava duas tentativas antes de chegar num modelo vivo. 404 tira o modelo das listas por 24 h.
+ */
+const sumidos = new Map<string, number>();
+const SUMIDO_MS = 24 * 60 * 60_000;
+function marcarSumido(modelo: string): void { sumidos.set(modelo, Date.now() + SUMIDO_MS); }
+function vivo(modelo: string): boolean {
+  const ate = sumidos.get(modelo);
+  if (ate === undefined) return true;
+  if (ate > Date.now()) return false;
+  sumidos.delete(modelo);
+  return true;
+}
+/** Tira os sumidos; se não sobrar nenhum, fica a lista como está (melhor tentar que desistir). */
+function semSumidos(m: Modelos): Modelos {
+  const tirar = (l: string[]) => { const v = l.filter(vivo); return v.length ? v : l; };
+  return { flash: tirar(m.flash), lite: tirar(m.lite) };
+}
+
 /** Os modelos que a chave enxerga (cache de 6 h). Sem rede: os de reserva. */
 export async function modelosGemini(chave: string, busca: Busca = fetch): Promise<Modelos> {
-  if (lista && lista.chave === chave && Date.now() - lista.em < VALIDADE_LISTA_MS) return lista.modelos;
+  if (lista && lista.chave === chave && Date.now() - lista.em < VALIDADE_LISTA_MS) return semSumidos(lista.modelos);
   try {
     const r = await busca(`${BASE}/models?pageSize=200`, { headers: { "x-goog-api-key": chave }, signal: AbortSignal.timeout(10_000) });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -48,7 +68,7 @@ export async function modelosGemini(chave: string, busca: Busca = fetch): Promis
     const nomes = (j.models ?? []).filter((m) => m.supportedGenerationMethods?.includes("generateContent")).map((m) => m.name ?? "");
     const modelos = escolherModelos(nomes);
     lista = { em: Date.now(), chave, modelos };
-    return modelos;
+    return semSumidos(modelos);
   } catch (e) {
     console.warn("[gemini] lista de modelos indisponível:", e instanceof Error ? e.message : e);
     return RESERVA;
@@ -79,6 +99,7 @@ export async function medirModelosGemini(chave: string, busca: Busca = fetch): P
         signal: AbortSignal.timeout(12_000),
       });
       registrarUsoGemini("texto", modelo, r.status, r.ok ? "" : await r.text().catch(() => ""));
+      if (r.status === 404) marcarSumido(modelo);
       return [modelo, r.ok ? Date.now() - t0 : null] as const;
     } catch { return [modelo, null] as const; }
   }));
@@ -181,6 +202,7 @@ export async function gerarGemini(p: PedidoGemini, busca: Busca = fetch, chave =
       });
       if (!r.ok) {
         registrarUsoGemini("texto", modelo, r.status, await r.text().catch(() => ""));
+        if (r.status === 404) marcarSumido(modelo);
         console.warn(`[gemini] ${modelo} respondeu ${r.status}; tentando o próximo`);
         continue;
       }
@@ -202,4 +224,5 @@ export async function gerarGemini(p: PedidoGemini, busca: Busca = fetch, chave =
 export function zerarListaGemini(): void {
   lista = null;
   velocidade = null;
+  sumidos.clear();
 }

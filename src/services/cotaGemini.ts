@@ -11,7 +11,7 @@ import { app } from "electron";
  */
 
 export type Categoria = "voz" | "texto";
-type Modelo = { usos: number; limite?: number; esgotado?: boolean; categoria: Categoria };
+type Modelo = { usos: number; limite?: number; esgotado?: boolean; pausaAte?: number; categoria: Categoria };
 type Estado = { dia: string; modelos: Record<string, Modelo>; avisado: Record<string, boolean> };
 
 /** O dia do Google para a cota: a data no fuso do Pacífico. Pura. */
@@ -29,6 +29,25 @@ export function limiteDo429(corpo: string): number | null {
   } catch { /* corpo sem JSON */ }
   const m = /quotaValue["\s:]+"?(\d+)/.exec(corpo);
   return m ? Number(m[1]) : null;
+}
+
+/**
+ * 09/11: nem todo 429 é a cota do dia. O limite POR MINUTO também dá 429, e antes qualquer um
+ * marcava o modelo como esgotado até a meia-noite do Pacífico — modelos bons ficavam fora o dia
+ * inteiro e o aviso "a cota acabou" saía à toa. `porDia` só com uma violação diária; `esperaMs`
+ * vem do RetryInfo ("37s"). Pura.
+ */
+export function tipoDo429(corpo: string): { porDia: boolean; esperaMs: number | null } {
+  let porDia = false, esperaMs: number | null = null;
+  try {
+    const j = JSON.parse(corpo) as { error?: { details?: { violations?: { quotaId?: string; quotaMetric?: string }[]; retryDelay?: string }[] } };
+    for (const d of j.error?.details ?? []) {
+      for (const v of d.violations ?? []) if (/day/i.test(`${v.quotaId ?? ""} ${v.quotaMetric ?? ""}`)) porDia = true;
+      const s = /^(\d+(?:\.\d+)?)s$/.exec(d.retryDelay ?? "");
+      if (s) esperaMs = Math.ceil(Number(s[1]) * 1000);
+    }
+  } catch { /* corpo sem JSON */ }
+  return { porDia, esperaMs };
 }
 
 let estado: Estado | null = null;
@@ -65,9 +84,15 @@ export function registrarUsoGemini(categoria: Categoria, modelo: string, status:
   const m = e.modelos[modelo] ??= { usos: 0, categoria };
   if (status >= 200 && status < 300) m.usos++;
   if (status === 429) {
-    m.esgotado = true;
-    const limite = limiteDo429(corpoErro);
-    if (limite) m.limite = limite;
+    const { porDia, esperaMs } = tipoDo429(corpoErro);
+    if (porDia) {
+      m.esgotado = true;
+      const limite = limiteDo429(corpoErro);
+      if (limite) m.limite = limite;
+    } else {
+      // Limite por minuto (ou 429 sem detalhe): só uma pausa curta.
+      m.pausaAte = Date.now() + (esperaMs ?? 60_000);
+    }
   }
   salvar();
   verificarAviso(e, modelo, m);
@@ -96,7 +121,7 @@ export function horaDaVirada(agora = new Date()): string {
 }
 
 export function cotaEsgotada(modelo: string): boolean {
-  try { return !!carregar().modelos[modelo]?.esgotado; } catch { return false; }
+  try { const m = carregar().modelos[modelo]; return !!m?.esgotado || (m?.pausaAte ?? 0) > Date.now(); } catch { return false; }
 }
 
 // ── o uso do Hermes, pelo log dele ─────────────────────────────────────────────────────────

@@ -55,6 +55,21 @@ describe("Gemini (24/10)", () => {
     expect(corpo.systemInstruction.parts[0].text).toBe("só JSON");
   });
 
+  it("404 tira o modelo da lista: a próxima pesquisa nem tenta mais", async () => {
+    // Nomes só deste teste: a cota de outros testes (429 do gemini-3-flash) fica gravada no dia.
+    const lista = { models: ["gemini-9-flash", "gemini-8-flash"].map((n) => ({ name: `models/${n}`, supportedGenerationMethods: ["generateContent"] })) };
+    const { busca, chamadas } = buscaFalsa((u) => {
+      if (!u.includes(":generateContent")) return { status: 200, corpo: lista };
+      if (u.includes("gemini-9-flash:")) return { status: 404, corpo: { error: { message: "not found" } } };
+      return ok("certo");
+    });
+    expect((await gerarGemini({ mensagens: [{ papel: "user", texto: "a" }] }, busca, "chave-de-teste"))?.modelo).toBe("gemini-8-flash");
+    const antes = chamadas.length;
+    await gerarGemini({ mensagens: [{ papel: "user", texto: "b" }] }, busca, "chave-de-teste");
+    expect(chamadas.slice(antes).some((c) => c.url.includes("gemini-9-flash:"))).toBe(false);
+    expect((await modelosGemini("chave-de-teste", busca)).flash).toEqual(["gemini-8-flash"]);
+  });
+
   it("leve começa pelo Lite; sem chave ou todos falhando → null", async () => {
     const { busca, chamadas } = buscaFalsa((u) => (u.includes(":generateContent") ? ok("x") : { status: 200, corpo: LISTA }));
     await gerarGemini({ mensagens: [{ papel: "user", texto: "x" }], leve: true }, busca, "chave-de-teste");
