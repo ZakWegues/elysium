@@ -8,7 +8,7 @@ import { semAcento } from "./texto";
  * JSON curto (validados aqui pelo zod) — ou nem isso: financiamento e dividir conta saem na hora,
  * com os números tirados do próprio pedido.
  *
- * Sem mapa (decisão do Zak, 24/10): roteiro é linha do tempo com fotos.
+ * Sem mapa (decisão do dono, 24/10): roteiro é linha do tempo com fotos.
  * Tudo aqui é puro (testável); quem chama o modelo é o `telaInteligente.gerarTela`.
  */
 
@@ -33,6 +33,19 @@ export function tipoDeTelaPronta(pedido: string): TipoPronto | null {
   if (/\broteiro\b|\bitinerario\b|\bviagem\b|\bpasseio\b|\bmapa\b|planej\w* (o |um |meu |minha )?(dia|sabado|domingo|fim de semana|feriado|viagem|passeio)/.test(t)) return "roteiro";
   if (/\bpainel\b|\bdashboard\b|\bgastos?\b|\bdespesas?\b|\borcamento\b|\bgrafico\b|\bindicadores\b|\bmetricas\b/.test(t)) return "painel";
   return null;
+}
+
+/**
+ * 11/11: pedido longo, com muitas partes (ou "passo a passo"), vai ao gerador livre, que monta o
+ * formato pelo conteúdo. As instantâneas (financiamento, dividir conta) ficam sempre na pronta. Pura.
+ */
+export function pedidoRico(pedido: string, tipo: TipoPronto): boolean {
+  if (tipo === "financiamento" || tipo === "dividir-conta") return false;
+  const t = norm(pedido);
+  const palavras = t.split(" ").filter(Boolean).length;
+  // A pronta é 3× mais rápida (o modelo só manda dados): ela fica com quase tudo, inclusive
+  // viagens de vários dias e custos. Só sai dela o pedido longo, com muitas partes.
+  return palavras > 25 || /\bpasso a passo\b/.test(t);
 }
 
 /** Os tipos que saem sem modelo (números do próprio texto). */
@@ -101,15 +114,23 @@ const esquemas = {
     titulo, subtitulo: z.string().max(140).optional(),
     moeda: z.boolean().default(true),
     exemplo: z.boolean().default(false),
-    categorias: z.array(z.object({ nome: texto(40), valor: z.number().finite().nonnegative() })).min(2).max(12),
-    nota: z.string().max(240).optional(),
+    categorias: z.array(z.object({ nome: texto(40), valor: z.number().finite().nonnegative(), limite: z.number().finite().positive().optional() })).min(2).max(16),
+    /** 11/11: a evolução no tempo (meses, semanas…), quando a resposta tiver. */
+    serie: z.array(z.object({ rotulo: texto(20), valor: z.number().finite() })).max(24).optional(),
+    nota: z.string().max(400).optional(),
+    dicas: z.array(texto(200)).max(5).optional(),
   }),
   comparacao: z.object({
     titulo,
     itens: z.array(texto(40)).min(2).max(4),
-    criterios: z.array(z.object({ nome: texto(40), valores: z.array(z.string().max(60)) })).min(2).max(10),
+    criterios: z.array(z.object({ nome: texto(40), valores: z.array(z.string().max(80)), notas: z.array(z.number().min(0).max(10)).optional() })).min(2).max(14),
     destaques: z.array(z.string().max(30)).optional(),
-    veredito: texto(300),
+    /** 11/11: a busca da foto de cada item (só o nome achava o filme "The Notebook" para "Notebook A"). */
+    fotos: z.array(z.string().max(60)).optional(),
+    /** 11/11: prós e contras de cada item, na ordem dos itens. */
+    pros: z.array(z.array(texto(120)).max(6)).optional(),
+    contras: z.array(z.array(texto(120)).max(6)).optional(),
+    veredito: texto(500),
   }),
   flashcards: z.object({
     tema: titulo,
@@ -126,17 +147,22 @@ const esquemas = {
   }),
   checklist: z.object({
     titulo,
-    grupos: z.array(z.object({ nome: z.string().max(40).default(""), itens: z.array(texto(120)).min(1).max(15) })).min(1).max(6),
+    grupos: z.array(z.object({ nome: z.string().max(40).default(""), itens: z.array(texto(140)).min(1).max(25) })).min(1).max(8),
   }),
   roteiro: z.object({
     titulo, resumo: z.string().max(200).optional(), cidade: z.string().max(40).optional(),
-    paradas: z.array(z.object({ hora: z.string().max(12).default(""), lugar: texto(60), descricao: texto(240), foto: z.string().max(60).optional() })).min(2).max(8),
-    dicas: z.array(texto(160)).max(5).default([]),
+    paradas: z.array(z.object({
+      hora: z.string().max(12).default(""), lugar: texto(60), descricao: texto(400), foto: z.string().max(60).optional(),
+      /** 11/11: viagem de vários dias, custo em reais, quanto tempo fica e como chegar. */
+      dia: z.string().max(24).optional(), custo: z.number().finite().nonnegative().optional(),
+      duracao: z.string().max(20).optional(), transporte: z.string().max(80).optional(),
+    })).min(2).max(40),
+    dicas: z.array(texto(200)).max(8).default([]),
   }),
   cronograma: z.object({
     titulo,
-    dias: z.array(z.object({ dia: texto(30), itens: z.array(z.object({ hora: z.string().max(12).default(""), tarefa: texto(120) })).min(1).max(10) })).min(1).max(7),
-    nota: z.string().max(200).optional(),
+    dias: z.array(z.object({ dia: texto(30), itens: z.array(z.object({ hora: z.string().max(12).default(""), tarefa: texto(160), duracao: z.string().max(20).optional() })).min(1).max(14) })).min(1).max(7),
+    nota: z.string().max(300).optional(),
   }),
 };
 
@@ -145,13 +171,13 @@ export type Dados<T extends TipoComDados> = z.infer<(typeof esquemas)[T]>;
 
 /** O formato pedido ao modelo (curto, em texto, igual para Gemini e Hermes). */
 const FORMATOS: Record<TipoComDados, string> = {
-  painel: `{"titulo": string, "subtitulo"?: string, "moeda": boolean (valores em reais?), "exemplo": boolean (true se os números forem ilustrativos), "categorias": [{"nome": string, "valor": number}] (2 a 12), "nota"?: string}`,
-  comparacao: `{"titulo": string, "itens": [string] (2 a 4 nomes), "criterios": [{"nome": string, "valores": [string] (um por item, na mesma ordem)}] (2 a 10), "destaques"?: [string] (uma etiqueta curta por item, ex.: "mais barato"), "veredito": string}`,
+  painel: `{"titulo": string, "subtitulo"?: string, "moeda": boolean (valores em reais?), "exemplo": boolean (true se os números forem ilustrativos), "categorias": [{"nome": string, "valor": number, "limite"?: number (orçamento/meta da categoria, se houver)}] (2 a 16), "serie"?: [{"rotulo": string (ex.: "Jan"), "valor": number}] (evolução no tempo, se houver), "nota"?: string, "dicas"?: [string] (até 4, práticas)}`,
+  comparacao: `{"titulo": string, "itens": [string] (2 a 4 nomes), "criterios": [{"nome": string, "valores": [string] (um por item, na mesma ordem, com o dado concreto: preço, medida, ano…), "notas"?: [number] (0 a 10, uma por item)}] (4 a 12), "destaques"?: [string] (uma etiqueta curta por item, ex.: "mais barato"), "fotos": [string] (busca da foto de cada item, 2–4 palavras com o tipo do produto, ex.: "notebook Lenovo IdeaPad 5"), "pros"?: [[string]] (2 a 4 por item, na ordem dos itens), "contras"?: [[string]] (1 a 3 por item), "veredito": string (qual escolher e para quem)}`,
   flashcards: `{"tema": string, "cartoes": [{"frente": string (pergunta ou termo), "verso": string (resposta curta), "dica"?: string}] (5 a 10)}`,
   quiz: `{"tema": string, "perguntas": [{"pergunta": string, "opcoes": [string] (3 ou 4), "certa": number (índice da certa, começando em 0), "explicacao": string (uma frase)}] (5 a 8)}`,
-  checklist: `{"titulo": string, "grupos": [{"nome": string (pode ser ""), "itens": [string]}] (1 a 6 grupos)}`,
-  roteiro: `{"titulo": string, "resumo"?: string, "cidade": string (a cidade do roteiro), "paradas": [{"hora": string (ex.: "9h"), "lugar": string, "descricao": string (1 frase), "foto": string (nome do lugar + cidade, ex.: "Pinacoteca São Paulo")}] (3 a 7), "dicas": [string] (até 3)}`,
-  cronograma: `{"titulo": string, "dias": [{"dia": string (ex.: "Segunda"), "itens": [{"hora": string, "tarefa": string}]}] (1 a 7), "nota"?: string}`,
+  checklist: `{"titulo": string, "grupos": [{"nome": string (pode ser ""), "itens": [string] (com quantidade quando fizer sentido, ex.: "3 camisetas")}] (1 a 8 grupos)}`,
+  roteiro: `{"titulo": string, "resumo"?: string, "cidade": string (a cidade ou região principal), "paradas": [{"dia"?: string (ex.: "Dia 1 · Gramado", só em viagem de vários dias), "hora": string (ex.: "9h"), "lugar": string, "descricao": string (1–2 frases úteis: o que fazer, o que provar, por que vale), "foto": string (nome do lugar + cidade), "custo"?: number (reais por pessoa, aproximado), "duracao"?: string (ex.: "1h30"), "transporte"?: string (como chegar da parada anterior)}] (3 a 8 por dia; TODOS os dias pedidos), "dicas": [string] (até 6)}`,
+  cronograma: `{"titulo": string, "dias": [{"dia": string (ex.: "Segunda"), "itens": [{"hora": string, "tarefa": string, "duracao"?: string}]}] (1 a 7; todos os dias pedidos), "nota"?: string}`,
 };
 
 /** O prompt de sistema do pedido de dados: curto (o gerador livre usa ~10 mil tokens). Pura. */
@@ -160,7 +186,8 @@ export function sistemaDosDados(tipo: TipoComDados): string {
     "Você preenche os dados de uma tela interativa da Ely, uma assistente brasileira.",
     "Responda SÓ com um objeto JSON válido, sem Markdown, sem texto antes ou depois, neste formato:",
     FORMATOS[tipo],
-    "Regras: tudo em português do Brasil; use o que está na pergunta e na resposta em texto; não invente números de verdade — se faltarem dados reais, use valores plausíveis e marque como exemplo quando houver esse campo; textos curtos (cabem num celular).",
+    "Regras: tudo em português do Brasil; use o que está na pergunta e na resposta em texto; não invente números de verdade — se faltarem dados reais, use valores plausíveis e marque como exemplo quando houver esse campo.",
+    "Seja COMPLETO e concreto: inclua TODOS os itens, dias, opções e números que o pedido e a resposta trazem (nunca resuma uma lista em poucos itens), e preencha os campos opcionais sempre que houver o dado — eles mudam o desenho da tela. Frases curtas, mas com informação útil, específica do pedido.",
   ].join("\n");
 }
 
@@ -198,7 +225,7 @@ export function tomDe(assunto: string): string {
   return `chart${1 + (h % 6)}`;
 }
 
-// 26/10 (pedido do Zak: telas "muito mais aprimoradas e completas"): os modelos usam as peças da
+// 26/10 (pedido do dono: telas "muito mais aprimoradas e completas"): os modelos usam as peças da
 // Ely (Hero, StatRow/Stat, Ring, Progress, Timeline, ImageCard, Callout, ScoreBar, Versus, Avatar,
 // WeekGrid, QuizCard). Os dados e os esquemas são os mesmos — só o desenho mudou.
 
@@ -238,26 +265,52 @@ gente = AvatarRow(@Each(@Range(1, @Clamp($pessoas, 1, 12)), "i", Avatar("Pessoa 
 
 function programaPainel(d: Dados<"painel">): string {
   const fmt = d.moeda ? (e: string) => reais(e) : (e: string) => `@Format(${e}, "number", 0)`;
+  const fmtN = (n: number) => (d.moeda ? `R$ ${n.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}` : n.toLocaleString("pt-BR", { maximumFractionDigits: 0 }));
   const dados = `[${d.categorias.map((c) => `{nome: ${s(c.nome)}, valor: ${num(c.valor)}}`).join(", ")}]`;
   const ord = [...d.categorias].sort((a, b) => b.valor - a.valor);
   const total = d.categorias.reduce((a, c) => a + c.valor, 0) || 1;
   const maior = ord[0];
   const parte = Math.round((maior.valor / total) * 100);
   const top3 = Math.round((ord.slice(0, 3).reduce((a, c) => a + c.valor, 0) / total) * 100);
+  const comLimite = d.categorias.filter((c) => c.limite);
+  const estouradas = comLimite.filter((c) => c.valor > (c.limite ?? Infinity));
   const sub = d.exemplo ? "Exemplo com números ilustrativos" : d.subtitulo || `${d.categorias.length} categorias`;
   const insights = [
-    `Callout(${s(`${maior.nome} é a maior parte: ${parte}% do total.`)}, "insight", null, "Onde mais pesa")`,
+    estouradas.length
+      ? `Callout(${s(`${estouradas.map((c) => c.nome).join(", ")} passou do limite (${estouradas.map((c) => `+${fmtN(c.valor - (c.limite ?? 0))}`).join(", ")}).`)}, "alerta", null, "Acima do orçamento")`
+      : `Callout(${s(`${maior.nome} é a maior parte: ${parte}% do total.`)}, "insight", null, "Onde mais pesa")`,
     ...(d.categorias.length > 3 ? [`Callout(${s(`As 3 maiores categorias somam ${top3}% do total.`)}, "dica")`] : []),
     ...(d.nota ? [`Callout(${s(d.nota)}, "insight")`] : []),
+    ...(d.dicas ?? []).map((t) => `Callout(${s(t)}, "dica")`),
   ];
-  return `root = Col([hero, resumo, Card([Row([Caption("Distribuição"), Spacer(), SegmentedControl($tipo, [{value: "bar", label: "Barras"}, {value: "donut", label: "Rosca"}])], 2, "center"), grafico], "soft", 3), insights, Card([Caption("Detalhes"), tabela], "soft", 3)])
+  // 11/11: o desenho muda com os dados — orçamento (barras de limite), série no tempo (área) e
+  // quantas categorias (rosca até 5, barras acima); o topo é o total grande, não sempre o Hero.
+  const blocos = ["topo", "resumo"];
+  const extras: string[] = [];
+  if (d.serie && d.serie.length >= 2) {
+    blocos.push("evolucao");
+    extras.push(`serie = [${d.serie.map((p) => `{periodo: ${s(p.rotulo)}, valor: ${num(p.valor)}}`).join(", ")}]`);
+    extras.push(`evolucao = Card([Caption("Ao longo do tempo"), Chart("area", serie, "periodo", ["valor"], ${d.moeda ? `"currency", "BRL"` : `"number"`})], "soft", 3)`);
+  }
+  if (comLimite.length) {
+    blocos.push("orcamento");
+    extras.push(`orcamento = Card([Caption("Gasto × limite"), ${comLimite.map((c) => {
+      const lim = c.limite ?? 1;
+      const tom = c.valor > lim ? `"danger"` : c.valor > lim * 0.85 ? `"warning"` : `"success"`;
+      return `Progress(${num(c.valor)}, ${num(lim)}, ${s(`${c.nome} · ${fmtN(c.valor)} de ${fmtN(lim)}`)}, ${tom})`;
+    }).join(", ")}], "soft", 3, 3)`);
+  }
+  blocos.push("distribuicao", "insights", "detalhes");
+  extras.push(`distribuicao = Card([Row([Caption("Distribuição"), Spacer(), SegmentedControl($tipo, [{value: "bar", label: "Barras"}, {value: "donut", label: "Rosca"}])], 2, "center"), grafico], "soft", 3)`);
+  return `root = Col([${blocos.join(", ")}])
 $tipo = ${s(d.categorias.length <= 5 ? "donut" : "bar")}
 dados = ${dados}
-hero = Hero(${s(d.titulo)}, ${s(sub)}, "chart-pie", ${s(tomDe(d.titulo))})
-resumo = StatRow([Stat("Total", ${fmt("@Sum(dados.valor)")}, "wallet"), Stat("Maior", ${s(maior.nome)}, "trending-up", null, null, "warning"), Stat("Média", ${fmt("@Avg(dados.valor)")}, "equal")])
+topo = Col([Caption(${s(sub)}), Title(${s(d.titulo)}, "lg"), Title(${fmt("@Sum(dados.valor)")}, "2xl", ${s(tomDe(d.titulo))})], 1)
+resumo = StatRow([Stat("Maior", ${s(maior.nome)}, "trending-up", null, null, "warning"), Stat("Média", ${fmt("@Avg(dados.valor)")}, "equal"), Stat("Categorias", ${s(String(d.categorias.length))}, "layers")])
 grafico = Chart($tipo, @Sort(dados, "valor", "desc"), "nome", ["valor"], ${d.moeda ? `"currency", "BRL"` : `"number"`})
+${extras.join("\n")}
 insights = Col([${insights.join(", ")}], 2)
-tabela = Table(["Categoria", "Valor", "Parte"], @Each(@Sort(dados, "valor", "desc"), "c", [c.nome, ${fmt("c.valor")}, @Round(@Percent(c.valor, @Sum(dados.valor))) + "%"]))`;
+detalhes = Section("Todas as categorias", [Table(["Categoria", "Valor", "Parte"], @Each(@Sort(dados, "valor", "desc"), "c", [c.nome, ${fmt("c.valor")}, @Round(@Percent(c.valor, @Sum(dados.valor))) + "%"]))], ${d.categorias.length <= 8}, "table")`;
 }
 
 function programaComparacao(d: Dados<"comparacao">): string {
@@ -265,11 +318,33 @@ function programaComparacao(d: Dados<"comparacao">): string {
   // O vencedor: o item que o veredito cita primeiro (ele diz qual escolher); sem citação, nenhum.
   const v = norm(d.veredito);
   const citado = d.itens.map((it, i) => ({ i, pos: v.indexOf(norm(it)) })).filter((x) => x.pos >= 0).sort((a, b) => a.pos - b.pos)[0];
-  const cartoes = d.itens.map((it, i) => `ImageCard(${s(it)}, ${s(it)}${d.destaques?.[i] ? `, null, ${s(d.destaques[i])}` : ""})`);
-  return `root = Col([hero, Versus([${cartoes.join(", ")}]${citado ? `, ${citado.i}` : ""}), Card([Caption("Lado a lado"), tabela], "soft", 3), veredito])
-hero = Hero(${s(d.titulo)}, ${s(`${d.itens.length} opções · ${d.criterios.length} critérios`)}, "target", ${s(tomDe(d.titulo))})
+  const cartoes = d.itens.map((it, i) => `ImageCard(${s(d.fotos?.[i] || it)}, ${s(it)}${d.destaques?.[i] ? `, null, ${s(d.destaques[i])}` : ""})`);
+  // 11/11: notas por critério viram a nota geral de cada item (barras) e as notas critério a
+  // critério; prós e contras ganham um cartão por item. Com isso, abas — sem virar um paredão.
+  const comNotas = d.criterios.filter((c) => c.notas && c.notas.length === d.itens.length);
+  const media = d.itens.map((_, i) => (comNotas.length ? comNotas.reduce((a, c) => a + (c.notas?.[i] ?? 0), 0) / comNotas.length : 0));
+  const melhor = media.indexOf(Math.max(...media));
+  const porCriterio = comNotas.length > 1
+    ? `, Section("Nota por critério", [${comNotas.map((c) => `Col([Text(${s(c.nome)}, "sm", "muted", "medium"), ${d.itens.map((it, i) => `ScoreBar(${s(it)}, ${num(c.notas?.[i] ?? 0)}, 10)`).join(", ")}], 1)`).join(", ")}], false, "sliders-horizontal")`
+    : "";
+  const notas = comNotas.length
+    ? `notas = Card([Caption("Nota geral (0 a 10)"), ${d.itens.map((it, i) => `ScoreBar(${s(it)}, ${num(media[i])}, 10, ${i === melhor})`).join(", ")}${porCriterio}], "soft", 3, 2)`
+    : "";
+  const lista = (l: string[] | undefined, marca: string) => ((l ?? []).length ? `List([${(l ?? []).map((t) => `ListItem(${s(t)}, null, ${s(marca)})`).join(", ")}], "none")` : "");
+  const temPC = Boolean(d.pros?.some((l) => l.length) || d.contras?.some((l) => l.length));
+  const pc = temPC
+    ? `pc = Col([${d.itens.map((it, i) => `Card([${[`Title(${s(it)}, "md")`, lista(d.pros?.[i], "✓"), lista(d.contras?.[i], "✗")].filter(Boolean).join(", ")}], "outline", 3, 2)`).join(", ")}], 2)`
+    : "";
+  const abas: [string, string][] = [["Resumo", `Col([${notas ? "notas, " : ""}veredito], 3)`], ["Critérios", "tabela"]];
+  if (temPC) abas.push(["Prós e contras", "pc"]);
+  const usarAbas = Boolean(notas || temPC);
+  const corpo = usarAbas
+    ? `Tabs([${abas.map((a) => s(a[0])).join(", ")}], [${abas.map((a) => a[1]).join(", ")}])`
+    : `Card([Caption("Lado a lado"), tabela], "soft", 3), veredito`;
+  return `root = Col([topo, Versus([${cartoes.join(", ")}]${citado ? `, ${citado.i}` : ""}), ${corpo}])
+topo = Col([Badge(${s(`${d.itens.length} opções · ${d.criterios.length} critérios`)}, "neutral", "scale"), Title(${s(d.titulo)}, "lg", ${s(tomDe(d.titulo))})], 1)
 tabela = Table([${["\"\"", ...d.itens.map(s)].join(", ")}], [${linhas.join(", ")}])
-veredito = Callout(${s(d.veredito)}, "sucesso", "trophy", "Veredito")`;
+veredito = Callout(${s(d.veredito)}, "sucesso", "trophy", "Veredito")${notas ? `\n${notas}` : ""}${pc ? `\n${pc}` : ""}`;
 }
 
 function programaFlashcards(d: Dados<"flashcards">): string {
@@ -312,24 +387,56 @@ ${vars.join("\n")}`;
 }
 
 function programaRoteiro(d: Dados<"roteiro">): string {
+  type Parada = Dados<"roteiro">["paradas"][number];
   // 24/10: "Mercado Municipal" sozinho achou a foto de um político; a cidade desfaz a ambiguidade.
   const busca = (p: { lugar: string; foto?: string }) => {
     const q = p.foto || p.lugar;
     return d.cidade && !norm(q).includes(norm(d.cidade)) ? `${q} ${d.cidade}` : q;
   };
+  const texto = (p: Parada) => {
+    const meta = [p.duracao && `⏱ ${p.duracao}`, p.custo != null && (p.custo === 0 ? "grátis" : `≈ R$ ${Math.round(p.custo)}`), p.transporte && `→ ${p.transporte}`].filter(Boolean).join(" · ");
+    return meta ? `${p.descricao}\n${meta}` : p.descricao;
+  };
+  const item = (p: Parada) => `TimelineItem(${s(p.lugar)}, ${s(texto(p))}, ${s(p.hora || "")}, null, ${s(busca(p))})`;
+  // 11/11: viagem de vários dias → uma aba por dia; custo total e quantidade de dias no topo.
+  const dias: { nome: string; paradas: Parada[] }[] = [];
+  for (const p of d.paradas) {
+    const nome = p.dia?.trim() || "";
+    const ultimo = dias[dias.length - 1];
+    if (ultimo && ultimo.nome === nome) ultimo.paradas.push(p);
+    else dias.push({ nome, paradas: [p] });
+  }
+  const variosDias = dias.length > 1 && dias.every((x) => x.nome);
+  const custos = d.paradas.filter((p) => p.custo != null);
+  const custoTotal = custos.reduce((a, p) => a + (p.custo ?? 0), 0);
   const p0 = d.paradas[0];
-  const itens = d.paradas.map((p, i) => `TimelineItem(${s(p.lugar)}, ${s(p.descricao)}, ${s(p.hora || "")}, null${i === 0 ? "" : `, ${s(busca(p))}`})`);
-  return `root = Col([capa, hero, linha${d.dicas.length ? ", dicas" : ""}])
-capa = ImageCard(${s(busca(p0))}, ${s(p0.lugar)}, ${s(p0.descricao)}, ${s(p0.hora ? `Começa às ${p0.hora}` : "Primeira parada")})
-hero = Hero(${s(d.titulo)}, ${s(d.resumo || `${d.paradas.length} paradas${d.cidade ? ` em ${d.cidade}` : ""}`)}, "map-pin", ${s(tomDe(d.titulo))})
-linha = Timeline([${itens.join(", ")}])${d.dicas.length ? `\ndicas = Col([${d.dicas.map((t) => `Callout(${s(t)}, "dica")`).join(", ")}], 2)` : ""}`;
+  const stats = [
+    variosDias ? `Stat("Dias", ${s(String(dias.length))}, "calendar-days")` : "",
+    `Stat("Paradas", ${s(String(d.paradas.length))}, "map-pin")`,
+    custos.length ? `Stat("Por pessoa", ${s(`≈ R$ ${Math.round(custoTotal).toLocaleString("pt-BR")}`)}, "wallet")` : "",
+  ].filter(Boolean);
+  const rotulo = (nome: string) => (nome.split(/[·:–—-]/)[0] || nome).trim().slice(0, 14);
+  const corpo = variosDias
+    ? `Tabs([${dias.map((x) => s(rotulo(x.nome))).join(", ")}], [${dias.map((x) => `Col([${rotulo(x.nome) !== x.nome ? `Text(${s(x.nome)}, "sm", "muted", "medium"), ` : ""}Timeline([${x.paradas.map(item).join(", ")}])], 2)`).join(", ")}])`
+    : `Timeline([${d.paradas.map(item).join(", ")}])`;
+  const titulo = `Col([Title(${s(d.titulo)}, "lg", ${s(tomDe(d.titulo))}), Text(${s(d.resumo || `${d.paradas.length} paradas${d.cidade ? ` em ${d.cidade}` : ""}`)}, "sm", "muted")], 1)`;
+  return `root = Col([capa, ${titulo}, StatRow([${stats.join(", ")}]), roteiro${d.dicas.length ? ", dicas" : ""}])
+capa = ImageCard(${s(busca(p0))}, ${s(p0.lugar)}, ${s(p0.descricao)}, ${s(variosDias ? rotulo(dias[0].nome) : p0.hora ? `Começa às ${p0.hora}` : "Primeira parada")})
+roteiro = ${corpo}${d.dicas.length ? `\ndicas = Section(${s(`Dicas (${d.dicas.length})`)}, [${d.dicas.map((t) => `Callout(${s(t)}, "dica")`).join(", ")}], ${d.dicas.length <= 3}, "lightbulb")` : ""}`;
 }
 
 function programaCronograma(d: Dados<"cronograma">): string {
-  const dias = `[${d.dias.map((dia) => `{dia: ${s(dia.dia)}, itens: [${dia.itens.map((it) => `{hora: ${s(it.hora || "")}, tarefa: ${s(it.tarefa)}}`).join(", ")}]}`).join(", ")}]`;
   const tarefas = d.dias.reduce((a, x) => a + x.itens.length, 0);
-  return `root = Col([hero, StatRow([Stat("Dias", ${s(String(d.dias.length))}, "calendar-days"), Stat("Tarefas", ${s(String(tarefas))}, "list-checks")]), WeekGrid(${dias})${d.nota ? `, Callout(${s(d.nota)}, "dica")` : ""}])
-hero = Hero(${s(d.titulo)}, ${s(`${tarefas} tarefas em ${d.dias.length} dia${d.dias.length > 1 ? "s" : ""}`)}, "calendar-days", ${s(tomDe(d.titulo))})`;
+  const hero = `Hero(${s(d.titulo)}, ${s(`${tarefas} tarefas em ${d.dias.length} dia${d.dias.length > 1 ? "s" : ""}`)}, "calendar-days", ${s(tomDe(d.titulo))})`;
+  const nota = d.nota ? `, Callout(${s(d.nota)}, "dica")` : "";
+  // 11/11: até 3 dias, um cartão por dia com a linha do tempo (lê melhor que a grade da semana);
+  // de 4 a 7, a grade da semana.
+  if (d.dias.length <= 3) {
+    const dia = (x: Dados<"cronograma">["dias"][number]) => `Card([Title(${s(x.dia)}, "md"), Timeline([${x.itens.map((it) => `TimelineItem(${s(it.tarefa)}, ${s(it.duracao ? `⏱ ${it.duracao}` : "")}, ${s(it.hora || "")})`).join(", ")}])], "soft", 3, 2)`;
+    return `root = Col([${hero}, ${d.dias.map(dia).join(", ")}${nota}])`;
+  }
+  const dias = `[${d.dias.map((dia) => `{dia: ${s(dia.dia)}, itens: [${dia.itens.map((it) => `{hora: ${s(it.hora || "")}, tarefa: ${s(it.tarefa + (it.duracao ? ` (${it.duracao})` : ""))}}`).join(", ")}]}`).join(", ")}]`;
+  return `root = Col([${hero}, StatRow([Stat("Dias", ${s(String(d.dias.length))}, "calendar-days"), Stat("Tarefas", ${s(String(tarefas))}, "list-checks"), Stat("Por dia", ${s(String(Math.round(tarefas / d.dias.length)))}, "gauge")]), WeekGrid(${dias})${nota}])`;
 }
 
 /** Os dados validados viram o programa. Pura. */

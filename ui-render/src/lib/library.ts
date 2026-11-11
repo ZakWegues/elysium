@@ -71,9 +71,9 @@ export const library = createLibrary({
     { name: "Play", components: ["Flashcard", "Celebration"] },
     {
       name: "Ely",
-      components: ["Hero", "Stat", "StatRow", "Ring", "Progress", "Timeline", "TimelineItem", "ImageCard", "Callout", "ScoreBar", "Versus", "Avatar", "AvatarRow", "Empty", "WeekGrid", "QuizCard"],
+      components: ["Hero", "Stat", "StatRow", "Ring", "Progress", "Timeline", "TimelineItem", "ImageCard", "Callout", "ScoreBar", "Versus", "Avatar", "AvatarRow", "Empty", "WeekGrid", "QuizCard", "Tabs", "Section"],
       notes: [
-        "- Rich building blocks: start a screen with Hero; metrics in StatRow of Stat; insights in Callout; places, times and steps in Timeline; progress in Ring or Progress; choices side by side in Versus.",
+        "- Rich building blocks, picked by what the content is (not all on every screen): Hero for a cover, StatRow of Stat for key numbers, Callout for a takeaway or warning, Timeline for places, times and steps, Ring or Progress for progress, Versus for choices, Tabs for parallel parts of a long answer, Section for details the user may open.",
       ],
     },
     { name: "Drawing", components: ["Svg", "G", "Circle", "Ellipse", "Rect", "Line", "Path", "Polyline", "Polygon", "SvgText", "HtmlView"] },

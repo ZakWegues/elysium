@@ -149,6 +149,8 @@ export type PedidoGemini = {
   sinal?: AbortSignal;
   /** 26/10: pesquisa no Google antes de responder (grounding); as fontes voltam em `fontes`. */
   buscar?: boolean;
+  /** 11/11: raciocínio baixo nos modelos 3.x (as telas: mais rápido, a qualidade não muda). */
+  pensamento?: "baixo";
 };
 
 export type FonteGemini = { titulo: string; url: string };
@@ -194,6 +196,8 @@ export async function gerarGemini(p: PedidoGemini, busca: Busca = fetch, chave =
         ...(p.esquema ? { responseMimeType: "application/json", responseSchema: p.esquema } : {}),
         // 2.5: sem "pensar" (é o que dá a velocidade; as tarefas aqui não precisam).
         ...(/^gemini-2\.5-flash/.test(modelo) ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
+        // 11/11: o 3.x pensa por padrão; quem pede `pensamento: "baixo"` (as telas) corta isso.
+        ...(p.pensamento === "baixo" && /^gemini-[3-9]/.test(modelo) ? { thinkingConfig: { thinkingLevel: "low" } } : {}),
       },
     };
     const sinais = [AbortSignal.timeout(p.prazoMs ?? 45_000), ...(p.sinal ? [p.sinal] : [])];

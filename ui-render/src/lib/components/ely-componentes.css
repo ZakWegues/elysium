@@ -204,3 +204,24 @@
   background: linear-gradient(135deg, color-mix(in srgb, var(--ely-tom) 22%, transparent), color-mix(in srgb, var(--ely-tom) 6%, transparent));
 }
 .ely-tl-foto:has(.iui-image.is-empty) { display: none; }
+
+/* ── Tabs / Section (11/11) ─────────────────────────────────────────────────────────────── */
+.ely-tabs { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.ely-tabs-barra { display: flex; gap: 4px; padding: 4px; overflow-x: auto; scrollbar-width: none; border-radius: 999px; background: var(--ely-superficie); border: 1px solid var(--ely-linha); }
+.ely-tabs-barra::-webkit-scrollbar { display: none; }
+.ely-tab { flex: 1 0 auto; padding: 7px 14px; border: 0; border-radius: 999px; background: transparent; color: var(--iui-muted); font: inherit; font-size: 13px; font-weight: 550; white-space: nowrap; cursor: pointer; transition: background .2s var(--ely-curva), color .2s var(--ely-curva); }
+.ely-tab:hover { color: var(--iui-ink); }
+.ely-tab.is-ativa { background: var(--iui-accent); color: var(--iui-on-accent); }
+.ely-tabs-painel { display: flex; flex-direction: column; gap: 12px; min-width: 0; animation: ely-tabs-entra .22s var(--ely-curva); }
+@keyframes ely-tabs-entra { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+.ely-secao { border-radius: 14px; background: var(--ely-superficie); border: 1px solid var(--ely-linha); overflow: hidden; }
+.ely-secao-topo { display: flex; align-items: center; gap: 10px; width: 100%; padding: 12px 14px; border: 0; background: transparent; color: var(--iui-ink); font: inherit; text-align: left; cursor: pointer; }
+.ely-secao-icone { display: inline-flex; color: var(--iui-accent); }
+.ely-secao-textos { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
+.ely-secao-titulo { font-weight: 620; }
+.ely-secao-sub { font-size: 12px; color: var(--iui-muted); }
+.ely-secao-seta { color: var(--iui-muted); transition: transform .25s var(--ely-curva); }
+.ely-secao.is-aberta .ely-secao-seta { transform: rotate(180deg); }
+.ely-secao-corpo { display: flex; flex-direction: column; gap: 10px; padding: 0 14px 14px; animation: ely-tabs-entra .22s var(--ely-curva); }
+@media (prefers-reduced-motion: reduce) { .ely-tabs-painel, .ely-secao-corpo { animation: none; } }

@@ -10,7 +10,7 @@ import { Photo } from "./media";
 import { children, color, cx, fg } from "./style";
 
 /**
- * Componentes da Ely (26/10, pedido do Zak: telas "muito mais aprimoradas e completas"). Peças
+ * Componentes da Ely (26/10, pedido do dono: telas "muito mais aprimoradas e completas"). Peças
  * prontas para o que toda tela boa tem: abertura com ícone, números com variação e minigráfico,
  * anel e barra de progresso, linha do tempo com fotos, cartões com foto, avisos, comparação com
  * vencedor, avatares, estado vazio ilustrado, semana e quiz com retorno na hora.
@@ -56,7 +56,7 @@ function Contando({ texto }: { texto: string }) {
 export const Hero = defineComponent({
   name: "Hero",
   props: z.object({ title: z.string(), subtitle: z.string().optional(), icon: z.string().optional(), tone: color.optional() }),
-  description: "Opening band of a screen: icon plate, big title, one-line subtitle, soft gradient. Use one at the top instead of a plain Title.",
+  description: "Opening band: icon plate, big title, one-line subtitle, soft gradient. One way to open a screen (a photo ImageCard, a big Stat or a Title also work).",
   component: ({ props }) => (
     <div className="ely-hero" style={{ ["--ely-tom" as string]: tom(props.tone) }}>
       {props.icon ? <span className="ely-hero-icone"><Glyph name={props.icon} size={22} /></span> : null}
@@ -395,4 +395,51 @@ export const QuizCard = defineComponent({
   },
 });
 
-export const elyComponents = [Hero, Stat, StatRow, Ring, Progress, Timeline, TimelineItem, ImageCard, Callout, ScoreBar, Versus, Avatar, AvatarRow, Empty, WeekGrid, QuizCard];
+// ── Tabs / Section (11/11) ─────────────────────────────────────────────────────────────────
+// Telas longas sem virar um paredão: abas para assuntos paralelos (visão geral, custos, dicas) e
+// seções que abrem e fecham para o que é detalhe.
+export const Tabs = defineComponent({
+  name: "Tabs",
+  props: z.object({ labels: z.array(z.string()), children, initial: z.number().optional() }),
+  description: "Tabs: one label per child panel, in the same order. For 2–5 parallel parts of a long answer (overview, costs, tips; day 1, day 2). Each panel is usually a Col.",
+  component: function TabsView({ props, renderNode }) {
+    const paineis = lista(props.children);
+    const rotulos = (props.labels ?? []).map(str).slice(0, paineis.length);
+    const [i, setI] = useState(() => Math.min(Math.max(0, Math.trunc(num(props.initial) ?? 0)), Math.max(0, rotulos.length - 1)));
+    const atual = Math.min(i, Math.max(0, paineis.length - 1));
+    return (
+      <div className="ely-tabs">
+        <div className="ely-tabs-barra" role="tablist">
+          {rotulos.map((r, k) => (
+            <button key={k} type="button" role="tab" aria-selected={k === atual} className={cx("ely-tab", k === atual && "is-ativa")} onClick={() => setI(k)}>{inline(r)}</button>
+          ))}
+        </div>
+        <div className="ely-tabs-painel" role="tabpanel" key={atual}>{renderNode(paineis[atual])}</div>
+      </div>
+    );
+  },
+});
+
+export const Section = defineComponent({
+  name: "Section",
+  props: z.object({ title: z.string(), children, open: z.boolean().optional(), icon: z.string().optional(), subtitle: z.string().optional() }),
+  description: "Collapsible section: a header that opens and closes its content. For details, FAQs, extra steps or long lists the user may skip. open (default false) starts it open.",
+  component: function SectionView({ props, renderNode }) {
+    const [aberta, setAberta] = useState(!!props.open);
+    return (
+      <div className={cx("ely-secao", aberta && "is-aberta")}>
+        <button type="button" className="ely-secao-topo" aria-expanded={aberta} onClick={() => setAberta((v) => !v)}>
+          {props.icon ? <span className="ely-secao-icone"><Glyph name={props.icon} size={16} /></span> : null}
+          <span className="ely-secao-textos">
+            <span className="ely-secao-titulo">{inline(str(props.title))}</span>
+            {props.subtitle ? <span className="ely-secao-sub">{inline(str(props.subtitle))}</span> : null}
+          </span>
+          <Glyph name="chevron-down" size={16} className="ely-secao-seta" />
+        </button>
+        {aberta ? <div className="ely-secao-corpo">{renderNode(lista(props.children))}</div> : null}
+      </div>
+    );
+  },
+});
+
+export const elyComponents = [Hero, Stat, StatRow, Ring, Progress, Timeline, TimelineItem, ImageCard, Callout, ScoreBar, Versus, Avatar, AvatarRow, Empty, WeekGrid, QuizCard, Tabs, Section];

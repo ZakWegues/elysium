@@ -6,7 +6,7 @@ import { z } from "zod/v4";
  * validado aqui; o host valida o que sai (protocolo.ts tem os dois lados).
  *
  * A tela não fala com a internet: fotos e rotas são pedidas ao host, que busca pelo PC com
- * cache e lista fixa de hosts. Só os tiles do mapa (OpenFreeMap) saem direto — decisão do Zak.
+ * cache e lista fixa de hosts. Só os tiles do mapa (OpenFreeMap) saem direto — decisão do dono.
  */
 
 import { mensagemDoHost, type MensagemDaTela, type MensagemDoHost } from "./protocolo";

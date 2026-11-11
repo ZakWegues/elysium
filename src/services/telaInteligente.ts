@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { semAcento } from "./texto";
-import { lerDados, numerosDaConta, numerosDeFinanciamento, pedidoDosDados, programaConta, programaFinanciamento, programaPronto, semModelo, sistemaDosDados, tipoDeTelaPronta, type TipoComDados, type TipoPronto } from "./telasProntas";
+import { lerDados, numerosDaConta, numerosDeFinanciamento, pedidoDosDados, programaConta, programaFinanciamento, pedidoRico, programaPronto, semModelo, sistemaDosDados, tipoDeTelaPronta, type TipoComDados, type TipoPronto } from "./telasProntas";
 
 /**
  * Telas inteligentes (Fase 2, 22/10) — a resposta da Ely vira uma tela interativa (OpenUI Lang),
@@ -92,6 +92,7 @@ export function pedidoDaTela(pergunta: string, respostaTexto: string): string {
       ? "Monte uma tela interativa (OpenUI Lang) para este pedido do usuário, com o conteúdo da resposta em texto abaixo."
       : "Monte uma tela interativa (OpenUI Lang) que responda a este pedido do usuário.",
     "Responda SÓ com o programa, começando por `root = `. Não use ferramentas.",
+    "Cubra TUDO o que foi pedido e tudo o que está na resposta em texto (todos os itens, dias, passos, números e dicas), no formato que combina com o conteúdo.",
     "",
     `Pedido do usuário: ${pergunta.slice(0, 2000)}`,
     ...(comTexto ? ["", "Resposta em texto da Ely (o conteúdo que a tela deve mostrar, de forma visual e interativa):", respostaTexto.slice(0, 6000)] : []),
@@ -246,8 +247,10 @@ async function gerarTelaCrua(pergunta: string, respostaTexto: string, gerador: G
   });
   const ouCancela = <T>(p: Promise<T>) => (sinal ? Promise.race([p, cancelado]) : p);
   // 24/10: os pedidos comuns têm tela pronta (o modelo só manda os dados, ou nem isso).
-  const tipo = querTelaLivre(pergunta) ? null
+  const candidato = querTelaLivre(pergunta) ? null
     : tipoDeTelaPronta(pergunta) ?? (/\b(disso|isso|dessa|desse)\b/i.test(pergunta) ? tipoDeTelaPronta(respostaTexto) : null);
+  // 11/11: pedido longo e cheio de partes vai ao gerador livre (a pronta tem campos fixos).
+  const tipo = candidato && !pedidoRico(pergunta, candidato) ? candidato : null;
   if (tipo) {
     const pronta = await telaPronta(tipo, pergunta, respostaTexto, gerador, v, ouCancela, registro, sinal);
     if (pronta) return { ...pronta, ms: Date.now() - t0 };
