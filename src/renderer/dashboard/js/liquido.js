@@ -28,8 +28,10 @@ const LQ_BOTOES = [
 // Lentes (perfil "lente", marcadas com data-lq-perfil): o seletor da barra enquanto segurado.
 const LQ_LENTES = "#viewtabs.segurando #vtab-thumb";
 const LQ_ALVOS = `${LQ_PAINEIS}, ${LQ_BOTOES}, ${LQ_LENTES}`;
-/** Filtros vivos no máximo: os maiores visíveis ganham a lente; o resto fica só com o desfoque. */
-const LQ_TETO = 40;
+/** Filtros vivos no máximo (10/11: eram 40): os maiores visíveis ganham a lente; o resto fica só com o desfoque. */
+const LQ_TETO = 14;
+/** 10/11: abaixo disto a lente quase não se vê e custa uma passada de filtro inteira: fica a receita CSS. */
+const LQ_MINIMO = 28;
 /** Força do domo: fração do lado menor (a Glisse usa 0,45; mais intenso desde 05/11),
  *  com teto para as gavetas grandes. A lente dos polegares ganha o mesmo reforço. */
 const LQ_DOMO = 0.62, LQ_DOMO_MAX = 84, LQ_LENTE_GANHO = 1.35;
@@ -258,7 +260,7 @@ const lqTamanho = new ResizeObserver((entradas) => {
  */
 function lqVarrer() {
   const visiveis = [...document.querySelectorAll(LQ_ALVOS)]
-    .filter((el) => el.offsetWidth >= 24 && el.offsetHeight >= 24 && el.getClientRects().length)
+    .filter((el) => (el.dataset.lqPerfil === "lente" || (el.offsetWidth >= LQ_MINIMO && el.offsetHeight >= LQ_MINIMO)) && el.getClientRects().length)
     .sort((a, b) => b.offsetWidth * b.offsetHeight - a.offsetWidth * a.offsetHeight);
   const vivos = new Set(visiveis.slice(0, LQ_TETO));
   for (const el of [...lqFiltros.keys()]) {
@@ -377,6 +379,13 @@ function aplicarVidroLiquido(modo) {
   lqPolegares();
   lqVarrer();
 }
-new MutationObserver(lqPolegares).observe(document.body, { attributes: true, attributeFilter: ["class"] });
+// Os polegares só mudam com o tema (força 0 no Stark).
+let lqTemaPolegares = lqTemaDoBody();
+new MutationObserver(() => {
+  const t = lqTemaDoBody();
+  if (t === lqTemaPolegares) return;
+  lqTemaPolegares = t;
+  lqPolegares();
+}).observe(document.body, { attributes: true, attributeFilter: ["class"] });
 
 window.nx?.getConfig?.().then((c) => aplicarVidroLiquido(c?.vidroLiquido)).catch(() => aplicarVidroLiquido("ligado"));

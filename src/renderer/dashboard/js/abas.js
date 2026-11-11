@@ -150,7 +150,15 @@ document.fonts?.ready.then(() => { esquecerMedidasDaBarra(); moverPolegar(false)
 {
   // 10/11: de mola sempre (encolher/abrir a barra mexe a aba ativa de lugar: sem mola o seletor
   // pulava a cada quadro, "teletransportando").
-  const ro = new ResizeObserver(() => { esquecerMedidasDaBarra(); moverPolegar(true); medirFolgaDaBarra(); });
+  // 10/11: a folga só é medida quando a barra para de mudar de tamanho. Encolhendo ao rolar, a
+  // altura dela anda a cada quadro, e cada valor novo de --fb-* refazia o layout da página inteira.
+  let folgaPendente = 0;
+  const ro = new ResizeObserver(() => {
+    esquecerMedidasDaBarra();
+    moverPolegar(true);
+    clearTimeout(folgaPendente);
+    folgaPendente = setTimeout(medirFolgaDaBarra, 480);
+  });
   ro.observe(document.getElementById("viewtabs"));
   // Uma aba pode mudar de largura sem a barra mudar (rótulo que some, contador novo).
   document.querySelectorAll("#viewtabs .vtab").forEach((el) => ro.observe(el));
@@ -169,6 +177,8 @@ function medirFolgaDaBarra() {
   const novo = { "--fb-t": "", "--fb-b": "", "--fb-l": "", "--fb-r": "" };
   const barra = document.getElementById("viewtabs");
   const layout = document.getElementById("layout");
+  // Encolhida (rolando), a folga fica a da barra aberta: o conteúdo não pula quando ela encolhe.
+  if (document.body.classList.contains("barra-encolhida")) return;
   if (barra && layout && !document.body.classList.contains("barra-fechada")) {
     const b = barra.getBoundingClientRect(), l = layout.getBoundingClientRect();
     if (b.width && b.height) {
@@ -424,10 +434,20 @@ document.getElementById("viewtabs")?.addEventListener("click", (e) => {
 
 // Spotlight nos cards (31/10): a posição do mouse dentro do card vira --mx/--my, e o CSS
 // desenha uma luz fraca ali. Um ouvinte só, no #layout.
-document.getElementById("layout")?.addEventListener("pointermove", (e) => {
-  const card = e.target.closest?.(".home-card, .hoje-painel");
-  if (!card) return;
-  const r = card.getBoundingClientRect();
-  card.style.setProperty("--mx", `${e.clientX - r.left}px`);
-  card.style.setProperty("--my", `${e.clientY - r.top}px`);
-}, { passive: true });
+// 10/11: no máximo uma escrita por quadro (o mouse manda vários eventos por quadro).
+{
+  let ultimo = null, pendente = 0;
+  document.getElementById("layout")?.addEventListener("pointermove", (e) => {
+    const card = e.target.closest?.(".home-card, .hoje-painel");
+    if (!card) return;
+    ultimo = { card, x: e.clientX, y: e.clientY };
+    if (pendente) return;
+    pendente = requestAnimationFrame(() => {
+      pendente = 0;
+      const { card: c, x, y } = ultimo;
+      const r = c.getBoundingClientRect();
+      c.style.setProperty("--mx", `${Math.round(x - r.left)}px`);
+      c.style.setProperty("--my", `${Math.round(y - r.top)}px`);
+    });
+  }, { passive: true });
+}

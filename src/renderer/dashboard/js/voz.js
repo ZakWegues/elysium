@@ -29,6 +29,21 @@ function ligarOndas() { if (!ondasRodando) { ondasRodando = true; requestAnimati
 function acertarFundo() { document.body.classList.toggle("fundo-parado", !focoJanela); }
 window.nx.onFocoJanela?.((f) => { focoJanela = f; acertarFundo(); window.dispatchEvent(new Event("ely-estado")); });
 
+// 10/11: o fundo também para ENQUANTO você mexe (mouse, rolagem, arrasto, teclado) e volta a
+// respirar 1,5 s depois. Ele anda atrás de todos os vidros, e cada quadro dele obrigava cada
+// lente a se refazer — justo quando a fluidez importa. Só muda a classe quando o estado muda.
+{
+  let timer = 0, mexendo = false;
+  const parouDeMexer = () => { mexendo = false; document.body.classList.remove("fundo-mexendo"); };
+  const mexeu = () => {
+    if (!mexendo) { mexendo = true; document.body.classList.add("fundo-mexendo"); }
+    clearTimeout(timer);
+    timer = setTimeout(parouDeMexer, 1500);
+  };
+  for (const tipo of ["pointermove", "pointerdown", "wheel", "keydown"]) document.addEventListener(tipo, mexeu, { passive: true, capture: true });
+  document.addEventListener("scroll", mexeu, { passive: true, capture: true });
+}
+
 // ─────────────────────────────────────────────────
 // STATE MACHINE
 // ─────────────────────────────────────────────────

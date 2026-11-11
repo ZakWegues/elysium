@@ -375,6 +375,9 @@ body.barra-nuvio #layout, #layout { height: 100vh; }
 body.barra-nuvio #chat-mode-tabs { background: transparent !important; border: none !important; backdrop-filter: none !important; box-shadow: none !important; }
 /* A gaveta começa abaixo do topo: o − e o × da janela continuam à vista com ela aberta. */
 #gaveta { top: var(--topo); border-top-left-radius: 16px; }
+/* 10/11: o painel do chat começava com um corte reto logo abaixo do switch IA/Celular; agora o
+   fundo dele nasce num degradê curto. */
+body.barra-nuvio #center { background: linear-gradient(to bottom, transparent, var(--bg) 56px); }
 /* Com a barra de abas no topo, a gaveta começa embaixo dela: o título e o × ficavam tampados (05/11). */
 body.barra-topo #gaveta { top: var(--fb-t); }
 /* Parado, o selo ficava apagado demais sobre o vidro. */

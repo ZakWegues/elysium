@@ -107,12 +107,17 @@ document.addEventListener("pointerdown", (ev) => {
 const FAIXAS = '.cfg-faixa input[type="range"], .pc-vol input[type="range"], .mus-vol input[type="range"]';
 function faixaCheia(el) {
   const min = Number(el.min) || 0, max = Number(el.max) || 100;
-  el.style.setProperty("--cheio", `${((Number(el.value) - min) / (max - min || 1)) * 100}%`);
+  const v = `${((Number(el.value) - min) / (max - min || 1)) * 100}%`;
+  // 10/11: só escreve se mudou (a varredura abaixo roda em toda mudança de DOM com range).
+  if (el.style.getPropertyValue("--cheio") !== v) el.style.setProperty("--cheio", v);
 }
 document.addEventListener("input", (e) => { if (e.target instanceof Element && e.target.matches(FAIXAS)) faixaCheia(e.target); });
 let faixasPendente = 0;
-new MutationObserver(() => {
-  if (faixasPendente) return;
+// 10/11: só quando entra um nó que é ou contém uma faixa — a resposta do chat chegando aos
+// pedaços disparava esta varredura a cada quadro.
+const temFaixa = (nos) => [...nos].some((n) => n.nodeType === 1 && (n.matches(FAIXAS) || n.querySelector(FAIXAS)));
+new MutationObserver((registros) => {
+  if (faixasPendente || !registros.some((r) => temFaixa(r.addedNodes))) return;
   faixasPendente = requestAnimationFrame(() => { faixasPendente = 0; document.querySelectorAll(FAIXAS).forEach(faixaCheia); });
 }).observe(document.body, { childList: true, subtree: true });
 document.querySelectorAll(FAIXAS).forEach(faixaCheia);

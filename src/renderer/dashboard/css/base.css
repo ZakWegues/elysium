@@ -46,7 +46,10 @@
   --border:    rgba(125,94,167,0.22);
   --border2:   rgba(var(--cyan-rgb),0.15);
   --text:      #e8eaf0;
-  --muted:     #5a5d7a;
+  /* 10/11: era #5a5d7a (cinza-azulado opaco), que sumia sobre os fundos quentes/vivos — o texto
+     de apoio do Hoje e da Início ficava ilegível. Agora é o próprio texto do tema, mais fraco:
+     continua abaixo do --text na hierarquia e lê sobre qualquer fundo. */
+  --muted:     color-mix(in srgb, var(--text) 56%, transparent);
   --mono:      "Consolas", "Cascadia Code", monospace;
   --radius-3: 3px; --radius-4: 4px; --radius-5: 5px; --radius-6: 6px;
   --radius-7: 7px; --radius-8: 8px; --radius-9: 9px; --radius-10: 10px;

@@ -132,4 +132,8 @@ body.vivo .aurora-2 { animation-duration: 60s; }
 body.fundo-parado .aurora, body.fundo-parado .lg-blob, body.fundo-parado .bg-traco,
 body.fundo-parado #bg-poeira i, body.fundo-parado .ely-shaft,
 body.fundo-parado #bg-tracos::after, body.fundo-parado .hoje-reator::before,
-body.fundo-parado .orbe-ponto::after { animation-play-state: paused; }
+body.fundo-parado .orbe-ponto::after,
+/* 10/11: parado também enquanto você mexe (voz.js, `fundo-mexendo`). */
+body.fundo-mexendo .aurora, body.fundo-mexendo .lg-blob, body.fundo-mexendo .bg-traco,
+body.fundo-mexendo #bg-poeira i, body.fundo-mexendo .ely-shaft,
+body.fundo-mexendo #bg-tracos::after { animation-play-state: paused; }
