@@ -14,7 +14,7 @@ import { getConfig, getGithubToken } from "../main/config";
  * instalador, `ZakWegues/elysium-m` com o APK). O PC confere de tempos em tempos, baixa
  * sozinho o que for novo e:
  *
- * - **desktop**: instala quando o Zak pedir — o instalador roda em silêncio (`/S`) e o
+ * - **desktop**: instala quando o dono pedir — o instalador roda em silêncio (`/S`) e o
  *   próprio NSIS reabre o app (`--force-run`). Não instala sozinho porque o app vive na
  *   bandeja e quase nunca fecha; "instalar ao sair" nunca aconteceria, e instalar sem
  *   perguntar derrubaria uma conversa no meio.
@@ -369,7 +369,7 @@ export async function verificarAtualizacoes(): Promise<EstadoAtualizacao> {
 // O SHA-256 confere o download contra o próprio GitHub — protege de arquivo corrompido, não
 // de uma release maliciosa: quem publicasse no repositório rodaria código aqui, de
 // madrugada. Desde a 1.6.0 o instalador sai assinado pelo certificado que mora SÓ neste PC
-// (`CN=ELYSIUM (Zak)`, em Cert:\CurrentUser\My; backup no scripts/backup-chaves.ps1), e o
+// (`CN=ELYSIUM (o dono)`, em Cert:\CurrentUser\My; backup no scripts/backup-chaves.ps1), e o
 // atualizador só roda o que tiver essa assinatura.
 //
 // Autoassinado, então o Windows responde "UnknownError" (a raiz não é confiada) e não

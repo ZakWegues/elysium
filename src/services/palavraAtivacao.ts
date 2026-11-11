@@ -19,7 +19,7 @@ import { spawn, ChildProcess } from "node:child_process";
  * inicial, 4 s de "falatório" no máximo) e escreve uma linha por tentativa. Só vale
  * confiança **High** ou **Medium**: "Low" é o reconhecedor chutando a frase mais parecida
  * com qualquer barulho. Desligado por padrão — é o microfone sempre aberto, e isso é
- * escolha do Zak, em Ajustes → Voz.
+ * escolha do dono, em Ajustes → Voz.
  *
  * Três detalhes da ponte PowerShell ↔ WinRT que custaram tentativas (ficam no script):
  * `IAsyncOperation` vira Task pelo `AsTask` genérico por reflexão; o construtor da lista

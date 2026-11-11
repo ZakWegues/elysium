@@ -5,7 +5,7 @@ import { ouvirEventos } from "./eventos";
  * Modo foco (C9 do catálogo, fase 12).
  *
  * N minutos em que os programas de distração da lista viram aviso — "Discord aberto, faltam
- * 18 min" — e, se o Zak pediu, são fechados. A decisão que ficou aberta no plano da §19
+ * 18 min" — e, se o dono pediu, são fechados. A decisão que ficou aberta no plano da §19
  * ("fechar o processo ou só avisar?") foi: **avisar por padrão**. Fechar à força perde
  * trabalho não salvo; quem quer o rigor liga "fechar" ao começar.
  *

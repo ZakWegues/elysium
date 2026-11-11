@@ -149,7 +149,7 @@ export function buildMemoryBlock(pedido = ""): string {
 
 // ── Sugestões (bloco 118) ─────────────────────────────────────────────────────
 //
-// O cérebro propõe, o Zak decide: um fato só entra na memória com "guardar". Recusado não
+// O cérebro propõe, o dono decide: um fato só entra na memória com "guardar". Recusado não
 // volta a ser sugerido (a lista de recusados guarda o texto normalizado).
 
 const MAX_SUGESTOES = 10;

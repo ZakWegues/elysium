@@ -3,7 +3,7 @@ import * as path from "node:path";
 import { inputHost } from "../services/inputHost";
 
 /**
- * Atalho de seleção (fase 23, pedido do Zak): Ctrl+Shift+E em qualquer programa pega o texto
+ * Atalho de seleção (fase 23, pedido do dono): Ctrl+Shift+E em qualquer programa pega o texto
  * selecionado e abre uma janelinha perto do cursor com os comandos de IA (resumir, traduzir,
  * corrigir, explicar e os do usuário — `comandos.list`). O resultado tem Copiar e Colar de volta.
  *

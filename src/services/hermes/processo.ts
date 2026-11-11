@@ -7,7 +7,7 @@ import * as path from "node:path";
 /**
  * O `hermes serve` que o ELYSIUM sobe para si (fase 21, bloco 213).
  *
- * Por que um servidor PRÓPRIO, e não o que o Zak já usa: o WebSocket do `hermes serve` só aceita
+ * Por que um servidor PRÓPRIO, e não o que o dono já usa: o WebSocket do `hermes serve` só aceita
  * o token de sessão do processo (`HERMES_DASHBOARD_SESSION_TOKEN`, ou um aleatório por partida),
  * e esse token só o processo conhece. Subindo o nosso, o token é nosso; e o `--isolated` com
  * `-p default` usa o perfil do próprio dono (19/10): sessões e memória em comum com o Hermes dele.
@@ -17,7 +17,7 @@ import * as path from "node:path";
  */
 
 /**
- * 19/10: o perfil do próprio dono ("default"), não mais um `ely` separado — o Zak quer um Hermes
+ * 19/10: o perfil do próprio dono ("default"), não mais um `ely` separado — o dono quer um Hermes
  * só, com as conversas do ELYSIUM e as dele no mesmo lugar.
  */
 export const PERFIL_PADRAO = "default";

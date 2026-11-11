@@ -18,8 +18,8 @@ describe("palavra de ativação — o que acorda", () => {
 describe("interromper a fala dizendo Elysium (fase 12)", async () => {
   const { podeInterromper } = await import("../src/services/palavraAtivacao");
   it("confiança alta ou média (19/10)", () => {
-    expect(podeInterromper("High", "Em São Paulo, 22 graus.")).toBe(true);
-    expect(podeInterromper("Medium", "Em São Paulo, 22 graus.")).toBe(true);
+    expect(podeInterromper("High", "Em Recife, 22 graus.")).toBe(true);
+    expect(podeInterromper("Medium", "Em Recife, 22 graus.")).toBe(true);
   });
   it("nunca quando a própria fala diz o nome", () => {
     expect(podeInterromper("High", "Eu sou o ELYSIUM, seu assistente.")).toBe(false);

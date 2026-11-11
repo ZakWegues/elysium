@@ -14,7 +14,7 @@ import { semAcento } from "./texto";
  *  - "que saco"/"que droga" sim, "saco de lixo" não.
  *
  * 🔴 O humor vive só no pedido atual. Nunca vai para a memória: a extração de fatos
- * (`aprendizado.ts`) já descarta estados passageiros, e guardar "o Zak estava triste dia 8"
+ * (`aprendizado.ts`) já descarta estados passageiros, e guardar "o dono estava triste dia 8"
  * seria exatamente o tipo de coisa que ninguém quer ver lembrado depois.
  */
 

@@ -4,7 +4,7 @@ import { listarRotinas, salvarRotina, type Rotina } from "./rotinas";
 import { semAcento } from "./texto";
 
 /**
- * Rotinas aprendidas (31/10): a Ely nota o que o Zak pede quase todo dia na mesma hora e
+ * Rotinas aprendidas (31/10): a Ely nota o que o dono pede quase todo dia na mesma hora e
  * oferece virar rotina — "Você costuma pedir “abre o Spotify” por volta das 22h".
  *
  * Fonte: a linha do tempo (`atividade.ts`, 7 dias), só os itens com o `pedido` original (é ele

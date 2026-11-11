@@ -95,7 +95,7 @@ async function seguro<T>(fn: () => Promise<T> | T, padrao: T): Promise<T> {
 }
 
 /**
- * A frase do Hoje com gente por trás (fase 17, 08/10): o Zak gostou da página, mas a linha
+ * A frase do Hoje com gente por trás (fase 17, 08/10): o dono gostou da página, mas a linha
  * "Sistemas no ar. Dois lembretes…" soava como relatório de máquina. A Ely escreve duas
  * frases a partir dos FATOS do painel — o que importa hoje, com calor e sem inventar.
  * Cache de 20 min pela impressão digital dos fatos: abrir a aba de novo não chama o modelo.
@@ -203,7 +203,7 @@ export async function montarPainelHoje(agora = new Date()): Promise<PainelHoje> 
     lembretes, tarefas, timers, listas, habitos, metas, proximaRotina, rotinasHoje, rotinasRodaram, alertas,
   };
   const fatos = fatosDoDia(base, agora);
-  // Treino e nutrição ficam fora do Hoje (o Zak, 08/10): os dados estão no corpo.json e a Ely
+  // Treino e nutrição ficam fora do Hoje (o dono, 08/10): os dados estão no corpo.json e a Ely
   // responde quando ele pergunta (ferramentas treino_de_hoje, ver_meta_calorias).
   const [frase, ideia, elysium] = await Promise.all([
     fraseHumana(base, reserva, tratamento, agora),

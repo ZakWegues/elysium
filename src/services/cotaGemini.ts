@@ -3,7 +3,7 @@ import * as path from "node:path";
 import { app } from "electron";
 
 /**
- * A cota do Gemini no plano gratuito (26/10, pedido do Zak: avisar quando a voz ou a cota geral
+ * A cota do Gemini no plano gratuito (26/10, pedido do dono: avisar quando a voz ou a cota geral
  * estiver acabando). O Google não tem API que diga quanto sobra: aqui se CONTA o uso de cada modelo
  * no dia do Google (vira à meia-noite do Pacífico — 4 ou 5 h no Brasil), e o LIMITE se aprende do
  * próprio 429 (o erro traz `quotaValue`). O Hermes chama o Gemini por conta própria; o uso dele

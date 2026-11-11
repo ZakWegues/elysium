@@ -69,7 +69,7 @@ if ($keytool -and $senha) {
 # usuário; o .pfx é a única forma de levá-lo para outro PC. Sem ele, uma reinstalação do
 # Windows faz toda versão nova ser recusada pelo atualizador. A senha é pedida aqui e não
 # fica gravada em lugar nenhum — anote-a junto do pendrive.
-$cert = Get-ChildItem Cert:\CurrentUser\My -CodeSigningCert | Where-Object { $_.Subject -eq "CN=ELYSIUM (Zak)" } | Select-Object -First 1
+$cert = Get-ChildItem Cert:\CurrentUser\My -CodeSigningCert | Where-Object { $_.Subject -eq "CN=ELYSIUM (o dono)" } | Select-Object -First 1
 if ($cert -and -not $SemPfx) {
   $senhaPfx = Read-Host "Senha para proteger o certificado (.pfx)" -AsSecureString
   $destPfx = Join-Path $Destino "elysium-codesign.pfx"

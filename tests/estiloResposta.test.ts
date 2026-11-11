@@ -65,7 +65,7 @@ describe("fala por frase (02/10)", async () => {
   it("curta inteira; longa em pedaços de frases inteiras, sem sobra minúscula", () => {
     expect(dividirEmFrases("Pronto, abri o Spotify.")).toEqual(["Pronto, abri o Spotify."]);
     expect(dividirEmFrases("   ")).toEqual([]);
-    const longa = "Hoje faz 24 graus em São Paulo, com sol a tarde toda e vento fraco. " +
+    const longa = "Hoje faz 24 graus em Recife, com sol a tarde toda e vento fraco. " +
       "À noite esfria um pouco, chegando a 17 graus, e não deve chover. " +
       "Amanhã a previsão é parecida, só um pouco mais quente, com máxima de 27 graus no fim da tarde. " +
       "No fim de semana deve chover um pouco no sábado, mas o domingo volta a abrir. Ok.";

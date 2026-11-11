@@ -7,7 +7,7 @@ import { semAcento } from "./texto";
  * Comandos de IA sobre um texto (bloco 137) — o que mais se elogia no Raycast: copiar um
  * parágrafo, escolher "Corrigir" e colar o resultado, sem abrir conversa nenhuma.
  *
- * Os de fábrica cobrem o dia a dia; o Zak cria os dele (nome + instrução) e eles ficam
+ * Os de fábrica cobrem o dia a dia; o dono cria os dele (nome + instrução) e eles ficam
  * aqui, nos dados do app. Roda no modelo local da conversa e, se ele falhar, na Groq.
  * O modelo devolve SÓ o texto transformado — sem "Aqui está:", sem aspas — porque o
  * resultado vai direto para a área de transferência.

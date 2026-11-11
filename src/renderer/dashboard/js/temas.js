@@ -119,7 +119,7 @@ function applyTheme(id) {
   renderThemeSwatches();
 }
 
-// ── Fundo (30/10): o animado do tema, um papel colorido ou uma imagem do Zak ──
+// ── Fundo (30/10): o animado do tema, um papel colorido ou uma imagem do dono ──
 const PAPEIS = { nebulosa: "Nebulosa", "por-do-sol": "Pôr do sol", oceano: "Oceano" };
 let fundoAtual = { tipo: "animado" };
 

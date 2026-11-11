@@ -33,7 +33,7 @@ function sem(t: string): string {
  * "sim", "pode", "confirma"… Pura.
  *
  * 19/10: antes só valia a frase inteira, e "sim, pode baixar tudo" virava pedido novo — o modelo
- * tentava de novo, pedia licença de novo, e o Zak ficou num laço de permissões baixando arquivos
+ * tentava de novo, pedia licença de novo, e o dono ficou num laço de permissões baixando arquivos
  * do Classroom. Agora:
  *  - "sim…" vale com o que vier depois ("sim, pode baixar"), menos "sim, mas antes…";
  *  - "pode…", "manda…", "ok…" valem com até duas palavras depois ("pode baixar", "pode sim"), ou

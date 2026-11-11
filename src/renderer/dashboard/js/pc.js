@@ -10,7 +10,7 @@
 // ─────────────────────────────────────────────────
 //
 // Terceira encarnação desta aba. Nasceu "PC" com gráficos que não levavam a lugar nenhum,
-// virou "Programas" (só o que se faz com o PC) e agora volta a ser "PC" com o que o Zak
+// virou "Programas" (só o que se faz com o PC) e agora volta a ser "PC" com o que o dono
 // pediu no bloco 66: "coloque tudo o que tem no mobile no desktop". São os painéis da aba
 // PC do celular (bloco 56) — Programas, Processos, Energia, Transferência, Lembretes,
 // Memória, Monitor — menos espelho e trackpad, que não fazem sentido no próprio PC, e mais

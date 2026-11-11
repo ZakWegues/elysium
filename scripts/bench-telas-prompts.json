@@ -17,7 +17,7 @@
   { "id": "arcade", "origem": "oiu", "prompt": "Faz um joguinho de arcade retrô que eu possa jogar aqui" },
   { "id": "juros", "origem": "ely", "prompt": "Faz uma calculadora de juros de financiamento" },
   { "id": "flashcards", "origem": "ely", "prompt": "Me dá flashcards de bioquímica sobre enzimas" },
-  { "id": "sabado", "origem": "ely", "prompt": "Planeja meu sábado em São Paulo com um mapa" },
+  { "id": "sabado", "origem": "ely", "prompt": "Planeja meu sábado em Recife com um mapa" },
   { "id": "notebooks", "origem": "ely", "prompt": "Compara três notebooks para estudar numa tabela" },
   { "id": "gastos", "origem": "ely", "prompt": "Me mostra num gráfico gastos do mês de exemplo: moradia, mercado, transporte, lazer e saúde" },
   { "id": "estudo-semana", "origem": "ely", "prompt": "Monta um cronograma de estudos para a semana de provas" },

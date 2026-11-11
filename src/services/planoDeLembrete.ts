@@ -2,7 +2,7 @@ import { semAcento } from "./texto";
 /**
  * Como a Ely transforma "me lembra da prova sexta" em avisos (fase 17, 08/10).
  *
- * O Zak pediu três coisas:
+ * O dono pediu três coisas:
  *  - sem hora dita, o lembrete é às **16h** (antes o modelo chutava meia-noite ou 9h);
  *  - para COMPROMISSO (prova, consulta, entrevista, viagem…), avisar também **na véspera**,
  *    às 16h — dá tempo de se preparar;
@@ -28,7 +28,7 @@ export function ehCompromisso(texto: string): boolean {
 /**
  * "2026-10-09" → 09/10 às 16h, sem hora; "2026-10-09T15:00" → com hora (horário local).
  * `semHora` força o padrão mesmo com hora no texto (o modelo às vezes manda T00:00 ou T09:00
- * quando o Zak não disse hora nenhuma). Null = data que não se entende.
+ * quando o dono não disse hora nenhuma). Null = data que não se entende.
  */
 export function interpretarQuando(quando: string, semHora = false): { ms: number; temHora: boolean } | null {
   const t = quando.trim();
@@ -173,7 +173,7 @@ export function horaDoTexto(texto: string): { h: number; m: number; ambigua?: bo
 }
 
 /**
- * Corrige o `quando` do modelo pelo que o Zak FALOU. "daqui a N minutos" fica com o modelo
+ * Corrige o `quando` do modelo pelo que o dono FALOU. "daqui a N minutos" fica com o modelo
  * (é conta de relógio, o PC já calcula). Sem dia no texto, o dia do modelo fica; sem hora
  * no texto, vale a hora padrão (16h). Pura.
  */

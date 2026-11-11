@@ -4,7 +4,7 @@ import { semAcento } from "./texto";
 /**
  * Respostas rápidas (22/10) — os botões embaixo da última resposta da Ely, como os de escolha
  * do Claude: quando ela pergunta algo, um toque responde (Sim, Não, as opções que ela mesma
- * ofereceu) e o "Outra resposta…" foca a caixa de texto. Mais as respostas prontas do Zak,
+ * ofereceu) e o "Outra resposta…" foca a caixa de texto. Mais as respostas prontas do dono,
  * editáveis nos Ajustes.
  *
  * Tudo por regra, sem modelo: sai junto da resposta, sem atraso. O clique vira mensagem normal

@@ -7,7 +7,7 @@ import { semAcento } from "./texto";
  * Rotinas — automações agendadas — e a fila de entregas para o celular.
  *
  * O pedido (bloco 68): "todo dia me mandar tal coisa". Uma rotina é um texto que o
- * ELYSIUM executa numa hora, em certos dias, como se o Zak tivesse falado — passa pelo
+ * ELYSIUM executa numa hora, em certos dias, como se o dono tivesse falado — passa pelo
  * mesmo `executarComando` do chat e da voz, então vale qualquer coisa que já funciona
  * ali: "como está o tempo", "abre o Spotify", "roda o preset trabalho", "quais são os
  * meus lembretes de hoje". A resposta vira notificação no PC (e fala, se pedido) e vai
@@ -260,7 +260,7 @@ let rodando = false;
  * Executa uma rotina agora (pelo tique, por evento ou pelo botão "rodar agora").
  *
  * `forcar` pula a condição — é o botão "rodar agora": quem clica quer ver o resultado.
- * Condição falsa registra "Condição não valeu" sem entregar: o Zak vê no histórico que a
+ * Condição falsa registra "Condição não valeu" sem entregar: o dono vê no histórico que a
  * rotina olhou e decidiu não agir, em vez de achar que ela não rodou.
  */
 export async function executarRotina(id: string, opcoes: { forcar?: boolean; contexto?: string } = {}): Promise<string> {

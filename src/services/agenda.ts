@@ -13,7 +13,7 @@ import { cifrarTexto, decifrarTexto, getGoogleCliente } from "../main/config";
  * não precisa de mais uma rota sem token. Escopo `calendar.readonly`: o ELYSIUM lê, nunca
  * cria nem apaga evento.
  *
- * O cliente OAuth (ID + segredo) é do Zak, criado no Google Cloud dele; mora no
+ * O cliente OAuth (ID + segredo) é do dono, criado no Google Cloud dele; mora no
  * `elysium-config.json` ao lado da chave da Groq, fora dos `overrides` (não vai no backup).
  * O refresh token mora em `agenda.json`. Sem cliente configurado, tudo aqui fica quieto.
  */
@@ -39,7 +39,7 @@ function base64url(b: Buffer): string {
   return b.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
-/** Abre o navegador para o Zak autorizar; resolve quando o Google devolver o código (ou em 5 min). */
+/** Abre o navegador para o dono autorizar; resolve quando o Google devolver o código (ou em 5 min). */
 export async function conectarAgenda(): Promise<{ ok: boolean; mensagem: string }> {
   const { id, segredo } = getGoogleCliente();
   if (!id || !segredo) return { ok: false, mensagem: "Falta o cliente OAuth do Google (Ajustes → Google Agenda)." };

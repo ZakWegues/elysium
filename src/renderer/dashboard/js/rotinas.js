@@ -9,7 +9,7 @@
 // ABA ROTINAS
 // ─────────────────────────────────────────────────
 //
-// Uma rotina é um texto que o ELYSIUM executa numa hora, em certos dias, como se o Zak
+// Uma rotina é um texto que o ELYSIUM executa numa hora, em certos dias, como se o dono
 // tivesse falado — e a resposta vira notificação no PC e/ou entrega para o celular. O
 // serviço mora em src/services/rotinas.ts; aqui é só a tela. Os lembretes da coluna da
 // direita reaproveitam o painel da aba PC (mesmo HTML, mesmos ouvintes).
@@ -20,7 +20,7 @@ const DIAS_LONGOS = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
 /**
  * Modelos prontos (fase 16): as rotinas que mais se elogiam em assistentes (o "bom dia"
  * da Alexa, o fim de expediente, a hora de dormir). Um toque abre o formulário já
- * preenchido — nada é criado sem o Zak salvar.
+ * preenchido — nada é criado sem o dono salvar.
  */
 const ROTINAS_MODELO = [
   { nome: "Briefing da manhã", texto: "me dá o resumo do dia", hora: "07:30", dias: [1, 2, 3, 4, 5], falar: true, entregar: ["pc", "celular"] },

@@ -20,7 +20,7 @@ const vtabs = document.querySelectorAll(".vtab");
 const VIEW_KEY = "elysium_view";
 
 /**
- * 31/10 — o seletor "gelatina" da barra (o do celular, que o Zak achou perfeito). Cada BORDA
+ * 31/10 — o seletor "gelatina" da barra (o do celular, que o dono achou perfeito). Cada BORDA
  * do seletor é uma mola própria: a borda que vai na frente é mais dura e chega antes, a de
  * trás é mais mole e chega depois — o seletor estica no caminho e volta a ter o tamanho da
  * aba ao chegar, com um balanço pequeno. Tudo num laço de `requestAnimationFrame` que para

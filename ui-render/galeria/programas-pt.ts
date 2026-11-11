@@ -31,7 +31,7 @@ c4 = Flashcard("Cofator × coenzima", "Cofator: íon inorgânico (Mg²⁺, Zn²�
     id: "pt-roteiro",
     title: "Roteiro com mapa",
     note: "Map com rota pelas ruas (pedida ao host), filtro por categoria e pino escolhido em $parada.",
-    code: `root = Col([Title("Sábado no centro de São Paulo", "md"), Text("Toque num pino para escolher por onde começar.", "sm", "muted"), mapa, Card([Row([Icon("map-pin", "sm"), Text("Começando em **" + $parada + "**", "sm")], 2)], "soft", 3)])
+    code: `root = Col([Title("Sábado no centro de Recife", "md"), Text("Toque num pino para escolher por onde começar.", "sm", "muted"), mapa, Card([Row([Icon("map-pin", "sm"), Text("Começando em **" + $parada + "**", "sm")], 2)], "soft", 3)])
 $parada = "Pinacoteca"
 mapa = Map([m1, m2, m3, m4], true, $parada)
 m1 = MapMarker("Pinacoteca", -23.5343, -46.6339, "Museus", "🏛️")

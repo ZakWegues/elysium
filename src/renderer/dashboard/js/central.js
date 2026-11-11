@@ -1,6 +1,6 @@
 // dashboard/js/central.js — Central de controle e gaveta das Rotinas (fase 23).
 //
-// A aba PC e a aba Rotinas saíram da barra. O Zak pediu "um centrozinho de controle" com os
+// A aba PC e a aba Rotinas saíram da barra. O dono pediu "um centrozinho de controle" com os
 // apps favoritos em destaque, e as rotinas numa gaveta com botão próprio no topo (não no
 // Hoje). As duas são gavetas da mesma `abrirGaveta` de Ajustes: #view-pc e #view-rotinas
 // inteiras são emprestadas à gaveta enquanto ela está aberta (com os ouvintes delas) — por

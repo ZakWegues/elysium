@@ -43,3 +43,6 @@ HANDOFF.md
 # precisa das deps do ui-render). A galeria é só de dev.
 !ui-render/dist/
 ui-render/dist/galeria.html
+
+# Uso diário do Gemini (estado local, não vai para o git)
+cota-gemini.json

@@ -2,10 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
  * A Open-Meteo é substituída por um `fetch` falso com a resposta que a API real deu em
- * 18/09/2026 para São Paulo (recortada). O que se testa é o PARSE e a frase falada — a
+ * 18/09/2026 para Recife (recortada). O que se testa é o PARSE e a frase falada — a
  * parte que quebra em silêncio quando a API muda um campo.
  */
-const config = { climaCidade: "São Paulo", climaLat: -23.55, climaLon: -46.63 };
+const config = { climaCidade: "Recife", climaLat: -8.05, climaLon: -34.88 };
 vi.mock("../src/main/config", () => ({ getConfig: () => config }));
 
 const resposta = {
@@ -66,7 +66,7 @@ describe("clima — parse", () => {
     expect(await m.climaAgora()).toBeNull();
     expect(m.motivoDaFalha()).toBe("sem-cidade");
     expect(fetch).not.toHaveBeenCalled();
-    config.climaCidade = "São Paulo";
+    config.climaCidade = "Recife";
   });
 
   it("usa o cache por uma hora", async () => {
@@ -80,13 +80,13 @@ describe("clima — parse", () => {
 describe("clima — a frase falada (ação weather)", () => {
   it("diz cidade, temperatura, máx/mín, a chuva mais próxima e o amanhã", async () => {
     const frase = await (await carregar()).climaFalado();
-    expect(frase).toBe("Em São Paulo, 22 graus e nublado. Máxima de 22, mínima de 14. Chuva por volta das 16 horas. Amanhã, 26 de máxima e 15 de mínima.");
+    expect(frase).toBe("Em Recife, 22 graus e nublado. Máxima de 22, mínima de 14. Chuva por volta das 16 horas. Amanhã, 26 de máxima e 15 de mínima.");
   });
 
   it("explica quando falta cidade e quando falta rede", async () => {
     config.climaCidade = "";
     expect(await (await carregar()).climaFalado()).toMatch(/defina em Ajustes/);
-    config.climaCidade = "São Paulo";
+    config.climaCidade = "Recife";
     vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("offline"); }));
     expect(await (await carregar()).climaFalado()).toMatch(/sem internet/);
   });

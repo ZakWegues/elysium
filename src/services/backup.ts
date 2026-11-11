@@ -14,7 +14,7 @@ import { importarModos, modosParaBackup, type Modo } from "./modos";
 import { importarCartoes, listarCartoes, type Cartao } from "./cartoes";
 
 /**
- * Exportar e importar tudo o que é do Zak (bloco 96) — o seguro contra formatar o PC.
+ * Exportar e importar tudo o que é do dono (bloco 96) — o seguro contra formatar o PC.
  *
  * Vai: memória, lembretes pendentes, presets, rotinas, conversas com a IA e os ajustes.
  * **Não vai, de propósito**: a chave da Groq e o token do servidor (segredos; o arquivo de

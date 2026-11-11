@@ -374,7 +374,7 @@ const CARDS = {
     },
   },
 
-  // Memória que aprende (fase 13): o que o cérebro percebeu numa conversa, para o Zak decidir.
+  // Memória que aprende (fase 13): o que o cérebro percebeu numa conversa, para o dono decidir.
   aprendi: {
     titulo: "Aprendi isto", icone: "bookmark", span: 1, precisa: ["aprendi"],
     render: (d) => {
@@ -411,7 +411,7 @@ const CARDS = {
     },
   },
 
-  // Fase 12: o que está quebrado antes de o Zak descobrir falando com o assistente.
+  // Fase 12: o que está quebrado antes de o dono descobrir falando com o assistente.
   saude: {
     titulo: "Saúde do ELYSIUM", icone: "activity", span: 1, precisa: ["saude"],
     render: (d) => {

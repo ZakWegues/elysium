@@ -372,7 +372,7 @@ export function registrarFalaDaEly(texto: string): void {
  */
 /**
  * Tira do histórico ESTE turno (07/10, revisão): a pergunta e a resposta dele, procurando de
- * trás para frente. O "Parar" do celular fecha a conexão, mas o PC termina de gerar; se o Zak
+ * trás para frente. O "Parar" do celular fecha a conexão, mas o PC termina de gerar; se o dono
  * já tiver mandado outra pergunta, o `desfazerUltimoTurno` tiraria a pergunta NOVA e deixaria
  * a resposta velha no lugar dela.
  */

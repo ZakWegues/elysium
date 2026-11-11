@@ -2,7 +2,7 @@ import Store from "electron-store";
 import { semAcento } from "./texto";
 
 /**
- * Listas que o PC e o celular dividem — compras, tarefas e o que mais o Zak criar (bloco
+ * Listas que o PC e o celular dividem — compras, tarefas e o que mais o dono criar (bloco
  * 135). É o que se elogia na Alexa: "põe leite na lista" de qualquer lugar e a lista está
  * no celular na hora do mercado.
  *
@@ -82,7 +82,7 @@ export function pedidoDeLista(texto: string): { itens: string[]; lista: string }
 
 /**
  * "Anota que a reunião mudou para quinta" → item na lista Notas (02/10). Diferente de
- * "lembra que…" (memória): a nota é para o Zak reler, a Ely não a usa como fato sobre ele.
+ * "lembra que…" (memória): a nota é para o dono reler, a Ely não a usa como fato sobre ele.
  * Pura.
  */
 export function pedidoDeNota(texto: string): string | null {

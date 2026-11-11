@@ -1,6 +1,6 @@
 // dashboard/js/cantos.js — painéis retráteis nos cantos do Chat (fase 23).
 //
-// Pedido do Zak: "um painel com os negócios, informações do PC nos cantos do chat… eles
+// Pedido do dono: "um painel com os negócios, informações do PC nos cantos do chat… eles
 // devem ser retráteis". À esquerda, os vitais do PC (CPU e RAM com faísca, disco, temperatura);
 // à direita, o que está tocando e o volume. Fechado, cada um vira uma alça fina na borda.
 // O estado aberto/fechado fica salvo; com a janela estreita os dois somem (CSS).

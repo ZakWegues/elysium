@@ -13,10 +13,10 @@ describe("telas no celular: quando sai (22/10)", () => {
   beforeEach(() => zerarTelasDoCelular());
 
   it("perguntar: a oferta vai no fim do texto e o 'sim' monta a tela da resposta anterior", () => {
-    const d = depoisDaResposta("planeja meu sábado em São Paulo", "Manhã na Pinacoteca…", true, "perguntar", true);
+    const d = depoisDaResposta("planeja meu sábado em Recife", "Manhã na Pinacoteca…", true, "perguntar", true);
     expect(d.reply.endsWith(OFERTA)).toBe(true);
     expect(d.gerar).toBe(false);
-    expect(atalhoDeTela("sim", false, "perguntar", true)).toEqual({ pergunta: "planeja meu sábado em São Paulo", resposta: "Manhã na Pinacoteca…", daOferta: true });
+    expect(atalhoDeTela("sim", false, "perguntar", true)).toEqual({ pergunta: "planeja meu sábado em Recife", resposta: "Manhã na Pinacoteca…", daOferta: true });
     // A oferta é de uma vez só.
     expect(atalhoDeTela("sim", false, "perguntar", true)).toBeNull();
   });

@@ -2,7 +2,7 @@ import Store from "electron-store";
 import { searchWeb } from "./webSearch";
 
 /**
- * Novidades do dia (fase 23, pedido do Zak): IA, cinema e YouTube/tecnologia no briefing, para ele
+ * Novidades do dia (fase 23, pedido do dono): IA, cinema e YouTube/tecnologia no briefing, para ele
  * se atualizar sem procurar. Uma pesquisa por assunto, uma vez por dia (o "dia" vira às 6h), pelo
  * `searchWeb` — que vai pelo Hermes quando ele é o cérebro e cai na Groq se não der.
  *

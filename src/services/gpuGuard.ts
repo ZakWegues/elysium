@@ -7,7 +7,7 @@ import * as path from "node:path";
  *
  * O PROBLEMA
  *
- * Esta é a mesma máquina em que o Zak joga. São 8 GB de VRAM; o `llama3.2` ocupa ~2,6 GB
+ * Esta é a mesma máquina em que o dono joga. São 8 GB de VRAM; o `llama3.2` ocupa ~2,6 GB
  * enquanto está carregado. Um comando de voz durante o jogo carregaria o modelo bem na
  * hora em que a GPU está mais disputada — e o sintoma seria queda de quadros num jogo,
  * culpa que ninguém associaria ao assistente de voz.

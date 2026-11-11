@@ -12,7 +12,7 @@ import { diaDe } from "./habitos";
  * responder: a página nunca fica com um buraco. Cache em memória — abrir a aba de novo não
  * chama o modelo; reiniciar o PC gera outra, o que é aceitável.
  *
- * Também guarda o checklist "Para testar" do card ELYSIUM (o que o Zak marcou como testado
+ * Também guarda o checklist "Para testar" do card ELYSIUM (o que o dono marcou como testado
  * em cada versão).
  */
 

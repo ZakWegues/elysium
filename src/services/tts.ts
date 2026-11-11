@@ -16,7 +16,7 @@ import type { Humor } from "./humor";
 import { duracaoDoMp3, Palavra, palavrasDoMetadado, palavrasPeloTexto } from "./bolota";
 
 // 13/10: a Thalita Multilingual é a geração mais nova das vozes pt-BR do Edge (a Francisca é a
-// antiga) — o Zak achou a voz "estranha" e pediu a melhor possível.
+// antiga) — o dono achou a voz "estranha" e pediu a melhor possível.
 const VOICE = "pt-BR-ThalitaMultilingualNeural";
 const TTS_TIMEOUT_MS = 30_000;
 
@@ -351,7 +351,7 @@ export async function synthesize(text: string, humor?: Humor): Promise<void> {
         const wav = usarVozGemini() ? await falaGemini(clean, humor) : null;
         if (settled) return;
         let mp3: Buffer = wav ?? jaPronto ?? Buffer.alloc(0);
-        // 25/10: o Zak não quer mais a voz do SAPI ("travada e sem sentimento"). Falhou a
+        // 25/10: o dono não quer mais a voz do SAPI ("travada e sem sentimento"). Falhou a
         // neural: até 3 tentativas, cada uma numa conexão nova; esgotou, a Ely fica calada
         // (o texto continua na tela) em vez de falar robótica.
         for (let tentativa = 1; !wav && !jaPronto && !mp3.length && tentativa <= 3 && !settled; tentativa++) {

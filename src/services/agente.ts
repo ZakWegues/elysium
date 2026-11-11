@@ -235,7 +235,7 @@ export async function agir(
       // calculadora") sem ter agido, ecoa o prompt ("CHAME rotinas") ou contradiz o que
       // leu ("não achei" com a lista cheia). Se ele alega ação sem ter agido, uma
       // cutucada, uma vez; fora isso, A RESPOSTA É O QUE AS FERRAMENTAS DEVOLVERAM — elas
-      // já falam em frases ("Em São Paulo, 17 graus…", "Bom dia às 07:30") e não mentem.
+      // já falam em frases ("Em Recife, 17 graus…", "Bom dia às 07:30") e não mentem.
       if (!chamadas.some(c => !LEITURA.has(c.nome)) && !cutucado && alegaAcao(content)) {
         cutucado = true;
         messages.push({ role: "assistant", content });
@@ -277,7 +277,7 @@ export async function agir(
     }
 
     // 🔴 Rodada com AÇÃO: acabou. A resposta é o que os executores disseram ("Abrindo
-    // bloco de notas. Em São Paulo, 17 graus…"), sem voltar ao modelo — que, pedido para
+    // bloco de notas. Em Recife, 17 graus…"), sem voltar ao modelo — que, pedido para
     // resumir, dizia "não achei a rotina para apagar" DEPOIS de a ferramenta ter apagado,
     // e ainda custava uma chamada. Rodada só de leitura volta ao modelo: ele pode
     // precisar agir com o que leu ("se estiver aberta, fecha").

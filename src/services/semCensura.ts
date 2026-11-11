@@ -4,7 +4,7 @@ import { searchWeb } from "./webSearch";
 import type { Canal } from "./estiloResposta";
 
 /**
- * Modo sem censura (05/11, pedido do Zak). Dois níveis:
+ * Modo sem censura (05/11, pedido do dono). Dois níveis:
  *
  * · **pesquisa** (padrão): a conversa é escrita pelo modelo local sem censura
  *   (qwen3.5-heretic:4b), mas a pesquisa continua no Gemini — ele busca e resume, e o local

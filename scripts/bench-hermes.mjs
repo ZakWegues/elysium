@@ -48,7 +48,7 @@ const CENARIO_PADRAO = {
   programas_abertos: "Abertos: chrome (GitHub - Google Chrome); Code (elysium - Visual Studio Code); Spotify (lo-fi beats); explorer (Downloads).",
   estado_do_pc: "CPU 23%; RAM 65% (10.3 de 15.9 GB); disco C com 92.2 GB livres de 475.8; ligado há 2 h 10 min; maiores consumos: chrome 12%, Code 8%, Spotify 3%.",
   processos_pesados: "Os que mais pesam: chrome com 12% de CPU e 1800 MB; Code com 8% de CPU e 900 MB; Spotify com 3% de CPU e 400 MB.",
-  clima: "Em São Paulo, 22 graus e nublado. Máxima de 24, mínima de 15. Sem chuva à vista.",
+  clima: "Em Recife, 22 graus e nublado. Máxima de 24, mínima de 15. Sem chuva à vista.",
   lembretes: "Nenhum lembrete pendente.",
   rotinas: "Rotinas: Bom dia às 07:30 (dias úteis); Estado do PC às 18:00.",
   presets: "Presets: trabalho, jogo.",

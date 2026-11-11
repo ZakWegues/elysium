@@ -4,7 +4,7 @@ import { montarResumo, FatosResumo } from "../src/services/resumoDoDia";
 const base = (): FatosResumo => ({
   agora: new Date(2026, 9, 1, 8, 5),
   nome: "Fulano",
-  clima: "Em São Paulo, 18 graus e nublado.",
+  clima: "Em Recife, 18 graus e nublado.",
   lembretes: [],
   rotinas: [],
   recadosNovos: 0,
@@ -14,7 +14,7 @@ const base = (): FatosResumo => ({
 
 describe("resumo do dia (bloco 117)", () => {
   it("dia vazio: saudação, clima e 'nada marcado'", () => {
-    expect(montarResumo(base())).toBe("Bom dia, Fulano. Em São Paulo, 18 graus e nublado. Nada marcado para hoje.");
+    expect(montarResumo(base())).toBe("Bom dia, Fulano. Em Recife, 18 graus e nublado. Nada marcado para hoje.");
   });
 
   it("junta lembretes em ordem, rotinas, recados, alertas e versão", () => {

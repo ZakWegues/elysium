@@ -5,7 +5,7 @@ import { semAcento } from "./texto";
 /**
  * Tarefas (fase 17, 08/10): a lista de afazeres da Ely — o "protocolo do dia" do Jarvis.
  *
- * O Zak pediu que o Hoje e os lembretes virassem uma todo-list, com uma RESSALVA ao concluir
+ * O dono pediu que o Hoje e os lembretes virassem uma todo-list, com uma RESSALVA ao concluir
  * ("feito, mas faltou a parte 3"). Todo lembrete criado pela Ely vira também uma tarefa
  * (`lembreteIds`); concluir a tarefa cancela os avisos que ainda não tocaram.
  *

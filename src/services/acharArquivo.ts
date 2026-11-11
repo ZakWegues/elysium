@@ -5,7 +5,7 @@ import { semAcento } from "./texto";
 /**
  * Achar o arquivo que o dono pediu para mandar ao celular (21/10: "me manda aquele PDF").
  *
- * Decisão do Zak: a Ely procura nas pastas pessoais — Área de Trabalho, Documentos, Imagens,
+ * Decisão do dono: a Ely procura nas pastas pessoais — Área de Trabalho, Documentos, Imagens,
  * Vídeos, Músicas e Downloads — e aceita qualquer caminho que ele disser por extenso. Fora disso
  * nunca: pastas do sistema, programas e os dados do próprio ELYSIUM (token, memória, chaves).
  */

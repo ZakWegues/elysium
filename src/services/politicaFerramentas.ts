@@ -2,7 +2,7 @@ import { semAcento } from "./texto";
 /**
  * O que o agente pode fazer depois de ler conteúdo de fora (fase 19, bloco 192). Puro.
  *
- * A Ely lê página da web, link, a tela e a área de transferência — texto que NÃO foi o Zak
+ * A Ely lê página da web, link, a tela e a área de transferência — texto que NÃO foi o dono
  * quem escreveu. A recomendação de segurança para agentes (OWASP LLM01, "injeção indireta
  * de prompt", e a "tríade letal" de Simon Willison: dado privado + conteúdo não confiável +
  * um jeito de mandar para fora) é a mesma:

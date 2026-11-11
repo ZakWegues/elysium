@@ -14,7 +14,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 
 /**
- * "Saúde do ELYSIUM" (fase 12) — um card que diz o que está quebrado antes de o Zak
+ * "Saúde do ELYSIUM" (fase 12) — um card que diz o que está quebrado antes de o dono
  * descobrir falando com o assistente.
  *
  * Nasceu de três falhas silenciosas achadas numa noite só: o Ollama parado (todo pedido caía
@@ -175,7 +175,7 @@ export async function verificarSaude(): Promise<ItemSaude[]> {
     cerebroLocal ? ollamaDisponivel(cfg.ollamaRouterModel) : Promise.resolve({ ok: true, detalhe: "" }),
     inicioAutomaticoConfere().catch(() => ({ ok: true, detalhe: "não consegui ler o Registro" })),
     getDashboardTelemetry().then(t => t.disks ?? []).catch(() => [] as DiskEntry[]),
-    // Bloco 128: só quando o Zak quer acompanhar o acesso de fora (Ajustes).
+    // Bloco 128: só quando o dono quer acompanhar o acesso de fora (Ajustes).
     cfg.acessoRemotoNaSaude ? estadoTailscale().catch(() => undefined) : Promise.resolve(undefined),
     // A leitura que o main faz a cada 3 min; sem ela ainda, lê agora (~1 s).
     ultimaSaidaDeSom() ? Promise.resolve(ultimaSaidaDeSom()) : lerSaidaDeSom().catch(() => null),

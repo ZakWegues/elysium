@@ -1,6 +1,6 @@
 /**
  * O "chefe" na medida (19/10). O prompt já pedia "de vez em quando, nunca em toda resposta", e
- * o modelo chamava de chefe em quase toda fala — o Zak achou robótico. Agora quem decide é o
+ * o modelo chamava de chefe em quase toda fala — o dono achou robótico. Agora quem decide é o
  * código: a cada resposta um sorteio diz se o tratamento pode aparecer (nunca em duas das
  * últimas três), e mesmo quando pode, só na primeira frase. O resto do vocativo some.
  *

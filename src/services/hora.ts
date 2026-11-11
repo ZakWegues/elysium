@@ -2,7 +2,7 @@
  * Data e hora no horário LOCAL (fase 20, bloco 202). Puro.
  *
  * O `YYYY-MM-DDTHH:MM` local era montado à mão em uns dez lugares (`padStart(2, "0")` em
- * série) — e `toISOString()` não serve: é UTC, e às 22h em São Paulo vira o dia seguinte.
+ * série) — e `toISOString()` não serve: é UTC, e às 22h em Recife vira o dia seguinte.
  */
 const p2 = (n: number) => String(n).padStart(2, "0");
 

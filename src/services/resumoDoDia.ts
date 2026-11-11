@@ -37,7 +37,7 @@ export interface FatosResumo {
   agenda?: { titulo: string; em: number }[];
   /** Fase 16: hábitos que valem hoje e ainda não foram feitos, com a sequência em jogo. */
   habitosFaltando?: { nome: string; sequencia: number }[];
-  /** Fase 18 (08/10): o resumo do Hoje completo — o Zak pediu "tudo que já tá e mais um pouco". */
+  /** Fase 18 (08/10): o resumo do Hoje completo — o dono pediu "tudo que já tá e mais um pouco". */
   tarefasAtrasadas?: string[];
   /** Uma frase sobre a última atualização do ELYSIUM e quantos itens há para testar. */
   elysium?: { versao: string; novidade: string | null; paraTestar: number } | null;
@@ -151,7 +151,7 @@ function ate<T>(ms: number, p: Promise<T>): Promise<T | null> {
 /**
  * O que a fase 18 somou ao resumo. A ideia normalmente já está no cache (o Hoje a gerou); se
  * não, espera no máximo 4 s e o resumo segue sem ela. Treino e nutrição não entram: só quando
- * o Zak pergunta.
+ * o dono pergunta.
  */
 async function extrasFase18(agora: Date): Promise<Partial<FatosResumo>> {
   let atrasadas: string[] = [];

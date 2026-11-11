@@ -4,7 +4,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 
 /**
- * Tailscale visto do PC (fase 13, bloco 122) — decisão do Zak: fora de casa continua pela
+ * Tailscale visto do PC (fase 13, bloco 122) — decisão do dono: fora de casa continua pela
  * VPN, a porta do PC nunca vai para a internet. O que faltava era VER quando ela cai.
  *
  * No dia em que isto foi escrito, o Tailscale do PC estava rodando e o do celular (Android

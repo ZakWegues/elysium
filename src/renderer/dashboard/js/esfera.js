@@ -1,4 +1,4 @@
-// dashboard/js/esfera.js — a esfera 3D no fundo do Chat (fase 21, pedido do Zak em 12/10).
+// dashboard/js/esfera.js — a esfera 3D no fundo do Chat (fase 21, pedido do dono em 12/10).
 //
 // Fica PARADA no fundo da conversa, girando e respirando. Quando alguém fala, ela se mexe:
 // a superfície ondula e se deforma com a voz — ciano com a voz dele (o nível do microfone que

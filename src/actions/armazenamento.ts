@@ -15,7 +15,7 @@ import { DiskEntry, getDashboardTelemetry } from "./systemInfo";
  * e a Lixeira — e os maiores arquivos de Downloads. Limpar é restrito ao que é, por
  * definição, descartável: esvaziar a Lixeira e apagar da pasta temporária o que tem mais de
  * dois dias (arquivo em uso é pulado pelo próprio Windows). **Nada em Downloads é apagado
- * pelo app**: lá só se abre a pasta e se mostra o arquivo; quem decide é o Zak.
+ * pelo app**: lá só se abre a pasta e se mostra o arquivo; quem decide é o dono.
  */
 
 export interface ArquivoGrande { nome: string; bytes: number; em: number }

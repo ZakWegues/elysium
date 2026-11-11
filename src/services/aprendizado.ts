@@ -9,7 +9,7 @@ import { listFacts, sugerirFato, SugestaoDeFato } from "./memoryStore";
  * Quando uma conversa esfria (o mesmo tempo de inatividade que zera o histórico), uma
  * chamada barata ao modelo lê SÓ as falas do usuário — nunca as respostas do assistente, que
  * podem ter inventado — e propõe até 3 fatos pessoais estáveis ("tem um cachorro chamado
- * Thor"). Viram sugestões no card "Aprendi isto": nada entra na memória sem o Zak aceitar.
+ * Thor"). Viram sugestões no card "Aprendi isto": nada entra na memória sem o dono aceitar.
  * Antes, só entrava o que ele mandava lembrar explicitamente.
  */
 

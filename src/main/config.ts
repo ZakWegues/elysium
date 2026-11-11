@@ -116,7 +116,7 @@ export interface AppConfig {
   atualizarDeMadrugada: boolean;
   /**
    * Como o ELYSIUM chama o dono (fase 13). Dado pessoal mora nos dados do app, nunca no
-   * código — decisão do Zak. Vazio = saudação sem nome e "o usuário" nos prompts.
+   * código — decisão do dono. Vazio = saudação sem nome e "o usuário" nos prompts.
    */
   nomeDoUsuario: string;
   /** Fala o resumo do dia na primeira volta ao PC entre 6 e 11 h (fase 13). */
@@ -180,7 +180,7 @@ export interface AppConfig {
   vozGemini?: string;
   /**
    * Acompanhar o acesso de fora de casa (Tailscale) no card Saúde, no resumo e na faixa do
-   * celular (bloco 122). Desligado por padrão desde o bloco 128: o Zak não quer o Tailscale
+   * celular (bloco 122). Desligado por padrão desde o bloco 128: o dono não quer o Tailscale
    * agora, e um aviso permanente que ele decidiu ignorar vira ruído no card.
    */
   acessoRemotoNaSaude: boolean;
@@ -265,7 +265,7 @@ export const DEFAULTS: AppConfig = {
   autoLaunch: true,
   silenceMs: 2500,
   maxRecordMs: 120000,
-  // 02/10: a assistente se chama Ely, e o Zak pediu voz feminina. Antes era o Antonio.
+  // 02/10: a assistente se chama Ely, e o dono pediu voz feminina. Antes era o Antonio.
   voice: "pt-BR-ThalitaMultilingualNeural",
   sttModel: "whisper-large-v3",
   brainModel: "openai/gpt-oss-120b",
@@ -298,19 +298,19 @@ export const DEFAULTS: AppConfig = {
   // COMEÇO da conversa em silêncio: some o system prompt, não a última mensagem. 8192 custa
   // ~0,3 GB a mais de VRAM (4,7 → 5,0 GB no qwen2.5:7b).
   ollamaNumCtx: 8192,
-  // 29/10 (pedido do Zak): o Ollama volta como reserva do Gemini — cota acabou ou caiu, responde o local.
+  // 29/10 (pedido do dono): o Ollama volta como reserva do Gemini — cota acabou ou caiu, responde o local.
   ollamaReserva: true,
   semCensura: false,
   semCensuraSoLocal: false,
   fallbackToGroq: true,
   cerebroFerramentas: true,
-  // Fase 21: decisão do Zak (09/10) — o Hermes responde tudo que não é atalho. Sem o Hermes
+  // Fase 21: decisão do dono (09/10) — o Hermes responde tudo que não é atalho. Sem o Hermes
   // instalado, o estado fica "sem-hermes" e tudo segue pelo cérebro de sempre.
   cerebro: "hermes",
-  // 19/10: um perfil só — o mesmo Hermes que o Zak usa direto (sessões e memória em comum).
+  // 19/10: um perfil só — o mesmo Hermes que o dono usa direto (sessões e memória em comum).
   hermesPerfil: "default",
   hermesContextoPessoal: false,
-  // Decisão do Zak (12/10): a esfera mora no Chat, parada no fundo, e se mexe quando alguém fala.
+  // Decisão do dono (12/10): a esfera mora no Chat, parada no fundo, e se mexe quando alguém fala.
   esferaChat: true,
   // Microfone sempre aberto é escolha do dono, não padrão de fábrica.
   palavraDeAtivacao: false,
@@ -533,7 +533,7 @@ export function migrarVozFeminina(o: Partial<AppConfig>): Partial<AppConfig> | n
 }
 
 /**
- * Troca única para a Thalita Multilingual (13/10): o Zak achou a voz estranha e pediu a melhor.
+ * Troca única para a Thalita Multilingual (13/10): o dono achou a voz estranha e pediu a melhor.
  * Quem estava na Francisca (o padrão antigo) passa para a Thalita; outra escolha é respeitada.
  */
 export function migrarVozThalita(o: Partial<AppConfig>): Partial<AppConfig> | null {
@@ -544,7 +544,7 @@ export function migrarVozThalita(o: Partial<AppConfig>): Partial<AppConfig> | nu
 }
 
 /**
- * Troca única para o tema Stark (fase 16, 07/10): o Zak pediu o visual "Jarvis feminino"
+ * Troca única para o tema Stark (fase 16, 07/10): o dono pediu o visual "Jarvis feminino"
  * como PADRÃO. Roda uma vez para todo mundo; escolher outro tema depois é respeitado.
  */
 export function migrarTemaStark(o: Partial<AppConfig>): Partial<AppConfig> | null {
@@ -598,7 +598,7 @@ export function getConfig(): AppConfig {
   };
 
   // A cura vai para o disco quando o modelo morto era uma escolha do USUÁRIO: sem isso o
-  // Ajustes mostrava para sempre um modelo que não existe (o do Zak ficou meses em
+  // Ajustes mostrava para sempre um modelo que não existe (o do dono ficou meses em
   // "llama-3.1-8b-instant") e a cura rodava a cada leitura. Os padrões não são gravados —
   // continuam vindo do código, e um padrão novo chega sozinho na próxima versão.
   const MODELOS = ["routerModel", "brainModel", "visionModel", "searchModel", "ollamaRouterModel", "ollamaChatModel"] as const;
@@ -756,7 +756,7 @@ export function setGeminiKey(chave: string): void {
 }
 
 /**
- * Cliente OAuth do Google (bloco 120), criado pelo Zak no Google Cloud dele. Ao lado da
+ * Cliente OAuth do Google (bloco 120), criado pelo dono no Google Cloud dele. Ao lado da
  * chave da Groq, fora dos `overrides`: não vai no backup nem no diagnóstico.
  */
 export function getGoogleCliente(): { id: string; segredo: string } {
@@ -804,7 +804,7 @@ export function regenerateServerToken(): string {
   return token;
 }
 
-/** O nome do dono para os prompts ("o assistente do Zak"); sem nome, "o usuário". */
+/** O nome do dono para os prompts ("o assistente do dono"); sem nome, "o usuário". */
 export function nomeDoUsuario(): string {
   return (getConfig().nomeDoUsuario || "").trim() || "usuário";
 }

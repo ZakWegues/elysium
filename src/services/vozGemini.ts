@@ -3,7 +3,7 @@ import { cotaEsgotada, registrarUsoGemini } from "./cotaGemini";
 import type { Humor } from "./humor";
 
 /**
- * A voz da Ely pelo Gemini (26/10, pedido do Zak: "uma voz legal de graça"). Com a chave do Google
+ * A voz da Ely pelo Gemini (26/10, pedido do dono: "uma voz legal de graça"). Com a chave do Google
  * AI Studio dele, os modelos TTS do Gemini falam com entonação de gente e aceitam o TOM por
  * descrição ("calma, baixinho") — o que o Edge gratuito não faz. Falhou, sem chave ou cota
  * esgotada → `null`, e quem chama cai na voz neural do Edge (nunca na robótica).
@@ -37,7 +37,7 @@ export function vozGeminiValida(nome: string | undefined): string {
 }
 
 /**
- * O tom da fala pelo contexto (pedido do Zak): calma e baixa de noite, mais rápida com pressa,
+ * O tom da fala pelo contexto (pedido do dono): calma e baixa de noite, mais rápida com pressa,
  * acolhedora com cansaço ou tristeza; no resto, natural e simpática. Sempre sotaque do Brasil
  * (sem isso o modelo às vezes puxa o de Portugal). Vai em `speech_metadata.style`, que o modelo
  * NÃO lê em voz alta. Pura.

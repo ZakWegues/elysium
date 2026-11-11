@@ -691,7 +691,7 @@ document.getElementById("dados-diagnostico")?.addEventListener("click", async (e
 document.getElementById("dados-logs")?.addEventListener("click", () => window.nx.abrirLogs());
 
 // ── Google Agenda (fase 13, bloco 120) ───────────────────────────────────────
-// O cliente OAuth é do Zak (Google Cloud dele); o ELYSIUM só lê a agenda. O segredo só
+// O cliente OAuth é do dono (Google Cloud dele); o ELYSIUM só lê a agenda. O segredo só
 // entra — a tela sabe se existe, nunca qual é.
 // ── Comandos de IA (bloco 137) ─────────────────────
 async function desenharComandos() {

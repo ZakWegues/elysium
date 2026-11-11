@@ -5,7 +5,7 @@
 /* ── LIQUID GLASS: blob background layer ────────────────── */
 #lg-blob-bg { position: fixed; inset: 0; z-index: -1; overflow: hidden; display: none; pointer-events: none; }
 .theme-rich #lg-blob-bg { display: block; }
-/* FUNDO VIVO (bloco 69). O Zak: "muito parado e muito esquisito". O que mudou:
+/* FUNDO VIVO (bloco 69). O dono: "muito parado e muito esquisito". O que mudou:
    · deriva com o dobro da amplitude e ~metade do período (26–46 s → 14–24 s), ainda
      abaixo do limiar em que o olho lê "animação" em vez de "vivo";
    · cada blob RESPIRA (opacidade) num ciclo próprio, defasado do deslocamento — dois

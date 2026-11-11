@@ -1,5 +1,5 @@
 /**
- * Retomada de resposta (21/10). O Zak usa o ELYSIUM principalmente pelo celular, e a conexão
+ * Retomada de resposta (21/10). O dono usa o ELYSIUM principalmente pelo celular, e a conexão
  * caía no meio: troca de Wi-Fi, app minimizado, o Android derrubando o socket. A resposta que
  * estava vindo morria junto — o PC descartava e o celular mostrava "a conexão parou no meio".
  *

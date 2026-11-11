@@ -6,7 +6,7 @@ import { semAcento } from "./texto";
 /**
  * Treino, nutrição e corrida (fase 18, 08/10).
  *
- * O Zak pediu para a Ely ter os treinos da academia (A/B/C, em rotação), a meta de calorias
+ * O dono pediu para a Ely ter os treinos da academia (A/B/C, em rotação), a meta de calorias
  * e dicas que se renovam. Ele já conta o que come em outro app — então aqui NÃO há diário
  * alimentar: a Ely dá a meta do dia (com o que a corrida gastou somado), os macros e a dica.
  * E ele faz esteira querendo começar a correr de verdade, sem perder peso: entra um plano
@@ -89,7 +89,7 @@ export function tipoDoExercicio(nome: string): TipoExercicio {
 }
 
 /**
- * O padrão que o Zak usa: compostos com 2 aquecimentos e 3 válidas de 4–6; isoladores 3×10–12.
+ * O padrão que o dono usa: compostos com 2 aquecimentos e 3 válidas de 4–6; isoladores 3×10–12.
  * Editável por exercício depois.
  */
 export function seriesPadrao(tipo: TipoExercicio): Pick<Exercicio, "aquecimento" | "series" | "reps"> {

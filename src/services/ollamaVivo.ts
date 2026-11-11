@@ -45,7 +45,7 @@ function executaveis(): { exe: string; args: string[] }[] {
 
 /**
  * `true` se o Ollama estiver respondendo (já estava, ou acabou de subir). `forcar` fura a
- * trava de uma tentativa por minuto: é o clique do Zak em "Subir o Ollama", não um pedido
+ * trava de uma tentativa por minuto: é o clique do dono em "Subir o Ollama", não um pedido
  * automático repetido.
  */
 export function garantirOllama(base: string, forcar = false): Promise<boolean> {

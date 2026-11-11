@@ -19,7 +19,7 @@ vi.mock("../src/services/ferramentas", () => ({
     executadas.push(nome);
     if (nome === "programas_abertos") return "Abertos: chrome; CalculatorApp (Calculadora).";
     if (nome === "fechar_programa") return `${args.nome} fechado.`;
-    if (nome === "clima") return "Em São Paulo, 22 graus e nublado.";
+    if (nome === "clima") return "Em Recife, 22 graus e nublado.";
     return "Feito.";
   }),
 }));
@@ -73,18 +73,18 @@ describe("agente — política do laço", () => {
     respostas.push({ content: "", toolCalls: [{ id: "1", name: "clima", args: {} }] });
     respostas.push({ content: "Não achei nada.", toolCalls: [] });
     const r = await agir("como está o tempo?");
-    expect(r?.reply).toBe("Em São Paulo, 22 graus e nublado.");
+    expect(r?.reply).toBe("Em Recife, 22 graus e nublado.");
   });
 
   it("olhar e responder em texto coerente: a fala é a do modelo (bloco 80)", async () => {
     respostas.push({ content: "", toolCalls: [{ id: "1", name: "clima", args: {} }] });
-    respostas.push({ content: "Está nublado em São Paulo, 22 graus — leva um casaco.", toolCalls: [] });
+    respostas.push({ content: "Está nublado em Recife, 22 graus — leva um casaco.", toolCalls: [] });
     const r = await agir("preciso de casaco hoje?");
-    expect(r?.reply).toBe("Está nublado em São Paulo, 22 graus — leva um casaco.");
+    expect(r?.reply).toBe("Está nublado em Recife, 22 graus — leva um casaco.");
     // JSON solto e menção a "ferramenta" não valem como resposta: volta o que foi lido.
     respostas.push({ content: "", toolCalls: [{ id: "1", name: "clima", args: {} }] });
     respostas.push({ content: '{"name": "clima", "parameters": {}}', toolCalls: [] });
-    expect((await agir("e o tempo?"))?.reply).toBe("Em São Paulo, 22 graus e nublado.");
+    expect((await agir("e o tempo?"))?.reply).toBe("Em Recife, 22 graus e nublado.");
     // `{"name": "CHAT"}` embrulhado é conversa.
     respostas.push({ content: '{"name": "CHAT", "parameters": {}}', toolCalls: [] });
     expect((await agir("me diz uma cor"))?.modo).toBe("chat");
@@ -105,7 +105,7 @@ describe("agente — política do laço", () => {
     respostas.push({ content: "", toolCalls: [{ id: "1", name: "abrir_programa", args: { nome: "bloco de notas" } }] });
     respostas.push({ content: "", toolCalls: [{ id: "2", name: "clima", args: {} }] });
     const r = await agir("abre o bloco de notas e me diz o tempo");
-    expect(r?.reply).toBe("Feito. Em São Paulo, 22 graus e nublado.");
+    expect(r?.reply).toBe("Feito. Em Recife, 22 graus e nublado.");
   });
 
   it("provedor caiu e sem Groq: null (o roteador clássico assume)", async () => {
@@ -137,7 +137,7 @@ describe("modo tarefa no laço (bloco 119)", () => {
     respostas.push({ content: "", toolCalls: [{ id: "3", name: "clima", args: {} }] });
     const r = await agir("fecha o chrome, abre o vs code e me diz o clima");
     expect(executadas).toEqual(["fechar_programa", "abrir_programa", "clima"]);
-    expect(r?.reply).toBe("Feito:\n- chrome fechado.\n- Feito.\n- Em São Paulo, 22 graus e nublado.");
+    expect(r?.reply).toBe("Feito:\n- chrome fechado.\n- Feito.\n- Em Recife, 22 graus e nublado.");
     // Da 2ª rodada em diante o modelo recebe o pedido inteiro de novo.
     const ultima = chamadasAoModelo[chamadasAoModelo.length - 1] as { messages: { role: string; content: string }[] };
     expect(ultima.messages.some(m => m.role === "user" && m.content.startsWith("Continue o MESMO pedido"))).toBe(true);

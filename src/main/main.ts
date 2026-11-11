@@ -1000,7 +1000,7 @@ ipcMain.handle("brain:ollama-status", async (_e, modelo?: string) => {
   return ollamaDisponivel(modelo || cfg.ollamaRouterModel);
 });
 /**
- * 30/10: imagem de fundo do dashboard. O Zak escolhe no seletor do Windows; a cópia vai para
+ * 30/10: imagem de fundo do dashboard. O dono escolhe no seletor do Windows; a cópia vai para
  * a pasta do app (`fundo/fundo-<hora>.<ext>`) e as anteriores são apagadas. Devolve o
  * endereço `file:` da cópia, que o `patchDeConfigSeguro` aceita.
  */

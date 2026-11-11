@@ -584,7 +584,7 @@ const METHODS: Record<string, MethodDef> = {
         nome: (getConfig().nomeDoUsuario || "").trim(),
         // Fase 16: como a Ely chama o dono — a saudação do celular usa antes do nome.
         tratamento: (getConfig().tratamento ?? "").trim(),
-        // Bloco 128: a faixa do celular só fala em Tailscale se o Zak ligou o acesso remoto.
+        // Bloco 128: a faixa do celular só fala em Tailscale se o dono ligou o acesso remoto.
         acessoRemoto: Boolean(getConfig().acessoRemotoNaSaude),
       };
     },
@@ -1485,7 +1485,7 @@ const METHODS: Record<string, MethodDef> = {
   "resumo.dia": {
     handler: async () => ({ texto: await resumoDoDia() }),
   },
-  // Memória que aprende (bloco 118): o que o cérebro sugeriu guardar, e a decisão do Zak.
+  // Memória que aprende (bloco 118): o que o cérebro sugeriu guardar, e a decisão do dono.
   "memory.sugestoes": {
     handler: async () => ({ sugestoes: listarSugestoesDeFato() }),
   },

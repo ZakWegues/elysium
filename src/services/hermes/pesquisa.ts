@@ -2,7 +2,7 @@ import type { Canal } from "../estiloResposta";
 import type { Fonte } from "../contextoComando";
 
 /**
- * Pesquisa na web pelo Hermes (fase 23, pedido do Zak: "ele é melhor nisso"). Puro — testado em
+ * Pesquisa na web pelo Hermes (fase 23, pedido do dono: "ele é melhor nisso"). Puro — testado em
  * tests/hermesPesquisa.test.ts. Quem roda o turno é `pesquisarViaHermes` em `cerebro.ts`.
  *
  * O Hermes pesquisa com as ferramentas dele (busca e navegador), numa sessão SÓ de pesquisa — a

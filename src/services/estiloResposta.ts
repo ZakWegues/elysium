@@ -2,7 +2,7 @@
  * Como o ELYSIUM responde, conforme o canal e o gosto do dono (blocos 130 e 134). Puro.
  *
  * Até a fase 13 TODA resposta era escrita para ser falada — "1 a 3 frases, nada de
- * markdown", teto de 300 tokens — inclusive quando o Zak digitava no chat. Perguntar "me
+ * markdown", teto de 300 tokens — inclusive quando o dono digitava no chat. Perguntar "me
  * explica como funciona um SSD" no teclado e receber três frases secas é o oposto do que
  * se elogia no ChatGPT e no Claude. Agora o canal decide:
  *
@@ -12,7 +12,7 @@
  *   com markdown quando ajuda e do tamanho que a pergunta pede.
  *
  * Por cima, o estilo (direto / equilibrado / detalhado) e as instruções pessoais, que o
- * Zak escreve em Ajustes → Conversa e moram só na config do app (nunca no código).
+ * o dono escreve em Ajustes → Conversa e moram só na config do app (nunca no código).
  */
 
 export type Canal = "voz" | "texto";

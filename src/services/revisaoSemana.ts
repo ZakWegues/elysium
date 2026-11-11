@@ -56,7 +56,7 @@ export function montarRevisao(d: DadosRevisao, agora = new Date()): Revisao {
     if (melhor && melhor.feitos === melhor.dias && melhor.dias > 1) partes.push(`${melhor.nome} foi perfeito.`);
     if (pior && pior !== melhor && pior.feitos / pior.dias < 0.5) partes.push(`${pior.nome} pede atenção na semana que vem.`);
   }
-  // Treino e corrida ficam só nos números (para quem pergunta), não no texto (o Zak, 08/10).
+  // Treino e corrida ficam só nos números (para quem pergunta), não no texto (o dono, 08/10).
   if (metas.length) partes.push(`Metas: ${metas.map(m => `${m.titulo} em ${m.progresso} de ${m.alvo}`).join(", ")}.`);
   partes.push("Escolha a prioridade da próxima semana e me diga — eu anoto.");
   return { texto: partes.join(" "), concluidas, atrasadas, habitos, metas, treinos: d.treinos, corridas: d.corridas };

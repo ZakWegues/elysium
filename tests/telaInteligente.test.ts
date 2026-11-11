@@ -14,7 +14,7 @@ describe("quando a tela sai (22/10)", () => {
   });
 
   it("caberia uma tela", () => {
-    for (const t of ["planeja meu sábado em São Paulo", "compara o iPhone 17 com o Pixel 11", "quanto fica um financiamento de 30 mil em 36 vezes?", "dividir a conta de 240 entre 4", "me ajuda a estudar enzimas"]) expect(cabeTela(t), t).toBe(true);
+    for (const t of ["planeja meu sábado em Recife", "compara o iPhone 17 com o Pixel 11", "quanto fica um financiamento de 30 mil em 36 vezes?", "dividir a conta de 240 entre 4", "me ajuda a estudar enzimas"]) expect(cabeTela(t), t).toBe(true);
     for (const t of ["oi", "que horas são?", "abre o Chrome", "obrigado"]) expect(cabeTela(t), t).toBe(false);
   });
 
@@ -134,7 +134,7 @@ describe("proxy de fotos e rotas (22/10)", () => {
 
   it("fotos: só upload.wikimedia.org, sem mapa/logo, e a 2ª vez vem do cache", async () => {
     const { b, urls } = falsa((u) => u.includes("wikipedia") ? { query: { pages: [
-      { index: 1, title: "Pinacoteca de São Paulo", thumbnail: { source: "https://upload.wikimedia.org/a/Pinacoteca.jpg" } },
+      { index: 1, title: "Pinacoteca de Recife", thumbnail: { source: "https://upload.wikimedia.org/a/Pinacoteca.jpg" } },
       { index: 2, title: "Pinacoteca mapa", thumbnail: { source: "https://upload.wikimedia.org/a/Mapa_pinacoteca.png" } },
       { index: 3, title: "Pinacoteca falsa", thumbnail: { source: "https://evil.com/Pinacoteca.jpg" } },
     ] } } : { query: { pages: [] } });
@@ -147,9 +147,9 @@ describe("proxy de fotos e rotas (22/10)", () => {
   });
 
   it("rota: coords validadas, OSRM, pontos [lat, lng]", async () => {
-    const { b, urls } = falsa(() => ({ code: "Ok", routes: [{ geometry: { coordinates: [[-46.63, -23.53], [-46.64, -23.54]] } }] }));
+    const { b, urls } = falsa(() => ({ code: "Ok", routes: [{ geometry: { coordinates: [[-34.88, -23.53], [-46.64, -23.54]] } }] }));
     const p = criarProxy(pasta, b);
-    expect(await p.rota("-46.63,-23.53;-46.64,-23.54")).toEqual([[-23.53, -46.63], [-23.54, -46.64]]);
+    expect(await p.rota("-34.88,-23.53;-46.64,-23.54")).toEqual([[-23.53, -34.88], [-23.54, -46.64]]);
     expect(urls[0]).toMatch(/^https:\/\/router\.project-osrm\.org\/route\/v1\/driving\//);
     await expect(p.rota("1,2")).rejects.toThrow(/coords/);
     await expect(p.fotos("x")).rejects.toThrow(/consulta/);

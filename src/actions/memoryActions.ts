@@ -81,7 +81,7 @@ export function createReminderAction(text: string, dueAt: string, weekly?: boole
  * mostrava "Anotado", apagava o que foi digitado e não criava nada.
  */
 export function criarLembreteComTarefa(text: string, dueAt: string, weekly?: boolean, semHora?: boolean, extras: { prioridade?: Tarefa["prioridade"]; repete?: Tarefa["repete"]; usarPedido?: boolean } = {}): { ok: boolean; mensagem: string; tarefa?: Tarefa } {
-  // O dia e a hora que o Zak FALOU valem mais que a conta do modelo (fase 17).
+  // O dia e a hora que o dono FALOU valem mais que a conta do modelo (fase 17).
   const pedido = extras.usarPedido === false ? null : pedidoAtual();
   const ajuste = pedido && !weekly ? ajustarPeloTexto(pedido, dueAt ?? "") : null;
   if (ajuste) { dueAt = ajuste.quando; semHora = ajuste.semHora; }
