@@ -6,7 +6,7 @@
 import { dentroDoApp } from "./ipcSeguro";
 import "./migrateUserData";
 import { migrarLembretesParaTarefas } from "../actions/memoryActions";
-import { app, BrowserWindow, globalShortcut, ipcMain, clipboard, nativeImage, dialog, shell, powerMonitor } from "electron";
+import { app, BrowserWindow, globalShortcut, ipcMain, clipboard, nativeImage, dialog, shell, powerMonitor, screen } from "electron";
 import { paraFala } from "../services/estiloResposta";
 import { ouvirTimers, retomarTimers } from "../services/timers";
 import { deveSugerir, sugerirContinuacoes } from "../services/continuacoes";
@@ -110,14 +110,16 @@ import { anexoAbreDireto } from "../services/anexos";
 import { marcarAcompanhado, pendentesDeAcompanhamento } from "../services/acompanhamento";
 import { lerHumor, type Humor } from "../services/humor";
 import { prepararBeats, registrarTocador, somRecente, tocarBeat, tocou } from "../services/vozStudioStream";
-import { abrirFlutuante, criarFlutuante, enviarAoFlutuante, fecharFlutuante, flutuanteAberto, registrarIpcFlutuante } from "./flutuante";
+import { abrirFlutuante, areaDaCamada, criarFlutuante, enviarAoFlutuante, fecharFlutuante, flutuanteAberto, registrarIpcFlutuante } from "./flutuante";
 import { desenharRapido, pediuDesenho } from "../services/desenhoRapido";
 import { listarJanelas } from "../actions/janelas";
 import { janelaDaFrente } from "../services/isso";
-import { registrarJanelaDaFrente } from "../services/brain";
+import { recordAssistantReply, registrarJanelaDaFrente, registrarTurnoUsuario } from "../services/brain";
 import { definirAplicadorDeConfig } from "../services/rpc";
 import { comecarEscuta, garantirModelo, receberPcm, textoFinal } from "../services/parakeet";
-import { aoMudarEstadoAoVivo } from "../services/estadoAoVivo";
+import { aoMudarEstadoAoVivo, avisarEstadoAoVivo } from "../services/estadoAoVivo";
+import { atalhoDeTela, pediuNaTela, pedirGuia, vksDe, type Acao } from "../services/guiaDeTela";
+import { uiaHost, type LeituraUia } from "../services/uiaHost";
 import {
   checkAndMarkUnseenFromMobile, addMessage, addFileMessage, listMessagesForDesktop, inferKind, mailboxEvents,
   isKnownAttachmentPath, listMailboxSessions, createMailboxSession, renameMailboxSession,
@@ -597,8 +599,82 @@ function desenharNoFlutuante(pedido: string): void {
 async function lembrarJanelaDaFrente(): Promise<void> {
   try {
     const j = janelaDaFrente(await listarJanelas());
-    if (j) registrarJanelaDaFrente(j.processo, j.titulo);
+    if (j) { registrarJanelaDaFrente(j.processo, j.titulo); hwndAlvo = j.hwnd; }
   } catch { /* sem lista, sem contexto */ }
+}
+
+// ── guia de tela (13/11): marcar e agir na janela da frente, como o Roamies ──────────────
+/** A janela que estava na frente quando a bolota abriu (o alvo do "aqui"). */
+let hwndAlvo = "";
+const confirmacoes = new Map<string, (sim: boolean) => void>();
+
+/** O retângulo de um elemento (pixels físicos da UIA) na coordenada da camada (DIP). */
+function naCamada(e: { x: number; y: number; w: number; h: number }): { x: number; y: number; w: number; h: number } {
+  const r = screen.screenToDipRect(null, { x: e.x, y: e.y, width: e.w, height: e.h });
+  const a = areaDaCamada() ?? { x: 0, y: 0 };
+  return { x: Math.round(r.x - a.x), y: Math.round(r.y - a.y), w: Math.round(r.width), h: Math.round(r.height) };
+}
+
+/** Executa a ação do guia (clicar, escrever, teclas) na janela-alvo. */
+async function agirNaTela(acao: Acao, l: LeituraUia | null): Promise<void> {
+  const nome = (i: number) => l?.elementos.find((e) => e.i === i)?.n?.slice(0, 30) ?? "";
+  if (acao.tipo === "clicar") { avisarEstadoAoVivo(nome(acao.i) ? `Clicando em ${nome(acao.i)}…` : "Clicando…"); await uiaHost.clicar(acao.i); }
+  else if (acao.tipo === "escrever") { avisarEstadoAoVivo("Escrevendo…"); await uiaHost.valor(acao.i, acao.texto); }
+  else {
+    const vks = vksDe(acao.teclas);
+    if (!vks) return;
+    avisarEstadoAoVivo(acao.descricao);
+    await uiaHost.frente(hwndAlvo).catch(() => {});
+    await new Promise((r) => setTimeout(r, 120));
+    await inputHost.keys(vks);
+  }
+}
+
+/**
+ * Pedido "da tela" feito pela bolota: lê a janela-alvo, marca os elementos e (se ele pediu para
+ * fazer) age. `true` = tratado aqui; `false` = segue pelo cérebro de sempre.
+ */
+async function guiarNaTela(pedido: string, meuToken: number): Promise<boolean> {
+  if (!flutuanteAberto() || !hwndAlvo || !pediuNaTela(pedido)) return false;
+  const atalho = atalhoDeTela(pedido);
+  try {
+    if (atalho) {
+      await agirNaTela(atalho, null);
+      enviarAoDash("voice:reply", "Pronto.");
+      return true;
+    }
+    avisarEstadoAoVivo("Olhando a janela…");
+    const l = await uiaHost.ler(hwndAlvo);
+    if (turnoAtual() !== meuToken) return true;
+    const g = await pedirGuia(pedido, l);
+    if (!g || turnoAtual() !== meuToken) return !!g;
+    const porI = new Map(l.elementos.map((e) => [e.i, e]));
+    enviarAoFlutuante("flutuante:marcas", {
+      passos: g.passos.map((p) => ({ dizer: p.dizer, marcas: p.marcas.map((m) => ({ tipo: m.tipo, texto: m.texto, n: m.n, ...naCamada(porI.get(m.i)!) })) })),
+    });
+    registrarTurnoUsuario(pedido);
+    recordAssistantReply(g.fala);
+    enviarAoDash("voice:reply", g.fala);
+    state.set("speaking");
+    const fala = speak(g.fala).catch(() => {});
+    if (g.acao) {
+      if (g.destrutiva) {
+        const id = `c${Date.now().toString(36)}`;
+        const alvo = g.acao.tipo === "teclas" ? g.acao.descricao : porI.get(g.acao.i)?.n ?? "isso";
+        enviarAoFlutuante("flutuante:confirmar", { id, texto: `Fazer “${String(alvo).slice(0, 60)}”? Isso não tem volta.` });
+        const sim = await new Promise<boolean>((ok) => { confirmacoes.set(id, ok); setTimeout(() => { if (confirmacoes.delete(id)) ok(false); }, 30_000); });
+        if (sim && turnoAtual() === meuToken) await agirNaTela(g.acao, l);
+      } else {
+        await new Promise((r) => setTimeout(r, 500)); // a marca aparece antes do clique
+        await agirNaTela(g.acao, l);
+      }
+    }
+    await fala;
+    return true;
+  } catch (e) {
+    console.warn("[guia] não deu:", e instanceof Error ? e.message : e);
+    return false;
+  }
 }
 
 /** Ctrl+Espaço: fechada → abre ao lado do cursor e já ouve; aberta → para tudo e fecha. */
@@ -615,8 +691,22 @@ function alternarFlutuante(): void {
     state.set("idle");
   }
   abrirFlutuante(getConfig().theme, getConfig().movimento ?? "");
+  uiaHost.aquecer();
   void lembrarJanelaDaFrente();
   startListening().catch((e) => console.error("[flutuante] não consegui começar a ouvir:", e));
+}
+
+/** Pedido digitado na bolota: o guia de tela, senão o caminho de sempre (com o desenho). */
+async function digitadoNaBolota(texto: string): Promise<void> {
+  if (pediuNaTela(texto)) {
+    if (!state.is("idle")) { interruptAll(); state.set("idle"); }
+    const meu = novoTurno();
+    state.set("processing");
+    try { if (await guiarNaTela(texto, meu)) return; }
+    finally { if (turnoAtual() === meu) state.set("idle"); }
+  }
+  desenharNoFlutuante(texto);
+  void enviarTexto(texto);
 }
 
 /** Fechou a flutuante: a gravação sem mandar, a fala calada. */
@@ -675,6 +765,8 @@ ipcMain.on("audio-data", async (_event, buffer: Buffer) => {
     }
 
     enviarAoDash("voice:transcript", text);
+    // 13/11: pedido sobre a tela que ele está vendo ("onde fica…", "clica em…") → o guia de tela.
+    if (flutuanteAberto() && pediuNaTela(text) && await guiarNaTela(text, meuToken)) return;
     // 12/11: pedido feito pela Ely flutuante que pede explicação → o desenho já vai saindo junto.
     desenharNoFlutuante(text);
 
@@ -1732,7 +1824,8 @@ app.on("ready", async () => {
   }
   // 12/11: Ctrl+Espaço — a Ely flutuante ao lado do cursor (janela já criada, escondida).
   registrarIpcFlutuante({
-    digitar: (texto) => { desenharNoFlutuante(texto); void enviarTexto(texto); },
+    digitar: (texto) => { void digitadoNaBolota(texto); },
+    confirmar: (id, sim) => { const f = confirmacoes.get(id); confirmacoes.delete(id); f?.(sim); },
     ouvir: () => { if (!state.is("idle")) interruptAll(); startListening().catch(() => {}); },
     parar: pararFlutuante,
   });

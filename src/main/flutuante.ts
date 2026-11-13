@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, screen } from "electron";
+import { app, BrowserWindow, ipcMain, screen, shell } from "electron";
 import * as path from "node:path";
 
 /**
@@ -29,6 +29,9 @@ let aberta = false;
 let area: Area | null = null;
 let seguidor: NodeJS.Timeout | null = null;
 let ultimo = { x: NaN, y: NaN };
+
+/** A área (monitor) que a camada cobre agora — as marcas na tela são relativas a ela. */
+export function areaDaCamada(): Area | null { return area; }
 
 export function flutuanteAberto(): boolean { return aberta && !!janela && !janela.isDestroyed() && janela.isVisible(); }
 
@@ -117,6 +120,7 @@ export interface AcoesFlutuante {
   digitar(texto: string): void;
   ouvir(): void;
   parar(): void;
+  confirmar?(id: string, sim: boolean): void;
 }
 
 export function registrarIpcFlutuante(acoes: AcoesFlutuante): void {
@@ -129,6 +133,14 @@ export function registrarIpcFlutuante(acoes: AcoesFlutuante): void {
   ipcMain.on("flutuante:focar", (e) => { if (deLa(e)) { janela!.setIgnoreMouseEvents(false); janela!.focus(); } });
   ipcMain.on("flutuante:fechar", (e) => { if (deLa(e)) { acoes.parar(); fecharFlutuante(); } });
   ipcMain.on("flutuante:ouvir", (e) => { if (deLa(e)) acoes.ouvir(); });
+  // 13/11: a resposta ao "posso fazer isso?" (ação destrutiva no guia de tela).
+  ipcMain.on("flutuante:confirmacao", (e, id: unknown, sim: unknown) => {
+    if (deLa(e) && typeof id === "string") acoes.confirmar?.(id, sim === true);
+  });
+  // 13/11: botão "abrir" de um cartão — só https, no navegador padrão.
+  ipcMain.on("flutuante:abrir-link", (e, url: unknown) => {
+    if (deLa(e) && typeof url === "string" && /^https:\/\/[^\s]+$/.test(url) && url.length < 2000) void shell.openExternal(url);
+  });
   ipcMain.on("flutuante:digitar", (e, texto: unknown) => {
     if (deLa(e) && typeof texto === "string" && texto.trim()) acoes.digitar(texto.trim().slice(0, 4000));
   });

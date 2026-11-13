@@ -6,7 +6,7 @@ import { contextBridge, ipcRenderer } from "electron";
  */
 const CANAIS = [
   "flutuante:abrir", "flutuante:fechar", "flutuante:tema", "flutuante:cartoes", "flutuante:desenhando",
-  "flutuante:cursor", "flutuante:status", "voice:parcial", "voice:action-label",
+  "flutuante:cursor", "flutuante:status", "voice:parcial", "voice:action-label", "flutuante:marcas", "flutuante:confirmar",
   "voice:state", "voice:transcript", "voice:reply", "voice:error", "voice:audio-level",
   "chat:chunk", "chat:reply", "chat:error", "chat:busy", "chat:tela", "tts:falando",
 ] as const;
@@ -21,4 +21,6 @@ contextBridge.exposeInMainWorld("ely", {
   fechar: () => ipcRenderer.send("flutuante:fechar"),
   ouvir: () => ipcRenderer.send("flutuante:ouvir"),
   digitar: (texto: string) => ipcRenderer.send("flutuante:digitar", String(texto ?? "")),
+  confirmar: (id: string, sim: boolean) => ipcRenderer.send("flutuante:confirmacao", String(id), sim === true),
+  abrir: (url: string) => ipcRenderer.send("flutuante:abrir-link", String(url ?? "")),
 });

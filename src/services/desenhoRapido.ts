@@ -30,6 +30,22 @@ const cartao = z.discriminatedUnion("tipo", [
   z.object({ tipo: z.literal("linhaDoTempo"), titulo: opc(70), eventos: lista(z.object({ quando: txt(24), texto: txt(110) }), 2, 8) }),
   z.object({ tipo: z.literal("tabela"), titulo: opc(70), colunas: lista(txt(28), 2, 4), linhas: lista(lista(z.string().trim().transform((c) => c.slice(0, 40)), 1, 4), 1, 7) }),
   z.object({ tipo: z.literal("passos"), titulo: opc(70), itens: lista(z.object({ titulo: txt(60), nota: opc(140) }), 2, 6) }),
+  // 13/11 (os cartões que faltavam do Roamies): foto, quiz, conta passo a passo, modelo 3D e botões.
+  z.object({ tipo: z.literal("foto"), titulo: opc(70), busca: txt(80), legenda: opc(160), src: z.string().startsWith("data:image/").max(900_000).optional() }),
+  z.object({ tipo: z.literal("quiz"), titulo: opc(70), perguntas: lista(z.object({ texto: txt(160), opcoes: lista(txt(70), 2, 4), resposta: txt(70), explica: opc(200) }), 1, 5) }),
+  z.object({ tipo: z.literal("conta"), titulo: opc(70), passos: lista(z.object({ expr: txt(90), nota: opc(100) }), 1, 8) }),
+  z.object({
+    tipo: z.literal("modelo"), titulo: opc(70), legenda: opc(200),
+    partes: lista(z.object({
+      forma: z.enum(["caixa", "esfera", "cilindro", "cone", "anel"]),
+      x: z.number().finite().min(-1.2).max(1.2).catch(0), y: z.number().finite().min(-1.2).max(1.2).catch(0), z: z.number().finite().min(-1.2).max(1.2).catch(0),
+      sx: z.number().finite().min(0.03).max(1.5).catch(0.3), sy: z.number().finite().min(0.03).max(1.5).catch(0.3), sz: z.number().finite().min(0.03).max(1.5).catch(0.3),
+      tom, rotulo: opc(30),
+      movimento: z.enum(["gira", "orbita", "desliza", "pulsa"]).optional().catch(undefined),
+      eixo: z.enum(["x", "y", "z"]).optional().catch(undefined),
+    }), 1, 10),
+  }),
+  z.object({ tipo: z.literal("botoes"), titulo: opc(70), itens: lista(z.object({ texto: txt(40), faz: z.enum(["perguntar", "abrir", "copiar"]), valor: txt(300) }), 1, 4) }),
   z.object({
     tipo: z.literal("diagrama"), titulo: opc(70), legenda: opc(200),
     partes: lista(z.object({
@@ -65,6 +81,8 @@ export function validarCartoes(bruto: unknown): Cartao[] {
       if (!v.ligacoes.length) v.ligacoes = v.nos.slice(1).map((n, i) => ({ de: v.nos[i].id, para: n.id, andando: true }));
     }
     if (v.tipo === "cartao" && !v.titulo && !v.texto && !v.itens?.length) continue;
+    if (v.tipo === "quiz") { v.perguntas = v.perguntas.filter((p) => p.opcoes.includes(p.resposta)); if (!v.perguntas.length) continue; }
+    if (v.tipo === "botoes") { v.itens = v.itens.filter((b) => b.faz !== "abrir" || /^https:\/\/[^\s]+$/.test(b.valor)); if (!v.itens.length) continue; }
     ok.push(v);
     if (ok.length === 2) break;
   }
@@ -74,7 +92,7 @@ export function validarCartoes(bruto: unknown): Cartao[] {
 /** "Me explica…", "como funciona…", "desenha…": a Ely flutuante desenha junto com a fala. Puro. */
 export function pediuDesenho(texto: string): boolean {
   const t = semAcento(texto).toLowerCase();
-  return /\b(explica|explique|explicar|me ensina|ensina|como funciona|como e que funciona|desenha|desenhe|ilustra|ilustre|mostra como|me mostra|o que e|o que sao|qual a diferenca|diferenca entre|passo a passo|como se faz|como fazer)\b/.test(t);
+  return /\b(explica|explique|explicar|me ensina|ensina|como funciona|como e que funciona|desenha|desenhe|ilustra|ilustre|mostra como|me mostra|o que e|o que sao|qual a diferenca|diferenca entre|passo a passo|como se faz|como fazer|me testa|me teste|faz um quiz|quiz|questionario|foto d[eoa]s?|imagem d[eoa]s?|resolve|resolva|em 3d|modelo 3d)\b/.test(t);
 }
 
 const SISTEMA = `Você desenha explicações visuais curtas para a assistente Ely, que fala a explicação em voz ao mesmo tempo.
@@ -87,6 +105,11 @@ Cada cartão: {"tipo": "...", "titulo": "...", "<tipo>": {o conteúdo daquele ti
 - tabela: {colunas, linhas} — comparar lado a lado; a 1ª coluna nomeia a linha; "sim"/"não" viram ✓/✗.
 - passos: {itens:[{titulo, nota}]} — como fazer algo.
 - cartao: {texto, itens} — o resumo, quando nada acima cabe.
+- foto: {busca, legenda} — UMA foto de algo que tem página na Wikipédia (animal, lugar, obra, pessoa famosa, objeto). busca = o nome exato do verbete.
+- quiz: {perguntas:[{texto, opcoes (2 a 4), resposta (igual a uma das opções), explica}]} — SÓ quando ele pedir para ser testado ("me testa", "faz um quiz").
+- conta: {passos:[{expr, nota}]} — conta resolvida passo a passo; expr em texto simples (ex.: "2x + 3 = 11", "x = 8 ÷ 2 = 4"), nota = o que mudou.
+- modelo: {legenda, partes:[{forma:"caixa"|"esfera"|"cilindro"|"cone"|"anel", x, y, z, sx, sy, sz, tom, rotulo, movimento:"gira"|"orbita"|"desliza"|"pulsa", eixo:"x"|"y"|"z"}]} — objeto ou máquina em 3D (motor, pistão, planeta, célula, molécula simples). Posição e tamanho INTEIROS de -100 a 100 (tamanho de 3 a 100). "orbita" gira em volta do centro (planeta, elétron), "desliza" vai e volta no eixo (pistão), "gira" roda no lugar, "pulsa" respira (coração).
+- botoes: {itens:[{texto, faz:"perguntar"|"abrir"|"copiar", valor}]} — próximos passos que ele pode clicar (perguntar = uma pergunta de continuação; abrir = um link https; copiar = um texto útil).
 tom: "a" (cor principal do tema), "b" (segunda cor), "ambar", "coral", "lilas", "branco", "preto".
 No diagrama, TODA parte importante tem rótulo, e o desenho ocupa o espaço (use o quadro de -100 a 100 todo).
 Exemplo (buraco negro): {"cartoes":[{"tipo":"diagrama","titulo":"Buraco negro","diagrama":{"legenda":"Nada que passa do horizonte volta, nem a luz.","partes":[{"forma":"anel","x":0,"y":0,"r":85,"tom":"ambar","rotulo":"Disco de acreção","movimento":"gira"},{"forma":"anel","x":0,"y":0,"r":40,"tom":"a","rotulo":"Horizonte de eventos"},{"forma":"circulo","x":0,"y":0,"r":30,"tom":"preto"},{"forma":"ponto","x":0,"y":0,"r":4,"tom":"coral","rotulo":"Singularidade"},{"forma":"ponto","x":70,"y":30,"r":5,"tom":"ambar","rotulo":"Gás caindo","movimento":"orbita"},{"forma":"seta","x":-95,"y":60,"x2":-48,"y2":18,"tom":"b","rotulo":"Luz capturada"}]}}]}
@@ -111,7 +134,7 @@ const arr = (items: unknown) => ({ type: "ARRAY", items });
 const ESQUEMA = obj({
   cartoes: arr({
     ...obj({
-      tipo: { type: "STRING", enum: ["diagrama", "fluxo", "barras", "linhaDoTempo", "tabela", "passos", "cartao"] },
+      tipo: { type: "STRING", enum: ["diagrama", "fluxo", "barras", "linhaDoTempo", "tabela", "passos", "cartao", "foto", "quiz", "conta", "modelo", "botoes"] },
       titulo: S,
       diagrama: obj({ legenda: S, partes: arr(obj({ forma: { type: "STRING", enum: ["circulo", "anel", "ponto", "seta"] }, rotulo: S, x: I, y: I, r: I, tom: S, movimento: { type: "STRING", enum: ["orbita", "pulso", "gira", "nenhum"] }, x2: I, y2: I }, ["forma", "rotulo", "x", "y", "r", "tom", "movimento"])) }, ["partes", "legenda"]),
       fluxo: obj({ nos: arr(obj({ id: S, texto: S, forma: S, tom: S }, ["id", "texto", "forma", "tom"])), ligacoes: arr(obj({ de: S, para: S, rotulo: S, andando: { type: "BOOLEAN" } }, ["de", "para", "andando"])) }, ["nos", "ligacoes"]),
@@ -120,6 +143,11 @@ const ESQUEMA = obj({
       tabela: obj({ colunas: arr(S), linhas: arr(arr(S)) }, ["colunas", "linhas"]),
       passos: obj({ itens: arr(obj({ titulo: S, nota: S }, ["titulo", "nota"])) }, ["itens"]),
       cartao: obj({ texto: S, itens: arr(S) }),
+      foto: obj({ busca: S, legenda: S }, ["busca"]),
+      quiz: obj({ perguntas: arr(obj({ texto: S, opcoes: arr(S), resposta: S, explica: S }, ["texto", "opcoes", "resposta", "explica"])) }, ["perguntas"]),
+      conta: obj({ passos: arr(obj({ expr: S, nota: S }, ["expr", "nota"])) }, ["passos"]),
+      modelo: obj({ legenda: S, partes: arr(obj({ forma: { type: "STRING", enum: ["caixa", "esfera", "cilindro", "cone", "anel"] }, rotulo: S, x: I, y: I, z: I, sx: I, sy: I, sz: I, tom: S, movimento: { type: "STRING", enum: ["gira", "orbita", "desliza", "pulsa", "nenhum"] }, eixo: { type: "STRING", enum: ["x", "y", "z"] } }, ["forma", "rotulo", "x", "y", "z", "sx", "sy", "sz", "tom", "movimento"])) }, ["partes"]),
+      botoes: obj({ itens: arr(obj({ texto: S, faz: { type: "STRING", enum: ["perguntar", "abrir", "copiar"] }, valor: S }, ["texto", "faz", "valor"])) }, ["itens"]),
     }),
     required: ["tipo", "titulo"],
   }),
@@ -136,11 +164,11 @@ export function achatar(c: unknown): unknown {
   if (!dentro || typeof dentro !== "object" || Array.isArray(dentro)) return o;
   const d: Record<string, unknown> = { ...(dentro as Record<string, unknown>), tipo: o.tipo, ...(o.titulo !== undefined ? { titulo: o.titulo } : {}) };
   // Diagrama do esquema: inteiros de −100 a 100 → a escala de −1 a 1 do desenho.
-  if (o.tipo === "diagrama" && Array.isArray(d.partes)) {
+  if ((o.tipo === "diagrama" || o.tipo === "modelo") && Array.isArray(d.partes)) {
     d.partes = d.partes.map((p) => {
       if (!p || typeof p !== "object") return p;
       const q = { ...(p as Record<string, unknown>) };
-      for (const k of ["x", "y", "r", "x2", "y2"]) if (typeof q[k] === "number") q[k] = (q[k] as number) / 100;
+      for (const k of ["x", "y", "z", "r", "x2", "y2", "sx", "sy", "sz"]) if (typeof q[k] === "number") q[k] = (q[k] as number) / 100;
       return q;
     });
   }
@@ -188,11 +216,46 @@ async function pelaGroq(pedido: string, sinal?: AbortSignal): Promise<Cartao[]> 
   }
 }
 
+/**
+ * A foto de um verbete da Wikipédia (pt, senão en) como data URL — a camada da bolota não carrega
+ * nada da internet. null = sem verbete ou sem imagem. Até ~600 KB.
+ */
+export async function fotoDaWikipedia(busca: string): Promise<string | null> {
+  for (const lang of ["pt", "en"]) {
+    try {
+      const r = await fetch(`https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(busca.replace(/ /g, "_"))}`, { headers: { "Api-User-Agent": "ELYSIUM/2 (assistente pessoal)" }, signal: AbortSignal.timeout(4000) });
+      if (!r.ok) continue;
+      const j = await r.json() as { thumbnail?: { source?: string }; originalimage?: { source?: string } };
+      // 13/11: miniaturas só nos tamanhos-padrão (640 dá 400); 500 é o maior que cabe bem no cartão.
+      const url = j.thumbnail?.source?.replace(/\/\d+px-/, "/500px-") ?? j.originalimage?.source;
+      if (!url || !/^https:\/\/(upload|thumb)\.wikimedia\.org\//.test(url)) continue;
+      const img = await fetch(url, { headers: { "User-Agent": "ELYSIUM/2 (assistente pessoal)" }, signal: AbortSignal.timeout(5000) });
+      if (!img.ok) continue;
+      const tipo = img.headers.get("content-type") ?? "";
+      if (!/^image\/(jpeg|png|webp|gif)$/.test(tipo)) continue;
+      const buf = Buffer.from(await img.arrayBuffer());
+      if (buf.length > 650_000) continue;
+      return `data:${tipo};base64,${buf.toString("base64")}`;
+    } catch { /* o próximo idioma */ }
+  }
+  return null;
+}
+
+async function completarFotos(cartoes: Cartao[]): Promise<Cartao[]> {
+  const fotos = await Promise.all(cartoes.map((c) => (c.tipo === "foto" ? fotoDaWikipedia(c.busca) : Promise.resolve(null))));
+  const out: Cartao[] = [];
+  cartoes.forEach((c, i) => {
+    if (c.tipo !== "foto") out.push(c);
+    else if (fotos[i]) out.push({ ...c, src: fotos[i]! });
+  });
+  return out;
+}
+
 /** Pede os cartões. `null` = sem chave, sem resposta ou nada aproveitável. */
 export async function desenharRapido(pedido: string, sinal?: AbortSignal): Promise<{ cartoes: Cartao[]; ms: number; por: "groq" | "gemini" } | null> {
   const t0 = Date.now();
   const daGroq = await pelaGroq(pedido, sinal);
-  if (daGroq.length) return { cartoes: daGroq, ms: Date.now() - t0, por: "groq" };
+  if (daGroq.length) { const c = await completarFotos(daGroq); if (c.length) return { cartoes: c, ms: Date.now() - t0, por: "groq" }; }
   if (sinal?.aborted) return null;
   const r = await gerarGemini({
     sistema: SISTEMA,
@@ -205,6 +268,6 @@ export async function desenharRapido(pedido: string, sinal?: AbortSignal): Promi
     pensamento: "baixo",
     sinal,
   }).catch(() => null);
-  const cartoes = r ? cartoesDoTexto(r.texto) : [];
+  const cartoes = r ? await completarFotos(cartoesDoTexto(r.texto)) : [];
   return cartoes.length ? { cartoes, ms: Date.now() - t0, por: "gemini" } : null;
 }

@@ -370,10 +370,11 @@
     if (coluna && !coluna.children.length) coluna.remove();
     coluna = el("div", "coluna");
     const L = 400, larguraLado = 350;
-    let x, y = Math.max(16, pos.y - 30);
+    // Sempre com pelo menos ~420 px de altura livre (a resposta + um desenho), mesmo com a bolota embaixo.
+    let x, y = Math.max(16, Math.min(pos.y - 30, telaH - 436));
     if (pos.x + 34 + larguraLado + 10 + L < telaW - 16) x = pos.x + 34 + larguraLado + 10;
     else if (pos.x - 60 - L > 16) x = pos.x - 60 - L;
-    else { x = Math.max(16, Math.min(telaW - 16 - L, pos.x - L / 2)); y = Math.min(telaH - 200, pos.y + 60); }
+    else { x = Math.max(16, Math.min(telaW - 16 - L, pos.x - L / 2)); y = pos.y > telaH / 2 ? 16 : Math.min(telaH - 436, pos.y + 60); }
     coluna.style.left = `${x}px`; coluna.style.top = `${y}px`;
     coluna.style.maxHeight = `${telaH - y - 16}px`;
     cartoes.appendChild(coluna);
@@ -444,6 +445,7 @@
     resposta = null;
     esperando.clear();
     coluna = null;
+    limparMarcas();
   }
 
   /** O cartão da resposta (o primeiro): pergunta em cima, texto chegando aos poucos. */
@@ -509,7 +511,130 @@
     return corpo;
   }
 
+  // ── modelo 3D em pontos (13/11): o mesmo jeito da bolota — cada peça vira uma nuvem de pontos
+  // na superfície, a cena gira devagar e cada peça faz o movimento dela (gira, orbita, desliza, pulsa).
+  function pontosDaForma(forma, n) {
+    const p = [], ouro = Math.PI * (3 - Math.sqrt(5));
+    for (let i = 0; i < n; i++) {
+      const u = i / n, th = ouro * i;
+      if (forma === "esfera") { const y = 1 - 2 * u, r = Math.sqrt(1 - y * y); p.push([Math.cos(th) * r, y, Math.sin(th) * r]); }
+      else if (forma === "caixa") { const f = i % 6, a = ((i * 0.618) % 1) * 2 - 1, b = ((i * 0.382 + u) % 1) * 2 - 1; const s = f % 2 ? 1 : -1; p.push(f < 2 ? [s, a, b] : f < 4 ? [a, s, b] : [a, b, s]); }
+      else if (forma === "cilindro") { const y = u * 2 - 1; p.push([Math.cos(th), i % 7 === 0 ? (i % 14 ? 1 : -1) : y, Math.sin(th)]); }
+      else if (forma === "cone") { const y = u * 2 - 1, r = (1 - y) / 2; p.push([Math.cos(th) * r, y, Math.sin(th) * r]); }
+      else { const a = th, b = (i * 2.399) % (Math.PI * 2); p.push([(1 + 0.3 * Math.cos(b)) * Math.cos(a) / 1.3, 0.3 * Math.sin(b) / 1.3, (1 + 0.3 * Math.cos(b)) * Math.sin(a) / 1.3]); }
+    }
+    return p;
+  }
+  function modelo3d(c, d) {
+    const tela = el("canvas", "modelo3d");
+    c.appendChild(tela);
+    const ctx = tela.getContext("2d");
+    const pecas = d.partes.map((q, i) => ({ ...q, pts: pontosDaForma(q.forma, Math.round(90 + Math.min(1, (q.sx + q.sy + q.sz) / 1.5) * 160)), cor: cor(q.tom, i % 2 ? "b" : "a"), fase: i * 1.7 }));
+    const legenda = el("div", "legenda");
+    for (const q of pecas) if (q.rotulo) { const s = el("span"); const b = el("i"); b.style.background = q.cor; s.append(b, document.createTextNode(q.rotulo)); legenda.appendChild(s); }
+    if (legenda.childNodes.length) c.appendChild(legenda);
+    if (d.legenda) c.appendChild(el("p", "nota", d.legenda));
+    let t0 = performance.now(), ativo = true;
+    function quadro(agora) {
+      if (!tela.isConnected || !palco.classList.contains("aberto")) { ativo = false; return; }
+      const dpr = Math.min(2, devicePixelRatio || 1), W = Math.round(tela.clientWidth * dpr), H = Math.round(tela.clientHeight * dpr);
+      if (tela.width !== W || tela.height !== H) { tela.width = W; tela.height = H; }
+      ctx.clearRect(0, 0, W, H);
+      const t = (agora - t0) / 1000, devagar = reduzir();
+      const rot = devagar ? 0.6 : t * 0.35, cr = Math.cos(rot), sr = Math.sin(rot), inc = 0.42, ci = Math.cos(inc), si = Math.sin(inc);
+      const esc = Math.min(W, H) * 0.36;
+      const lista = [];
+      for (const q of pecas) {
+        let ox = q.x, oy = q.y, oz = q.z, s = 1, giro = 0;
+        if (!devagar) {
+          if (q.movimento === "orbita") { const a = t * 0.9 + q.fase, cx = Math.cos(a), sx = Math.sin(a); [ox, oz] = [q.x * cx - q.z * sx, q.x * sx + q.z * cx]; if (!q.x && !q.z) ox = 0.6 * cx, oz = 0.6 * sx; }
+          else if (q.movimento === "desliza") { const k = Math.sin(t * 2.2 + q.fase) * 0.35; if (q.eixo === "x") ox += k; else if (q.eixo === "z") oz += k; else oy += k; }
+          else if (q.movimento === "pulsa") s = 1 + 0.12 * Math.sin(t * 4 + q.fase);
+          else if (q.movimento === "gira") giro = t * 1.6;
+        }
+        const cg = Math.cos(giro), sg = Math.sin(giro);
+        for (const [px, py, pz] of q.pts) {
+          let x = px * q.sx * s, y = py * q.sy * s, z = pz * q.sz * s;
+          [x, z] = [x * cg - z * sg, x * sg + z * cg];
+          x += ox; y += oy; z += oz;
+          const x1 = x * cr + z * sr, z1 = -x * sr + z * cr;
+          const y2 = y * ci - z1 * si, z2 = y * si + z1 * ci;
+          const f = 3 / (3 - z2);
+          lista.push([W / 2 + x1 * esc * f, H / 2 - y2 * esc * f, z2, f, q.cor]);
+        }
+      }
+      lista.sort((a, b) => a[2] - b[2]);
+      for (const [x, y, z, f, c2] of lista) {
+        const prof = Math.max(0, Math.min(1, (z + 1.4) / 2.8));
+        ctx.globalAlpha = 0.25 + prof * 0.75;
+        ctx.fillStyle = c2;
+        ctx.beginPath(); ctx.arc(x, y, (0.8 + prof * 1.5) * f * dpr, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+      requestAnimationFrame(quadro);
+    }
+    requestAnimationFrame(quadro);
+    void ativo;
+  }
+
   const DESENHOS = {
+    modelo: modelo3d,
+    foto(c, d) {
+      if (!d.src) return;
+      const img = el("img", "foto");
+      img.src = d.src; img.alt = d.legenda || d.busca || "";
+      c.appendChild(img);
+      if (d.legenda) c.appendChild(el("p", "nota", d.legenda));
+    },
+    conta(c, d) {
+      const lista = el("div", "conta");
+      d.passos.forEach((p, i) => {
+        const linha = el("div", "linha-conta"); linha.style.animationDelay = `${i * 260}ms`;
+        linha.append(el("div", "expr", p.expr));
+        if (p.nota) linha.append(el("div", "nota", p.nota));
+        lista.appendChild(linha);
+      });
+      c.appendChild(lista);
+    },
+    quiz(c, d) {
+      let certos = 0, feitos = 0;
+      const placar = el("div", "placar", `0 de ${d.perguntas.length}`);
+      d.perguntas.forEach((q, k) => {
+        const bloco = el("div", "pergunta-quiz");
+        bloco.appendChild(el("div", "enunciado", `${k + 1}. ${q.texto}`));
+        const ops = el("div", "opcoes");
+        for (const o of q.opcoes) {
+          const b = el("button", "opcao", o);
+          b.addEventListener("click", () => {
+            if (bloco.classList.contains("respondida")) return;
+            bloco.classList.add("respondida");
+            const certo = o === q.resposta;
+            b.classList.add(certo ? "certa" : "errada");
+            if (!certo) for (const x of ops.children) if (x.textContent === q.resposta) x.classList.add("certa");
+            if (q.explica) bloco.appendChild(el("div", "explica", q.explica));
+            feitos++; if (certo) certos++;
+            placar.textContent = `${certos} de ${d.perguntas.length}${feitos === d.perguntas.length ? (certos === feitos ? " — mandou bem!" : "") : ""}`;
+          });
+          ops.appendChild(b);
+        }
+        bloco.appendChild(ops);
+        c.appendChild(bloco);
+      });
+      c.appendChild(placar);
+    },
+    botoes(c, d) {
+      const linha = el("div", "botoes-acao");
+      for (const b of d.itens) {
+        const bt = el("button", "acao", b.texto);
+        bt.addEventListener("click", () => {
+          if (b.faz === "perguntar") perguntar(b.valor);
+          else if (b.faz === "abrir") window.ely.abrir(b.valor);
+          else navigator.clipboard.writeText(b.valor).then(() => { bt.textContent = "Copiado"; setTimeout(() => (bt.textContent = b.texto), 1200); }).catch(() => {});
+        });
+        linha.appendChild(bt);
+      }
+      c.appendChild(linha);
+    },
     cartao(c, d) {
       if (d.titulo) c.appendChild(el("h3", null, d.titulo));
       if (d.texto) c.appendChild(el("p", null, d.texto));
@@ -727,6 +852,92 @@
     adiarFechar();
   }
 
+  // ── marcas na tela (o guia de tela, 13/11) ─────────────────────────────────────────────
+  // Os passos aparecem um por vez (o anterior fica mais apagado), cada um com a frase dele na
+  // legenda embaixo; tudo some na próxima pergunta, no Esc, ao fechar ou em 30 s.
+  const marcasEl = $("marcas"), legendaEl = $("legenda");
+  const SVG = "http://www.w3.org/2000/svg";
+  let timersMarcas = [];
+  function svg(tag, attrs, pai) {
+    const e = document.createElementNS(SVG, tag);
+    for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, String(v));
+    if (pai) pai.appendChild(e);
+    return e;
+  }
+  function limparMarcas() {
+    for (const t of timersMarcas) clearTimeout(t);
+    timersMarcas = [];
+    marcasEl.textContent = "";
+    legendaEl.classList.remove("ve");
+  }
+  function tracar(e) {
+    try { const L = Math.ceil(e.getTotalLength()); e.style.setProperty("--L", L); } catch { /* sem comprimento */ }
+  }
+  function desenharMarca(g, m) {
+    const pad = 6, x = m.x - pad, y = m.y - pad, w = m.w + pad * 2, h = m.h + pad * 2;
+    if (m.tipo === "anel") {
+      const r = svg("rect", { x, y, width: w, height: h, rx: Math.min(14, h / 2), class: "anel pulsa" }, g); tracar(r);
+    } else if (m.tipo === "sublinhado") {
+      const l = svg("line", { x1: m.x, y1: m.y + m.h + 4, x2: m.x + m.w, y2: m.y + m.h + 4, class: "sub tracar" }, g); tracar(l);
+    } else if (m.tipo === "seta") {
+      // De fora para dentro: vem do lado com mais espaço.
+      const daDireita = m.x + m.w + 140 < telaW, deCima = m.y > 120;
+      const ex = daDireita ? m.x + m.w + 8 : m.x - 8, ey = m.y + m.h / 2;
+      const sx = daDireita ? ex + 110 : ex - 110, sy = deCima ? ey - 70 : ey + 70;
+      const p = svg("path", { d: `M${sx},${sy} Q${(sx + ex) / 2},${sy} ${ex},${ey}`, class: "seta tracar" }, g); tracar(p);
+      const ang = Math.atan2(ey - sy, ex - (sx + ex) / 2);
+      const pt = (a, r) => `${ex - Math.cos(ang + a) * r},${ey - Math.sin(ang + a) * r}`;
+      svg("polygon", { points: `${ex},${ey} ${pt(0.45, 13)} ${pt(-0.45, 13)}`, class: "ponta" }, g);
+    } else if (m.tipo === "num") {
+      svg("circle", { cx: m.x - 2, cy: m.y - 2, r: 12, class: "numc" }, g);
+      const t = svg("text", { x: m.x - 2, y: m.y - 2, class: "numt" }, g); t.textContent = String(m.n || 1);
+    } else if (m.tipo === "destaque") {
+      const id = `buraco${Math.random().toString(36).slice(2, 7)}`;
+      const mask = svg("mask", { id }, g);
+      svg("rect", { x: 0, y: 0, width: telaW, height: telaH, fill: "white" }, mask);
+      svg("rect", { x, y, width: w, height: h, rx: 12, fill: "black" }, mask);
+      svg("rect", { x: 0, y: 0, width: telaW, height: telaH, mask: `url(#${id})`, class: "velado" }, g);
+    }
+    if (m.texto && (m.tipo === "rotulo" || m.tipo === "anel" || m.tipo === "seta")) {
+      const rg = svg("g", { class: "rot" }, g);
+      const largura = m.texto.length * 7.2 + 20;
+      const embaixo = m.y + m.h + 40 < telaH;
+      const rx = Math.max(8, Math.min(telaW - largura - 8, m.x + m.w / 2 - largura / 2)), ry = embaixo ? m.y + m.h + 12 : m.y - 40;
+      svg("rect", { x: rx, y: ry, width: largura, height: 28, rx: 14 }, rg);
+      const t = svg("text", { x: rx + 10, y: ry + 14 }, rg); t.textContent = m.texto;
+    }
+  }
+  function mostrarMarcas(o) {
+    limparMarcas();
+    const passos = Array.isArray(o?.passos) ? o.passos : [];
+    const PASSO_MS = 2600;
+    passos.forEach((p, k) => {
+      timersMarcas.push(setTimeout(() => {
+        for (const ant of marcasEl.querySelectorAll(".passo")) ant.classList.add("antigo");
+        const g = svg("g", { class: "passo" }, marcasEl);
+        for (const m of p.marcas || []) { try { desenharMarca(g, m); } catch (e) { console.warn("[marca]", e); } }
+        if (p.dizer) { legendaEl.textContent = passos.length > 1 ? `${k + 1}. ${p.dizer}` : p.dizer; legendaEl.classList.add("ve"); }
+      }, k * PASSO_MS));
+    });
+    timersMarcas.push(setTimeout(limparMarcas, Math.max(30_000, passos.length * PASSO_MS + 15_000)));
+    adiarFechar();
+  }
+
+  /** "Posso fazer isso?" — só para o que apaga ou desfaz algo de vez. */
+  function pedirConfirmacao(o) {
+    if (!o || typeof o.id !== "string") return;
+    const corpo = novoCartao("Confirma?");
+    corpo.appendChild(el("p", null, String(o.texto || "Fazer isso?")));
+    const linha = el("div", "confirma");
+    const nao = el("button", "nao", "Cancelar"), sim = el("button", "sim", "Fazer");
+    linha.append(nao, sim);
+    corpo.appendChild(linha);
+    const responder = (v) => { window.ely.confirmar(o.id, v); fecharCartao(corpo.parentElement); };
+    nao.addEventListener("click", () => responder(false));
+    sim.addEventListener("click", () => responder(true));
+    corpo.parentElement.classList.add("fixo");
+  }
+
   // ── tela (OpenUI), o mesmo renderer isolado do chat ──────────────────────────────────────
   const telas = new Map(); // contentWindow → { iframe, programa, cargas }
   function varsDaTela() {
@@ -797,7 +1008,11 @@
       perguntar(t);
     } else if (e.key === "Escape") window.ely.fechar();
   });
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && e.target !== campo) window.ely.fechar(); });
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape" || e.target === campo) return;
+    // Esc com marcas na tela: some com elas primeiro; de novo, fecha.
+    if (marcasEl.childNodes.length) limparMarcas(); else window.ely.fechar();
+  });
 
   // ── eventos do main ────────────────────────────────────────────────────────────────────
   window.ely.ao("flutuante:abrir", (o) => {
@@ -837,12 +1052,15 @@
   window.ely.ao("flutuante:status", (t) => { if (typeof t === "string" && estadoAtual !== "idle") mostrarStatus(t); });
   window.ely.ao("voice:action-label", (t) => { if (typeof t === "string" && t && !/^Processando/.test(t)) mostrarStatus(t); });
   window.ely.ao("voice:parcial", (t) => { if (typeof t === "string") falaParcial(t); });
+  window.ely.ao("flutuante:marcas", (o) => mostrarMarcas(o));
+  window.ely.ao("flutuante:confirmar", (o) => pedirConfirmacao(o));
   window.ely.ao("flutuante:fechar", () => {
     palco.classList.remove("aberto");
     clearTimeout(timerFechar);
     dentro = false;
     campo.blur();
     seguindo = false;
+    limparMarcas();
   });
   window.ely.ao("flutuante:tema", (id) => aplicarTema(id));
   window.ely.ao("voice:state", (s) => mostrarEstado(String(s)));

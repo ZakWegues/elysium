@@ -67,6 +67,33 @@
   #aovivo:empty { display: none; }
   .fala.ouvindo #aovivo:not(:empty)::after { content: ""; display: inline-block; width: 6px; height: 13px; margin-left: 3px; vertical-align: -2px; border-radius: 2px; background: var(--b); animation: pisca 1s steps(2) infinite; }
 
+  /* ── as marcas na tela (o guia de tela): por cima dos programas, sem pegar o mouse ───── */
+  #marcas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; z-index: 3; }
+  #marcas .anel { fill: none; stroke: var(--a2); stroke-width: 3; filter: drop-shadow(0 0 6px color-mix(in srgb, var(--a) 80%, transparent)); }
+  #marcas .tracar { stroke-dasharray: var(--L) var(--L); stroke-dashoffset: var(--L); animation: tracar .55s cubic-bezier(.3,.7,.2,1) forwards; }
+  @keyframes tracar { to { stroke-dashoffset: 0; } }
+  #marcas .pulsa { animation: tracar .55s cubic-bezier(.3,.7,.2,1) forwards, pulsaMarca 1.6s ease-in-out .6s infinite; }
+  @keyframes pulsaMarca { 50% { stroke-width: 5; } }
+  #marcas .seta { fill: none; stroke: var(--a2); stroke-width: 3.2; stroke-linecap: round; }
+  #marcas .ponta { fill: var(--a2); }
+  #marcas .numc { fill: var(--a); stroke: rgba(0,0,0,.35); stroke-width: 1; }
+  #marcas .numt { fill: var(--bg); font: 700 13px "Segoe UI", sans-serif; text-anchor: middle; dominant-baseline: central; }
+  #marcas .rot rect { fill: rgba(var(--ink), .92); stroke: color-mix(in srgb, var(--a) 60%, transparent); stroke-width: 1; }
+  #marcas .rot text { fill: var(--texto); font: 600 12.5px "Segoe UI", sans-serif; dominant-baseline: central; }
+  #marcas .sub { stroke: var(--a2); stroke-width: 3; stroke-linecap: round; }
+  #marcas .velado { fill: rgba(0,0,0,.45); animation: aparece .3s ease both; }
+  #marcas .passo { animation: aparece .25s ease both; }
+  #marcas .passo.antigo { opacity: .45; transition: opacity .3s; }
+  @keyframes aparece { from { opacity: 0; } }
+  #legenda { position: absolute; left: 50%; top: 22px; transform: translateX(-50%); max-width: 70%; padding: 9px 16px; border-radius: 999px;
+    background: rgba(var(--ink), .9); border: 1px solid rgba(255,255,255,.12); font-size: 14px; color: var(--texto); z-index: 6;
+    opacity: 0; transition: opacity .2s; pointer-events: none; text-align: center; }
+  #legenda.ve { opacity: 1; }
+  .confirma { display: flex; gap: 8px; margin-top: 10px; }
+  .confirma button { flex: 1; height: 34px; border-radius: 10px; border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.06); color: var(--texto); font: inherit; cursor: pointer; }
+  .confirma button.sim { background: color-mix(in srgb, var(--coral) 35%, transparent); border-color: color-mix(in srgb, var(--coral) 60%, transparent); }
+  .confirma button:hover { filter: brightness(1.2); }
+
   /* ── os cartões soltos ─────────────────────────────────────────────────── */
   #cartoes { position: absolute; inset: 0; }
   /* A coluna da vez: os cartões de uma resposta, um embaixo do outro (rola se passar da tela). */
@@ -172,6 +199,26 @@
   .legenda { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 6px; font-size: 12px; color: var(--apagado); }
   .legenda i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; vertical-align: 0; }
 
+  /* 13/11: os cartões novos (foto, conta, quiz, modelo 3D, botões). */
+  img.foto { display: block; width: 100%; max-height: 300px; object-fit: cover; border-radius: 12px; animation: entra .3s ease both; }
+  .nota { margin: 8px 0 0; font-size: 12.5px; color: var(--apagado); }
+  .conta .linha-conta { padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,.06); animation: entra .3s ease both; }
+  .conta .expr { font: 600 16px/1.4 "Cascadia Mono", Consolas, monospace; color: var(--texto); }
+  .conta .linha-conta:last-child .expr { color: var(--a2); }
+  .pergunta-quiz { margin-bottom: 12px; }
+  .enunciado { font-weight: 600; margin-bottom: 6px; }
+  .opcoes { display: grid; gap: 6px; }
+  .opcao, .acao { text-align: left; padding: 8px 11px; border-radius: 10px; border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.05); color: var(--texto); font: inherit; cursor: pointer; transition: background .15s, border-color .15s; }
+  .opcao:hover, .acao:hover { background: rgba(255,255,255,.10); }
+  .opcao.certa { border-color: #5fd18f; background: rgba(95,209,143,.18); }
+  .opcao.errada { border-color: var(--coral); background: color-mix(in srgb, var(--coral) 18%, transparent); }
+  .respondida .opcao { cursor: default; }
+  .explica { margin-top: 6px; font-size: 12.5px; color: var(--apagado); animation: entra .25s ease both; }
+  .placar { font-weight: 600; color: var(--a2); text-align: right; }
+  .botoes-acao { display: flex; flex-wrap: wrap; gap: 6px; }
+  .acao { flex: 1 1 auto; text-align: center; }
+  canvas.modelo3d { display: block; width: 100%; height: 260px; }
+
   iframe.tela { width: 100%; height: 160px; border: 0; border-radius: 12px; display: block; background: transparent; }
 
   /* Movimento reduzido: pelo ajuste do ELYSIUM (Movimento), não direto pelo Windows — ver flutuante.js. */
@@ -180,6 +227,8 @@
 </head>
 <body>
 <div id="palco">
+  <svg id="marcas" aria-hidden="true"></svg>
+  <div id="legenda" aria-live="polite"></div>
   <div id="cartoes"></div>
   <div id="ely">
     <div class="bola interativo" id="bola" title="Clique para digitar"><canvas id="bolota"></canvas></div>

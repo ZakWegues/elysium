@@ -8,6 +8,10 @@ describe("desenho rápido da Ely flutuante (12/11)", () => {
     expect(pediuDesenho("Como é que funciona o motor do carro?")).toBe(true);
     expect(pediuDesenho("desenha o sistema solar")).toBe(true);
     expect(pediuDesenho("o que é fotossíntese")).toBe(true);
+    expect(pediuDesenho("me testa sobre o sistema solar")).toBe(true);
+    expect(pediuDesenho("me mostra uma foto de golden retriever")).toBe(true);
+    expect(pediuDesenho("resolve 2x + 3 = 11")).toBe(true);
+    expect(pediuDesenho("um motor de 4 tempos em 3D")).toBe(true);
     expect(pediuDesenho("abre o spotify")).toBe(false);
     expect(pediuDesenho("que horas são")).toBe(false);
   });
