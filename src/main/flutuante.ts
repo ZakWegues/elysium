@@ -112,8 +112,8 @@ export function fecharFlutuante(): void {
   if (!janela || janela.isDestroyed()) return;
   janela.webContents.send("flutuante:fechar");
   janela.setIgnoreMouseEvents(true, { forward: true });
-  // A saída anima no renderer (~180 ms); depois esconde de verdade.
-  setTimeout(() => { if (!aberta && janela && !janela.isDestroyed()) janela.hide(); }, 200);
+  // A saída anima no renderer (a bolota estoura e implode em ~0,52 s); depois esconde de verdade.
+  setTimeout(() => { if (!aberta && janela && !janela.isDestroyed()) janela.hide(); }, 620);
 }
 
 export interface AcoesFlutuante {

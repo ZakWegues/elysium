@@ -19,6 +19,8 @@
   /* 13/11: a camada cobre a tela inteira e é transparente; só o que tem .interativo recebe o mouse. */
   #palco { position: absolute; inset: 0; opacity: 0; transition: opacity .16s ease; }
   #palco.aberto { opacity: 1; }
+  /* Saindo: tudo some rápido menos a bolota (que faz a animação dela). */
+  #palco.fechando #cartoes, #palco.fechando .lado, #palco.fechando #marcas, #palco.fechando #legenda { opacity: 0; transition: opacity .14s ease; }
 
   /* ── a Ely: a bolota que segue o cursor, com a fala, o estado e o nível do lado ───────── */
   #ely { position: absolute; left: 0; top: 0; width: 0; height: 0; will-change: transform; z-index: 5; }

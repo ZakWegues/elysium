@@ -46,7 +46,11 @@ const TIPO_CS = [
   "  var r = new List<string>(); var fg = GetForegroundWindow();",
   "  EnumWindows((h, l) => {",
   "   if (!IsWindowVisible(h) || GetWindow(h, 4) != IntPtr.Zero) return true;",
-  "   if ((GetWindowLong(h, -20) & 0x80) != 0) return true;",
+  // 13/11: camadas por cima (Roamies, Smart Notch, a própria Ely flutuante) não são "a janela dele":
+  // janela de ferramenta (0x80), que nunca pega foco (NOACTIVATE 0x08000000) ou transparente ao
+  // clique (TRANSPARENT 0x20 + LAYERED 0x80000).
+  "   int ex = GetWindowLong(h, -20);",
+  "   if ((ex & 0x80) != 0 || (ex & 0x08000000) != 0 || ((ex & 0x20) != 0 && (ex & 0x80000) != 0)) return true;",
   "   int c; if (DwmGetWindowAttribute(h, 14, out c, 4) == 0 && c != 0) return true;",
   "   int n = GetWindowTextLength(h); if (n == 0) return true;",
   "   var sb = new StringBuilder(n + 1); GetWindowText(h, sb, n + 1);",

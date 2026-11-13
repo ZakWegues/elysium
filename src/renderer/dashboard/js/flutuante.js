@@ -13,7 +13,8 @@
   const $ = (id) => document.getElementById(id);
   const palco = $("palco"), ely = $("ely"), bola = $("bola"), estadoEl = $("estado"), campo = $("campo"), cartoes = $("cartoes");
   const falaEl = $("fala"), historicoEl = $("historico"), aoVivoEl = $("aovivo"), nivelEl = $("nivel");
-  const ESPERA_FECHAR_MS = 60_000;
+  // 13/11 (pedido do dono): parada 7 s — sem ouvir, pensar, falar e sem o mouse em cima — some sozinha.
+  const ESPERA_FECHAR_MS = 7_000;
   /**
    * O próximo quadro — com reserva de 50 ms: janela recém-mostrada (ou que o Windows acha
    * coberta) pode segurar o requestAnimationFrame, e aí a bolinha nem aparecia (medido em 12/11).
@@ -151,6 +152,9 @@
     const mouse = { x: 0, y: 0, dentro: false };
     let estado = "idle", falando = false, mic = 0, nivel = 0, rotY = 0, t = 0, ultimo = 0, rodando = false;
     let nascerEm = 0, explodir = false, fluidoAte = 0, viva = false;
+    // 13/11: a saída — um estouro pequeno (os pontos se afastam 12–36%, pouco maior que a bolota) e a implosão.
+    const SUMIR_MS = 520;
+    let sumirEm = 0, aoSumir = null;
     let cor = [200, 170, 110];
     const rgb = (hex) => { const h = String(hex || "").replace("#", ""); return h.length === 6 ? [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16)) : [200, 170, 110]; };
     function corAlvo() {
@@ -190,11 +194,20 @@
       for (let k = 0; k < 3; k++) cor[k] += (ca[k] - cor[k]) * 0.1;
       const [cr, cg, cb] = cor.map(Math.round);
 
+      // Saída: 0–30% estoura (cada ponto com o seu tanto), 30–100% implode até o centro e apaga.
+      let fatorSaida = 1, alfaSaida = 1, estouro = 0;
+      if (sumirEm) {
+        const k = Math.min(1, (agora - sumirEm) / SUMIR_MS);
+        if (k < 0.3) { const e = L.easeOutCubic(k / 0.3); estouro = e; fatorSaida = 1 + 0.06 * e; }
+        else { const e = (k - 0.3) / 0.7, ein = e * e; estouro = 1 - e; fatorSaida = 1.06 * (1 - ein) + 0.02; alfaSaida = 1 - ein * 0.95; }
+        if (k >= 1) { sumirEm = 0; ctx.clearRect(0, 0, W, H); rodando = false; const f = aoSumir; aoSumir = null; f?.(); return; }
+      }
+      ctx.globalAlpha = alfaSaida;
       const kN = nascerEm ? (agora - nascerEm) / L.NASCER_MS : 1;
       if (kN >= 1) nascerEm = 0;
       const eN = nascerEm ? L.easeOutCubic(kN) : 1;
       const cx = W / 2, cy = H / 2;
-      const R = 22 * dpr * (1 + 0.03 * Math.sin(t * 1.4) + n * 0.16);
+      const R = 22 * dpr * (1 + 0.03 * Math.sin(t * 1.4) + n * 0.16) * fatorSaida;
       rotY += dt * (devagar ? 0.15 : 0.5 + n * 2);
       const rotX = 0.42 + Math.sin(t * 0.3) * 0.14;
       const sy = Math.sin(rotY), cyR = Math.cos(rotY), sx = Math.sin(rotX), cxR = Math.cos(rotX);
@@ -219,7 +232,9 @@
         const p = pts[i];
         const onda = 0.015 * Math.sin(4 * p[1] + t * 1.8) + n * (0.18 * Math.sin(3.1 * p[0] + t * 5.3) * Math.sin(2.7 * p[1] - t * 4.1));
         const r = 1 + onda;
-        let x = p[0] * r, y = p[1] * r, z = p[2] * r;
+        // No estouro cada ponto sai um tanto diferente (0,12–0,36 do raio): parece explosão, não zoom.
+        const r2 = r * (1 + estouro * (0.12 + 0.24 * (((i * 7919) % 97) / 97)));
+        let x = p[0] * r2, y = p[1] * r2, z = p[2] * r2;
         if (eN < 1) { const e = esp[i]; x = e[0] + (x - e[0]) * eN; y = e[1] + (y - e[1]) * eN; z = e[2] + (z - e[2]) * eN; }
         const x1 = x * cyR + z * sy, z1 = -x * sy + z * cyR;
         const y2 = y * cxR - z1 * sx, z2 = y * sx + z1 * cxR;
@@ -258,6 +273,7 @@
       ctx.strokeStyle = `rgba(${cr},${cg},${cb},${0.16 + n * 0.3})`;
       ctx.lineWidth = 1.1 * dpr;
       ctx.beginPath(); ctx.arc(cx, cy, R * (1.3 + n * 0.08), 0, Math.PI * 2); ctx.stroke();
+      ctx.globalAlpha = 1;
       requestAnimationFrame(passo);
     }
     function ligar() {
@@ -271,7 +287,13 @@
     return {
       ligar,
       cursorEm,
-      nascer() { if (!lento()) nascerEm = performance.now(); fox.fill(0); foy.fill(0); fvx.fill(0); fvy.fill(0); viva = false; ligar(); },
+      nascer() { sumirEm = 0; aoSumir = null; if (!lento()) nascerEm = performance.now(); fox.fill(0); foy.fill(0); fvx.fill(0); fvy.fill(0); viva = false; ligar(); },
+      /** Estoura e implode; `pronto` quando acabou (já sem nada desenhado). Sem animação: na hora. */
+      sumir(pronto) {
+        if (lento() || !palco.classList.contains("aberto")) { pronto(); return; }
+        sumirEm = performance.now(); aoSumir = pronto; nascerEm = 0; ligar();
+        setTimeout(() => { if (aoSumir === pronto) { aoSumir = null; sumirEm = 0; pronto(); } }, SUMIR_MS + 250);
+      },
       espalhar() { explodir = true; fluidoAte = performance.now() + 1300; ligar(); },
       estado(s) { estado = s; if (s !== "listening") mic = 0; },
       microfone(v) { mic = v; },
@@ -1034,6 +1056,7 @@
     aoVivoEl.textContent = "";
     falaEl.classList.remove("ve");
     ultimoStatus = ""; estadoEl.textContent = ""; estadoEl.classList.remove("ve");
+    palco.classList.remove("fechando");
     void palco.offsetWidth;
     palco.classList.add("aberto");
     Bolota.nascer();
@@ -1055,12 +1078,13 @@
   window.ely.ao("flutuante:marcas", (o) => mostrarMarcas(o));
   window.ely.ao("flutuante:confirmar", (o) => pedirConfirmacao(o));
   window.ely.ao("flutuante:fechar", () => {
-    palco.classList.remove("aberto");
     clearTimeout(timerFechar);
     dentro = false;
     campo.blur();
-    seguindo = false;
     limparMarcas();
+    // Cartões, fala e estado somem já; a bolota estoura e implode, e aí a camada apaga.
+    palco.classList.add("fechando");
+    Bolota.sumir(() => { palco.classList.remove("aberto", "fechando"); seguindo = false; });
   });
   window.ely.ao("flutuante:tema", (id) => aplicarTema(id));
   window.ely.ao("voice:state", (s) => mostrarEstado(String(s)));

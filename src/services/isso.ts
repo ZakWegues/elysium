@@ -37,7 +37,9 @@ export function pedidoComIsso(texto: string): ComandoIsso | null {
 
 /** A janela que ele está olhando: a da frente, ou a primeira atrás do próprio ELYSIUM. Pura. */
 export function janelaDaFrente(janelas: Janela[]): Janela | null {
-  const deFora = janelas.filter(j => !/^(elysium|electron)$/i.test(j.processo));
+  // 13/11: também as camadas que ficam sempre por cima (Roamies, Smart Notch e afins) — com elas na
+  // frente, a Ely "via" só a camada e não o programa dele.
+  const deFora = janelas.filter(j => !/^(elysium|electron|roamies)$/i.test(j.processo) && !/notch/i.test(j.processo) && !/notch/i.test(j.titulo));
   return deFora.find(j => j.emFoco) ?? deFora.find(j => !j.minimizada) ?? null;
 }
 
