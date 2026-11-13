@@ -80,6 +80,11 @@
     ely.classList.toggle("esq", pos.x > telaW - 380);
     ely.classList.toggle("cima", pos.y > telaH - 220);
   }
+  /** A área clicável da bolota: ela mais a fileira de botões do canto. */
+  function areaDaBola() {
+    const a = bola.getBoundingClientRect(), b = btMic.parentElement.getBoundingClientRect();
+    return { l: Math.min(a.left, b.left), t: Math.min(a.top, b.top), r: Math.max(a.right, b.right), b: Math.max(a.bottom, b.bottom) };
+  }
   function quadroSeguir(agora) {
     if (!palco.classList.contains("aberto")) { seguindo = false; return; }
     const dt = Math.min(0.05, (agora - ultimoQuadro) / 1000 || 0.016);
@@ -98,8 +103,15 @@
       // "Em cima" só vale com o cursor quase parado: correndo, a bolota fica para trás e passa por
       // baixo dele — isso não é ele querendo pegar (medido em 13/11).
       const quieto = vv < 120;
-      if (!parada && ((d < RAIO_PEGA && quieto) || (d < 80 && indo) || (sobre && quieto))) parada = true;
-      else if (parada && d > RAIO_SOLTA && !sobre && !arrastando && document.activeElement !== campo && !campo.classList.contains("ve")) parada = false;
+      // 14/11 (o dono: "os botões pararam de funcionar"): os botões ficam no canto de cima da bolota;
+      // indo até eles o cursor não aponta para o centro dela, e ela seguia — o X fugia. Agora conta
+      // a área da bolota + botões: o cursor vindo na direção dela, ou chegando perto, para a bolota.
+      const area = areaDaBola();
+      const qx = Math.min(Math.max(cursor.x, area.l), area.r), qy = Math.min(Math.max(cursor.y, area.t), area.b);
+      const dArea = Math.hypot(qx - cursor.x, qy - cursor.y);
+      const indoArea = vv > 25 && dArea > 1 && (velX * (qx - cursor.x) + velY * (qy - cursor.y)) / (vv * dArea) > 0.6;
+      if (!parada && ((d < RAIO_PEGA && quieto) || (d < 80 && indo) || (sobre && quieto) || (dArea < 70 && indoArea) || (dArea < 14 && quieto))) parada = true;
+      else if (parada && d > RAIO_SOLTA && dArea > 60 && !sobre && !arrastando && document.activeElement !== campo && !campo.classList.contains("ve")) parada = false;
     }
     if (modo === "levando") {
       const k = 520, c = 2 * Math.sqrt(k);

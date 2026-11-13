@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 vi.mock("electron", () => ({ app: { getPath: () => "C:/tmp" }, safeStorage: {}, clipboard: {}, shell: {}, desktopCapturer: {}, screen: {} }));
 vi.mock("../src/services/ferramentas", () => ({ executarFerramenta: vi.fn() }));
-import { acharPorTexto, elementoDestrutivo, garantirEnter, ficouEscrito, janelaParaModelo, literalParaAqui, pedeComposicao, pediuAcaoNaTela, validarRodada } from "../src/services/agenteDeTela";
+import { acharPorTexto, elementoDestrutivo, garantirEnter, pedacosDaDigitacao, ficouEscrito, janelaParaModelo, literalParaAqui, pedeComposicao, pediuAcaoNaTela, validarRodada } from "../src/services/agenteDeTela";
 import { pontoNaTela } from "../src/services/olhos";
 import type { LeituraUia } from "../src/services/uiaHost";
 
@@ -79,6 +79,14 @@ describe("agente de tela (13/11, no jeito do act_in_app do Roamies)", () => {
     expect(garantirEnter("pesquisa gatos no youtube", so).at(-1)).toEqual({ do: "tecla", teclas: "enter" });
     expect(garantirEnter("escreve gatos na busca", so)).toEqual(so);
     expect(garantirEnter("manda oi no whatsapp", [...so, { do: "clicar", id: 2 }])).toHaveLength(2);
+  });
+
+  it("digitação animada: pedaços por linha, quebra separada, no máximo ~70 passos", () => {
+    expect(pedacosDaDigitacao("oi")).toEqual(["o", "i"]);
+    expect(pedacosDaDigitacao("ab\r\ncd")).toEqual(["a", "b", null, "c", "d"]);
+    const longo = pedacosDaDigitacao("x".repeat(700));
+    expect(longo.length).toBeLessThanOrEqual(70);
+    expect(longo.join("")).toBe("x".repeat(700));
   });
 
   it("composição usa o modelo maior", () => {

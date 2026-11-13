@@ -141,14 +141,41 @@ export interface ResultadoAgenteTela { fala: string; fez: boolean; voltas: numbe
 const dormir = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const VK_CTRL = 0x11, VK_V = 0x56, VK_A = 0x41;
 
-/** Cola `texto` onde o cursor está (rápido e certo com acento e várias linhas); a área de transferência volta depois. */
-async function colar(texto: string): Promise<void> {
-  const antes = clipboard.readText();
-  clipboard.writeText(texto);
-  await dormir(40);
-  await inputHost.keys([VK_CTRL, VK_V]);
-  await dormir(180);
-  setTimeout(() => { if (clipboard.readText() === texto) clipboard.writeText(antes); }, 1500);
+/**
+ * Os pedaços da digitação animada: cada linha em pedaços (no máximo ~70 por texto, para um texto
+ * longo não levar mais de ~2,5 s), e `null` onde vai uma quebra de linha. Pura.
+ */
+export function pedacosDaDigitacao(texto: string): (string | null)[] {
+  const t = texto.replace(/\r\n?/g, "\n");
+  const tam = Math.max(1, Math.ceil(t.length / 70));
+  const out: (string | null)[] = [];
+  t.split("\n").forEach((linha, k) => {
+    if (k > 0) out.push(null);
+    for (let i = 0; i < linha.length; i += tam) out.push(linha.slice(i, i + tam));
+  });
+  return out;
+}
+
+/**
+ * Escreve onde o cursor está, aos poucos (14/11, como o Roamies: dá para ver escrevendo). Acentos
+ * vão inteiros (SendInput Unicode); a quebra de linha vai colada (Enter mandaria a mensagem num chat).
+ */
+async function digitarAosPoucos(texto: string): Promise<void> {
+  const pedacos = pedacosDaDigitacao(texto);
+  const antes = pedacos.includes(null) ? clipboard.readText() : null;
+  for (const p of pedacos) {
+    if (p === null) {
+      clipboard.writeText("\n");
+      await dormir(20);
+      await inputHost.keys([VK_CTRL, VK_V]);
+      await dormir(50);
+    } else {
+      await inputHost.type(p);
+      await dormir(26);
+    }
+  }
+  await dormir(120);
+  if (antes !== null) setTimeout(() => { if (clipboard.readText() === "\n") clipboard.writeText(antes); }, 600);
 }
 
 const centro = (e: { x: number; y: number; w: number; h: number }) => ({ x: e.x + e.w / 2, y: e.y + Math.min(e.h / 2, 20) });
@@ -166,25 +193,28 @@ async function clicarSeForDela(pid: number | undefined, x: number, y: number): P
 /** Escreve no campo `e` e confere. Devolve a linha do resultado. */
 async function preencherConferindo(hwnd: string, e: ElementoUia, texto: string, pid?: number): Promise<string> {
   const nome = e.n || e.t;
-  if (/^(Edit|ComboBox)$/.test(e.t)) {
+  const reserva = async (): Promise<string | null> => {
+    if (!/^(Edit|ComboBox)$/.test(e.t)) return null;
     const mostra = await uiaHost.preencher(e.i, texto).catch(() => null);
-    if (ficouEscrito(mostra, texto)) return `ok: "${nome}" = "${mostra!.slice(0, 80)}"`;
-  }
-  // Pelo cursor de verdade (como uma pessoa): traz a janela, clica no campo, cola.
-  if (!(await uiaHost.frente(hwnd).catch(() => false))) return `falhou: não consegui trazer a janela para a frente`;
+    return ficouEscrito(mostra, texto) ? `ok: "${nome}" = "${mostra!.slice(0, 80)}"` : null;
+  };
+  // 14/11 (o dono: "quero ver escrevendo de pouco em pouco, como no Roamies"): pelo cursor de
+  // verdade, digitando aos poucos; o ValuePattern (instantâneo) fica de reserva.
+  if (!(await uiaHost.frente(hwnd).catch(() => false))) return (await reserva()) ?? `falhou: não consegui trazer a janela para a frente`;
   const onde = await uiaHost.mostrar(e.i).catch(() => e);
   await uiaHost.focar(e.i).catch(() => {});
   // O foco já chegou no campo: nada de clique (o clique no meio de um texto mudaria o cursor de lugar).
   const f = await uiaHost.focado().catch(() => null);
   if (!(f && f.editavel && f.t === e.t)) {
-    if (!(await clicarSeForDela(pid, centro(onde).x, centro(onde).y).catch(() => false))) return `falhou: outra janela está por cima de "${nome}"`;
+    if (!(await clicarSeForDela(pid, centro(onde).x, centro(onde).y).catch(() => false))) return (await reserva()) ?? `falhou: outra janela está por cima de "${nome}"`;
     await dormir(80);
   }
   if (/^(Edit|ComboBox)$/.test(e.t)) { await inputHost.keys([VK_CTRL, VK_A]); await dormir(40); }
-  await colar(texto);
+  await digitarAosPoucos(texto);
   const depois = await uiaHost.valorDe(e.i).catch(() => null);
-  if (depois === null) return `feito (pelo cursor) em "${nome}"; este campo não deixa conferir`;
-  return ficouEscrito(depois, texto) ? `ok (precisou do cursor de verdade): "${nome}" = "${depois.slice(0, 80)}"` : `falhou: escrevi em "${nome}" mas ele mostra "${depois.slice(0, 80)}"`;
+  if (depois === null) return `feito em "${nome}"; este campo não deixa conferir`;
+  if (ficouEscrito(depois, texto)) return `ok: "${nome}" = "${depois.slice(0, 80)}"`;
+  return (await reserva()) ?? `falhou: escrevi em "${nome}" mas ele mostra "${depois.slice(0, 80)}"`;
 }
 
 /** Executa um passo. Devolve a linha do resultado (o que o modelo vê). */
@@ -215,7 +245,7 @@ async function executar(p: PassoAgente, ctx: { hwnd: string; l: LeituraUia; pedi
       const antes = await uiaHost.focado().catch(() => null);
       // Sem campo de texto com o cursor, colar não iria a lugar nenhum: o modelo tem de usar preencher.
       if (antes && !antes.editavel && !/^(Pane|Window|Custom)$/.test(antes.t)) return `falhou: o cursor está em "${antes.n || antes.t}", que não é campo de texto; use preencher com o número do campo`;
-      await colar(p.texto);
+      await digitarAosPoucos(p.texto);
       const f = await uiaHost.focado().catch(() => null);
       return f && ficouEscrito(f.v, p.texto) ? `ok: "${f.n || f.t}" mostra o texto` : "feito (onde o cursor estava; não deu para conferir)";
     }
@@ -387,8 +417,15 @@ export function literalParaAqui(pedido: string): string | null {
 /** Escreve no campo com o cursor (o "aqui"), sem modelo. `null` = não tem campo de texto com o cursor. */
 export async function escreverNoCursor(hwnd: string, texto: string): Promise<FocadoUia | null> {
   if (!(await uiaHost.frente(hwnd).catch(() => false))) return null;
-  const f = await uiaHost.focado().catch(() => null);
+  let f = await uiaHost.focado().catch(() => null);
+  // Chrome, WhatsApp, Discord, Claude (Chromium): até alguém ler a janela, o foco aparece como
+  // "Pane". Uma leitura liga a acessibilidade e o campo de verdade aparece.
+  for (let k = 0; k < 3 && (!f || !f.editavel); k++) {
+    await uiaHost.ler(hwnd).catch(() => null);
+    await dormir(300);
+    f = await uiaHost.focado().catch(() => null);
+  }
   if (!f || !f.editavel) return null;
-  await colar(texto);
+  await digitarAosPoucos(texto);
   return await uiaHost.focado().catch(() => f);
 }
