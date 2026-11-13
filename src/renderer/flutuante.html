@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' file:; style-src 'self' file: 'unsafe-inline'; frame-src 'self' file:; img-src 'self' file: data:; object-src 'none'; base-uri 'none'; form-action 'none'">
+<title>Ely</title>
+<!-- 12/11: a Ely flutuante (Ctrl+Espaço). Ver src/main/flutuante.ts e dashboard/js/flutuante.js. -->
+<style>
+  :root {
+    --a: #d9b168; --a2: #f2d49b; --b: #9fd8cf; --ink: 16,21,36; --bg: #0a0c14;
+    --texto: #eef1f7; --apagado: rgba(238,241,247,0.62);
+    --ambar: #f2b44e; --coral: #ff7a6b; --lilas: #b9a3ff; --branco: #f2f4f8;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; width: 100%; height: 100%; background: transparent; overflow: hidden;
+    font: 13.5px/1.5 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; color: var(--texto);
+    -webkit-font-smoothing: antialiased; user-select: none; }
+
+  #palco { position: absolute; inset: 0; padding: 30px; display: flex; gap: 10px; opacity: 0;
+    transition: opacity .16s ease; }
+  #palco.aberto { opacity: 1; }
+  #palco.baixo { flex-direction: column; }
+  #palco.cima { flex-direction: column-reverse; }
+  #palco.dir { align-items: flex-start; }
+  #palco.esq { align-items: flex-end; }
+
+  /* ── a bolinha ─────────────────────────────────────────────────────────── */
+  .topo { display: flex; align-items: center; gap: 10px; flex: none; }
+  #palco.esq .topo { flex-direction: row-reverse; }
+  /* A bolota é um <canvas> maior que a área de clique: os pontos espalhados passam da bolinha. */
+  .bola { position: relative; width: 50px; height: 50px; border-radius: 50%; flex: none; cursor: pointer; }
+  .bola canvas { position: absolute; left: -35px; top: -35px; width: 120px; height: 120px; pointer-events: none; }
+
+  .estado { font-size: 12px; color: var(--apagado); padding: 4px 10px; border-radius: 999px; white-space: nowrap;
+    background: rgba(var(--ink), .78); border: 1px solid rgba(255,255,255,.10); opacity: 0; transition: opacity .18s; }
+  .estado.ve { opacity: 1; }
+  .campo { display: none; width: 300px; height: 38px; padding: 0 14px; border-radius: 999px; outline: none;
+    background: rgba(var(--ink), .9); border: 1px solid color-mix(in srgb, var(--a) 45%, rgba(255,255,255,.12));
+    color: var(--texto); font: inherit; user-select: text; }
+  .campo.ve { display: block; animation: entra .2s cubic-bezier(.2,.9,.3,1.15); }
+  .campo::placeholder { color: var(--apagado); }
+
+  /* ── os cartões de vidro ───────────────────────────────────────────────── */
+  #cartoes { display: flex; flex-direction: column; gap: 8px; width: calc(100% + 44px); margin: 0 -22px; max-width: none; min-height: 0;
+    overflow-y: auto; scrollbar-width: none; padding: 2px; }
+  #palco.cima #cartoes { flex-direction: column-reverse; }
+  #cartoes::-webkit-scrollbar { display: none; }
+  .vidro { position: relative; flex: none; border-radius: 20px; padding: 13px 15px; overflow: hidden;
+    background: linear-gradient(180deg, rgba(var(--ink), .86), rgba(var(--ink), .93));
+    border: 1px solid rgba(255,255,255,.11);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.14), 0 10px 28px rgba(0,0,0,.38);
+    animation: entra .22s cubic-bezier(.2,.9,.3,1.15); }
+  .vidro::before { content: ""; position: absolute; inset: 0; pointer-events: none; border-radius: inherit;
+    background: linear-gradient(160deg, rgba(255,255,255,.10), rgba(255,255,255,0) 38%),
+                radial-gradient(120% 60% at 0% 0%, color-mix(in srgb, var(--a) 16%, transparent), transparent 60%); }
+  .vidro > * { position: relative; }
+  .vidro.sai { animation: sai .16s ease forwards; }
+  @keyframes entra { from { opacity: 0; transform: translateY(6px) scale(.975); } to { opacity: 1; transform: none; } }
+  @keyframes sai { to { opacity: 0; transform: scale(.97); } }
+
+  .pergunta { font-size: 12px; color: var(--apagado); margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .resp { white-space: pre-wrap; word-wrap: break-word; user-select: text; }
+  .resp b { color: var(--a2); font-weight: 600; }
+  .resp .cursor { display: inline-block; width: 7px; height: 14px; margin-left: 2px; vertical-align: -2px;
+    background: var(--a); border-radius: 2px; animation: pisca 1s steps(2) infinite; }
+  @keyframes pisca { 50% { opacity: 0; } }
+  .fechar { position: absolute; top: 8px; right: 9px; width: 22px; height: 22px; border-radius: 50%; border: 0; cursor: pointer;
+    background: rgba(255,255,255,.07); color: var(--apagado); font-size: 13px; line-height: 22px; padding: 0; z-index: 2; }
+  .fechar:hover { background: rgba(255,255,255,.16); color: var(--texto); }
+
+  h3 { margin: 0 0 8px; font-size: 14px; font-weight: 600; color: var(--a2); letter-spacing: .01em; }
+  p { margin: 0 0 6px; }
+  ul, ol { margin: 4px 0 0; padding-left: 18px; }
+  li { margin: 2px 0; }
+  .esqueleto { height: 120px; border-radius: 12px; background: linear-gradient(90deg, rgba(255,255,255,.04) 20%, rgba(255,255,255,.10) 50%, rgba(255,255,255,.04) 80%);
+    background-size: 220% 100%; animation: brilho 1.2s linear infinite; }
+  @keyframes brilho { to { background-position: -220% 0; } }
+
+  /* passos */
+  .passos { list-style: none; padding: 0; counter-reset: p; }
+  .passos li { display: flex; gap: 10px; margin: 0 0 8px; animation: entra .25s both; }
+  .passos li::before { counter-increment: p; content: counter(p); flex: none; width: 22px; height: 22px; border-radius: 50%;
+    display: grid; place-items: center; font-size: 12px; font-weight: 600; color: var(--bg); background: var(--a); }
+  .passos small { display: block; color: var(--apagado); }
+
+  /* linha do tempo */
+  .tempo { position: relative; padding-left: 16px; }
+  .tempo::before { content: ""; position: absolute; left: 4px; top: 4px; bottom: 4px; width: 2px; border-radius: 2px;
+    background: linear-gradient(var(--a), var(--b)); }
+  .tempo div { position: relative; margin-bottom: 8px; animation: entra .25s both; }
+  .tempo div::before { content: ""; position: absolute; left: -16px; top: 6px; width: 10px; height: 10px; border-radius: 50%;
+    background: var(--bg); border: 2px solid var(--a2); }
+  .tempo b { color: var(--a2); margin-right: 6px; }
+
+  /* barras */
+  .barra { margin-bottom: 7px; }
+  .barra .rot { display: flex; justify-content: space-between; font-size: 12px; color: var(--apagado); }
+  .barra .trilho { height: 9px; border-radius: 6px; background: rgba(255,255,255,.07); overflow: hidden; }
+  .barra .enche { height: 100%; border-radius: 6px; transform-origin: left; animation: enche .6s cubic-bezier(.2,.8,.2,1) both; }
+  @keyframes enche { from { transform: scaleX(0); } }
+
+  /* tabela */
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th { text-align: left; font-weight: 600; color: var(--a2); padding: 4px 6px; border-bottom: 1px solid rgba(255,255,255,.14); }
+  td { padding: 5px 6px; border-bottom: 1px solid rgba(255,255,255,.06); }
+  td:first-child { color: var(--apagado); }
+  .sim { color: #7be0a6; font-weight: 700; } .nao { color: var(--coral); font-weight: 700; }
+
+  /* fluxo */
+  .fluxo { position: relative; display: flex; flex-direction: column; gap: 22px; align-items: center; padding: 4px 0; }
+  .fluxo .camada { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  .fluxo .no { position: relative; z-index: 1; padding: 6px 11px; border-radius: 10px; font-size: 12.5px; text-align: center; max-width: 170px;
+    background: rgba(255,255,255,.07); border: 1px solid color-mix(in srgb, var(--cor, var(--a)) 60%, transparent); animation: entra .25s both; }
+  .fluxo .no.redondo { border-radius: 999px; }
+  .fluxo .no.losango { border-radius: 4px; transform: none; border-style: dashed; }
+  .fluxo svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+  .fluxo path { fill: none; stroke: rgba(255,255,255,.28); stroke-width: 1.6; }
+  .fluxo path.andando { stroke: var(--b); stroke-dasharray: 2 7; stroke-linecap: round; stroke-width: 2.6; animation: anda .7s linear infinite; }
+  .fluxo text { fill: var(--apagado); font-size: 10.5px; }
+  @keyframes anda { to { stroke-dashoffset: -9; } }
+
+  /* diagrama */
+  .diagrama svg { display: block; width: 100%; max-height: 250px; }
+  .diagrama .orbita { transform-box: view-box; transform-origin: 0 0; animation: gira var(--t, 8s) linear infinite; }
+  .diagrama .pulso { transform-box: fill-box; transform-origin: center; animation: pulsa 2.2s ease-in-out infinite; }
+  .diagrama .gira { transform-box: fill-box; transform-origin: center; animation: gira 6s linear infinite; }
+  .diagrama text { font-size: 9px; fill: var(--texto); paint-order: stroke; stroke: rgba(0,0,0,.6); stroke-width: 2.4px; stroke-linejoin: round; }
+  @keyframes pulsa { 0%,100% { transform: scale(1); } 50% { transform: scale(1.09); } }
+  @keyframes gira { to { transform: rotate(360deg); } }
+  .legenda { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 6px; font-size: 12px; color: var(--apagado); }
+  .legenda i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; vertical-align: 0; }
+
+  iframe.tela { width: 100%; height: 160px; border: 0; border-radius: 12px; display: block; background: transparent; }
+
+  /* Movimento reduzido: pelo ajuste do ELYSIUM (Movimento), não direto pelo Windows — ver flutuante.js. */
+  html.reduzir *, html.reduzir *::before, html.reduzir *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
+</style>
+</head>
+<body>
+<div id="palco" class="baixo dir">
+  <div class="topo">
+    <div class="bola" id="bola" title="Clique para digitar"><canvas id="bolota"></canvas></div>
+    <div class="estado" id="estado"></div>
+    <input class="campo" id="campo" placeholder="Pergunte à Ely…" maxlength="4000" spellcheck="false">
+  </div>
+  <div id="cartoes"></div>
+</div>
+<script src="dashboard/js/temas-paleta.js"></script>
+<script src="dashboard/js/esfera-logica.js"></script>
+<script src="dashboard/js/flutuante.js"></script>
+</body>
+</html>

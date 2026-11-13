@@ -5,7 +5,8 @@ import { agir } from "./agente";
 import { ferramenta } from "./ferramentas";
 import { routeAction } from "../actions/router";
 import { trackUsage } from "./history";
-import { getConfig } from "../main/config";
+import { getApiKey, getConfig } from "../main/config";
+import { viaRapida } from "./cerebroHibrido";
 import type { Canal } from "./estiloResposta";
 import { comContexto, Fonte, fontesDoPedido, marcarReserva, registrarFontes, usouReserva } from "./contextoComando";
 import { agirViaHermes, responderEsclarecimentoHermes } from "./hermes/cerebro";
@@ -159,8 +160,20 @@ async function executarNoContexto(
     }
     actions = sc.acoes;
   }
-  if (!actions && getConfig().cerebro === "hermes") {
+  // 12/11: a via rápida — conhecimento atemporal (sem internet, PC ou vida dele) vai direto à
+  // composição de conversa em streaming: ~0,8 s em vez de 6–7 s pelo Hermes. Falhou → Hermes.
+  if (!actions && getConfig().cerebro === "hermes" && getConfig().viaRapida !== false && getApiKey() && viaRapida(text)) {
     registrarTurnoUsuario(text);
+    turnoRegistrado = true;
+    const rapida = await composeChatReply(text, ganchos.onToken, ganchos.canal ?? "voz").catch((e) => { console.warn("[via rápida] falhou; vai pelo Hermes:", e instanceof Error ? e.message : e); return null; });
+    if (rapida) {
+      recordAssistantReply(rapida);
+      trackUsage(text, { action: "chat" });
+      return { actions: [{ action: "chat" }], reply: rapida, atalho: false };
+    }
+  }
+  if (!actions && getConfig().cerebro === "hermes") {
+    if (!turnoRegistrado) registrarTurnoUsuario(text);
     turnoRegistrado = true;
     // Fase 23: o bloco "FONTES:" do Hermes não aparece no streaming; vira os chips de fonte.
     const filtro = criarFiltroDeFontes(ganchos.onToken);

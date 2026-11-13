@@ -34,6 +34,7 @@ async function loadHistory() {
 // ─────────────────────────────────────────────────
 const shortcutInput = document.getElementById("shortcut-input");
 const atalhoSelecaoInput = document.getElementById("atalho-selecao-input");
+const atalhoFlutuanteInput = document.getElementById("atalho-flutuante-input");
 
 /** Captura de combinação de teclas num campo e grava na chave do config (fase 23.2: dois campos). */
 function ligarCapturaDeAtalho(input, hint, chave) {
@@ -54,7 +55,8 @@ function ligarCapturaDeAtalho(input, hint, chave) {
     if (e.altKey)   parts.push("Alt");
     const k = e.key;
     if (!["Control","Shift","Alt","Meta"].includes(k)) {
-      parts.push(k.length === 1 ? k.toUpperCase() : k);
+      // 12/11: o Espaço chega como " "; o Electron quer "Space".
+      parts.push(k === " " ? "Space" : k.length === 1 ? k.toUpperCase() : k);
     }
     if (parts.length < 2) return;
     const combo = parts.join("+");
@@ -66,6 +68,7 @@ function ligarCapturaDeAtalho(input, hint, chave) {
 }
 ligarCapturaDeAtalho(shortcutInput, document.getElementById("shortcut-hint"), "shortcut");
 ligarCapturaDeAtalho(atalhoSelecaoInput, document.getElementById("atalho-selecao-hint"), "atalhoSelecao");
+ligarCapturaDeAtalho(atalhoFlutuanteInput, document.getElementById("atalho-flutuante-hint"), "atalhoFlutuante");
 
 // ─────────────────────────────────────────────────
 // API KEY
@@ -126,6 +129,7 @@ async function loadConfig() {
     if (cidade) cidade.textContent = cfg.climaCidade || "não definida";
     if (cfg.shortcut) shortcutInput.value = cfg.shortcut;
     if (atalhoSelecaoInput && cfg.atalhoSelecao) atalhoSelecaoInput.value = cfg.atalhoSelecao;
+    if (atalhoFlutuanteInput && cfg.atalhoFlutuante) atalhoFlutuanteInput.value = cfg.atalhoFlutuante;
     aplicarFundo(cfg.fundoDash);
     aplicarBarra(cfg);
     applyTheme(cfg.theme);

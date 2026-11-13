@@ -14,6 +14,7 @@ import { duracaoDoWav, estiloDaFala, sintetizarVozGemini, vozGeminiValida } from
 import { spawnPs } from "../actions/ps";
 import type { Humor } from "./humor";
 import { duracaoDoMp3, Palavra, palavrasDoMetadado, palavrasPeloTexto } from "./bolota";
+import { falarNoStudio, pararStudio, prepararNoStudio, usaStudio } from "./vozStudioStream";
 
 // 13/10: a Thalita Multilingual é a geração mais nova das vozes pt-BR do Edge (a Francisca é a
 // antiga) — o dono achou a voz "estranha" e pediu a melhor possível.
@@ -111,6 +112,8 @@ let _cancelFn: (() => void) | null = null;
 
 export function cancelSpeak(): void {
   if (_cancelFn) { _cancelFn(); _cancelFn = null; }
+  // 12/11: o tocador do VoiceStudio também (e os beats).
+  pararStudio();
 }
 
 /**
@@ -299,6 +302,8 @@ export function dividirEmFrases(texto: string, minimo = 110): string[] {
  * do celular, que o `synthesize` consulta antes de abrir a conexão de novo.
  */
 export function preSintetizar(texto: string, humor?: Humor): void {
+  // 12/11: com o VoiceStudio, a frase seguinte já vai sendo gerada no estúdio.
+  if (usaStudio()) { prepararNoStudio(cleanTextForSpeech(texto)); return; }
   sintetizarMp3(texto, humor).catch(() => { /* o synthesize tenta de novo na hora */ });
 }
 
@@ -325,6 +330,7 @@ export async function synthesize(text: string, humor?: Humor): Promise<void> {
       settled = true;
       clearTimeout(globalTimer);
       ps?.kill();
+      pararStudio();
       if (tmpFile) fs.unlink(tmpFile, () => {});
       _cancelFn = null;
       resolve();
@@ -339,6 +345,15 @@ export async function synthesize(text: string, humor?: Humor): Promise<void> {
         // handshake; a 2.x acompanha. Na 2.x o `toStream` devolve { audioStream,
         // metadataStream } em vez do stream direto.
         // Pendência 10 da §15: a chave `voice` existia no config e nunca era lida.
+        // 12/11: o VoiceStudio em streaming primeiro (vozStudioStream.ts). Falhou antes de sair
+        // som → segue para o Gemini/Edge logo abaixo, nesta mesma fala.
+        if (usaStudio()) {
+          const tocou = await falarNoStudio(clean, ehNoite() ? 0.7 : 1, (durMs) => {
+            if (!settled) avisarAudio({ texto: clean, durMs, palavras: palavrasPeloTexto(clean, durMs) });
+          }, () => settled);
+          if (settled) return;
+          if (tocou) { finish(); return; }
+        }
         let voz = vozUtilizavel(vozDoMomento());
         let prosodia = prosodiaAgora(voz, humor);
         let chave = chaveMp3(voz, clean, prosodia);

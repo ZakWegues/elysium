@@ -48,6 +48,9 @@ const AJUSTES = [
         dica: "Com o Hermes, tudo que não é atalho vai para ele, com a voz e o jeito da Ely. Se ele estiver fora do ar ou demorar, responde o cérebro de baixo e a resposta ganha o selo “reserva”." },
       { chave: "hermesContextoPessoal", rotulo: "Mandar minha memória ao Hermes", tipo: "bool",
         dica: "Desligado: o Hermes recebe só seu nome, o tratamento e suas instruções. Ligado, também os fatos guardados na memória — que vão para o modelo na nuvem que o Hermes usa." },
+      // 12/11: a via rápida (cerebroHibrido.viaRapida).
+      { chave: "viaRapida", rotulo: "Resposta rápida para conhecimento", tipo: "bool",
+        dica: "Pergunta de conhecimento que não depende de hoje (“o que é um eclipse?”, “como funciona um motor?”) responde direto, em menos de 1 s, sem passar pelo Hermes. Notícia, preço, clima, o PC e a sua vida continuam com o Hermes." },
       { chave: "routerProvider", rotulo: "Quem decide a ação", tipo: "select", opcoes: [
         ["ollama", "Local — Ollama nesta máquina"], ["groq", "Nuvem — Groq"]] },
       { chave: "chatProvider", rotulo: "Quem escreve a resposta", tipo: "select", opcoes: [
@@ -88,12 +91,14 @@ const AJUSTES = [
   },
   {
     grupo: "Voz",
-    nota: "Com a chave do Gemini a Ely fala com a voz do Gemini, a mais natural, no tom do momento. Se ela falhar ou a cota do dia acabar, fala com a voz da Microsoft. Nunca com a voz robótica do Windows.",
+    nota: "Com o VoiceStudio escolhido (e aberto neste PC), a voz sai dele, quase na hora. Com a chave do Gemini a Ely fala com a voz do Gemini, a mais natural, no tom do momento. Se ela falhar ou a cota do dia acabar, fala com a voz da Microsoft. Nunca com a voz robótica do Windows.",
     campos: [
       // 26/10: a voz do Gemini (vozGemini.ts; a lista é a mesma de lá).
       { chave: "vozProvedor", rotulo: "Quem dá a voz", tipo: "select", opcoes: [
-        ["gemini", "Gemini — a mais natural (com a sua chave)"], ["edge", "Microsoft — as vozes do Edge"]],
+        ["gemini", "Gemini — a mais natural (com a sua chave)"], ["edge", "Microsoft — as vozes do Edge"], ["voicestudio", "VoiceStudio — local, neste PC, a mais rápida"]],
         dica: "O Gemini fala com entonação de gente e muda o tom sozinho: mais calma e baixa à noite, mais rápida quando você está com pressa, acolhedora quando você parece cansado." },
+      { chave: "voiceStudioVoz", rotulo: "Voz do VoiceStudio", tipo: "texto",
+        dica: "O nome do perfil de voz, como aparece no VoiceStudio (deixe ele aberto). Vazio = o perfil em português de lá. Fechado ou com erro, ela fala com a voz do Gemini ou da Microsoft." },
       { chave: "vozGemini", rotulo: "Voz do Gemini", tipo: "select", opcoes: VOZES_GEMINI.map(([n, j]) => [n, `${n} — ${j}`]),
         dica: "Escolha e toque em “Ouvir” para ouvir como fica." },
       { chave: "_amostra", rotulo: "Ouvir a voz", tipo: "acao", botao: "Ouvir", acao: "voz-amostra" },
@@ -202,7 +207,7 @@ const SECOES_AJUSTES = [
     resumo: (c) => (c.cerebro !== "elysium" ? "Hermes · reserva " : "") + (c.routerProvider === "groq" ? "Nuvem" : "Local") + " · " + (c.chatProvider === "groq" ? "responde na nuvem" : c.chatProvider === "auto" ? "híbrido" : "responde local"),
     aoAbrir: () => desenharEstadoHermes() },
   { id: "voz", titulo: "Voz", icone: "mic", nos: ["[data-secao='voz']"],
-    resumo: (c) => c.vozProvedor !== "edge" ? `Gemini · ${c.vozGemini || "Kore"}` : ((String(c.voice || "").match(/pt-BR-([A-Za-z]+?)(Multilingual)?Neural/)?.[1]) || "Francisca"),
+    resumo: (c) => c.vozProvedor === "voicestudio" ? `VoiceStudio${c.voiceStudioVoz ? ` · ${c.voiceStudioVoz}` : ""}` : c.vozProvedor !== "edge" ? `Gemini · ${c.vozGemini || "Kore"}` : ((String(c.voice || "").match(/pt-BR-([A-Za-z]+?)(Multilingual)?Neural/)?.[1]) || "Francisca"),
     aoAbrir: () => desenharCota() },
   { id: "clima", titulo: "Clima", icone: "cloud", nos: ["#sec-clima"],
     resumo: (c) => c.climaCidade || "Cidade não definida" },

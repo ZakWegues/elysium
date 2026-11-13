@@ -219,7 +219,9 @@ function montarTela(bolha, { programa = null, estado = null, msgId = null } = {}
 function criarQuadro(ctrl) {
   const f = novoIframe();
   ctrl.iframe = f;
-  ctrl.caixa.appendChild(f);
+  // 12/11: ANTES do rodapé. Recriado depois (fechou a tela cheia, acordou do sono), o iframe ia para o
+  // fim da caixa e, absoluto, cobria o botão "Tela cheia" — não dava para ampliar de novo.
+  ctrl.caixa.insertBefore(f, ctrl.caixa.querySelector(".tela-mais"));
   // O contentWindow existe já; as mensagens só são aceitas dele.
   telasAbertas.set(f.contentWindow, ctrl);
   // O "pronta" pode sair antes de alguém ouvir: manda também no load.
@@ -317,7 +319,7 @@ function abrirTelaCheia(ctrl) {
   camada.querySelector(".tela-cheia-celular").addEventListener("click", async () => {
     const id = ctrl.salvaId ?? await salvarTelaCheia(ctrl, camada);
     if (!id) return;
-    try { await window.nx.rpc("telas.salvas.mandar", { id }); showToast("Mandei pro celular: está no Hoje → Telas salvas."); }
+    try { await window.nx.rpc("telas.salvas.mandar", { id }); showToast("Mandei pro celular: abre lá na hora (ou toque no aviso). Fica no Hoje → Telas salvas."); }
     catch { showToast("Não consegui avisar o celular."); }
   });
   cheiaAberta = { fechar };

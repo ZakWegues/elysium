@@ -27,6 +27,7 @@ cpSync("src/renderer/config.html",       "dist/renderer/config.html");
 cpSync("src/renderer/recorder.html",     "dist/renderer/recorder.html");
 cpSync("src/renderer/dashboard.html",    "dist/renderer/dashboard.html");
 cpSync("src/renderer/selecao.html",      "dist/renderer/selecao.html");
+cpSync("src/renderer/flutuante.html",    "dist/renderer/flutuante.html");
 // O CSS e o JS do dashboard moram em pasta própria desde o bloco 76.
 cpSync("src/renderer/dashboard", "dist/renderer/dashboard", { recursive: true });
 

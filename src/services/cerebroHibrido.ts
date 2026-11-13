@@ -37,3 +37,19 @@ export function provedorDaConversa(pref: PreferenciaChat | string | undefined, p
 export function provedorDeFundo(pref: PreferenciaChat | string | undefined): "groq" | "ollama" {
   return pref === "groq" ? "groq" : "ollama";
 }
+
+/**
+ * 12/11, a via rápida: pergunta de conhecimento que não depende de hoje (notícia, preço, clima,
+ * placar), nem do PC ou da vida do dono, não precisa do Hermes — vai direto à composição de
+ * conversa (gpt-oss-120b na Groq, em streaming, com a persona, a memória e o histórico de sempre).
+ * Medido: 1º pedaço em ~0,6 s e resposta em ~0,8 s, contra 6–7 s pelo Hermes. Na dúvida, Hermes. Puro.
+ */
+export function viaRapida(texto: string): boolean {
+  const t = texto.trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+  if (!ehPerguntaDeConhecimento(texto)) return false;
+  // Precisa da internet (o que muda com o tempo) ou de pesquisar.
+  if (/\b(hoje|agora|ontem|amanha|esta semana|essa semana|atual|atualmente|ultim[oa]s?|recente|recentemente|noticias?|placar|jogo|partida|campeonato|resultado|preco|precos|custa|cotacao|dolar|euro|bitcoin|clima|previsao|temperatura|chover|chuva|lancamento|lancou|eleic|presidente atual|20[2-9]\d|pesquis|procur|busca|google|internet|site|link)\b/.test(t)) return false;
+  // É sobre o PC, as coisas dele ou a vida dele (ferramentas e memória do Hermes).
+  if (/\b(pc|computador|notebook|meu|minha|meus|minhas|eu|arquivo|pasta|programa|janela|aberto|aberta|spotify|bateria|ram|cpu|disco|lembrete|agenda|tarefa|email|e-mail|whatsapp|celular|tela|isso|disso|aqui)\b/.test(t)) return false;
+  return true;
+}

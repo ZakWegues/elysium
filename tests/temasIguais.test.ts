@@ -22,7 +22,8 @@ function aposentados(fonte: string): string {
 }
 
 describe("temas: dashboard e janela de configuração iguais", () => {
-  const dash = ler("dashboard/js/temas.js");
+  // 12/11: a tabela saiu para temas-paleta.js; os aposentados continuam em temas.js.
+  const dash = ler("dashboard/js/temas-paleta.js") + ler("dashboard/js/temas.js");
   const cfg = ler("config.html");
 
   it("mesmos temas com as mesmas cores", () => {

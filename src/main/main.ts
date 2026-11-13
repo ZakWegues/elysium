@@ -109,6 +109,13 @@ import { dosarTratamento, tratamentoSorteado, vocativoPermitido } from "../servi
 import { anexoAbreDireto } from "../services/anexos";
 import { marcarAcompanhado, pendentesDeAcompanhamento } from "../services/acompanhamento";
 import { lerHumor, type Humor } from "../services/humor";
+import { prepararBeats, registrarTocador, somRecente, tocarBeat, tocou } from "../services/vozStudioStream";
+import { abrirFlutuante, criarFlutuante, enviarAoFlutuante, fecharFlutuante, flutuanteAberto, registrarIpcFlutuante } from "./flutuante";
+import { desenharRapido, pediuDesenho } from "../services/desenhoRapido";
+import { listarJanelas } from "../actions/janelas";
+import { janelaDaFrente } from "../services/isso";
+import { registrarJanelaDaFrente } from "../services/brain";
+import { definirAplicadorDeConfig } from "../services/rpc";
 import {
   checkAndMarkUnseenFromMobile, addMessage, addFileMessage, listMessagesForDesktop, inferKind, mailboxEvents,
   isKnownAttachmentPath, listMailboxSessions, createMailboxSession, renameMailboxSession,
@@ -140,7 +147,11 @@ function mandarAoCelular(
   if (opcoes.push) void sendPush(opcoes.push, titulo, corpo, opcoes.dados ?? {}).catch(() => { /* best-effort */ });
 }
 
+/** 12/11: o que a Ely flutuante também recebe (o resto é só do dashboard). */
+const ESPELHO_FLUTUANTE = new Set(["voice:state", "voice:transcript", "voice:reply", "voice:error", "voice:audio-level", "chat:chunk", "chat:reply", "chat:error", "chat:busy", "chat:tela", "tts:falando"]);
+
 function enviarAoDash(canal: string, ...args: unknown[]): void {
+  if (ESPELHO_FLUTUANTE.has(canal)) enviarAoFlutuante(canal, ...args);
   const w = dashWin;
   if (!w || w.isDestroyed()) return;
   try { w.webContents.send(canal, ...args); } catch { /* fechando */ }
@@ -156,6 +167,9 @@ function createRecorderWindow(): BrowserWindow {
       nodeIntegration: false,
       sandbox: true,
       devTools: !app.isPackaged,
+      // 12/11: a voz do VoiceStudio toca aqui (Web Audio): sem gesto do usuário e sem freio de janela escondida.
+      autoplayPolicy: "no-user-gesture-required",
+      backgroundThrottling: false,
     },
   });
   win.loadFile(path.join(__dirname, "../renderer/recorder.html"));
@@ -166,6 +180,14 @@ function createRecorderWindow(): BrowserWindow {
   });
   return win;
 }
+
+// 12/11: o tocador da voz do VoiceStudio é a janela do gravador (vozStudioStream.ts).
+registrarTocador({
+  pcm: (id, pcm, taxa, ganho) => { if (recorderWin && !recorderWin.isDestroyed()) recorderWin.webContents.send("studio:pcm", id, pcm, taxa, ganho); else tocou(id); },
+  fim: (id) => { if (recorderWin && !recorderWin.isDestroyed()) recorderWin.webContents.send("studio:fim", id); else tocou(id); },
+  parar: () => { if (recorderWin && !recorderWin.isDestroyed()) recorderWin.webContents.send("studio:parar"); },
+});
+ipcMain.on("studio:tocou", (_e, id: unknown) => { if (typeof id === "string") tocou(id); });
 
 function openDashboard(): void {
   if (dashWin && !dashWin.isDestroyed()) {
@@ -554,6 +576,51 @@ function ouvirNoLive(depoisDe = 350): void {
   }, depoisDe);
 }
 
+// ── Ely flutuante (12/11) ───────────────────────────────────────────────────────────────
+
+/** Explicação pedida pela flutuante: os cartões (desenhoRapido.ts) saem em paralelo com a fala. */
+function desenharNoFlutuante(pedido: string): void {
+  if (!flutuanteAberto() || !pediuDesenho(pedido) || pediuTela(pedido)) return;
+  enviarAoFlutuante("flutuante:desenhando");
+  const t0 = Date.now();
+  void desenharRapido(pedido).then((r) => {
+    if (r) console.log(`[flutuante] desenho em ${Date.now() - t0} ms pela ${r.por} (${r.cartoes.map((c) => c.tipo).join(", ")})`);
+    enviarAoFlutuante("flutuante:cartoes", r ? { cartoes: r.cartoes } : {});
+  }).catch(() => enviarAoFlutuante("flutuante:cartoes", {}));
+}
+
+/** O programa da frente vai no contexto do pedido (só o nome e o título; nada de conteúdo). */
+async function lembrarJanelaDaFrente(): Promise<void> {
+  try {
+    const j = janelaDaFrente(await listarJanelas());
+    if (j) registrarJanelaDaFrente(j.processo, j.titulo);
+  } catch { /* sem lista, sem contexto */ }
+}
+
+/** Ctrl+Espaço: fechada → abre ao lado do cursor e já ouve; aberta → para tudo e fecha. */
+function alternarFlutuante(): void {
+  if (flutuanteAberto()) {
+    pararFlutuante();
+    fecharFlutuante();
+    return;
+  }
+  if (!hasApiKey()) { openConfigWindow(); return; }
+  if (!state.is("idle")) {
+    interruptAll();
+    interromperHermes();
+    state.set("idle");
+  }
+  abrirFlutuante(getConfig().theme, getConfig().movimento ?? "");
+  void lembrarJanelaDaFrente();
+  startListening().catch((e) => console.error("[flutuante] não consegui começar a ouvir:", e));
+}
+
+/** Fechou a flutuante: a gravação sem mandar, a fala calada. */
+function pararFlutuante(): void {
+  if (state.is("listening")) { cancelarGravacao(); state.set("idle"); }
+  else if (!state.is("idle")) { interruptAll(); interromperHermes(); state.set("idle"); }
+}
+
 /** Para a gravação em andamento sem mandar o áudio (sair do live no meio da escuta). */
 function cancelarGravacao(): void {
   if (recorderWin && !recorderWin.isDestroyed()) recorderWin.webContents.send("cancel-recording");
@@ -602,6 +669,8 @@ ipcMain.on("audio-data", async (_event, buffer: Buffer) => {
     }
 
     enviarAoDash("voice:transcript", text);
+    // 12/11: pedido feito pela Ely flutuante que pede explicação → o desenho já vai saindo junto.
+    desenharNoFlutuante(text);
 
     // Fase 21: entrar e sair do modo live são do PC (microfone), não do cérebro.
     if (liveLigado && ehSaidaDoLive(text)) {
@@ -630,13 +699,18 @@ ipcMain.on("audio-data", async (_event, buffer: Buffer) => {
     // As promessas das frases já enfileiradas: o turno só termina (estado ocioso) quando a
     // ÚLTIMA delas acabar de tocar — senão o ícone voltava a "ocioso" com ela ainda falando.
     const falas: Promise<void>[] = [];
-    const espera = setTimeout(() => { if (turnoAtual() === meuToken && !falas.length) void speak(fraseDeEspera(text)).catch(() => {}); }, 2500);
+    // 12/11 (o truque do Roamies): com o VoiceStudio, um "Certo." já gravado sai em 600 ms se a
+    // voz dela ainda não saiu — tapa a partida do motor (a frase entra na fila do tocador depois dele). Tocou o beat, a frase de espera sai.
+    let beatTocou = false;
+    const beat = setTimeout(() => { if (turnoAtual() === meuToken && !somRecente()) beatTocou = tocarBeat(ehNoite() ? 0.7 : 1); }, 600);
+    const espera = setTimeout(() => { if (turnoAtual() === meuToken && !falas.length && !beatTocou) void speak(fraseDeEspera(text)).catch(() => {}); }, 2500);
     const falarFrase = (bruta: string) => {
       if (turnoAtual() !== meuToken || !bruta) return;
       // A mesma régua do texto final (command.ts): vocativo só na primeira frase, se sorteado.
       const frase = dosarTratamento(bruta, getConfig().tratamento ?? "", vocativoPermitido(), !jaFalado);
       if (!frase) return;
       clearTimeout(espera);
+      clearTimeout(beat);
       jaFalado += ` ${frase}`;
       // O estado continua "processing" até o pedido terminar: "speaking" é interrompível pelo
       // chat e pela palavra, que começariam um pedido novo com este ainda rodando (ações do
@@ -654,10 +728,11 @@ ipcMain.on("audio-data", async (_event, buffer: Buffer) => {
         enviarAoDash("chat:chunk", token);
         if (antecipar) for (const frase of fatiador.push(token)) falarFrase(frase);
       },
-    }).finally(() => clearTimeout(espera));
+    }).finally(() => { clearTimeout(espera); clearTimeout(beat); });
     if (turnoAtual() !== meuToken) return;
     updateLastCommand(text);
-    notify("ELYSIUM", combined);
+    // 12/11: com a Ely flutuante aberta, a resposta já está ali — sem balão do Windows por cima.
+    if (!flutuanteAberto()) notify("ELYSIUM", combined);
 
     enviarAoDash("voice:reply", combined);
     // 31/10: pedido explícito de tela pela voz ("me mostra num gráfico…") também monta a tela,
@@ -789,14 +864,16 @@ async function enviarTexto(text: string, opcoes?: { refazer?: boolean }): Promis
     updateLastCommand(text);
     // Notificação nativa só quando a janela não está à vista: quem digitou no dashboard e
     // está olhando para ele não precisa de um balão do Windows repetindo a resposta.
-    if (!dashWin?.isVisible() || !dashWin.isFocused()) notify("ELYSIUM", combined);
+    if ((!dashWin?.isVisible() || !dashWin.isFocused()) && !flutuanteAberto()) notify("ELYSIUM", combined);
     // 22/10 (telas inteligentes): o ajuste "Respostas interativas" decide se a tela sai sozinha,
     // se a Ely oferece ("Quer que eu monte isso como tela?") ou nada. Só em conversa (sem ação no
     // PC) e só se a resposta já não termina perguntando outra coisa.
     // "Priorizar" monta mesmo se a resposta terminou perguntando (a tela substitui a pergunta).
     // 31/10: pergunta sobre a tela que já está aí ("qual a resposta da 3ª?") não ganha oferta de outra tela.
     const sobreATela = telaMostrada() !== null && !pediuTela(text);
-    const decisao = deveSugerir(actions, "texto") && !sobreATela && (getConfig().respostasInterativas === "priorizar" || !pedeResposta(combined))
+    // 12/11: pela Ely flutuante, explicação já ganha o desenho rápido — sem tela/oferta repetindo.
+    const desenhada = flutuanteAberto() && pediuDesenho(text) && !pediuTela(text);
+    const decisao = deveSugerir(actions, "texto") && !sobreATela && !desenhada && (getConfig().respostasInterativas === "priorizar" || !pedeResposta(combined))
       ? decidirTela(getConfig().respostasInterativas, text, "texto", provedorDeTelas() !== null)
       : "nada";
     const textoFinal = decisao === "oferecer" ? `${combined}\n\n${OFERTA}` : combined;
@@ -1024,7 +1101,12 @@ ipcMain.handle("fundo:escolher", async () => {
   return pathToFileURL(destino).href;
 });
 
-ipcMain.handle("config:set-all", async (_e, patchBruto: Partial<AppConfig>) => {
+ipcMain.handle("config:set-all", async (_e, patchBruto: Partial<AppConfig>) => aplicarConfig(patchBruto));
+// 12/11: os Ajustes do PC mudados pelo celular passam por aqui também (rpc.ts, `pc.ajustes.set`).
+definirAplicadorDeConfig(aplicarConfig);
+
+/** Grava um patch de config e aplica os efeitos (atalhos, Hermes, palavra, início com o Windows). */
+async function aplicarConfig(patchBruto: Partial<AppConfig>): Promise<void> {
   const prev = getConfig();
   const patch = patchDeConfigSeguro(patchBruto);
   setOverride(patch);
@@ -1043,6 +1125,14 @@ ipcMain.handle("config:set-all", async (_e, patchBruto: Partial<AppConfig>) => {
     if (!ok) notify("ELYSIUM — Aviso", `Atalho "${patch.shortcut}" não pôde ser registrado.`);
   }
 
+  // 12/11: o atalho da Ely flutuante (Ctrl+Espaço) e o tema dela.
+  if (patch.atalhoFlutuante !== undefined && patch.atalhoFlutuante !== prev.atalhoFlutuante) {
+    try { if (prev.atalhoFlutuante) globalShortcut.unregister(prev.atalhoFlutuante); } catch { /* não estava registrado */ }
+    if (patch.atalhoFlutuante && !globalShortcut.register(patch.atalhoFlutuante, alternarFlutuante)) {
+      notify("ELYSIUM — Aviso", `Atalho "${patch.atalhoFlutuante}" não pôde ser registrado.`);
+    }
+  }
+  if (patch.theme !== undefined) enviarAoFlutuante("flutuante:tema", patch.theme);
   // Fase 23.2: o atalho de seleção (Ctrl+Shift+E) também é configurável.
   if (patch.atalhoSelecao !== undefined && patch.atalhoSelecao !== prev.atalhoSelecao) {
     try { if (prev.atalhoSelecao) globalShortcut.unregister(prev.atalhoSelecao); } catch { /* não estava registrado */ }
@@ -1065,7 +1155,7 @@ ipcMain.handle("config:set-all", async (_e, patchBruto: Partial<AppConfig>) => {
   // Sem notificação do Windows aqui. Este handler é chamado ao arrastar um card da tela
   // Início, ao trocar de tema e a cada campo de Ajustes — uma notificação por gravação
   // vira ruído constante. Quem grava explicitamente já mostra um toast na própria tela.
-});
+}
 
 ipcMain.handle("config:reset-defaults", () => {
   setOverride({
@@ -1469,6 +1559,8 @@ app.on("ready", async () => {
   });
 
   recorderWin = createRecorderWindow();
+  // 12/11: os "beats" do VoiceStudio (frases curtas já gravadas) — também esquenta o motor na GPU.
+  setTimeout(() => { void prepararBeats(path.join(app.getPath("userData"), "beats")).catch(() => {}); }, 8000);
 
   const serverToken = getOrCreateServerToken();
   const cfg = getConfig();
@@ -1622,6 +1714,17 @@ app.on("ready", async () => {
   registrarIpcSelecao();
   if (cfg.atalhoSelecao && !globalShortcut.register(cfg.atalhoSelecao, () => { void aoAtalhoDeSelecao(); })) {
     console.warn(`[selecao] atalho ${cfg.atalhoSelecao} ocupado por outro programa`);
+  }
+  // 12/11: Ctrl+Espaço — a Ely flutuante ao lado do cursor (janela já criada, escondida).
+  registrarIpcFlutuante({
+    digitar: (texto) => { desenharNoFlutuante(texto); void enviarTexto(texto); },
+    ouvir: () => { if (!state.is("idle")) interruptAll(); startListening().catch(() => {}); },
+    parar: pararFlutuante,
+  });
+  criarFlutuante();
+  if (cfg.atalhoFlutuante && !globalShortcut.register(cfg.atalhoFlutuante, alternarFlutuante)) {
+    console.warn(`[flutuante] atalho ${cfg.atalhoFlutuante} ocupado por outro programa`);
+    notify("ELYSIUM — Aviso", `O atalho ${cfg.atalhoFlutuante} da Ely flutuante está ocupado. Troque em Configurações.`);
   }
   if (cfg.palavraDeAtivacao) ligarPalavraDeAtivacao(acordarPorVoz);
   // O PowerShell da escuta é filho do app; sem isto ele ficaria órfão escutando depois

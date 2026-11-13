@@ -116,5 +116,64 @@
     }
   }
 </script>
+<script>
+  // 12/11: a voz do VoiceStudio toca aqui, por Web Audio: os pedaços de PCM16 entram numa linha
+  // do tempo só (sem buraco entre eles), e quando o último pedaço de uma fala termina o main fica
+  // sabendo. Parar cala tudo na hora.
+  let ctxVoz = null;
+  let fimDaLinha = 0;
+  const tocando = new Set();
+  const falas = new Map(); // id → { ultimo: AudioBufferSourceNode | null, fechada: boolean }
+  function contexto() {
+    if (!ctxVoz || ctxVoz.state === "closed") { ctxVoz = new AudioContext({ latencyHint: "interactive" }); fimDaLinha = 0; }
+    if (ctxVoz.state === "suspended") ctxVoz.resume();
+    return ctxVoz;
+  }
+  function terminou(id) {
+    const f = falas.get(id);
+    if (!f || !f.fechada) return;
+    falas.delete(id);
+    window.elysium.sendStudioTocou(id);
+  }
+  window.elysium.onStudioPcm((id, pcm, taxa, ganho) => {
+    const c = contexto();
+    const bytes = pcm instanceof Uint8Array ? pcm : new Uint8Array(pcm);
+    const n = bytes.length >> 1;
+    if (!n) return;
+    const dv = new DataView(bytes.buffer, bytes.byteOffset, n * 2);
+    const buf = c.createBuffer(1, n, taxa || 24000);
+    const canal = buf.getChannelData(0);
+    for (let i = 0; i < n; i++) canal[i] = dv.getInt16(i * 2, true) / 32768;
+    const fonte = c.createBufferSource();
+    fonte.buffer = buf;
+    const g = c.createGain();
+    g.gain.value = ganho > 0 && ganho <= 1 ? ganho : 1;
+    fonte.connect(g).connect(c.destination);
+    // Um respiro de 40 ms na primeira, para o começo não sair cortado.
+    const quando = Math.max(c.currentTime + 0.04, fimDaLinha);
+    fonte.start(quando);
+    fimDaLinha = quando + buf.duration;
+    tocando.add(fonte);
+    const f = falas.get(id) ?? { ultimo: null, fechada: false, fimEm: 0 };
+    f.ultimo = fonte;
+    f.fimEm = fimDaLinha;
+    falas.set(id, f);
+    fonte.onended = () => { tocando.delete(fonte); if (falas.get(id)?.ultimo === fonte) terminou(id); };
+  });
+  window.elysium.onStudioFim((id) => {
+    const f = falas.get(id);
+    if (!f) { window.elysium.sendStudioTocou(id); return; }
+    f.fechada = true;
+    // Já acabou de tocar antes do aviso de fim?
+    if (!ctxVoz || ctxVoz.currentTime >= f.fimEm) terminou(id);
+  });
+  window.elysium.onStudioParar(() => {
+    for (const fonte of tocando) { try { fonte.onended = null; fonte.stop(); } catch {} }
+    tocando.clear();
+    for (const id of falas.keys()) window.elysium.sendStudioTocou(id);
+    falas.clear();
+    fimDaLinha = 0;
+  });
+</script>
 </body>
 </html>

@@ -464,7 +464,7 @@
 .tela-quadro { position: absolute; left: 0; top: 0; width: 100%; height: 100%; border: 0; background: transparent; opacity: 0; transition: opacity var(--mov-base) var(--mov-suave); }
 .tela-ely.pronta .tela-quadro { opacity: 1; }
 /* Cortada: esmaece embaixo; o botão fica por cima do esmaecido. Inteira: "Tela cheia" discreto no canto. */
-.tela-mais { position: absolute; left: 0; right: 0; bottom: 0; display: flex; justify-content: flex-end; padding: 8px 10px; pointer-events: none; }
+.tela-mais { position: absolute; z-index: 1; left: 0; right: 0; bottom: 0; display: flex; justify-content: flex-end; padding: 8px 10px; pointer-events: none; }
 .tela-ely.cortada .tela-mais { justify-content: center; padding-top: 56px; border-radius: 0 0 16px 16px;
   background: linear-gradient(to bottom, transparent, color-mix(in srgb, var(--surface) 92%, transparent) 70%); }
 .tela-abrir { pointer-events: auto; display: inline-flex; align-items: center; gap: 6px; min-height: 30px; padding: 0 12px; border-radius: 999px; cursor: pointer;

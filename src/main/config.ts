@@ -2,6 +2,7 @@ import { app, safeStorage } from "electron";
 import Store from "electron-store";
 import { enderecoPermitido } from "../services/redeSegura";
 import { limparProntas, RESPOSTAS_PRONTAS_PADRAO } from "../services/respostasRapidas";
+import { perfilValido } from "../services/voiceStudio";
 import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -23,6 +24,8 @@ export interface AppConfig {
   shortcut: string;
   /** Fase 23: atalho global que leva o texto selecionado aos comandos de IA. Vazio = desligado. */
   atalhoSelecao: string;
+  /** 12/11: atalho global da Ely flutuante (a bolinha ao lado do cursor). Vazio = desligado. */
+  atalhoFlutuante: string;
   autoLaunch: boolean;
   silenceMs: number;
   maxRecordMs: number;
@@ -174,10 +177,16 @@ export interface AppConfig {
   modeloLocalQwen35Aplicado?: boolean;
   /** 05/11: a troca única para o qwen3.5-heretic:4b (sem censura) já rodou. */
   modeloHereticAplicado?: boolean;
-  /** 26/10: quem dá a voz — "gemini" (padrão com a chave) ou "edge" (as vozes da Microsoft). */
-  vozProvedor?: "gemini" | "edge";
+  /** 26/10: quem dá a voz — "gemini" (padrão com a chave), "edge" (as vozes da Microsoft) ou, desde 12/11, "voicestudio" (local, ver `voiceStudio.ts`). */
+  vozProvedor?: "gemini" | "edge" | "voicestudio";
   /** 26/10: a voz pronta do Gemini (Kore, Aoede, Sulafat…). */
   vozGemini?: string;
+  /** 12/11: o perfil de voz no VoiceStudio (nome ou ID). Vazio = o perfil em português de lá, senão o padrão do motor. */
+  voiceStudioVoz?: string;
+  /** 12/11: a troca única para o VoiceStudio já rodou (ver `migrarVozStudio`). */
+  vozStudioAplicado?: boolean;
+  /** 12/11: pergunta de conhecimento atemporal responde sem o Hermes (ver `viaRapida`). Desligado = tudo pelo Hermes. */
+  viaRapida?: boolean;
   /**
    * Acompanhar o acesso de fora de casa (Tailscale) no card Saúde, no resumo e na faixa do
    * celular (bloco 122). Desligado por padrão desde o bloco 128: o dono não quer o Tailscale
@@ -262,6 +271,8 @@ export interface AppConfig {
 export const DEFAULTS: AppConfig = {
   shortcut: "Control+Shift+J",
   atalhoSelecao: "Control+Shift+E",
+  atalhoFlutuante: "Control+Space",
+  viaRapida: true,
   autoLaunch: true,
   silenceMs: 2500,
   maxRecordMs: 120000,
@@ -572,9 +583,18 @@ export function migrarModeloLocal(o: Partial<AppConfig>): Partial<AppConfig> | n
   return { modeloHereticAplicado: true, ollamaRouterModel: "qwen3.5-heretic:4b", ollamaChatModel: "qwen3.5-heretic:4b" };
 }
 
+/**
+ * 12/11: troca única para a voz do VoiceStudio (pedido do dono, depois de usar no Roamies). Sem o
+ * estúdio aberto, a fala segue pelo Gemini/Edge sozinha (vozStudioStream.ts).
+ */
+export function migrarVozStudio(o: Partial<AppConfig>): Partial<AppConfig> | null {
+  if (o.vozStudioAplicado) return null;
+  return { vozStudioAplicado: true, vozProvedor: "voicestudio" };
+}
+
 export function getConfig(): AppConfig {
   let overrides = store.get("overrides", {} as Partial<AppConfig>);
-  const trocas = { ...(migrarVozFeminina(overrides) ?? {}), ...(migrarTemaStark(overrides) ?? {}), ...(migrarCerebroHibrido(overrides) ?? {}), ...(migrarVozThalita(overrides) ?? {}), ...(migrarModeloLocal(overrides) ?? {}) };
+  const trocas = { ...(migrarVozFeminina(overrides) ?? {}), ...(migrarTemaStark(overrides) ?? {}), ...(migrarCerebroHibrido(overrides) ?? {}), ...(migrarVozThalita(overrides) ?? {}), ...(migrarModeloLocal(overrides) ?? {}), ...(migrarVozStudio(overrides) ?? {}) };
   if (Object.keys(trocas).length) {
     overrides = { ...overrides, ...trocas };
     store.set("overrides", overrides);
@@ -661,6 +681,8 @@ export function patchDeConfigSeguro(patch: Partial<AppConfig>): Partial<AppConfi
   if ("semCensura" in limpo) limpo.semCensura = limpo.semCensura === true;
   if ("semCensuraSoLocal" in limpo) limpo.semCensuraSoLocal = limpo.semCensuraSoLocal === true;
   if ("respostasInterativas" in limpo && !["nunca", "pedir", "perguntar", "priorizar"].includes(String(limpo.respostasInterativas))) delete limpo.respostasInterativas;
+  if ("vozProvedor" in limpo && !["gemini", "edge", "voicestudio"].includes(String(limpo.vozProvedor))) delete limpo.vozProvedor;
+  if ("voiceStudioVoz" in limpo && !perfilValido(limpo.voiceStudioVoz)) delete limpo.voiceStudioVoz;
   return limpo;
 }
 

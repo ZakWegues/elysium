@@ -164,9 +164,21 @@ export function telaMostrada(): string | null {
   return telaRecente.estado ? `${telaRecente.texto}\nO que o usuário fez nela: ${telaRecente.estado}` : telaRecente.texto;
 }
 
+/**
+ * 12/11: o programa que estava na frente quando ele chamou a Ely flutuante (Ctrl+Espaço). Vale
+ * 2 min: "o que é isso aqui?", "me ajuda com essa planilha" sabem onde ele está.
+ */
+let janelaRecente: { texto: string; em: number } | null = null;
+export function registrarJanelaDaFrente(processo: string, titulo: string): void {
+  const t = `${processo}${titulo ? ` — ${titulo}` : ""}`.replace(/[\r\n]+/g, " ").slice(0, 200).trim();
+  janelaRecente = t ? { texto: t, em: Date.now() } : null;
+}
+
 function blocoDaTela(): string {
   const t = telaMostrada();
-  return t ? `\n\n[TELA QUE VOCÊ MOSTROU NA CONVERSA — o que ela tem; use se perguntarem sobre ela]\n${t}` : "";
+  const j = janelaRecente && Date.now() - janelaRecente.em < 120_000 ? janelaRecente.texto : "";
+  return (t ? `\n\n[TELA QUE VOCÊ MOSTROU NA CONVERSA — o que ela tem; use se perguntarem sobre ela]\n${t}` : "")
+    + (j ? `\n\n[PROGRAMA ABERTO NA FRENTE DO USUÁRIO AGORA — use só se o pedido for sobre o que ele está vendo]\n${j}` : "");
 }
 
 export function clearHistory(): void {

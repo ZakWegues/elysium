@@ -13,6 +13,7 @@
  * contra esse, a defesa é o token não vazar e a porta não ser exposta à internet.
  */
 
+import { ajustesComValores, campoRemoto, valorRemotoValido } from "./ajustesRemotos";
 import { apagarTarefa, concluirTarefa, criarTarefa, desvincularLembrete, editarTarefa, editarTarefaProxima, estaAtrasada, listarPorFiltro, listarTarefas, obterTarefa, reabrirTarefa } from "./tarefas";
 import { createReminderAction, criarLembreteComTarefa, proximaDaRepeticao, reagendarTarefa, reavisarTarefa, rotuloDoPrazo } from "../actions/memoryActions";
 import { adiarPara, ehCompromisso, interpretarQuando, interpretarTexto, planejarLembretes, type Adiamento } from "./planoDeLembrete";
@@ -280,6 +281,10 @@ function perfilDoCelular(c: AppConfig) {
     semCensuraSoLocal: c.semCensuraSoLocal === true,
   };
 }
+
+/** 12/11: quem aplica um patch de config com os efeitos (o main, o mesmo dos Ajustes do PC). */
+let aplicadorDeConfig: ((patch: Partial<AppConfig>) => Promise<void>) | null = null;
+export function definirAplicadorDeConfig(fn: (patch: Partial<AppConfig>) => Promise<void>): void { aplicadorDeConfig = fn; }
 
 const METHODS: Record<string, MethodDef> = {
   // — sistema —
@@ -1463,6 +1468,21 @@ const METHODS: Record<string, MethodDef> = {
       setOverride(patchDeConfigSeguro(patch as Partial<AppConfig>));
       const c = getConfig();
       return perfilDoCelular(c);
+    },
+  },
+  // 12/11: os Ajustes do PC no celular (ajustesRemotos.ts) — o esquema com os valores e a gravação
+  // pelo mesmo caminho dos Ajustes do PC (com os efeitos de lá).
+  "pc.ajustes": { handler: async () => ({ grupos: ajustesComValores(getConfig()) }) },
+  "pc.ajustes.set": {
+    handler: async (params) => {
+      const campo = campoRemoto(params["chave"]);
+      if (!campo) throw new RpcError(400, "esse ajuste não muda pelo celular");
+      const valor = valorRemotoValido(campo, params["valor"]);
+      if (valor === undefined) throw new RpcError(400, "valor inválido");
+      const patch = { [campo.chave]: valor } as Partial<AppConfig>;
+      if (aplicadorDeConfig) await aplicadorDeConfig(patch);
+      else setOverride(patchDeConfigSeguro(patch));
+      return { grupos: ajustesComValores(getConfig()) };
     },
   },
   // Fase 21: o cérebro Hermes — estado (chip de Ajustes no PC e no celular) e a escolha.
