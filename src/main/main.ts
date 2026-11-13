@@ -114,11 +114,15 @@ import { abrirFlutuante, areaDaCamada, criarFlutuante, enviarAoFlutuante, fechar
 import { desenharRapido, pediuDesenho } from "../services/desenhoRapido";
 import { listarJanelas } from "../actions/janelas";
 import { janelaDaFrente } from "../services/isso";
-import { recordAssistantReply, registrarJanelaDaFrente, registrarTurnoUsuario } from "../services/brain";
+import { contextoRecente, recordAssistantReply, registrarJanelaDaFrente, registrarTurnoUsuario } from "../services/brain";
 import { definirAplicadorDeConfig } from "../services/rpc";
 import { comecarEscuta, garantirModelo, receberPcm, textoFinal } from "../services/parakeet";
 import { aoMudarEstadoAoVivo, avisarEstadoAoVivo } from "../services/estadoAoVivo";
 import { atalhoDeTela, pediuNaTela, pedirGuia, vksDe, type Acao } from "../services/guiaDeTela";
+import { escritaRapida, insistiu, janelaAlvo, pediuParaEscrever, prepararEscrita } from "../services/escreverNoApp";
+import { registrarForaDoHermes } from "../services/hermes/cerebro";
+import { executarFerramenta } from "../services/ferramentas";
+import type { Janela as JanelaDoPc } from "../actions/janelas";
 import { uiaHost, type LeituraUia } from "../services/uiaHost";
 import {
   checkAndMarkUnseenFromMobile, addMessage, addFileMessage, listMessagesForDesktop, inferKind, mailboxEvents,
@@ -624,7 +628,8 @@ async function agirNaTela(acao: Acao, l: LeituraUia | null): Promise<void> {
     const vks = vksDe(acao.teclas);
     if (!vks) return;
     avisarEstadoAoVivo(acao.descricao);
-    await uiaHost.frente(hwndAlvo).catch(() => {});
+    // Teclas só com a janela certa na frente (senão iriam para outro programa).
+    if (!(await uiaHost.frente(hwndAlvo).catch(() => false))) return;
     await new Promise((r) => setTimeout(r, 120));
     await inputHost.keys(vks);
   }
@@ -654,6 +659,8 @@ async function guiarNaTela(pedido: string, meuToken: number): Promise<boolean> {
     });
     registrarTurnoUsuario(pedido);
     recordAssistantReply(g.fala);
+    registrarForaDoHermes(pedido, g.fala);
+    if (g.recusa || !g.acao) pendente = { pedido, em: Date.now() };
     enviarAoDash("voice:reply", g.fala);
     state.set("speaking");
     const fala = speak(g.fala).catch(() => {});
@@ -698,15 +705,99 @@ function alternarFlutuante(): void {
 
 /** Pedido digitado na bolota: o guia de tela, senão o caminho de sempre (com o desenho). */
 async function digitadoNaBolota(texto: string): Promise<void> {
-  if (pediuNaTela(texto)) {
+  if (pediuNaTela(texto) || pediuParaEscrever(texto) || (pendente && insistiu(texto))) {
     if (!state.is("idle")) { interruptAll(); state.set("idle"); }
     const meu = novoTurno();
     state.set("processing");
-    try { if (await guiarNaTela(texto, meu)) return; }
+    try { if (await agirDireto(texto, meu)) return; }
     finally { if (turnoAtual() === meu) state.set("idle"); }
   }
   desenharNoFlutuante(texto);
   void enviarTexto(texto);
+}
+
+// ── escrever no programa (13/11, como o Roamies) ────────────────────────────────────────
+/** O último pedido de ação que não foi feito — "faz de qualquer jeito" refaz ele. */
+let pendente: { pedido: string; em: number } | null = null;
+
+const VK_CTRL = 0x11, VK_L = 0x4c, VK_V = 0x56, VK_ENTER = 0x0d;
+const dormir = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * "Escreve X no Chrome / pro Claude Code / na barra de pesquisa": escolhe a janela, vai ao campo,
+ * cola o texto (melhorado quando é prompt/mensagem) e dá Enter se ele pediu para mandar/pesquisar.
+ * `true` = tratado (fez ou explicou por que não deu).
+ */
+async function escreverNoPrograma(pedido: string, meuToken: number): Promise<boolean> {
+  const t0 = Date.now();
+  avisarEstadoAoVivo("Preparando o texto…");
+  const [janelas, rapida] = await Promise.all([listarJanelas().catch(() => [] as JanelaDoPc[]), Promise.resolve(escritaRapida(pedido))]);
+  const daFrente = (hwndAlvo && janelas.find((j) => j.hwnd === hwndAlvo)) || janelaDaFrente(janelas);
+  const esc = rapida ?? await prepararEscrita(pedido, {
+    conversa: contextoRecente(),
+    frente: daFrente ? `${daFrente.processo} — ${daFrente.titulo}` : "",
+    abertos: janelas.slice(0, 15).map((j) => `${j.processo}${j.titulo ? ` (${j.titulo.slice(0, 40)})` : ""}`).join("; "),
+  });
+  if (turnoAtual() !== meuToken) return true;
+  if (!esc) return false;
+  let alvo = janelaAlvo(pedido, esc.app, janelas, daFrente);
+  // O programa citado não está aberto: abre e espera ele aparecer.
+  if (!alvo && esc.app) {
+    avisarEstadoAoVivo(`Abrindo ${esc.app}…`);
+    await executarFerramenta("abrir_programa", { nome: esc.app }).catch(() => "");
+    for (let i = 0; i < 12 && !alvo; i++) { await dormir(400); alvo = janelaAlvo(pedido, esc.app, await listarJanelas().catch(() => []), null); }
+  }
+  if (!alvo) { const r = "Não achei onde escrever: o programa não está aberto."; enviarAoDash("voice:reply", r); await speak(r).catch(() => {}); return true; }
+  const nomeApp = alvo.processo.replace(/^msedge$/i, "Edge").replace(/^chrome$/i, "Chrome").replace(/^windowsterminal$/i, "terminal");
+  avisarEstadoAoVivo(`Escrevendo no ${nomeApp}…`);
+  // Só escreve com a janela certa NA FRENTE: senão o texto iria parar no programa errado.
+  if (!(await uiaHost.frente(alvo.hwnd).catch(() => false))) {
+    const r = `Não consegui trazer o ${nomeApp} para a frente. Clique nele e me peça de novo.`;
+    enviarAoDash("voice:reply", r); await speak(r).catch(() => {}); return true;
+  }
+  await dormir(120);
+  if (esc.lugar === "endereco") { await inputHost.keys([VK_CTRL, VK_L]); await dormir(120); }
+  else if (esc.lugar === "busca" || esc.lugar === "campo") {
+    try {
+      const l = await uiaHost.ler(alvo.hwnd);
+      const quer = esc.lugar === "campo" && esc.campo ? new RegExp(esc.campo.replace(/[.*+?^${}()|[\]\\]/g, ""), "i") : /pesquis|busca|search|procurar|find/i;
+      const campo = l.elementos.find((e) => /^(Edit|ComboBox)$/.test(e.t) && quer.test(`${e.n} ${e.a}`)) ?? l.elementos.find((e) => e.t === "Edit");
+      if (campo) { await uiaHost.clicar(campo.i).catch(() => ""); await dormir(120); }
+    } catch { /* sem leitura: escreve onde o cursor estiver */ }
+  }
+  // Colar é o jeito rápido e certo (acento, várias linhas); a área de transferência volta depois.
+  const antes = clipboard.readText();
+  clipboard.writeText(esc.texto);
+  await dormir(40);
+  await inputHost.keys([VK_CTRL, VK_V]);
+  await dormir(220);
+  if (esc.enviar) await inputHost.keys([VK_ENTER]);
+  setTimeout(() => { if (clipboard.readText() === esc.texto) clipboard.writeText(antes); }, 1500);
+  console.log(`[escrever] ${nomeApp}, ${esc.lugar}${esc.enviar ? " + enter" : ""}, ${esc.melhorou ? "melhorado" : "literal"}, em ${Date.now() - t0} ms`);
+  const resposta = `${esc.fala}${esc.melhorou ? `\n\n${esc.texto}` : ""}`;
+  pendente = null;
+  registrarTurnoUsuario(pedido);
+  recordAssistantReply(resposta);
+  registrarForaDoHermes(pedido, `${esc.fala} (escreveu no ${nomeApp}: "${esc.texto.slice(0, 300)}")`);
+  enviarAoDash("voice:reply", resposta);
+  state.set("speaking");
+  await speak(esc.fala).catch(() => {});
+  return true;
+}
+
+/**
+ * Antes do cérebro: escrever no programa, guia de tela, ou "faz de qualquer jeito" refazendo o
+ * pedido que ficou sem fazer. `true` = tratado aqui.
+ */
+async function agirDireto(texto: string, meuToken: number): Promise<boolean> {
+  let pedido = texto;
+  if (pendente && Date.now() - pendente.em < 3 * 60_000 && insistiu(texto)) { pedido = `${pendente.pedido} (ele insistiu: faça)`; pendente = null; }
+  if (pediuParaEscrever(pedido)) {
+    pendente = { pedido, em: Date.now() };
+    if (await escreverNoPrograma(pedido, meuToken)) return true;
+  }
+  if (flutuanteAberto() && pediuNaTela(pedido) && await guiarNaTela(pedido, meuToken)) return true;
+  return false;
 }
 
 /** Fechou a flutuante: a gravação sem mandar, a fala calada. */
@@ -766,7 +857,7 @@ ipcMain.on("audio-data", async (_event, buffer: Buffer) => {
 
     enviarAoDash("voice:transcript", text);
     // 13/11: pedido sobre a tela que ele está vendo ("onde fica…", "clica em…") → o guia de tela.
-    if (flutuanteAberto() && pediuNaTela(text) && await guiarNaTela(text, meuToken)) return;
+    if (await agirDireto(text, meuToken)) return;
     // 12/11: pedido feito pela Ely flutuante que pede explicação → o desenho já vai saindo junto.
     desenharNoFlutuante(text);
 
@@ -1826,7 +1917,8 @@ app.on("ready", async () => {
   registrarIpcFlutuante({
     digitar: (texto) => { void digitadoNaBolota(texto); },
     confirmar: (id, sim) => { const f = confirmacoes.get(id); confirmacoes.delete(id); f?.(sim); },
-    ouvir: () => { if (!state.is("idle")) interruptAll(); startListening().catch(() => {}); },
+    ouvir: () => { if (!state.is("idle")) { interruptAll(); interromperHermes(); state.set("idle"); } void lembrarJanelaDaFrente(); startListening().catch(() => {}); },
+    terminarFala: () => { if (recorderWin && !recorderWin.isDestroyed()) recorderWin.webContents.send("finish-recording"); },
     parar: pararFlutuante,
   });
   criarFlutuante();

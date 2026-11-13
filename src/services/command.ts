@@ -9,7 +9,7 @@ import { getApiKey, getConfig } from "../main/config";
 import { viaRapida } from "./cerebroHibrido";
 import type { Canal } from "./estiloResposta";
 import { comContexto, Fonte, fontesDoPedido, marcarReserva, registrarFontes, usouReserva } from "./contextoComando";
-import { agirViaHermes, responderEsclarecimentoHermes } from "./hermes/cerebro";
+import { agirViaHermes, registrarForaDoHermes, responderEsclarecimentoHermes } from "./hermes/cerebro";
 import { criarFiltroDeFontes, separarFontes } from "./hermes/pesquisa";
 import { ehEntradaDoLive } from "./live";
 import { pedirConfirmacao, responderConfirmacao } from "./confirmacao";
@@ -167,6 +167,7 @@ async function executarNoContexto(
     turnoRegistrado = true;
     const rapida = await composeChatReply(text, ganchos.onToken, ganchos.canal ?? "voz").catch((e) => { console.warn("[via rápida] falhou; vai pelo Hermes:", e instanceof Error ? e.message : e); return null; });
     if (rapida) {
+      registrarForaDoHermes(text, rapida);
       recordAssistantReply(rapida);
       trackUsage(text, { action: "chat" });
       return { actions: [{ action: "chat" }], reply: rapida, atalho: false };

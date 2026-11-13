@@ -217,6 +217,23 @@ async function tratarPedido(metodo: string, params: Record<string, unknown>): Pr
 export interface RespostaHermes { reply: string; pergunta?: boolean }
 
 /**
+ * 13/11 (o dono: "ela não tem memória"): turnos respondidos FORA do Hermes — a resposta rápida, o
+ * guia de tela, o escrever no programa — não estavam na sessão dele; "faz de qualquer jeito" logo
+ * depois chegava sem saber do quê. Eles vão juntos no próximo turno do Hermes (até 6, de 15 min).
+ */
+const foraDoHermes: { ele: string; ely: string; em: number }[] = [];
+export function registrarForaDoHermes(ele: string, ely: string): void {
+  foraDoHermes.push({ ele: ele.slice(0, 600), ely: ely.slice(0, 900), em: Date.now() });
+  while (foraDoHermes.length > 6) foraDoHermes.shift();
+}
+/** O bloco com esses turnos (e esvazia a fila). Puro com a lista. */
+export function blocoForaDoHermes(agora = Date.now()): string {
+  const recentes = foraDoHermes.splice(0).filter((t) => agora - t.em < 15 * 60_000);
+  if (!recentes.length) return "";
+  return `[O QUE ACONTECEU NA CONVERSA AGORA HÁ POUCO, ANTES DESTE PEDIDO — você não viu, mas faz parte da conversa]\n${recentes.map((t) => `Ele: ${t.ele}\nEly: ${t.ely}`).join("\n")}\n\n`;
+}
+
+/**
  * Um pedido pelo Hermes. `null` = não deu (fora do ar, demorou, erro do modelo): o chamador cai
  * no cérebro de sempre.
  */
@@ -228,7 +245,7 @@ export async function agirViaHermes(texto: string, op: { canal?: Canal; onToken?
   const cfg = getConfig();
   const canal = op.canal ?? "voz";
   const primeiro = sessao.turnos === 0;
-  const corpo = contextoDoTurno(texto, canal, {
+  const corpo = blocoForaDoHermes() + contextoDoTurno(texto, canal, {
     nome: nomeDoUsuario(),
     tratamento: cfg.tratamento ?? "",
     estilo: cfg.estiloResposta,

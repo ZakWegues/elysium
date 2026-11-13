@@ -20,6 +20,7 @@ contextBridge.exposeInMainWorld("ely", {
   focar: () => ipcRenderer.send("flutuante:focar"),
   fechar: () => ipcRenderer.send("flutuante:fechar"),
   ouvir: () => ipcRenderer.send("flutuante:ouvir"),
+  terminarFala: () => ipcRenderer.send("flutuante:terminar-fala"),
   digitar: (texto: string) => ipcRenderer.send("flutuante:digitar", String(texto ?? "")),
   confirmar: (id: string, sim: boolean) => ipcRenderer.send("flutuante:confirmacao", String(id), sim === true),
   abrir: (url: string) => ipcRenderer.send("flutuante:abrir-link", String(url ?? "")),

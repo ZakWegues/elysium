@@ -23,7 +23,7 @@ $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
 Add-Type @"
 using System; using System.Runtime.InteropServices;
-public class NxUia { [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h); [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr h, int c); }
+public class NxUia { [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h); [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr h, int c); [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr h); [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow(); [DllImport("user32.dll")] public static extern void keybd_event(byte k, byte s, uint f, UIntPtr e); }
 "@
 $A = [System.Windows.Automation.AutomationElement]
 $global:els = New-Object System.Collections.ArrayList
@@ -80,7 +80,7 @@ while ($true) {
       'LER'    { [Console]::Out.WriteLine('OK ' + (Ler ([IntPtr][Int64]$p[1]))) }
       'CLICAR' { [Console]::Out.WriteLine('OK ' + (Clicar ([int]$p[1]))) }
       'VALOR'  { $t = $UTF8.GetString([Convert]::FromBase64String($p[2])); $e = $global:els[[int]$p[1]]; try { $e.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue($t) } catch { $e.SetFocus(); [System.Windows.Forms.SendKeys]::SendWait($t) }; [Console]::Out.WriteLine('OK') }
-      'FRENTE' { $h = [IntPtr][Int64]$p[1]; [void][NxUia]::ShowWindow($h, 9); [void][NxUia]::SetForegroundWindow($h); [Console]::Out.WriteLine('OK') }
+      'FRENTE' { $h = [IntPtr][Int64]$p[1]; if ([NxUia]::IsIconic($h)) { [void][NxUia]::ShowWindow($h, 9) }; [NxUia]::keybd_event(0x12, 0, 0, [UIntPtr]::Zero); [NxUia]::keybd_event(0x12, 0, 2, [UIntPtr]::Zero); [void][NxUia]::SetForegroundWindow($h); Start-Sleep -Milliseconds 60; if ([NxUia]::GetForegroundWindow() -eq $h) { [Console]::Out.WriteLine('OK 1') } else { [Console]::Out.WriteLine('OK 0') } }
       default  { [Console]::Out.WriteLine('ERR comando desconhecido') }
     }
   } catch { [Console]::Out.WriteLine('ERR ' + ($_.Exception.Message -replace '[\r\n]', ' ')) }
@@ -151,7 +151,15 @@ class UiaHost {
   }
   clicar(i: number): Promise<string> { return this.pedir(`CLICAR ${Math.trunc(i)}`, 5_000); }
   async valor(i: number, texto: string): Promise<void> { await this.pedir(`VALOR ${Math.trunc(i)} ${Buffer.from(texto, "utf8").toString("base64")}`, 5_000); }
-  async frente(hwnd: string): Promise<void> { if (/^\d+$/.test(hwnd)) await this.pedir(`FRENTE ${hwnd}`, 3_000); }
+  /**
+   * Traz a janela para a frente (com o truque do Alt: janela de fundo não pode roubar o foco).
+   * `true` = ela está mesmo na frente agora — só aí é seguro teclar/colar (senão iria no programa errado).
+   */
+  async frente(hwnd: string): Promise<boolean> {
+    if (!/^\d+$/.test(hwnd)) return false;
+    for (let i = 0; i < 2; i++) if ((await this.pedir(`FRENTE ${hwnd}`, 3_000)) === "1") return true;
+    return false;
+  }
   parar(): void { try { this.proc?.kill(); } catch { /* */ } this.proc = null; }
 }
 
