@@ -134,7 +134,7 @@ export function ordemDeTentativa(preferencia: string[], ms: Map<string, number |
   return [...preferencia.filter((m) => ms.get(m) !== null), ...preferencia.filter((m) => ms.get(m) === null)];
 }
 
-export type Mensagem = { papel: "user" | "model"; texto: string };
+export type Mensagem = { papel: "user" | "model"; texto: string; imagem?: { mime: string; base64: string } };
 
 export type PedidoGemini = {
   mensagens: Mensagem[];
@@ -188,7 +188,7 @@ export async function gerarGemini(p: PedidoGemini, busca: Busca = fetch, chave =
     if (p.sinal?.aborted) return null;
     const corpo = {
       ...(p.sistema ? { systemInstruction: { parts: [{ text: p.sistema }] } } : {}),
-      contents: p.mensagens.map((m) => ({ role: m.papel, parts: [{ text: m.texto }] })),
+      contents: p.mensagens.map((m) => ({ role: m.papel, parts: [{ text: m.texto }, ...(m.imagem ? [{ inlineData: { mimeType: m.imagem.mime, data: m.imagem.base64 } }] : [])] })),
       ...(p.buscar ? { tools: [{ google_search: {} }] } : {}),
       generationConfig: {
         temperature: p.temperatura ?? 0.3,

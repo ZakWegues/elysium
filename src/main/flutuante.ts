@@ -49,7 +49,11 @@ export function criarFlutuante(): BrowserWindow {
     x: wa.x, y: wa.y, width: wa.width, height: wa.height,
     show: false, frame: false, transparent: true, backgroundColor: "#00000000",
     resizable: false, movable: false, minimizable: false, maximizable: false, fullscreenable: false,
-    skipTaskbar: true, hasShadow: false, alwaysOnTop: true, title: "Ely", type: "toolbar", focusable: true,
+    skipTaskbar: true, hasShadow: false, alwaysOnTop: true, title: "Ely", type: "toolbar",
+    // 13/11: NUNCA ativa (como a camada do Roamies): clicar na bolota, no microfone ou num cartão não
+    // tira o foco do programa dele, e o "escreve aqui" acha o campo onde o cursor estava. Só o campo
+    // de digitar liga o foco, e devolve ao mandar.
+    focusable: false,
     webPreferences: {
       preload: path.join(__dirname, "../renderer/preload-flutuante.js"),
       contextIsolation: true, nodeIntegration: false, sandbox: true, devTools: !app.isPackaged,
@@ -106,8 +110,16 @@ export function abrirFlutuante(tema: string, movimento = ""): void {
   seguir();
 }
 
+/** Devolve a camada ao "nunca ativa" (depois de digitar). */
+function soltarFoco(): void {
+  if (!janela || janela.isDestroyed()) return;
+  janela.setFocusable(false);
+  janela.blur();
+}
+
 export function fecharFlutuante(): void {
   aberta = false;
+  soltarFoco();
   pararDeSeguir();
   if (!janela || janela.isDestroyed()) return;
   janela.webContents.send("flutuante:fechar");
@@ -130,8 +142,8 @@ export function registrarIpcFlutuante(acoes: AcoesFlutuante): void {
   ipcMain.on("flutuante:mouse", (e, dentro: unknown) => {
     if (deLa(e)) janela!.setIgnoreMouseEvents(dentro !== true, { forward: true });
   });
-  // Clique na bolota: agora sim pega o foco (para digitar).
-  ipcMain.on("flutuante:focar", (e) => { if (deLa(e)) { janela!.setIgnoreMouseEvents(false); janela!.focus(); } });
+  // O teclado da bolota: agora sim pega o foco (para digitar).
+  ipcMain.on("flutuante:focar", (e) => { if (deLa(e)) { janela!.setFocusable(true); janela!.setIgnoreMouseEvents(false); janela!.focus(); } });
   ipcMain.on("flutuante:fechar", (e) => { if (deLa(e)) { acoes.parar(); fecharFlutuante(); } });
   ipcMain.on("flutuante:ouvir", (e) => { if (deLa(e)) acoes.ouvir(); });
   // 13/11: o botão do microfone de novo, ouvindo = "terminei de falar" (manda o que gravou).
@@ -145,6 +157,9 @@ export function registrarIpcFlutuante(acoes: AcoesFlutuante): void {
     if (deLa(e) && typeof url === "string" && /^https:\/\/[^\s]+$/.test(url) && url.length < 2000) void shell.openExternal(url);
   });
   ipcMain.on("flutuante:digitar", (e, texto: unknown) => {
-    if (deLa(e) && typeof texto === "string" && texto.trim()) acoes.digitar(texto.trim().slice(0, 4000));
+    if (!deLa(e)) return;
+    // Mandou: a camada volta a não ter foco (o pedido age no programa dele, que o main traz de volta).
+    soltarFoco();
+    if (typeof texto === "string" && texto.trim()) acoes.digitar(texto.trim().slice(0, 4000));
   });
 }

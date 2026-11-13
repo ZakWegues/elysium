@@ -67,7 +67,8 @@ export function atalhoDeTela(texto: string): Acao | null {
 
 /** A lista de elementos compacta que vai ao modelo (uma linha por elemento). Pura. */
 export function elementosParaPrompt(l: LeituraUia, max = 220): string {
-  return l.elementos.slice(0, max).map((e) => `${e.i}|${e.t}|${(e.n || "").replace(/[|\n\r]/g, " ").slice(0, 70)}${e.v ? `|valor:${e.v.replace(/[|\n\r]/g, " ").slice(0, 30)}` : ""}`).join("\n");
+  // Rolado para fora da janela: não dá para marcar na tela.
+  return l.elementos.filter((e) => !e.o).slice(0, max).map((e) => `${e.i}|${e.t}|${(e.n || "").replace(/[|\n\r]/g, " ").slice(0, 70)}${e.v ? `|valor:${e.v.replace(/[|\n\r]/g, " ").slice(0, 30)}` : ""}`).join("\n");
 }
 
 const SISTEMA = `Você guia a pessoa NA TELA DELA, como um tutor apontando com o dedo. Você recebe o programa aberto e a lista dos elementos visíveis ("número|tipo|nome"). Responda SÓ JSON:

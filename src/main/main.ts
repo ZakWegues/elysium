@@ -119,9 +119,10 @@ import { definirAplicadorDeConfig } from "../services/rpc";
 import { comecarEscuta, garantirModelo, receberPcm, textoFinal } from "../services/parakeet";
 import { aoMudarEstadoAoVivo, avisarEstadoAoVivo } from "../services/estadoAoVivo";
 import { atalhoDeTela, pediuNaTela, pedirGuia, vksDe, type Acao } from "../services/guiaDeTela";
-import { escritaRapida, insistiu, janelaAlvo, pediuParaEscrever, prepararEscrita } from "../services/escreverNoApp";
+import { insistiu, janelaAlvo, pediuParaEscrever } from "../services/escreverNoApp";
+import { agirNaJanela, escreverNoCursor, literalParaAqui, pediuAcaoNaTela } from "../services/agenteDeTela";
 import { registrarForaDoHermes } from "../services/hermes/cerebro";
-import { executarFerramenta } from "../services/ferramentas";
+import { semAcento } from "../services/texto";
 import type { Janela as JanelaDoPc } from "../actions/janelas";
 import { uiaHost, type LeituraUia } from "../services/uiaHost";
 import {
@@ -705,7 +706,7 @@ function alternarFlutuante(): void {
 
 /** Pedido digitado na bolota: o guia de tela, senão o caminho de sempre (com o desenho). */
 async function digitadoNaBolota(texto: string): Promise<void> {
-  if (pediuNaTela(texto) || pediuParaEscrever(texto) || (pendente && insistiu(texto))) {
+  if (pediuNaTela(texto) || pediuParaEscrever(texto) || pediuAcaoNaTela(texto) || literalParaAqui(texto) || (pendente && insistiu(texto))) {
     if (!state.is("idle")) { interruptAll(); state.set("idle"); }
     const meu = novoTurno();
     state.set("processing");
@@ -716,72 +717,58 @@ async function digitadoNaBolota(texto: string): Promise<void> {
   void enviarTexto(texto);
 }
 
-// ── escrever no programa (13/11, como o Roamies) ────────────────────────────────────────
+// ── agir nos programas (13/11, como o Roamies: ler → fazer → conferir) ────────────────────
 /** O último pedido de ação que não foi feito — "faz de qualquer jeito" refaz ele. */
 let pendente: { pedido: string; em: number } | null = null;
 
-const VK_CTRL = 0x11, VK_L = 0x4c, VK_V = 0x56, VK_ENTER = 0x0d;
-const dormir = (ms: number) => new Promise((r) => setTimeout(r, ms));
+/** Fecha o turno de uma ação: memória, resposta e fala. */
+async function responderAcao(pedido: string, fala: string, memoria: string): Promise<void> {
+  registrarTurnoUsuario(pedido);
+  recordAssistantReply(fala);
+  registrarForaDoHermes(pedido, memoria);
+  enviarAoDash("voice:reply", fala);
+  state.set("speaking");
+  await speak(fala).catch(() => {});
+}
 
-/**
- * "Escreve X no Chrome / pro Claude Code / na barra de pesquisa": escolhe a janela, vai ao campo,
- * cola o texto (melhorado quando é prompt/mensagem) e dá Enter se ele pediu para mandar/pesquisar.
- * `true` = tratado (fez ou explicou por que não deu).
- */
-async function escreverNoPrograma(pedido: string, meuToken: number): Promise<boolean> {
+/** "Escreve bom dia aqui": cola no campo com o cursor, sem modelo (< 1 s). `false` = não havia campo. */
+async function escreverAqui(pedido: string, texto: string, meuToken: number): Promise<boolean> {
   const t0 = Date.now();
-  avisarEstadoAoVivo("Preparando o texto…");
-  const [janelas, rapida] = await Promise.all([listarJanelas().catch(() => [] as JanelaDoPc[]), Promise.resolve(escritaRapida(pedido))]);
+  const hwnd = hwndAlvo || janelaDaFrente(await listarJanelas().catch(() => []))?.hwnd || "";
+  if (!hwnd) return false;
+  avisarEstadoAoVivo("Escrevendo…");
+  const f = await escreverNoCursor(hwnd, texto);
+  if (!f || turnoAtual() !== meuToken) return !!f;
+  console.log(`[escrever] aqui (${f.t} "${f.n.slice(0, 30)}") em ${Date.now() - t0} ms`);
+  pendente = null;
+  await responderAcao(pedido, "Pronto.", `Escreveu "${texto.slice(0, 200)}" no campo com o cursor.`);
+  return true;
+}
+
+/** Pedido de FAZER algo num programa: o agente em passos (agenteDeTela.ts). */
+async function agirComAgente(pedido: string, meuToken: number): Promise<boolean> {
+  const janelas = await listarJanelas().catch(() => [] as JanelaDoPc[]);
   const daFrente = (hwndAlvo && janelas.find((j) => j.hwnd === hwndAlvo)) || janelaDaFrente(janelas);
-  const esc = rapida ?? await prepararEscrita(pedido, {
+  // O programa citado não está aberto: o agente começa na da frente (e pode abrir o programa).
+  const alvo = janelaAlvo(pedido, "", janelas, daFrente) ?? daFrente;
+  if (!alvo) return false;
+  pendente = { pedido, em: Date.now() };
+  const r = await agirNaJanela(pedido, {
+    hwnd: alvo.hwnd,
     conversa: contextoRecente(),
-    frente: daFrente ? `${daFrente.processo} — ${daFrente.titulo}` : "",
-    abertos: janelas.slice(0, 15).map((j) => `${j.processo}${j.titulo ? ` (${j.titulo.slice(0, 40)})` : ""}`).join("; "),
+    avisar: avisarEstadoAoVivo,
+    vale: () => turnoAtual() === meuToken,
+    confirmar: (texto) => {
+      const id = `c${Date.now().toString(36)}`;
+      enviarAoFlutuante("flutuante:confirmar", { id, texto });
+      return new Promise<boolean>((ok) => { confirmacoes.set(id, ok); setTimeout(() => { if (confirmacoes.delete(id)) ok(false); }, 30_000); });
+    },
+    marcar: (itens) => enviarAoFlutuante("flutuante:marcas", { passos: [{ dizer: "", marcas: itens.flatMap(({ e, texto }) => [{ tipo: "anel", ...naCamada(e) }, ...(texto ? [{ tipo: "rotulo", texto, ...naCamada(e) }] : [])]) }] }),
   });
   if (turnoAtual() !== meuToken) return true;
-  if (!esc) return false;
-  let alvo = janelaAlvo(pedido, esc.app, janelas, daFrente);
-  // O programa citado não está aberto: abre e espera ele aparecer.
-  if (!alvo && esc.app) {
-    avisarEstadoAoVivo(`Abrindo ${esc.app}…`);
-    await executarFerramenta("abrir_programa", { nome: esc.app }).catch(() => "");
-    for (let i = 0; i < 12 && !alvo; i++) { await dormir(400); alvo = janelaAlvo(pedido, esc.app, await listarJanelas().catch(() => []), null); }
-  }
-  if (!alvo) { const r = "Não achei onde escrever: o programa não está aberto."; enviarAoDash("voice:reply", r); await speak(r).catch(() => {}); return true; }
-  const nomeApp = alvo.processo.replace(/^msedge$/i, "Edge").replace(/^chrome$/i, "Chrome").replace(/^windowsterminal$/i, "terminal");
-  avisarEstadoAoVivo(`Escrevendo no ${nomeApp}…`);
-  // Só escreve com a janela certa NA FRENTE: senão o texto iria parar no programa errado.
-  if (!(await uiaHost.frente(alvo.hwnd).catch(() => false))) {
-    const r = `Não consegui trazer o ${nomeApp} para a frente. Clique nele e me peça de novo.`;
-    enviarAoDash("voice:reply", r); await speak(r).catch(() => {}); return true;
-  }
-  await dormir(120);
-  if (esc.lugar === "endereco") { await inputHost.keys([VK_CTRL, VK_L]); await dormir(120); }
-  else if (esc.lugar === "busca" || esc.lugar === "campo") {
-    try {
-      const l = await uiaHost.ler(alvo.hwnd);
-      const quer = esc.lugar === "campo" && esc.campo ? new RegExp(esc.campo.replace(/[.*+?^${}()|[\]\\]/g, ""), "i") : /pesquis|busca|search|procurar|find/i;
-      const campo = l.elementos.find((e) => /^(Edit|ComboBox)$/.test(e.t) && quer.test(`${e.n} ${e.a}`)) ?? l.elementos.find((e) => e.t === "Edit");
-      if (campo) { await uiaHost.clicar(campo.i).catch(() => ""); await dormir(120); }
-    } catch { /* sem leitura: escreve onde o cursor estiver */ }
-  }
-  // Colar é o jeito rápido e certo (acento, várias linhas); a área de transferência volta depois.
-  const antes = clipboard.readText();
-  clipboard.writeText(esc.texto);
-  await dormir(40);
-  await inputHost.keys([VK_CTRL, VK_V]);
-  await dormir(220);
-  if (esc.enviar) await inputHost.keys([VK_ENTER]);
-  setTimeout(() => { if (clipboard.readText() === esc.texto) clipboard.writeText(antes); }, 1500);
-  console.log(`[escrever] ${nomeApp}, ${esc.lugar}${esc.enviar ? " + enter" : ""}, ${esc.melhorou ? "melhorado" : "literal"}, em ${Date.now() - t0} ms`);
-  const resposta = `${esc.fala}${esc.melhorou ? `\n\n${esc.texto}` : ""}`;
-  pendente = null;
-  registrarTurnoUsuario(pedido);
-  recordAssistantReply(resposta);
-  registrarForaDoHermes(pedido, `${esc.fala} (escreveu no ${nomeApp}: "${esc.texto.slice(0, 300)}")`);
-  enviarAoDash("voice:reply", resposta);
-  state.set("speaking");
-  await speak(esc.fala).catch(() => {});
+  console.log(`[agente-tela] ${r.fez ? "fez" : "não fez"} em ${r.voltas} volta(s), ${r.ms} ms`);
+  if (r.fez) pendente = null;
+  await responderAcao(pedido, r.fala, `${r.fala}${r.fez ? " (feito na tela)" : " (não deu certo na tela)"}`);
   return true;
 }
 
@@ -792,9 +779,12 @@ async function escreverNoPrograma(pedido: string, meuToken: number): Promise<boo
 async function agirDireto(texto: string, meuToken: number): Promise<boolean> {
   let pedido = texto;
   if (pendente && Date.now() - pendente.em < 3 * 60_000 && insistiu(texto)) { pedido = `${pendente.pedido} (ele insistiu: faça)`; pendente = null; }
-  if (pediuParaEscrever(pedido)) {
-    pendente = { pedido, em: Date.now() };
-    if (await escreverNoPrograma(pedido, meuToken)) return true;
+  const literal = literalParaAqui(pedido);
+  if (literal && (flutuanteAberto() || /\b(aqui|onde (eu )?(estou|to))\b/i.test(pedido)) && await escreverAqui(pedido, literal, meuToken)) return true;
+  // "Onde fica…" / "me mostra" e os atalhos (fechar guia, voltar) seguem no guia de tela.
+  const pergunta = /\b(onde (fica|esta|eu clico|clico|tem|acho)|me mostra|mostra onde|aponta|como (eu )?(faco|uso|mudo|ativo|desativo|acho|configuro))\b/i.test(semAcento(pedido));
+  if (!pergunta && !atalhoDeTela(pedido) && (literal || pediuParaEscrever(pedido) || pediuAcaoNaTela(pedido))) {
+    if (await agirComAgente(pedido, meuToken)) return true;
   }
   if (flutuanteAberto() && pediuNaTela(pedido) && await guiarNaTela(pedido, meuToken)) return true;
   return false;
