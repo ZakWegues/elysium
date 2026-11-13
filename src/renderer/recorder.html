@@ -4,70 +4,71 @@
 <body>
 <script>
   const SILENCE_THRESHOLD = 0.01;
-
-  let mediaRecorder = null;
-  let audioCtx = null;
-  let analyser = null;
-  let chunks = [];
-  let silenceTimer = null;
-  let maxTimer = null;
-  let silenceMs = 2500;
-
   // Fase 21: acima disto é fala (o limiar de silêncio é 0,01; fala perto do microfone passa de 0,03).
   const FALA_THRESHOLD = 0.03;
-  let ouviuFala = false;
-  let esperarFala = false;
-  let semFalaTimer = null;
-  let descartar = false;
+
+  /**
+   * 13/11: cada gravação tem o PRÓPRIO estado (pedaços, descarte, timers). Antes era tudo global:
+   * uma gravação nova chegando com a anterior ainda aberta (atalho, "Ely", a bolota) zerava a lista
+   * de pedaços enquanto a velha continuava escrevendo nela — o áudio ia sem o cabeçalho WebM e a
+   * Groq recusava ("invalid_media_file"), e a Ely dizia "sem conexão com o servidor". A velha
+   * também nunca parava (microfone aberto). Agora a nova encerra a anterior, descartada.
+   */
+  let atual = null;
+  let geracao = 0;
+
+  function encerrar(g, descartar) {
+    if (!g) return;
+    if (descartar) g.descartar = true;
+    clearTimeout(g.silenceTimer); clearTimeout(g.maxTimer); clearTimeout(g.semFalaTimer);
+    g.silenceTimer = g.maxTimer = g.semFalaTimer = null;
+    g.parado = true;
+    if (g.recorder && g.recorder.state !== "inactive") g.recorder.stop();
+    else if (g.stream) { g.stream.getTracks().forEach((t) => t.stop()); if (g.ctx && g.ctx.state !== "closed") g.ctx.close(); }
+    if (atual === g) atual = null;
+  }
 
   window.elysium.onStartRecording(async (cfg) => {
-    silenceMs = cfg.silenceMs;
-    chunks = [];
-    clearTimeout(silenceTimer);
-    clearTimeout(maxTimer);
-    clearTimeout(semFalaTimer);
-    silenceTimer = null;
-    maxTimer = null;
-    semFalaTimer = null;
-    ouviuFala = false;
-    descartar = false;
-    esperarFala = Number(cfg.esperarFalaMs) > 0;
+    // Uma gravação aberta (ou abrindo) não pode se misturar com a nova: sai descartada.
+    encerrar(atual, true);
+    const minha = ++geracao;
+    const g = { chunks: [], descartar: false, parado: false, recorder: null, stream: null, ctx: null,
+      silenceTimer: null, maxTimer: null, semFalaTimer: null, ouviuFala: false, esperarFala: Number(cfg.esperarFalaMs) > 0 };
+    atual = g;
 
     let stream;
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
     } catch (e) {
-      window.elysium.sendError("Microfone: " + e.message);
+      if (minha === geracao) window.elysium.sendError("Microfone: " + e.message);
       return;
     }
+    g.stream = stream;
+    // Outra gravação começou (ou esta foi cancelada) enquanto o microfone abria.
+    if (minha !== geracao || g.parado) { stream.getTracks().forEach((t) => t.stop()); return; }
 
-    audioCtx = new AudioContext();
-    analyser = audioCtx.createAnalyser();
+    g.ctx = new AudioContext();
+    const analyser = g.ctx.createAnalyser();
     analyser.fftSize = 512;
-    const source = audioCtx.createMediaStreamSource(stream);
-    source.connect(analyser);
+    g.ctx.createMediaStreamSource(stream).connect(analyser);
 
-    const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-      ? "audio/webm;codecs=opus"
-      : "audio/webm";
-
-    mediaRecorder = new MediaRecorder(stream, { mimeType });
-    mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
-    mediaRecorder.onstop = async () => {
+    const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : "audio/webm";
+    const recorder = new MediaRecorder(stream, { mimeType });
+    g.recorder = recorder;
+    recorder.ondataavailable = (e) => { if (e.data.size > 0) g.chunks.push(e.data); };
+    recorder.onstop = async () => {
       stream.getTracks().forEach((t) => t.stop());
-      if (audioCtx.state !== "closed") audioCtx.close();
-      if (descartar) return;
-      const blob = new Blob(chunks, { type: mimeType });
-      const buf = await blob.arrayBuffer();
+      if (g.ctx.state !== "closed") g.ctx.close();
+      if (g.descartar || !g.chunks.length) return;
+      const buf = await new Blob(g.chunks, { type: mimeType }).arrayBuffer();
       window.elysium.sendAudio(buf);
     };
-
-    mediaRecorder.start(100);
+    recorder.start(100);
 
     const freqData = new Uint8Array(analyser.frequencyBinCount);
     let lastLevelSend = 0;
     function checkSilence() {
-      if (!mediaRecorder || mediaRecorder.state === "inactive") return;
+      if (g.parado || recorder.state === "inactive") return;
       analyser.getByteTimeDomainData(freqData);
       let sum = 0;
       for (const v of freqData) sum += Math.abs(v - 128);
@@ -82,39 +83,26 @@
 
       // Fase 21 (modo live): com `esperarFalaMs`, o silêncio só conta DEPOIS que ele começou a
       // falar — senão a gravação parava em 2,5 s de nada e o Whisper inventava uma frase.
-      if (rms >= FALA_THRESHOLD && !ouviuFala) { ouviuFala = true; clearTimeout(semFalaTimer); semFalaTimer = null; }
+      if (rms >= FALA_THRESHOLD && !g.ouviuFala) { g.ouviuFala = true; clearTimeout(g.semFalaTimer); g.semFalaTimer = null; }
       if (rms < SILENCE_THRESHOLD) {
-        if (!silenceTimer && (ouviuFala || !esperarFala)) silenceTimer = setTimeout(stopRecording, silenceMs);
+        if (!g.silenceTimer && (g.ouviuFala || !g.esperarFala)) g.silenceTimer = setTimeout(() => encerrar(g, false), cfg.silenceMs);
       } else {
-        clearTimeout(silenceTimer);
-        silenceTimer = null;
+        clearTimeout(g.silenceTimer);
+        g.silenceTimer = null;
       }
       requestAnimationFrame(checkSilence);
     }
     requestAnimationFrame(checkSilence);
 
-    maxTimer = setTimeout(stopRecording, cfg.maxRecordMs);
+    g.maxTimer = setTimeout(() => encerrar(g, false), cfg.maxRecordMs);
     // Ninguém falou no prazo: descarta o áudio e avisa "nada".
-    if (esperarFala) semFalaTimer = setTimeout(() => { descartar = true; stopRecording(); window.elysium.sendNada?.(); }, cfg.esperarFalaMs);
+    if (g.esperarFala) g.semFalaTimer = setTimeout(() => { encerrar(g, true); window.elysium.sendNada?.(); }, cfg.esperarFalaMs);
   });
 
   // Fase 21: sair do modo live no meio da escuta — para sem mandar o áudio.
-  window.elysium.onCancel?.(() => { descartar = true; stopRecording(); });
+  window.elysium.onCancel?.(() => { encerrar(atual, true); });
   // Fase 22: Espaço solto no push-to-talk — para e manda.
-  window.elysium.onFinish?.(() => { stopRecording(); });
-
-  function stopRecording() {
-    clearTimeout(silenceTimer);
-    clearTimeout(maxTimer);
-    clearTimeout(semFalaTimer);
-    silenceTimer = null;
-    maxTimer = null;
-    semFalaTimer = null;
-    if (mediaRecorder && mediaRecorder.state !== "inactive") {
-      mediaRecorder.stop();
-      mediaRecorder = null;
-    }
-  }
+  window.elysium.onFinish?.(() => { encerrar(atual, false); });
 </script>
 <script>
   // 12/11: a voz do VoiceStudio toca aqui, por Web Audio: os pedaços de PCM16 entram numa linha
