@@ -47,10 +47,22 @@
     // Outra gravação começou (ou esta foi cancelada) enquanto o microfone abria.
     if (minha !== geracao || g.parado) { stream.getTracks().forEach((t) => t.stop()); return; }
 
-    g.ctx = new AudioContext();
+    // 13/11: a 16 kHz, que é o que o Parakeet (transcrição local) quer — o navegador reamostra.
+    g.ctx = new AudioContext({ sampleRate: 16000 });
     const analyser = g.ctx.createAnalyser();
     analyser.fftSize = 512;
-    g.ctx.createMediaStreamSource(stream).connect(analyser);
+    const fonte = g.ctx.createMediaStreamSource(stream);
+    fonte.connect(analyser);
+    // O áudio cru, em pedaços de ~256 ms, para a transcrição ao vivo no main (parakeet.ts).
+    // ScriptProcessor: o AudioWorklet precisaria de um arquivo a mais e a CSP desta janela.
+    if (window.elysium.sendPcm) {
+      const grampo = g.ctx.createScriptProcessor(4096, 1, 1);
+      grampo.onaudioprocess = (ev) => { if (!g.parado && !g.descartar) window.elysium.sendPcm(new Float32Array(ev.inputBuffer.getChannelData(0))); };
+      fonte.connect(grampo);
+      // Precisa ir até o destino para rodar; o ganho zero não deixa o microfone sair no alto-falante.
+      const mudo = g.ctx.createGain(); mudo.gain.value = 0;
+      grampo.connect(mudo).connect(g.ctx.destination);
+    }
 
     const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : "audio/webm";
     const recorder = new MediaRecorder(stream, { mimeType });

@@ -1,4 +1,5 @@
 import { cancelReminder } from "./scheduler";
+import { avisarEstadoAoVivo, estadoDaFerramenta } from "./estadoAoVivo";
 import { acharTarefa, concluirTarefa, criarTarefa, editarTarefa, listarTarefas } from "./tarefas";
 import { criarLembreteComTarefa, reagendarTarefa } from "../actions/memoryActions";
 import { adiarPara, interpretarTexto, type Adiamento } from "./planoDeLembrete";
@@ -1058,6 +1059,8 @@ export function normalizarArgs(nome: string, args: Record<string, unknown>): Rec
 export async function executarFerramenta(nome: string, args: Record<string, unknown>): Promise<string> {
   const f = porNome.get(nome);
   if (!f) return `Ferramenta desconhecida: ${nome}.`;
+  // 13/11: o estado ao vivo da Ely flutuante ("Abrindo o Chrome…").
+  avisarEstadoAoVivo(estadoDaFerramenta(nome, args ?? {}));
   try {
     return (await f.executar(normalizarArgs(nome, args ?? {}))).trim() || "Feito.";
   } catch (e) {

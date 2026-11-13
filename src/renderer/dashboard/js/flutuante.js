@@ -1,4 +1,6 @@
-// dashboard/js/flutuante.js — a Ely flutuante (12/11): a bolinha ao lado do cursor e os cartões.
+// dashboard/js/flutuante.js — a Ely flutuante (12/11; 13/11 no jeito do Roamies): a bolota que segue
+// o cursor numa camada transparente da tela inteira, a fala ao vivo, o nível da voz, o que ela está
+// fazendo, e os cartões soltos (arrastar, minimizar, fixar, fechar).
 //
 // Carregado SÓ pelo flutuante.html (não pelo dashboard), mas mora aqui para ir junto no build.
 // Tudo dentro de uma função: os scripts do dashboard dividem um escopo global, e um nome solto
@@ -9,8 +11,9 @@
 (() => {
   if (!window.ely) return;
   const $ = (id) => document.getElementById(id);
-  const palco = $("palco"), bola = $("bola"), estadoEl = $("estado"), campo = $("campo"), cartoes = $("cartoes");
-  const ESPERA_FECHAR_MS = 40_000;
+  const palco = $("palco"), ely = $("ely"), bola = $("bola"), estadoEl = $("estado"), campo = $("campo"), cartoes = $("cartoes");
+  const falaEl = $("fala"), historicoEl = $("historico"), aoVivoEl = $("aovivo"), nivelEl = $("nivel");
+  const ESPERA_FECHAR_MS = 60_000;
   /**
    * O próximo quadro — com reserva de 50 ms: janela recém-mostrada (ou que o Windows acha
    * coberta) pode segurar o requestAnimationFrame, e aí a bolinha nem aparecia (medido em 12/11).
@@ -47,21 +50,81 @@
   const COR = { a: () => tema.purple, b: () => tema.cyan, ambar: () => "#f2b44e", coral: () => "#ff7a6b", lilas: () => "#b9a3ff", branco: () => "#f2f4f8", preto: () => "#05060b" };
   const cor = (t, reserva = "a") => (COR[t] || COR[reserva])();
 
-  // ── mouse: só os pedaços visíveis recebem clique; o resto atravessa para o programa de baixo ──
+  // ── o cursor, a bolota seguindo, e o que é clicável ─────────────────────────────────────
+  // O main manda a posição do cursor ~60×/s (vale em cima de qualquer programa). A bolota vai até
+  // o lado da ponta do cursor com atraso suave (mola criticamente amortecida, por quadro). Ela PARA
+  // de seguir quando o cursor chega nela (para dar para passar o mouse e clicar) ou está em cima de
+  // um cartão; volta a seguir quando o cursor se afasta.
+  const cursor = { x: -999, y: -999 };
+  let telaW = innerWidth, telaH = innerHeight;
+  const pos = { x: -999, y: -999 }, vel = { x: 0, y: 0 };
+  let parada = false, seguindo = false, ultimoQuadro = 0;
+  const OFF = 34, RAIO_PEGA = 38, RAIO_SOLTA = 80;
+  // Velocidade do cursor (px/s, suavizada): passar rápido por cima não "pega" a bolota (13/11, medido).
+  let velCursor = 0, cursorEm = 0;
+
+  function alvoDaBolota() {
+    // Ao lado da ponta do cursor; perto da borda, do outro lado.
+    let x = cursor.x + OFF, y = cursor.y + OFF;
+    if (x > telaW - 60) x = cursor.x - OFF;
+    if (y > telaH - 60) y = cursor.y - OFF;
+    return { x: Math.max(30, Math.min(telaW - 30, x)), y: Math.max(30, Math.min(telaH - 30, y)) };
+  }
+  function moverEly() {
+    ely.style.transform = `translate3d(${pos.x.toFixed(1)}px, ${pos.y.toFixed(1)}px, 0)`;
+    // A fala e o estado vão para o lado que tem espaço.
+    ely.classList.toggle("esq", pos.x > telaW - 380);
+    ely.classList.toggle("cima", pos.y > telaH - 220);
+  }
+  function quadroSeguir(agora) {
+    if (!palco.classList.contains("aberto")) { seguindo = false; return; }
+    const dt = Math.min(0.05, (agora - ultimoQuadro) / 1000 || 0.016);
+    ultimoQuadro = agora;
+    const d = Math.hypot(cursor.x - pos.x, cursor.y - pos.y);
+    const sobre = sobreClicavel();
+    if (!parada && ((d < RAIO_PEGA && velCursor < 700) || sobre)) parada = true;
+    else if (parada && d > RAIO_SOLTA && !sobre && !arrastando && document.activeElement !== campo && !campo.classList.contains("ve")) parada = false;
+    if (!parada) {
+      const alvo = alvoDaBolota();
+      if (reduzir()) { pos.x = alvo.x; pos.y = alvo.y; }
+      else {
+        // Mola (k=170, c=2√k): chega em ~0,25 s sem passar do ponto.
+        const k = 170, c = 2 * Math.sqrt(k);
+        vel.x += ((alvo.x - pos.x) * k - vel.x * c) * dt; vel.y += ((alvo.y - pos.y) * k - vel.y * c) * dt;
+        pos.x += vel.x * dt; pos.y += vel.y * dt;
+      }
+      moverEly();
+    }
+    marcarMouse(sobre);
+    falaVisivel(!!(sobre && ultimoSobre && ultimoSobre.closest(".bola, .fala")));
+    requestAnimationFrame(quadroSeguir);
+  }
+  function comecarASeguir() {
+    if (seguindo) return;
+    seguindo = true;
+    ultimoQuadro = performance.now();
+    requestAnimationFrame(quadroSeguir);
+    setTimeout(() => { if (seguindo && performance.now() - ultimoQuadro > 120) quadroSeguir(performance.now()); }, 120);
+  }
+
+  /** O cursor está em cima de algo clicável da camada (bolota, cartão, campo, fala)? */
+  let ultimoSobre = null;
+  function sobreClicavel() {
+    if (arrastando) return true;
+    const e = document.elementFromPoint(cursor.x, cursor.y);
+    ultimoSobre = e && e.closest(".interativo");
+    return !!ultimoSobre;
+  }
   let dentro = false;
   function marcarMouse(v) { if (v !== dentro) { dentro = v; window.ely.mouse(v); } if (v) adiarFechar(); }
-  document.addEventListener("mousemove", (e) => {
-    const alvo = e.target instanceof Element ? e.target.closest(".bola, .vidro, .campo, .estado.ve") : null;
-    marcarMouse(!!alvo);
-  });
-  document.addEventListener("mouseleave", () => marcarMouse(false));
 
   // ── fechar sozinho ─────────────────────────────────────────────────────────────────────
   let timerFechar = null, ocupada = false, falando = false;
   function adiarFechar() {
     clearTimeout(timerFechar);
     timerFechar = setTimeout(() => {
-      if (dentro || ocupada || falando || document.activeElement === campo) { adiarFechar(); return; }
+      // Cartão fixado: a camada fica (com ele); a bolota some sozinha só sem nada fixado.
+      if (dentro || ocupada || falando || document.activeElement === campo || cartoes.querySelector(".cartao.fixo")) { adiarFechar(); return; }
       window.ely.fechar();
     }, ESPERA_FECHAR_MS);
   }
@@ -97,13 +160,13 @@
       return rgb(tema.purple);
     }
     const lento = reduzir;
-    document.addEventListener("mousemove", (e) => {
+    /** O cursor (na coordenada da camada): perto da bolota, os pontos se afastam dele. */
+    function cursorEm(cx, cy) {
       const r = tela.getBoundingClientRect();
-      mouse.x = e.clientX - r.left; mouse.y = e.clientY - r.top;
+      mouse.x = cx - r.left; mouse.y = cy - r.top;
       mouse.dentro = Math.hypot(mouse.x - r.width / 2, mouse.y - r.height / 2) < r.width * 0.42;
       if (mouse.dentro) ligar();
-    });
-    document.addEventListener("mouseleave", () => { mouse.dentro = false; });
+    }
 
     function passo(agora) {
       if (!palco.classList.contains("aberto")) { rodando = false; return; }
@@ -207,6 +270,7 @@
     }
     return {
       ligar,
+      cursorEm,
       nascer() { if (!lento()) nascerEm = performance.now(); fox.fill(0); foy.fill(0); fvx.fill(0); fvy.fill(0); viva = false; ligar(); },
       espalhar() { explodir = true; fluidoAte = performance.now() + 1300; ligar(); },
       estado(s) { estado = s; if (s !== "listening") mic = 0; },
@@ -215,49 +279,184 @@
     };
   })();
 
-  // ── estado da bolota ───────────────────────────────────────────────────────────────────
+  // ── estado: o que ela está fazendo, o nível da voz e a fala ao vivo ────────────────────
   const ROTULOS = { listening: "Ouvindo…", processing: "Pensando…", speaking: "", idle: "" };
+  let estadoAtual = "idle", ultimoStatus = "";
+  /** Troca o texto do chip com um esmaecer curto (o texto novo entra por cima). */
+  function mostrarStatus(texto) {
+    if (texto === ultimoStatus) return;
+    ultimoStatus = texto;
+    estadoEl.classList.toggle("ve", !!texto && !campo.classList.contains("ve"));
+    if (!texto) return;
+    const novo = el("span", "st", texto);
+    estadoEl.querySelector(".st:not(.sai)")?.classList.add("sai");
+    estadoEl.appendChild(novo);
+    setTimeout(() => { for (const v of estadoEl.querySelectorAll(".st.sai")) v.remove(); }, 260);
+  }
   function mostrarEstado(s) {
+    estadoAtual = s;
     ocupada = s === "listening" || s === "processing";
     Bolota.estado(s);
-    const r = ROTULOS[s] ?? "";
-    estadoEl.textContent = r;
-    estadoEl.classList.toggle("ve", !!r && !campo.classList.contains("ve"));
+    nivelEl.classList.toggle("ve", s === "listening");
+    falaEl.classList.toggle("ouvindo", s === "listening");
+    if (s === "listening") aoVivoEl.textContent = "";
+    // "Pensando…" não apaga um estado mais específico que acabou de chegar ("Pesquisando…").
+    if (s === "listening" || (s === "processing" && !ultimoStatus) || s === "idle" || s === "speaking") mostrarStatus(ROTULOS[s] ?? "");
     adiarFechar();
   }
 
-  // ── cartões ────────────────────────────────────────────────────────────────────────────
+  // Nível da voz: 5 barrinhas, cada uma com um "jeito" (a do meio mais alta), subindo rápido e caindo devagar.
+  const barras = [...nivelEl.children];
+  const nivelBarras = new Float32Array(barras.length);
+  let nivelAlvo = 0, nivelLigado = false;
+  function quadroNivel() {
+    if (!nivelEl.classList.contains("ve")) { nivelLigado = false; for (const b of barras) b.style.transform = "scaleY(0.15)"; return; }
+    const t = performance.now() / 1000;
+    barras.forEach((b, i) => {
+      const forma = [0.55, 0.85, 1, 0.8, 0.6][i] ?? 0.7;
+      const alvo = Math.min(1, 0.12 + nivelAlvo * 7 * forma * (0.8 + 0.2 * Math.sin(t * 13 + i * 1.7)));
+      nivelBarras[i] += (alvo - nivelBarras[i]) * (alvo > nivelBarras[i] ? 0.55 : 0.18);
+      b.style.transform = `scaleY(${nivelBarras[i].toFixed(3)})`;
+    });
+    requestAnimationFrame(quadroNivel);
+  }
+  function nivelDaVoz(v) {
+    nivelAlvo = v;
+    if (!nivelLigado && nivelEl.classList.contains("ve")) { nivelLigado = true; requestAnimationFrame(quadroNivel); }
+  }
+
+  // Fala ao vivo (Parakeet) ao lado da bolota; o que ele já disse fica no histórico (rolável).
+  const HIST_MAX = 30;
+  function falaParcial(t) {
+    falaEl.classList.add("ve");
+    aoVivoEl.textContent = t;
+    if (!falaEl.matches(":hover")) historicoEl.parentElement.scrollTop = 1e9;
+  }
+  let falaAte = 0;
+  function falaFinal(t) {
+    aoVivoEl.textContent = "";
+    if (!t) return;
+    const linha = el("div", "linha", t);
+    historicoEl.appendChild(linha);
+    while (historicoEl.children.length > HIST_MAX) historicoEl.firstChild.remove();
+    falaEl.classList.add("ve", "tem");
+    falaAte = performance.now() + 4000;
+    historicoEl.parentElement.scrollTop = 1e9;
+  }
+  /** Por quadro: a fala aparece ouvindo, nos 4 s depois do fim, ou com o mouse na bolota/nela. */
+  function falaVisivel(sobreEla) {
+    const ve = estadoAtual === "listening" || performance.now() < falaAte || (sobreEla && historicoEl.children.length > 0);
+    if (ve !== falaEl.classList.contains("ve")) falaEl.classList.toggle("ve", ve);
+  }
+
+  // ── cartões soltos ─────────────────────────────────────────────────────────────────────
   function el(tag, cls, texto) {
     const e = document.createElement(tag);
     if (cls) e.className = cls;
     if (texto != null) e.textContent = texto;
     return e;
   }
+
+  /**
+   * Onde um cartão novo nasce: do lado da bolota que tem espaço, empilhado abaixo dos outros desta
+   * resposta, e sempre inteiro na tela. Depois ele fica onde estiver (ou onde ele arrastar).
+   */
+  // 13/11: os cartões de uma resposta vão numa COLUNA (flex): o da resposta cresce com o texto e
+  // os de baixo descem junto, sem se sobrepor. Arrastar um cartão tira ele da coluna (fica solto).
+  // A coluna nasce do lado que tem espaço — depois da fala (à direita), senão à esquerda da
+  // bolota, senão embaixo dela.
+  let coluna = null;
+  function novaPilha() {
+    if (coluna && !coluna.children.length) coluna.remove();
+    coluna = el("div", "coluna");
+    const L = 400, larguraLado = 350;
+    let x, y = Math.max(16, pos.y - 30);
+    if (pos.x + 34 + larguraLado + 10 + L < telaW - 16) x = pos.x + 34 + larguraLado + 10;
+    else if (pos.x - 60 - L > 16) x = pos.x - 60 - L;
+    else { x = Math.max(16, Math.min(telaW - 16 - L, pos.x - L / 2)); y = Math.min(telaH - 200, pos.y + 60); }
+    coluna.style.left = `${x}px`; coluna.style.top = `${y}px`;
+    coluna.style.maxHeight = `${telaH - y - 16}px`;
+    cartoes.appendChild(coluna);
+  }
+
+  /** Um cartão solto: cabeçalho (arrastar, minimizar, fixar, fechar) e o corpo. Devolve o corpo. */
+  function novoCartao(titulo = "") {
+    const c = el("div", "cartao vidro interativo");
+    const cab = el("div", "cab");
+    const tit = el("span", "tit", titulo);
+    const bMin = el("button", "bt min"); bMin.title = "Minimizar"; bMin.innerHTML = '<svg viewBox="0 0 16 16"><path d="M3 8h10"/></svg>';
+    const bFix = el("button", "bt fix"); bFix.title = "Fixar (fica na tela)"; bFix.innerHTML = '<svg viewBox="0 0 16 16"><path d="M10 2l4 4-2.5 1-2.5 2.5.5 3-1.5 1.5L5.5 11 2 14.5 1.5 14 5 10.5 2.5 8 4 6.5l3 .5L9.5 4.5z"/></svg>';
+    const bX = el("button", "bt x"); bX.title = "Fechar"; bX.innerHTML = '<svg viewBox="0 0 16 16"><path d="M4 4l8 8M12 4l-8 8"/></svg>';
+    cab.append(tit, bMin, bFix, bX);
+    const corpo = el("div", "corpo");
+    c.append(cab, corpo);
+    if (!coluna || !coluna.isConnected) novaPilha();
+    coluna.appendChild(c);
+    bMin.addEventListener("click", () => { c.classList.toggle("mini"); bMin.title = c.classList.contains("mini") ? "Abrir" : "Minimizar"; });
+    bFix.addEventListener("click", () => { c.classList.toggle("fixo"); adiarFechar(); });
+    bX.addEventListener("click", () => fecharCartao(c));
+    // Duplo clique no cabeçalho também minimiza (como janela).
+    cab.addEventListener("dblclick", (e) => { if (!e.target.closest(".bt")) c.classList.toggle("mini"); });
+    arrastavel(c, cab);
+    return corpo;
+  }
+  function tituloDo(corpo, t) { const tit = corpo?.parentElement?.querySelector(".tit"); if (tit && t) tit.textContent = t; }
+  function fecharCartao(c) {
+    if (resposta && resposta.c === c) resposta = null;
+    c.classList.add("sai");
+    setTimeout(() => { const col = c.parentElement; c.remove(); if (col?.classList.contains("coluna") && !col.children.length && col !== coluna) col.remove(); }, 170);
+  }
+
+  // Arrastar pelo cabeçalho (pointer capture: não perde o cartão se o mouse correr).
+  let arrastando = false;
+  function arrastavel(c, cab) {
+    let ox = 0, oy = 0, id = null;
+    cab.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0 || e.target.closest(".bt")) return;
+      id = e.pointerId; cab.setPointerCapture(id);
+      const r = c.getBoundingClientRect();
+      ox = e.clientX - r.left; oy = e.clientY - r.top;
+      arrastando = true;
+      c.classList.add("arrastando", "solto");
+      // Sai da coluna (se estava) e vem para a frente, no mesmo lugar da tela.
+      c.style.left = `${r.left}px`; c.style.top = `${r.top}px`;
+      cartoes.appendChild(c);
+    });
+    cab.addEventListener("pointermove", (e) => {
+      if (e.pointerId !== id) return;
+      const x = Math.max(-c.offsetWidth + 80, Math.min(telaW - 80, e.clientX - ox));
+      const y = Math.max(0, Math.min(telaH - 40, e.clientY - oy));
+      c.style.left = `${x}px`; c.style.top = `${y}px`;
+    });
+    const soltar = (e) => {
+      if (e.pointerId !== id) return;
+      id = null; arrastando = false;
+      c.classList.remove("arrastando");
+      c.classList.add("movido");
+    };
+    cab.addEventListener("pointerup", soltar);
+    cab.addEventListener("pointercancel", soltar);
+  }
+
+  /** Pergunta nova: some o que não está fixado. */
   function limpar() {
-    for (const c of [...cartoes.children]) { c.classList.add("sai"); setTimeout(() => c.remove(), 170); }
+    for (const c of [...cartoes.children]) if (!c.classList.contains("fixo")) fecharCartao(c);
     resposta = null;
     esperando.clear();
-  }
-  function novoCartao(antesDe) {
-    const c = el("div", "vidro");
-    if (antesDe) cartoes.insertBefore(c, antesDe); else cartoes.appendChild(c);
-    return c;
+    coluna = null;
   }
 
   /** O cartão da resposta (o primeiro): pergunta em cima, texto chegando aos poucos. */
   let resposta = null;
   function cartaoResposta(pergunta) {
     if (resposta) return resposta;
-    const c = novoCartao(cartoes.firstChild);
-    const x = el("button", "fechar", "✕");
-    x.title = "Fechar (Esc)";
-    x.addEventListener("click", () => window.ely.fechar());
-    c.appendChild(x);
+    const corpo = novoCartao("Ely");
+    const c = corpo.parentElement;
     const p = el("div", "pergunta", pergunta || "");
     if (!pergunta) p.style.display = "none";
     const t = el("div", "resp");
     t.appendChild(el("span", "cursor"));
-    c.append(p, t);
+    corpo.append(p, t);
     resposta = { c, p, t, bruto: "", fechado: false };
     return resposta;
   }
@@ -277,40 +476,37 @@
     // Pedaço atrasado de uma resposta que já fechou: ignora (ele repintava o cursor no fim).
     if (r.fechado) return;
     r.bruto += token;
-    if (!pintura) { pintura = 1; noQuadro(() => { pintura = 0; pintarTexto(r.t, r.bruto, !r.fechado); seguirFim(); }); }
+    if (!pintura) { pintura = 1; noQuadro(() => { pintura = 0; pintarTexto(r.t, r.bruto, !r.fechado); }); }
   }
   function respostaFinal(texto) {
     const r = cartaoResposta("");
     r.bruto = String(texto || r.bruto);
     r.fechado = true;
     pintarTexto(r.t, r.bruto, false);
-    seguirFim();
-  }
-  function seguirFim() {
-    if (palco.classList.contains("cima")) return; // os cartões crescem para cima: o fim já está à vista
-    cartoes.scrollTop = cartoes.scrollHeight;
+    mostrarStatus("");
   }
 
   // Esqueleto enquanto o desenho ou a tela vem.
   const esperando = new Map();
   function esqueleto(chave) {
     if (esperando.has(chave)) return esperando.get(chave);
-    const c = novoCartao();
-    c.appendChild(el("div", "esqueleto"));
-    esperando.set(chave, c);
-    return c;
+    const corpo = novoCartao(chave === "desenho" ? "Desenhando…" : "Montando a tela…");
+    corpo.appendChild(el("div", "esqueleto"));
+    esperando.set(chave, corpo);
+    return corpo;
   }
   function soltarEsqueleto(chave) {
-    const c = esperando.get(chave);
+    const corpo = esperando.get(chave);
     esperando.delete(chave);
-    if (c) { c.classList.add("sai"); setTimeout(() => c.remove(), 170); }
+    if (corpo) fecharCartao(corpo.parentElement);
   }
-  function lugarDe(chave) {
-    const c = esperando.get(chave);
+  function lugarDe(chave, titulo) {
+    const corpo = esperando.get(chave);
     esperando.delete(chave);
-    if (!c) return novoCartao();
-    c.textContent = "";
-    return c;
+    if (!corpo) return novoCartao(titulo);
+    corpo.textContent = "";
+    tituloDo(corpo, titulo);
+    return corpo;
   }
 
   const DESENHOS = {
@@ -505,9 +701,10 @@
           }
         }
       });
+      for (const r of rotulos) { caixaX[0] = Math.min(caixaX[0], r[0]); caixaX[1] = Math.max(caixaX[1], r[2]); caixaY[0] = Math.min(caixaY[0], r[1]); caixaY[1] = Math.max(caixaY[1], r[3]); }
       // Enquadra no que foi desenhado (o modelo nem sempre usa o quadro todo), com folga.
       if (Number.isFinite(caixaX[0])) {
-        const m = 10, x0 = Math.max(-135, caixaX[0] - m), x1 = Math.min(160, caixaX[1] + m), y0 = Math.max(-135, caixaY[0] - m), y1 = Math.min(135, caixaY[1] + m);
+        const m = 8, x0 = Math.max(-200, caixaX[0] - m), x1 = Math.min(200, caixaX[1] + m), y0 = Math.max(-160, caixaY[0] - m), y1 = Math.min(160, caixaY[1] + m);
         const w = Math.max(80, x1 - x0), h = Math.max(80, y1 - y0);
         svg.setAttribute("viewBox", `${x0 - (w - (x1 - x0)) / 2} ${y0 - (h - (y1 - y0)) / 2} ${w} ${h}`);
       }
@@ -520,16 +717,13 @@
   };
 
   function mostrarCartoes(lista) {
-    const lugar = lugarDe("desenho");
-    let primeiro = true;
-    for (const d of lista || []) {
-      const fazer = DESENHOS[d?.tipo];
-      if (!fazer) continue;
-      const c = primeiro ? lugar : novoCartao();
-      primeiro = false;
-      try { fazer(c, d); } catch (e) { console.warn("[flutuante] cartão falhou:", e); c.remove(); }
-    }
-    if (primeiro) lugar.remove();
+    const validos = (lista || []).filter((d) => DESENHOS[d?.tipo]);
+    if (!validos.length) { soltarEsqueleto("desenho"); return; }
+    validos.forEach((d, i) => {
+      // O título do cartão sobe para o cabeçalho (o h3 de dentro sai).
+      const corpo = i === 0 ? lugarDe("desenho", d.titulo || "Desenho") : novoCartao(d.titulo || "Desenho");
+      try { DESENHOS[d.tipo](corpo, { ...d, titulo: "" }); } catch (e) { console.warn("[flutuante] cartão falhou:", e); fecharCartao(corpo.parentElement); }
+    });
     adiarFechar();
   }
 
@@ -550,7 +744,7 @@
     };
   }
   function mostrarTela(chave, programa) {
-    const c = lugarDe(chave);
+    const c = lugarDe(chave, "Tela");
     const f = el("iframe", "tela");
     f.setAttribute("sandbox", "allow-scripts");
     f.setAttribute("referrerpolicy", "no-referrer");
@@ -583,12 +777,14 @@
   // ── digitar ────────────────────────────────────────────────────────────────────────────
   /** Pergunta nova (campo ou botão de uma tela): limpa os cartões e já mostra a pergunta. */
   function perguntar(t) {
+    falaFinal(t);
     limpar();
     cartaoResposta(t);
     window.ely.digitar(t);
   }
   bola.addEventListener("click", () => {
     Bolota.espalhar();
+    parada = true;
     campo.classList.add("ve");
     estadoEl.classList.remove("ve");
     window.ely.focar();
@@ -608,28 +804,50 @@
     movimento = typeof o?.movimento === "string" ? o.movimento : "";
     document.documentElement.classList.toggle("reduzir", reduzir());
     aplicarTema(o?.tema);
-    palco.className = `${o?.vert === "cima" ? "cima" : "baixo"} ${o?.horiz === "esq" ? "esq" : "dir"}`;
-    for (const c of [...cartoes.children]) c.remove();
+    if (o?.tela) { telaW = o.tela.w; telaH = o.tela.h; }
+    if (o?.cursor) { cursor.x = o.cursor.x; cursor.y = o.cursor.y; }
+    // Nasce já no lugar (sem vir voando do canto).
+    const a = alvoDaBolota(); pos.x = a.x; pos.y = a.y; vel.x = vel.y = 0; parada = false;
+    moverEly();
+    // Os cartões fixados ficam; o resto da vez anterior sai.
+    for (const c of [...cartoes.children]) if (!c.classList.contains("fixo")) c.remove();
     resposta = null;
     esperando.clear();
-    telas.clear();
+    coluna = null;
     campo.classList.remove("ve");
     campo.value = "";
+    aoVivoEl.textContent = "";
+    falaEl.classList.remove("ve");
+    ultimoStatus = ""; estadoEl.textContent = ""; estadoEl.classList.remove("ve");
     void palco.offsetWidth;
     palco.classList.add("aberto");
     Bolota.nascer();
+    comecarASeguir();
     adiarFechar();
   });
+  window.ely.ao("flutuante:cursor", (o) => {
+    if (!o) return;
+    const agora = performance.now(), dtc = Math.max(8, agora - cursorEm) / 1000;
+    velCursor = velCursor * 0.6 + (Math.hypot(o.x - cursor.x, o.y - cursor.y) / dtc) * 0.4;
+    cursorEm = agora;
+    cursor.x = o.x; cursor.y = o.y;
+    if (o.tela) { telaW = o.tela.w; telaH = o.tela.h; }
+    Bolota.cursorEm(cursor.x, cursor.y);
+  });
+  window.ely.ao("flutuante:status", (t) => { if (typeof t === "string" && estadoAtual !== "idle") mostrarStatus(t); });
+  window.ely.ao("voice:action-label", (t) => { if (typeof t === "string" && t && !/^Processando/.test(t)) mostrarStatus(t); });
+  window.ely.ao("voice:parcial", (t) => { if (typeof t === "string") falaParcial(t); });
   window.ely.ao("flutuante:fechar", () => {
     palco.classList.remove("aberto");
     clearTimeout(timerFechar);
     dentro = false;
     campo.blur();
+    seguindo = false;
   });
   window.ely.ao("flutuante:tema", (id) => aplicarTema(id));
   window.ely.ao("voice:state", (s) => mostrarEstado(String(s)));
-  window.ely.ao("voice:audio-level", (v) => Bolota.microfone(Number(v) || 0));
-  window.ely.ao("voice:transcript", (t) => { limpar(); cartaoResposta(String(t || "")); });
+  window.ely.ao("voice:audio-level", (v) => { const n = Number(v) || 0; Bolota.microfone(n); nivelDaVoz(n); });
+  window.ely.ao("voice:transcript", (t) => { falaFinal(String(t || "")); limpar(); cartaoResposta(String(t || "")); });
   window.ely.ao("chat:chunk", (t) => chegouPedaco(String(t ?? "")));
   window.ely.ao("voice:reply", (t) => respostaFinal(t));
   window.ely.ao("chat:reply", (t) => respostaFinal(t));

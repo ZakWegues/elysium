@@ -116,6 +116,8 @@ import { listarJanelas } from "../actions/janelas";
 import { janelaDaFrente } from "../services/isso";
 import { registrarJanelaDaFrente } from "../services/brain";
 import { definirAplicadorDeConfig } from "../services/rpc";
+import { comecarEscuta, garantirModelo, receberPcm, textoFinal } from "../services/parakeet";
+import { aoMudarEstadoAoVivo } from "../services/estadoAoVivo";
 import {
   checkAndMarkUnseenFromMobile, addMessage, addFileMessage, listMessagesForDesktop, inferKind, mailboxEvents,
   isKnownAttachmentPath, listMailboxSessions, createMailboxSession, renameMailboxSession,
@@ -148,7 +150,7 @@ function mandarAoCelular(
 }
 
 /** 12/11: o que a Ely flutuante também recebe (o resto é só do dashboard). */
-const ESPELHO_FLUTUANTE = new Set(["voice:state", "voice:transcript", "voice:reply", "voice:error", "voice:audio-level", "chat:chunk", "chat:reply", "chat:error", "chat:busy", "chat:tela", "tts:falando"]);
+const ESPELHO_FLUTUANTE = new Set(["voice:action-label", "voice:state", "voice:transcript", "voice:reply", "voice:error", "voice:audio-level", "chat:chunk", "chat:reply", "chat:error", "chat:busy", "chat:tela", "tts:falando"]);
 
 function enviarAoDash(canal: string, ...args: unknown[]): void {
   if (ESPELHO_FLUTUANTE.has(canal)) enviarAoFlutuante(canal, ...args);
@@ -531,6 +533,8 @@ async function startListening(opcoes: { esperarFalaMs?: number; segurar?: boolea
     await new Promise<void>((res) => recorderWin!.webContents.once("did-finish-load", res));
   }
   state.set("listening");
+  // 13/11: a transcrição local (Parakeet) começa a escuta junto — as palavras ao vivo vão à bolota.
+  comecarEscuta((t) => enviarAoFlutuante("voice:parcial", t));
   const cfg = getConfig();
   recorderWin.webContents.send("start-recording", {
     // Segurando o Espaço, quem decide o fim é ele: o silêncio não corta (o teto continua).
@@ -646,7 +650,9 @@ ipcMain.on("audio-data", async (_event, buffer: Buffer) => {
   let perguntou = false;
   try {
     const audio = new Uint8Array(buffer);
-    const text  = await transcribe(audio);
+    // 13/11: o texto final pelo Parakeet (local, ~0,3 s); sem o modelo ou vazio, a Groq.
+    const local = await textoFinal().catch(() => "");
+    const text  = local || await transcribe(audio);
     if (turnoAtual() !== meuToken) return;
 
     // Calibragem da palavra de ativação (bloco 116): acordou pela voz e ninguém pediu nada
@@ -782,6 +788,11 @@ ipcMain.on("recorder-error", (_event, msg: string) => {
   speak("Não consegui acessar o microfone.")
     .catch(() => {})
     .finally(() => state.set("idle"));
+});
+
+// 13/11: o áudio cru da escuta, para a transcrição ao vivo (parakeet.ts).
+ipcMain.on("audio-pcm", (_event, pcm: unknown) => {
+  if (pcm instanceof Float32Array && pcm.length <= 16_000) receberPcm(pcm);
 });
 
 ipcMain.on("audio-level", (_event, level: number) => {
@@ -1104,6 +1115,8 @@ ipcMain.handle("fundo:escolher", async () => {
 ipcMain.handle("config:set-all", async (_e, patchBruto: Partial<AppConfig>) => aplicarConfig(patchBruto));
 // 12/11: os Ajustes do PC mudados pelo celular passam por aqui também (rpc.ts, `pc.ajustes.set`).
 definirAplicadorDeConfig(aplicarConfig);
+// 13/11: o que ela está fazendo agora ("Pesquisando…", "Abrindo o Chrome…"), na bolota.
+aoMudarEstadoAoVivo((t) => enviarAoFlutuante("flutuante:status", t));
 
 /** Grava um patch de config e aplica os efeitos (atalhos, Hermes, palavra, início com o Windows). */
 async function aplicarConfig(patchBruto: Partial<AppConfig>): Promise<void> {
@@ -1559,6 +1572,8 @@ app.on("ready", async () => {
   });
 
   recorderWin = createRecorderWindow();
+  // 13/11: o modelo da transcrição local (Parakeet, ~490 MB) baixa sozinho uma vez, sem pressa.
+  setTimeout(() => { void garantirModelo(); }, 60_000);
   // 12/11: os "beats" do VoiceStudio (frases curtas já gravadas) — também esquenta o motor na GPU.
   setTimeout(() => { void prepararBeats(path.join(app.getPath("userData"), "beats")).catch(() => {}); }, 8000);
 

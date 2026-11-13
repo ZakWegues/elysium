@@ -16,37 +16,82 @@
     font: 13.5px/1.5 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif; color: var(--texto);
     -webkit-font-smoothing: antialiased; user-select: none; }
 
-  #palco { position: absolute; inset: 0; padding: 30px; display: flex; gap: 10px; opacity: 0;
-    transition: opacity .16s ease; }
+  /* 13/11: a camada cobre a tela inteira e é transparente; só o que tem .interativo recebe o mouse. */
+  #palco { position: absolute; inset: 0; opacity: 0; transition: opacity .16s ease; }
   #palco.aberto { opacity: 1; }
-  #palco.baixo { flex-direction: column; }
-  #palco.cima { flex-direction: column-reverse; }
-  #palco.dir { align-items: flex-start; }
-  #palco.esq { align-items: flex-end; }
 
-  /* ── a bolinha ─────────────────────────────────────────────────────────── */
-  .topo { display: flex; align-items: center; gap: 10px; flex: none; }
-  #palco.esq .topo { flex-direction: row-reverse; }
+  /* ── a Ely: a bolota que segue o cursor, com a fala, o estado e o nível do lado ───────── */
+  #ely { position: absolute; left: 0; top: 0; width: 0; height: 0; will-change: transform; z-index: 5; }
+  .bola { position: absolute; left: -25px; top: -25px; width: 50px; height: 50px; border-radius: 50%; cursor: pointer; }
   /* A bolota é um <canvas> maior que a área de clique: os pontos espalhados passam da bolinha. */
-  .bola { position: relative; width: 50px; height: 50px; border-radius: 50%; flex: none; cursor: pointer; }
   .bola canvas { position: absolute; left: -35px; top: -35px; width: 120px; height: 120px; pointer-events: none; }
+  .lado { position: absolute; left: 34px; top: -20px; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; width: 340px; }
+  #ely.esq .lado { left: auto; right: 34px; align-items: flex-end; }
+  #ely.cima .lado { top: auto; bottom: -20px; flex-direction: column-reverse; }
+  .linha1 { display: flex; align-items: center; gap: 8px; }
+  #ely.esq .linha1 { flex-direction: row-reverse; }
 
-  .estado { font-size: 12px; color: var(--apagado); padding: 4px 10px; border-radius: 999px; white-space: nowrap;
-    background: rgba(var(--ink), .78); border: 1px solid rgba(255,255,255,.10); opacity: 0; transition: opacity .18s; }
-  .estado.ve { opacity: 1; }
-  .campo { display: none; width: 300px; height: 38px; padding: 0 14px; border-radius: 999px; outline: none;
-    background: rgba(var(--ink), .9); border: 1px solid color-mix(in srgb, var(--a) 45%, rgba(255,255,255,.12));
+  /* O que ela está fazendo: o texto novo entra por cima do velho, com um brilho que corre. */
+  .estado { position: relative; display: grid; font-size: 12.5px; padding: 5px 11px; border-radius: 999px; white-space: nowrap;
+    background: rgba(var(--ink), .82); border: 1px solid rgba(255,255,255,.10); opacity: 0; transform: translateY(3px);
+    transition: opacity .18s, transform .18s; min-height: 27px; }
+  .estado.ve { opacity: 1; transform: none; }
+  .estado .st { grid-area: 1 / 1;
+    background: linear-gradient(90deg, var(--apagado) 0%, var(--texto) 42%, var(--a2) 50%, var(--texto) 58%, var(--apagado) 100%);
+    background-size: 250% 100%; -webkit-background-clip: text; background-clip: text; color: transparent;
+    animation: stEntra .22s ease both, brilhoTexto 1.8s linear infinite; }
+  .estado .st.sai { animation: stSai .2s ease both; }
+  @keyframes stEntra { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+  @keyframes stSai { to { opacity: 0; transform: translateY(-5px); } }
+  @keyframes brilhoTexto { from { background-position: 120% 0; } to { background-position: -130% 0; } }
+
+  /* O nível da voz: 5 barrinhas que sobem e descem (só transform). */
+  .nivel { display: flex; align-items: center; gap: 2.5px; height: 20px; opacity: 0; transition: opacity .15s; }
+  .nivel.ve { opacity: 1; }
+  .nivel i { display: block; width: 3.5px; height: 20px; border-radius: 2px; background: linear-gradient(var(--a2), var(--b)); transform: scaleY(.15); will-change: transform; }
+
+  .campo { display: none; width: 320px; height: 38px; padding: 0 14px; border-radius: 999px; outline: none;
+    background: rgba(var(--ink), .92); border: 1px solid color-mix(in srgb, var(--a) 45%, rgba(255,255,255,.12));
     color: var(--texto); font: inherit; user-select: text; }
   .campo.ve { display: block; animation: entra .2s cubic-bezier(.2,.9,.3,1.15); }
   .campo::placeholder { color: var(--apagado); }
 
-  /* ── os cartões de vidro ───────────────────────────────────────────────── */
-  #cartoes { display: flex; flex-direction: column; gap: 8px; width: calc(100% + 44px); margin: 0 -22px; max-width: none; min-height: 0;
-    overflow-y: auto; scrollbar-width: none; padding: 2px; }
-  #palco.cima #cartoes { flex-direction: column-reverse; }
-  #cartoes::-webkit-scrollbar { display: none; }
-  .vidro { position: relative; flex: none; border-radius: 20px; padding: 13px 15px; overflow: hidden;
-    background: linear-gradient(180deg, rgba(var(--ink), .86), rgba(var(--ink), .93));
+  /* A fala dele: o que já disse (rola para cima) e o que está dizendo agora, ao vivo. */
+  .fala { max-width: 340px; border-radius: 16px; padding: 7px 11px; background: rgba(var(--ink), .84); border: 1px solid rgba(255,255,255,.10);
+    box-shadow: 0 6px 18px rgba(0,0,0,.3); visibility: hidden; opacity: 0; transform: translateY(4px); transition: opacity .16s, transform .16s, visibility 0s .16s; }
+  .fala.ve { visibility: visible; opacity: 1; transform: none; transition: opacity .16s, transform .16s; }
+  .fala .rolo { max-height: 118px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.2) transparent; overscroll-behavior: contain; }
+  .fala .linha { color: var(--apagado); font-size: 12.5px; padding: 2px 0; border-bottom: 1px solid rgba(255,255,255,.05); }
+  .fala .linha:last-child { border-bottom: 0; }
+  #aovivo { color: var(--texto); font-size: 13.5px; padding-top: 2px; }
+  #aovivo:empty { display: none; }
+  .fala.ouvindo #aovivo:not(:empty)::after { content: ""; display: inline-block; width: 6px; height: 13px; margin-left: 3px; vertical-align: -2px; border-radius: 2px; background: var(--b); animation: pisca 1s steps(2) infinite; }
+
+  /* ── os cartões soltos ─────────────────────────────────────────────────── */
+  #cartoes { position: absolute; inset: 0; }
+  /* A coluna da vez: os cartões de uma resposta, um embaixo do outro (rola se passar da tela). */
+  .coluna { position: absolute; width: 400px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; overflow-x: visible;
+    scrollbar-width: none; padding: 2px 0 24px; }
+  .coluna::-webkit-scrollbar { display: none; }
+  .cartao { position: relative; width: 400px; max-height: min(72vh, 620px); display: flex; flex-direction: column; flex: none; }
+  .cartao.solto { position: absolute; }
+  .cartao.arrastando { box-shadow: inset 0 1px 0 rgba(255,255,255,.14), 0 18px 40px rgba(0,0,0,.5); }
+  .cartao .cab { display: flex; align-items: center; gap: 4px; padding: 7px 8px 6px 14px; cursor: grab; flex: none; }
+  .cartao.arrastando .cab { cursor: grabbing; }
+  .cartao .tit { flex: 1; min-width: 0; font-size: 12.5px; font-weight: 600; color: var(--a2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cartao .bt { width: 24px; height: 24px; border: 0; border-radius: 8px; background: transparent; cursor: pointer; display: grid; place-items: center; padding: 0; }
+  .cartao .bt svg { width: 13px; height: 13px; fill: none; stroke: var(--apagado); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  .cartao .bt:hover { background: rgba(255,255,255,.10); }
+  .cartao .bt:hover svg { stroke: var(--texto); }
+  .cartao.fixo { border-color: color-mix(in srgb, var(--a) 55%, rgba(255,255,255,.1)); }
+  .cartao.fixo .bt.fix svg { stroke: var(--a2); fill: color-mix(in srgb, var(--a) 40%, transparent); }
+  .cartao .corpo { padding: 2px 15px 13px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.18) transparent; overscroll-behavior: contain; }
+  .cartao.mini { width: auto; max-width: 260px; }
+  .cartao.mini .corpo { display: none; }
+  .cartao.mini .cab { padding-bottom: 7px; }
+
+  .vidro { border-radius: 18px; overflow: hidden;
+    background: linear-gradient(180deg, rgba(var(--ink), .88), rgba(var(--ink), .94));
     border: 1px solid rgba(255,255,255,.11);
     box-shadow: inset 0 1px 0 rgba(255,255,255,.14), 0 10px 28px rgba(0,0,0,.38);
     animation: entra .22s cubic-bezier(.2,.9,.3,1.15); }
@@ -64,9 +109,6 @@
   .resp .cursor { display: inline-block; width: 7px; height: 14px; margin-left: 2px; vertical-align: -2px;
     background: var(--a); border-radius: 2px; animation: pisca 1s steps(2) infinite; }
   @keyframes pisca { 50% { opacity: 0; } }
-  .fechar { position: absolute; top: 8px; right: 9px; width: 22px; height: 22px; border-radius: 50%; border: 0; cursor: pointer;
-    background: rgba(255,255,255,.07); color: var(--apagado); font-size: 13px; line-height: 22px; padding: 0; z-index: 2; }
-  .fechar:hover { background: rgba(255,255,255,.16); color: var(--texto); }
 
   h3 { margin: 0 0 8px; font-size: 14px; font-weight: 600; color: var(--a2); letter-spacing: .01em; }
   p { margin: 0 0 6px; }
@@ -137,13 +179,19 @@
 </style>
 </head>
 <body>
-<div id="palco" class="baixo dir">
-  <div class="topo">
-    <div class="bola" id="bola" title="Clique para digitar"><canvas id="bolota"></canvas></div>
-    <div class="estado" id="estado"></div>
-    <input class="campo" id="campo" placeholder="Pergunte à Ely…" maxlength="4000" spellcheck="false">
-  </div>
+<div id="palco">
   <div id="cartoes"></div>
+  <div id="ely">
+    <div class="bola interativo" id="bola" title="Clique para digitar"><canvas id="bolota"></canvas></div>
+    <div class="lado">
+      <div class="linha1">
+        <div class="nivel" id="nivel"><i></i><i></i><i></i><i></i><i></i></div>
+        <div class="estado" id="estado"></div>
+      </div>
+      <input class="campo interativo" id="campo" placeholder="Pergunte à Ely…" maxlength="4000" spellcheck="false">
+      <div class="fala interativo" id="fala"><div class="rolo"><div id="historico"></div><div id="aovivo"></div></div></div>
+    </div>
+  </div>
 </div>
 <script src="dashboard/js/temas-paleta.js"></script>
 <script src="dashboard/js/esfera-logica.js"></script>

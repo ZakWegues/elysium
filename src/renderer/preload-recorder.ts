@@ -12,6 +12,8 @@ contextBridge.exposeInMainWorld("elysium", {
   sendAudio:      (buffer: ArrayBuffer) => { ipcRenderer.send("audio-data", Buffer.from(buffer)); },
   sendError:      (msg: string) => { ipcRenderer.send("recorder-error", msg); },
   sendAudioLevel: (level: number) => { ipcRenderer.send("audio-level", level); },
+  // 13/11: o áudio cru (16 kHz) para a transcrição ao vivo (parakeet.ts).
+  sendPcm: (pcm: Float32Array) => { ipcRenderer.send("audio-pcm", pcm); },
   // 12/11: o tocador da voz do VoiceStudio (PCM16 em streaming, ver vozStudioStream.ts).
   onStudioPcm:    (cb: (id: string, pcm: Uint8Array, taxa: number, ganho: number) => void) => {
     ipcRenderer.on("studio:pcm", (_e, id, pcm, taxa, ganho) => cb(String(id), pcm as Uint8Array, Number(taxa), Number(ganho)));

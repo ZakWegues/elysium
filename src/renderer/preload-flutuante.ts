@@ -6,6 +6,7 @@ import { contextBridge, ipcRenderer } from "electron";
  */
 const CANAIS = [
   "flutuante:abrir", "flutuante:fechar", "flutuante:tema", "flutuante:cartoes", "flutuante:desenhando",
+  "flutuante:cursor", "flutuante:status", "voice:parcial", "voice:action-label",
   "voice:state", "voice:transcript", "voice:reply", "voice:error", "voice:audio-level",
   "chat:chunk", "chat:reply", "chat:error", "chat:busy", "chat:tela", "tts:falando",
 ] as const;

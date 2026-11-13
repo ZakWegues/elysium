@@ -1,3 +1,4 @@
+import { avisarEstadoAoVivo, estadoDaFerramenta, nomeNoEventoHermes } from "../estadoAoVivo";
 import { ConexaoHermes, EventoHermes } from "./conexao";
 
 /**
@@ -97,6 +98,10 @@ export function rodarTurno(
       if (e.type === "message.delta") {
         const t = typeof e.payload?.text === "string" ? e.payload.text : "";
         if (t) { acumulado += t; op.onToken?.(t); }
+      } else if (e.type === "tool.start") {
+        // 13/11: o que o Hermes está fazendo, traduzido ("Pesquisando…"), para a Ely flutuante.
+        const { nome, args } = nomeNoEventoHermes(e.payload);
+        if (nome) avisarEstadoAoVivo(estadoDaFerramenta(nome, args));
       } else if (e.type === "message.complete") {
         terminar(lerFim(e.payload, acumulado));
       }
