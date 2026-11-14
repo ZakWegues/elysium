@@ -26,6 +26,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import { getAllLocalIPv4 } from "../main/network";
 import { broadcastNotify, clientesConectados, infoTls } from "./server";
+import { marcarPeloPedido } from "./marcarNaTela";
 import { apagarTelaSalva, atualizarEstadoSalvo, listarTelasSalvas, obterTelaSalva, salvarTela } from "./telasSalvas";
 import { getConfig, patchDeConfigSeguro, setOverride, type AppConfig } from "../main/config";
 import { aplicarConfigHermes, estadoHermes } from "./hermes/cerebro";
@@ -286,9 +287,7 @@ function perfilDoCelular(c: AppConfig) {
 let aplicadorDeConfig: ((patch: Partial<AppConfig>) => Promise<void>) | null = null;
 export function definirAplicadorDeConfig(fn: (patch: Partial<AppConfig>) => Promise<void>): void { aplicadorDeConfig = fn; }
 
-/** 14/11: quem marca na tela do PC (o main, a bolota) — o celular pede "circula o YouTube no PC". */
-let marcadorNaTela: ((texto: string) => Promise<{ marcou: number; fala: string } | null>) | null = null;
-export function definirMarcadorNaTela(fn: (texto: string) => Promise<{ marcou: number; fala: string } | null>): void { marcadorNaTela = fn; }
+
 
 const METHODS: Record<string, MethodDef> = {
   // — sistema —
@@ -1625,8 +1624,7 @@ const METHODS: Record<string, MethodDef> = {
     handler: async (params) => {
       const texto = typeof params.texto === "string" ? params.texto.trim().slice(0, 300) : "";
       if (!texto) throw new RpcError(400, "\"texto\" é obrigatório");
-      if (!marcadorNaTela) throw new RpcError(503, "a bolota não está pronta");
-      const r = await marcadorNaTela(texto);
+      const r = await marcarPeloPedido(texto);
       if (!r) throw new RpcError(400, "isso não é um pedido de marcar na tela (ex.: \"circula o YouTube\")");
       return r;
     },

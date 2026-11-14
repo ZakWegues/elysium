@@ -127,3 +127,11 @@ export function imagemConfere(noPonto: { t: string; n: string } | null, alvo: st
   const a = norm(alvo);
   return n.includes(a) || a.split(" ").some((p) => p.length >= 3 && n.includes(p));
 }
+
+/** 14/11: quem marca de verdade (o main, a bolota) — o celular pede "circula o YouTube no PC". */
+let marcador: ((texto: string) => Promise<{ marcou: number; fala: string } | null>) | null = null;
+export function definirMarcadorNaTela(fn: (texto: string) => Promise<{ marcou: number; fala: string } | null>): void { marcador = fn; }
+/** Marca pelo pedido (null = não é pedido de marcar, ou a bolota ainda não está pronta). */
+export async function marcarPeloPedido(texto: string): Promise<{ marcou: number; fala: string } | null> {
+  return marcador ? marcador(texto) : null;
+}

@@ -1,3 +1,5 @@
+import { marcarPeloPedido } from "./marcarNaTela";
+import { semAcento } from "./texto";
 import { actionSummary, composeChatReply, decideBrain, noteFastRouted, recordAssistantReply, registrarTurnoUsuario, BrainAction } from "./brain";
 import { contaComoAtividade, registrarAtividade } from "./atividade";
 import { fastRoute } from "./fastRoute";
@@ -134,6 +136,17 @@ async function executarNoContexto(
     const reply = "Modo live ligado. Pode falar; diga tchau para sair.";
     ganchos.onToken?.(reply);
     return { actions: [{ action: "chat" }], reply, atalho: true };
+  }
+
+  // 14/11: "circula o YouTube no PC" (pedido do celular): a bolota do PC marca na tela dele.
+  if (/(no|do|na tela do) (pc|computador|notebook)/i.test(semAcento(text))) {
+    const marca = await marcarPeloPedido(text).catch(() => null);
+    if (marca) {
+      registrarTurnoUsuario(text);
+      recordAssistantReply(marca.fala);
+      ganchos.onToken?.(marca.fala);
+      return { actions: [{ action: "chat" }], reply: marca.fala, atalho: true };
+    }
   }
 
   const shortcut = fastRoute(text);
