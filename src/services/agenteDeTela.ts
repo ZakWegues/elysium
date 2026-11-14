@@ -32,7 +32,8 @@ export type PassoAgente =
   | { do: "procurar_na_tela"; texto: string }
   | { do: "esperar"; s: number }
   | { do: "abrir"; alvo: string }
-  | { do: "janela"; nome: string };
+  | { do: "janela"; nome: string }
+  | { do: "marcar"; id: number; texto: string };
 
 export interface RodadaAgente { passos: PassoAgente[]; pronto: boolean; fala: string; marcar: { id: number; texto: string }[] }
 
@@ -59,6 +60,7 @@ export function validarRodada(bruto: unknown, existe: Set<number>): RodadaAgente
       case "esperar": passos.push({ do: "esperar", s: Math.min(5, Math.max(0.2, Number(o.s) || 1)) }); break;
       case "abrir": { const a = str(o.alvo, 300).trim(); if (/^https:\/\/\S+$/.test(a) || /^[\p{L}\p{N} .+_-]{2,40}$/u.test(a)) passos.push({ do: "abrir", alvo: a }); break; }
       case "janela": if (str(o.nome, 60).trim()) passos.push({ do: "janela", nome: str(o.nome, 60).trim() }); break;
+      case "marcar": if (existe.has(id)) passos.push({ do: "marcar", id, texto: str(o.texto, 40) }); break;
     }
   }
   const marcar = (Array.isArray(j.marcar) ? j.marcar : []).slice(0, 4).map((m) => (m ?? {}) as Record<string, unknown>)
@@ -94,7 +96,7 @@ export function ficouEscrito(mostra: string | null, texto: string): boolean {
   return !!b && (a.includes(b) || (b.length > 60 && a.includes(b.slice(0, 60))));
 }
 
-const DESTRUTIVO = /\b(excluir|exclui|apagar|apaga|deletar|delete|remover|remove|desinstalar|uninstall|formatar|format|lixeira|esvaziar|descartar|discard|redefinir|resetar|reset|limpar tudo|clear all|erase|wipe|encerrar conta|cancelar assinatura)\b/;
+const DESTRUTIVO = /\b(excluir|exclui|apagar|apaga|deletar|delete|remover|remove|desinstalar|uninstall|formatar|format|lixeira|esvaziar|descartar|discard|redefinir|resetar|reset|limpar tudo|clear all|erase|wipe|encerrar conta|cancelar assinatura|pagar|pague|pagamento|finalizar compra|comprar agora|confirmar compra|transferir|transferencia|pix|sair da conta|sign out|log out|logout|publicar|publish|revogar|revoke)\b/;
 /** O controle (pelo nome) apaga/desinstala algo? Puro. */
 export function elementoDestrutivo(e: ElementoUia | null | undefined): boolean { return !!e && DESTRUTIVO.test(norm(`${e.n} ${e.a}`)); }
 
@@ -111,6 +113,7 @@ Passos possíveis:
 - {"do":"procurar_na_tela","texto":"o botão X"}  acha pela IMAGEM e clica (só se a lista não tem o controle)
 - {"do":"abrir","alvo":"https://... ou nome do programa"} | {"do":"janela","nome":"programa ou título"} (agir em outra janela aberta)
 - {"do":"esperar","s":1}
+- {"do":"marcar","id":n,"texto":"rótulo curto"}  circula o controle na tela (mostrar algo no meio da tarefa)
 Regras:
 - Campo que existe na lista (pelo nome ou o mais provável): SEMPRE "preencher" com o número dele. "digitar" só quando não há campo na lista (terminal, jogo) ou para acrescentar onde o cursor já está.
 - "aqui", "onde estou", sem lugar dito: o campo com "(cursor aqui)"; sem nenhum, o campo de texto principal (Edit/Document).
@@ -292,6 +295,7 @@ async function executar(p: PassoAgente, ctx: { hwnd: string; l: LeituraUia; pedi
       return `abri ${p.alvo}`;
     }
     case "janela": return "(trocando de janela)";
+    case "marcar": { const e = el(p.id); if (!e) return "falhou: controle não existe"; ctx.op.marcar?.([{ e, texto: p.texto }]); return `marquei "${e.n}"`; }
   }
 }
 

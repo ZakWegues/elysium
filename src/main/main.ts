@@ -11,7 +11,7 @@ import { paraFala } from "../services/estiloResposta";
 import { ouvirTimers, retomarTimers } from "../services/timers";
 import { deveSugerir, sugerirContinuacoes } from "../services/continuacoes";
 import { rapidasPara } from "../services/respostasRapidas";
-import { ehSim } from "../services/confirmacao";
+import { aoPedirConfirmacao, ehSim, responderConfirmacao } from "../services/confirmacao";
 import { decidirTela, estadoEmTexto, gerarTela, OFERTA, pediuTela, quandoMostrarTela, textoDaTela } from "../services/telaInteligente";
 import { geradorDeTelas, provedorDeTelas } from "../services/geradorDeTelas";
 import { proxyDoApp } from "../services/uiProxy";
@@ -121,6 +121,8 @@ import { aoMudarEstadoAoVivo, avisarEstadoAoVivo } from "../services/estadoAoViv
 import { atalhoDeTela, pediuNaTela, pedirGuia, vksDe, type Acao } from "../services/guiaDeTela";
 import { insistiu, janelaAlvo, pediuParaEscrever } from "../services/escreverNoApp";
 import { agirNaJanela, escreverNoCursor, literalParaAqui, pediuAcaoNaTela } from "../services/agenteDeTela";
+import { acharAlvos, falaDaMarca, imagemConfere, pedidoDeMarca, type PedidoDeMarca } from "../services/marcarNaTela";
+import { acharCaixaNaTela } from "../services/olhos";
 import { registrarForaDoHermes } from "../services/hermes/cerebro";
 import { semAcento } from "../services/texto";
 import type { Janela as JanelaDoPc } from "../actions/janelas";
@@ -765,7 +767,7 @@ async function alternarFlutuante(): Promise<void> {
 
 /** Pedido digitado na bolota: o guia de tela, senão o caminho de sempre (com o desenho). */
 async function digitadoNaBolota(texto: string): Promise<void> {
-  if (pediuNaTela(texto) || pediuParaEscrever(texto) || pediuAcaoNaTela(texto) || literalParaAqui(texto) || (pendente && insistiu(texto))) {
+  if (pedidoDeMarca(texto) || pediuNaTela(texto) || pediuParaEscrever(texto) || pediuAcaoNaTela(texto) || literalParaAqui(texto) || (pendente && insistiu(texto))) {
     if (!state.is("idle")) { interruptAll(); state.set("idle"); }
     const meu = novoTurno();
     state.set("processing");
@@ -835,9 +837,93 @@ async function agirComAgente(pedido: string, meuToken: number): Promise<boolean>
  * Antes do cérebro: escrever no programa, guia de tela, ou "faz de qualquer jeito" refazendo o
  * pedido que ficou sem fazer. `true` = tratado aqui.
  */
+/** A última leitura de cada janela vale 3 s: marcar e agir em seguida não relê a janela inteira. */
+const leituras = new Map<string, { l: LeituraUia; em: number }>();
+async function lerJanela(hwnd: string): Promise<LeituraUia> {
+  const c = leituras.get(hwnd);
+  if (c && Date.now() - c.em < 3_000) return c.l;
+  let l = await uiaHost.ler(hwnd);
+  // Navegador/Electron liga a acessibilidade só quando alguém pergunta: as primeiras leituras vêm
+  // pela metade (só a moldura). Relê enquanto a árvore ainda está crescendo (até ~1,2 s).
+  for (let k = 0; k < 3 && l.elementos.length < 25; k++) {
+    await new Promise((r) => setTimeout(r, 400));
+    const de = await uiaHost.ler(hwnd);
+    if (de.elementos.length <= l.elementos.length) { l = de; break; }
+    l = de;
+  }
+  leituras.set(hwnd, { l, em: Date.now() });
+  return l;
+}
+
+/**
+ * "Circula o símbolo do YouTube" (14/11, o `draw` do Roamies): acha o alvo na janela da frente pela
+ * acessibilidade; se não achar, pela imagem; e desenha a marca na camada. `false` = não era isso
+ * (uma pergunta "onde fica…" sem nada parecido na tela segue para o guia/cérebro).
+ */
+async function marcarNaTela(pedido: string, p: PedidoDeMarca, meuToken: number): Promise<boolean> {
+  const t0 = Date.now();
+  const janelas = await listarJanelas().catch(() => [] as JanelaDoPc[]);
+  const alvoJanela = (hwndAlvo && janelas.find((j) => j.hwnd === hwndAlvo)) || janelaDaFrente(janelas);
+  if (!alvoJanela) return false;
+  if (!flutuanteAberto()) abrirFlutuante(getConfig().theme, getConfig().movimento ?? "");
+  avisarEstadoAoVivo(`Achando ${p.alvo}…`);
+  let caixas: { x: number; y: number; w: number; h: number }[] = [];
+  const foraDaTela: { x: number; y: number; w: number; h: number }[] = [];
+  let pelaImagem = false;
+  try {
+    const l = await lerJanela(alvoJanela.hwnd);
+    // Fora do monitor (a janela passa da borda, a página rolada): rola até ele aparecer e marca lá.
+    const area = areaDaCamada();
+    const fora = (c: { x: number; y: number; w: number; h: number }) => !!area && (c.x + c.w / 2 < 0 || c.y + c.h / 2 < 0 || c.x + c.w / 2 > area.width || c.y + c.h / 2 > area.height);
+    const achados = acharAlvos(l, p.alvo, p.todos);
+    for (const e of achados) {
+      let c = naCamada(e);
+      if (fora(c)) {
+        const r = await uiaHost.mostrar(e.i).catch(() => null);
+        if (r && r.w > 2) { c = naCamada(r); leituras.delete(alvoJanela.hwnd); }
+      }
+      if (!fora(c)) caixas.push(c);
+      else foraDaTela.push(c);
+    }
+    if (!achados.length && l.w && l.h) {
+      // Pela imagem (só quando a acessibilidade não acha nada): a janela tem de aparecer (a foto é do
+      // que está na tela), e a caixa tem de cair DENTRO dela — senão o modelo chutou.
+      avisarEstadoAoVivo("Olhando a tela…");
+      await uiaHost.frente(alvoJanela.hwnd).catch(() => false);
+      const jan = { x: l.x ?? 0, y: l.y ?? 0, w: l.w, h: l.h };
+      const c = await acharCaixaNaTela(jan, p.alvo).catch(() => null);
+      const dentro = c && c.x >= jan.x - 4 && c.y >= jan.y - 4 && c.x + c.w <= jan.x + jan.w + 4 && c.y + c.h <= jan.y + jan.h + 4;
+      // E o que está no meio da caixa tem de combinar (o logo do Google não é o YouTube).
+      const confere = c && dentro ? imagemConfere(await uiaHost.quem(c.x + c.w / 2, c.y + c.h / 2).catch(() => null), p.alvo) && imagemConfere({ t: "Text", n: c.visto }, p.alvo) : false;
+      if (c && dentro && confere) { const cc = naCamada(c); if (!fora(cc)) { caixas = [cc]; pelaImagem = true; } }
+      else if (c) console.log(`[marcar] a imagem chutou "${p.alvo}" num lugar que não confere`);
+    }
+  } catch (e) { console.warn("[marcar] não deu:", e instanceof Error ? e.message : e); }
+  if (turnoAtual() !== meuToken) return true;
+  // Pergunta "onde fica X" sem nada parecido: não é marca — o guia ou o cérebro respondem.
+  if (!caixas.length && /^(ely,? )?(onde|cade)/i.test(semAcento(pedido).trim())) return false;
+  if (caixas.length) enviarAoFlutuante("flutuante:marcas", { passos: [{ dizer: "", marcas: caixas.map((c) => ({ tipo: p.tipo, ...c })) }] });
+  // Existe, mas a janela passa da borda do monitor e ele ficou para fora: uma seta na borda, apontando.
+  const area = areaDaCamada();
+  if (!caixas.length && foraDaTela.length && area) {
+    const c = foraDaTela[0];
+    const x = Math.max(30, Math.min(area.width - 70, c.x + c.w / 2 - 20)), y = Math.max(30, Math.min(area.height - 70, c.y + c.h / 2 - 20));
+    enviarAoFlutuante("flutuante:marcas", { passos: [{ dizer: "", marcas: [{ tipo: "seta", x, y, w: 40, h: 40 }] }] });
+  }
+  const ff = foraDaTela[0];
+  const lado = ff && area ? (ff.y + ff.h / 2 > area.height ? "embaixo" : ff.y + ff.h / 2 < 0 ? "em cima" : ff.x + ff.w / 2 < 0 ? "à esquerda" : "à direita") : "";
+  const fala = !caixas.length && foraDaTela.length ? `Está aqui ${lado}, fora da tela — a janela passa da borda.` : falaDaMarca(p, caixas.length, pelaImagem);
+  console.log(`[marcar] "${p.alvo}" → ${caixas.length} marca(s)${pelaImagem ? " pela imagem" : ""} em ${Date.now() - t0} ms`);
+  await responderAcao(pedido, fala, `${fala} (marcou "${p.alvo}" na tela)`);
+  return true;
+}
+
 async function agirDireto(texto: string, meuToken: number): Promise<boolean> {
   let pedido = texto;
   if (pendente && Date.now() - pendente.em < 3 * 60_000 && insistiu(texto)) { pedido = `${pendente.pedido} (ele insistiu: faça)`; pendente = null; }
+  // 14/11: circular / apontar / sublinhar / "onde está X" — marca na tela, sem modelo e sem licença.
+  const marca = pedidoDeMarca(pedido);
+  if (marca && await marcarNaTela(pedido, marca, meuToken)) return true;
   const literal = literalParaAqui(pedido);
   if (literal && (flutuanteAberto() || /\b(aqui|onde (eu )?(estou|to))\b/i.test(pedido)) && await escreverAqui(pedido, literal, meuToken)) return true;
   // "Onde fica…" / "me mostra" e os atalhos (fechar guia, voltar) seguem no guia de tela.
@@ -848,6 +934,19 @@ async function agirDireto(texto: string, meuToken: number): Promise<boolean> {
   if (flutuanteAberto() && pediuNaTela(pedido) && await guiarNaTela(pedido, meuToken)) return true;
   return false;
 }
+
+/** O Sim / Não da pílula para a pergunta de licença do cérebro: o resultado vira a resposta falada. */
+async function responderPelaPilula(sim: boolean): Promise<void> {
+  const fala = await responderConfirmacao(sim ? "sim" : "não").catch(() => null);
+  if (!fala) return;
+  recordAssistantReply(fala);
+  enviarAoDash("voice:reply", fala);
+  state.set("speaking");
+  await speak(fala).catch(() => {});
+  if (state.is("speaking")) state.set("idle");
+}
+// 14/11: toda pergunta de licença (só as sérias chegam) aparece como pílula Sim / Não na bolota.
+aoPedirConfirmacao((descricao) => { if (flutuanteAberto()) enviarAoFlutuante("flutuante:confirmar", { id: "geral", texto: descricao }); });
 
 /** Fechou a flutuante: a gravação sem mandar, a fala calada. */
 function pararFlutuante(): void {
@@ -1968,7 +2067,11 @@ app.on("ready", async () => {
   // 12/11: Ctrl+Espaço — a Ely flutuante ao lado do cursor (janela já criada, escondida).
   registrarIpcFlutuante({
     digitar: (texto) => { void digitadoNaBolota(texto); },
-    confirmar: (id, sim) => { const f = confirmacoes.get(id); confirmacoes.delete(id); f?.(sim); },
+    confirmar: (id, sim) => {
+      // A pergunta de licença do cérebro (Hermes, ferramentas): a pílula responde como se ele falasse.
+      if (id === "geral") { void responderPelaPilula(sim); return; }
+      const f = confirmacoes.get(id); confirmacoes.delete(id); f?.(sim);
+    },
     parar: pararFlutuante,
   });
   criarFlutuante();

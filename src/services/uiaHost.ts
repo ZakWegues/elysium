@@ -21,6 +21,7 @@ import * as path from "node:path";
  * 13/11 (o agente de tela, no jeito do `act_in_app` do Roamies):
  *   FOCADO                → OK <base64 {i,t,n,v,editavel,pid,x,y,w,h}>  (o campo com o cursor: o "aqui")
  *   FOCAR <i>             → OK
+ *   QUEM <x> <y>          → OK <base64 {t,n,pid}>  (o controle que está nesse ponto)
  *   NOPONTO <x> <y>       → OK <pid>          (de quem é o que está nesse ponto da tela)
  *   TECLA <vk>            → OK 1|0            (a tecla está apertada agora? — segurar o atalho)
  *   MOSTRAR <i>           → OK x y w h       (rola até ele aparecer; onde está agora)
@@ -174,6 +175,7 @@ while ($true) {
       'CLICAR' { [Console]::Out.WriteLine('OK ' + (Clicar ([int]$p[1]))) }
       'VALOR'  { $t = $UTF8.GetString([Convert]::FromBase64String($p[2])); $e = $global:els[[int]$p[1]]; try { $e.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue($t) } catch { $e.SetFocus(); [System.Windows.Forms.SendKeys]::SendWait($t) }; [Console]::Out.WriteLine('OK') }
       'FOCADO' { [Console]::Out.WriteLine('OK ' + (Focado)) }
+      'QUEM' { $e = $A::FromPoint((New-Object System.Windows.Point([double]$p[1], [double]$p[2]))); if ($e) { $c = $e.Current; [Console]::Out.WriteLine('OK ' + (B64 (ConvertTo-Json -Compress ([ordered]@{ t = ($c.ControlType.ProgrammaticName -replace '^ControlType\.', ''); n = [string]$c.Name; pid = $c.ProcessId })))) } else { [Console]::Out.WriteLine('OK ' + (B64 '{}')) } }
       'NOPONTO' { $e = $A::FromPoint((New-Object System.Windows.Point([double]$p[1], [double]$p[2]))); [Console]::Out.WriteLine('OK ' + $(if ($e) { $e.Current.ProcessId } else { 0 })) }
       'TECLA'  { [Console]::Out.WriteLine('OK ' + $(if (([NxUia]::GetAsyncKeyState([int]$p[1]) -band 0x8000) -ne 0) { 1 } else { 0 })) }
       'MOSTRAR' { $e = $global:els[[int]$p[1]]; try { $e.GetCurrentPattern([System.Windows.Automation.ScrollItemPattern]::Pattern).ScrollIntoView(); Start-Sleep -Milliseconds 120 } catch {}; $r = $e.Current.BoundingRectangle; [Console]::Out.WriteLine('OK ' + [int]$r.X + ' ' + [int]$r.Y + ' ' + [int]$r.Width + ' ' + [int]$r.Height) }
@@ -274,6 +276,11 @@ class UiaHost {
   async focado(): Promise<FocadoUia | null> {
     const j = JSON.parse(de64(await this.pedir("FOCADO", 4_000))) as Partial<FocadoUia>;
     return typeof j.i === "number" ? { i: j.i, t: String(j.t ?? ""), n: String(j.n ?? ""), v: String(j.v ?? ""), editavel: j.editavel === true, pid: Number(j.pid) || 0, x: Number(j.x) || 0, y: Number(j.y) || 0, w: Number(j.w) || 0, h: Number(j.h) || 0 } : null;
+  }
+  /** O controle no ponto (pixels físicos): tipo, nome e processo. */
+  async quem(x: number, y: number): Promise<{ t: string; n: string; pid: number } | null> {
+    const j = JSON.parse(de64(await this.pedir(`QUEM ${Math.round(x)} ${Math.round(y)}`, 3_000))) as { t?: string; n?: string; pid?: number };
+    return j.t ? { t: String(j.t), n: String(j.n ?? ""), pid: Number(j.pid) || 0 } : null;
   }
   /** O processo dono do que está no ponto (pixels físicos) — para não clicar em outra janela por cima. */
   async noPonto(x: number, y: number): Promise<number> { return Number(await this.pedir(`NOPONTO ${Math.round(x)} ${Math.round(y)}`, 3_000)) || 0; }

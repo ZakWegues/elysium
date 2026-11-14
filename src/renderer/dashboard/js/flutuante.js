@@ -439,6 +439,9 @@
     const corpo = el("div", "corpo");
     c.append(cab, corpo);
     if (!coluna || !coluna.isConnected) novaPilha();
+    // 14/11 (como o Roamies): no máximo 3 cartões soltos na tela — o mais antigo (não fixado) sai.
+    const soltos = [...cartoes.querySelectorAll(".cartao:not(.fixo):not(.sai)")];
+    if (soltos.length >= 3) fecharCartao(soltos[0]);
     coluna.appendChild(c);
     bMin.addEventListener("click", () => { c.classList.toggle("mini"); bMin.title = c.classList.contains("mini") ? "Abrir" : "Minimizar"; });
     bFix.addEventListener("click", () => { c.classList.toggle("fixo"); adiarFechar(); });
@@ -979,18 +982,28 @@
   }
 
   /** "Posso fazer isso?" — só para o que apaga ou desfaz algo de vez. */
+  // 14/11 (o dono: "se tiver permissão, o botão flutuante escrito sim ou não"): uma pílula colada na
+  // bolota, com o que vai fazer e Sim / Não grandes. Uma por vez; sem resposta em 30 s some (= não).
+  const pilula = $("pilula"), pilulaTexto = $("pilulaTexto");
+  let pilulaId = null, pilulaTimer = null;
+  function esconderPilula() { pilula.classList.remove("ve"); pilulaId = null; clearTimeout(pilulaTimer); }
   function pedirConfirmacao(o) {
     if (!o || typeof o.id !== "string") return;
-    const corpo = novoCartao("Confirma?");
-    corpo.appendChild(el("p", null, String(o.texto || "Fazer isso?")));
-    const linha = el("div", "confirma");
-    const nao = el("button", "nao", "Cancelar"), sim = el("button", "sim", "Fazer");
-    linha.append(nao, sim);
-    corpo.appendChild(linha);
-    const responder = (v) => { window.ely.confirmar(o.id, v); fecharCartao(corpo.parentElement); };
-    nao.addEventListener("click", () => responder(false));
-    sim.addEventListener("click", () => responder(true));
-    corpo.parentElement.classList.add("fixo");
+    if (pilulaId && pilulaId !== o.id) window.ely.confirmar(pilulaId, false);
+    pilulaId = o.id;
+    pilulaTexto.textContent = String(o.texto || "Fazer isso?");
+    pilula.classList.add("ve");
+    parada = true;
+    clearTimeout(pilulaTimer);
+    pilulaTimer = setTimeout(esconderPilula, 30_000);
+    adiarFechar();
+  }
+  for (const b of pilula.querySelectorAll("button")) {
+    b.addEventListener("click", () => {
+      if (!pilulaId) return;
+      window.ely.confirmar(pilulaId, b.classList.contains("sim"));
+      esconderPilula();
+    });
   }
 
   // ── tela (OpenUI), o mesmo renderer isolado do chat ──────────────────────────────────────

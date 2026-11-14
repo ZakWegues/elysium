@@ -12,7 +12,7 @@ import { ConexaoHermes } from "./conexao";
 import { acharHermes, encerrarArvore, garantirMcp, garantirPerfil, gravarModeloDoPerfil, lerModeloDoPerfil, subirServidor, ServidorHermes, PERFIL_PADRAO, PERFIL_TELAS, garantirPerfilDeTelas } from "./processo";
 import { contextoDoTurno } from "./persona";
 import { FimDoTurno, PRAZO_SINAL_FRIO_MS, PRAZO_SINAL_QUENTE_MS, rodarTurno } from "./sessao";
-import { descricaoDaAprovacao, falaDoEsclarecimento, respostaDeRecusa, respostasDoEsclarecimento, tipoDaPergunta } from "./aprovacoes";
+import { aprovacaoPerigosa, descricaoDaAprovacao, falaDoEsclarecimento, respostaDeRecusa, respostasDoEsclarecimento, tipoDaPergunta } from "./aprovacoes";
 import { limparParaVoz, promptDePesquisa, separarFontes } from "./pesquisa";
 import type { Fonte } from "../contextoComando";
 
@@ -288,7 +288,8 @@ async function tratarFim(fim: FimDoTurno, noTurno: boolean): Promise<RespostaHer
     // sessão (`session`): o mesmo tipo de comando não volta a pedir licença na mesma conversa. O
     // Hermes já roda no modo "smart" (o de baixo risco nem chega aqui) e os bloqueios fixos dele
     // valem em qualquer resposta.
-    if (liberacaoAtiva()) {
+    // 14/11: só pergunta o que é sério de verdade (apagar, desinstalar, desligar, pagar…).
+    if (liberacaoAtiva() || !aprovacaoPerigosa(fim.params)) {
       fim.responder({ choice: "session" });
       return tratarFim(await fim.resto, noTurno);
     }

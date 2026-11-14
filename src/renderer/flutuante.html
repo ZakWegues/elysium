@@ -30,7 +30,17 @@
   /* 14/11 (o dono: "igual ao Roamies"): sem botões; o texto colado na bolota. O lado não pega o
      mouse (escondido ele ficava por cima das telas e roubava o clique) — só o campo e o balão visíveis. */
   .lado { position: absolute; left: 29px; top: -15px; display: flex; flex-direction: column; align-items: flex-start; gap: 5px; width: 340px; pointer-events: none; }
-  .lado .campo.ve, .lado .balao.ve { pointer-events: auto; }
+  .lado .campo.ve, .lado .balao.ve, .lado .pilula.ve { pointer-events: auto; }
+  /* A pergunta séria (apagar, pagar…): Sim / Não grandes, colados na bolota. */
+  .pilula { display: none; align-items: center; gap: 8px; max-width: 360px; padding: 6px 6px 6px 14px; border-radius: 999px;
+    background: rgba(var(--ink), .94); border: 1px solid color-mix(in srgb, var(--coral) 50%, rgba(255,255,255,.12));
+    box-shadow: 0 8px 22px rgba(0,0,0,.35); }
+  .pilula.ve { display: flex; animation: entra .2s cubic-bezier(.2,.9,.3,1.15); }
+  .pilula span { flex: 1; min-width: 0; font-size: 12.5px; line-height: 1.3; }
+  .pilula .ps { flex: none; height: 32px; min-width: 54px; padding: 0 14px; border-radius: 999px; border: 1px solid rgba(255,255,255,.16);
+    background: rgba(255,255,255,.07); color: var(--texto); font: 600 13px/1 inherit; cursor: pointer; transition: filter .15s, transform .15s; }
+  .pilula .ps.sim { background: color-mix(in srgb, var(--coral) 42%, transparent); border-color: color-mix(in srgb, var(--coral) 70%, transparent); }
+  .pilula .ps:hover { filter: brightness(1.25); transform: scale(1.04); }
   #ely.esq .lado { left: auto; right: 29px; align-items: flex-end; }
   #ely.cima .lado { top: auto; bottom: -15px; flex-direction: column-reverse; }
   .linha1 { display: flex; align-items: center; gap: 8px; }
@@ -105,10 +115,6 @@
     background: rgba(var(--ink), .9); border: 1px solid rgba(255,255,255,.12); font-size: 14px; color: var(--texto); z-index: 6;
     opacity: 0; transition: opacity .2s; pointer-events: none; text-align: center; }
   #legenda.ve { opacity: 1; }
-  .confirma { display: flex; gap: 8px; margin-top: 10px; }
-  .confirma button { flex: 1; height: 34px; border-radius: 10px; border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.06); color: var(--texto); font: inherit; cursor: pointer; }
-  .confirma button.sim { background: color-mix(in srgb, var(--coral) 35%, transparent); border-color: color-mix(in srgb, var(--coral) 60%, transparent); }
-  .confirma button:hover { filter: brightness(1.2); }
 
   /* ── os cartões soltos ─────────────────────────────────────────────────── */
   #cartoes { position: absolute; inset: 0; }
@@ -255,6 +261,7 @@
       </div>
       <input class="campo interativo" id="campo" placeholder="Pergunte à Ely…" maxlength="4000" spellcheck="false">
       <div class="fala" id="fala"><div id="aovivo"></div></div>
+      <div class="pilula interativo" id="pilula"><span id="pilulaTexto"></span><button class="ps sim">Sim</button><button class="ps nao">Não</button></div>
       <div class="balao interativo" id="balao"><div class="resp" id="balaoTexto"></div></div>
     </div>
   </div>

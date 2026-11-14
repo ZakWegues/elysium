@@ -46,6 +46,19 @@ export function descricaoDaAprovacao(params: Record<string, unknown>): string {
   return "Preciso da sua licença para continuar.";
 }
 
+/**
+ * 14/11 (o dono: "só pede permissão quando a coisa é séria, tipo deletar"): o comando ou a ação
+ * apaga, desinstala, formata, desliga, mexe no registro/sistema, mata processo, paga ou publica?
+ * Só isso vira pergunta; o resto o Hermes roda direto (no jeito do Roamies: SAFE roda, ASK pergunta). Pura.
+ */
+export function aprovacaoPerigosa(params: Record<string, unknown>): boolean {
+  const txt = [params.command, params.description, params.tool_name].filter((x) => typeof x === "string").join(" \n ");
+  const t = txt.toLowerCase();
+  return /\b(rm|rmdir|del|erase|rd|format|diskpart|shutdown|restart-computer|stop-computer|reg\s+delete|remove-item|remove-itemproperty|clear-content|clear-recyclebin|uninstall|winget\s+uninstall|stop-process|taskkill|kill|pkill|set-executionpolicy|bcdedit|cipher\s+\/w|vssadmin|net\s+user|git\s+(push\s+--force|reset\s+--hard|clean\s+-f)|drop\s+(table|database)|truncate|mkfs|dd\s+if=)\b/.test(t)
+    || /\b(apag|exclu|delet|remov|desinstal|format|deslig|reinici|apaga|limpa(r)? (tudo|a lixeira|o disco)|esvazi|mata(r)? o processo|pag(ar|amento)|transfer|pix|public|revog)/.test(t)
+    || /\s>\s*[a-z]:\|\s>\s*\/|>\s*\$null/.test(t) && /\b(windows|system32|program files)\b/.test(t);
+}
+
 export interface PerguntaDeEsclarecimento { qid: string; question: string; choices?: string[] | null }
 
 /** A pergunta falada: a primeira do conjunto, com as opções se houver. */

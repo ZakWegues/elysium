@@ -46,11 +46,31 @@ export async function fotoDaArea(r: Retangulo): Promise<{ base64: string; area: 
 }
 
 const PERGUNTA = (alvo: string) => `A imagem é uma janela do computador. Ache: ${alvo}
-Responda SÓ JSON {"achou": true|false, "x": n, "y": n} com o CENTRO do elemento em coordenadas normalizadas de 0 a 1000 (x a partir da esquerda, y a partir do topo). Se não estiver na imagem, "achou": false.`;
+Responda SÓ JSON {"achou": true|false, "visto": "o que está dentro da caixa, em poucas palavras", "x1": n, "y1": n, "x2": n, "y2": n} com a CAIXA do elemento (canto de cima à esquerda e canto de baixo à direita) em coordenadas normalizadas de 0 a 1000 (x a partir da esquerda, y a partir do topo).
+Só "achou": true se o elemento estiver CLARAMENTE visível na imagem (o próprio ícone, logo ou texto). Coisa parecida, outro logo ou dúvida = "achou": false. Não chute.`;
 
-const ESQUEMA = { type: "object", properties: { achou: { type: "boolean" }, x: { type: "integer" }, y: { type: "integer" } }, required: ["achou", "x", "y"] };
+const ESQUEMA = {
+  type: "object",
+  properties: { achou: { type: "boolean" }, visto: { type: "string" }, x1: { type: "integer" }, y1: { type: "integer" }, x2: { type: "integer" }, y2: { type: "integer" } },
+  required: ["achou", "visto", "x1", "y1", "x2", "y2"],
+};
+type Resposta = { achou?: boolean; visto?: string; x1?: number; y1?: number; x2?: number; y2?: number };
 
-async function perguntarLocal(foto: string, alvo: string, prazoMs: number): Promise<{ achou?: boolean; x?: number; y?: number } | null> {
+export interface Caixa { x: number; y: number; w: number; h: number; por: "local" | "gemini"; visto: string }
+
+/** A caixa 0–1000 da resposta → retângulo em pixels físicos. null se inválida. Pura. */
+export function caixaNaTela(r: Retangulo, j: Resposta | null | undefined): Omit<Caixa, "por" | "visto"> | null {
+  if (!j?.achou) return null;
+  const a = pontoNaTela(r, Math.min(Number(j.x1), Number(j.x2)), Math.min(Number(j.y1), Number(j.y2)));
+  const b = pontoNaTela(r, Math.max(Number(j.x1), Number(j.x2)), Math.max(Number(j.y1), Number(j.y2)));
+  if (!a || !b) return null;
+  const w = Math.max(12, b.x - a.x), h = Math.max(12, b.y - a.y);
+  // Caixa do tamanho da janela quase toda: o modelo não achou de verdade.
+  if (w > r.w * 0.85 && h > r.h * 0.85) return null;
+  return { x: a.x, y: a.y, w, h };
+}
+
+async function perguntarLocal(foto: string, alvo: string, prazoMs: number): Promise<Resposta | null> {
   const base = (getConfig().ollamaBaseUrl || "http://127.0.0.1:11434").replace(/\/+$/, "");
   try {
     const r = await fetch(`${base}/api/chat`, {
@@ -66,25 +86,44 @@ async function perguntarLocal(foto: string, alvo: string, prazoMs: number): Prom
 }
 
 /**
- * Onde está `alvo` (descrição: "o botão Enviar", "a caixa de pesquisa") dentro da janela `r`.
- * null = nenhum dos dois achou.
+ * A caixa de `alvo` (descrição: "o botão Enviar", "o ícone do YouTube") dentro da janela `r`, em
+ * pixels físicos. A janela tem de estar na frente (a foto é do que aparece). null = ninguém achou.
  */
-export async function acharNaTela(r: Retangulo, alvo: string): Promise<Visto | null> {
+export async function acharCaixaNaTela(r: Retangulo, alvo: string): Promise<Caixa | null> {
   const { base64: foto, area } = await fotoDaArea(r);
-  // O local demorou demais da última vez (placa de vídeo cheia): vai direto ao Gemini por 10 min.
-  if (Date.now() > localLentoAte) {
+  // 14/11: o local e o Gemini correm juntos; vale a primeira resposta que achou (o local, de graça,
+  // ganha quando a placa de vídeo está livre; com ela cheia, o Gemini responde antes e nada atrasa).
+  // Local lento (> 5 s) fica de fora por 10 min.
+  const local = Date.now() > localLentoAte ? (async (): Promise<Caixa | null> => {
     const t0 = Date.now();
-    const local = await perguntarLocal(foto, alvo, 6_000);
-    if (!local && Date.now() - t0 >= 5_900) localLentoAte = Date.now() + 10 * 60_000;
-    const pl = local?.achou ? pontoNaTela(area, local.x, local.y) : null;
-    if (pl) return { ...pl, por: "local" };
-  }
-  const g = await gerarGemini({ mensagens: [{ papel: "user", texto: PERGUNTA(alvo), imagem: { mime: "image/jpeg", base64: foto } }], esquema: ESQUEMA, temperatura: 0, maxTokens: 200, prazoMs: 12_000, leve: true }).catch(() => null);
-  if (!g) return null;
-  try {
-    const j = JSON.parse(g.texto) as { achou?: boolean; x?: number; y?: number };
-    const pg = j.achou ? pontoNaTela(area, j.x, j.y) : null;
-    return pg ? { ...pg, por: "gemini" } : null;
-  } catch { return null; }
+    const j = await perguntarLocal(foto, alvo, 5_000);
+    if (!j && Date.now() - t0 >= 4_900) localLentoAte = Date.now() + 10 * 60_000;
+    const c = caixaNaTela(area, j);
+    return c ? { ...c, por: "local", visto: String(j?.visto ?? "") } : null;
+  })() : Promise.resolve(null);
+  const nuvem = (async (): Promise<Caixa | null> => {
+    const g = await gerarGemini({ mensagens: [{ papel: "user", texto: PERGUNTA(alvo), imagem: { mime: "image/jpeg", base64: foto } }], esquema: ESQUEMA, temperatura: 0, maxTokens: 200, prazoMs: 12_000 }).catch(() => null);
+    if (!g) return null;
+    try {
+      const j = JSON.parse(g.texto) as Resposta;
+      const c = caixaNaTela(area, j);
+      return c ? { ...c, por: "gemini", visto: String(j.visto ?? "") } : null;
+    } catch { return null; }
+  })();
+  return primeiraQueAchou([local, nuvem]);
 }
 
+/** A primeira promessa que resolve com algo (não null); null se todas derem null. Pura. */
+export function primeiraQueAchou<T>(ps: Promise<T | null>[]): Promise<T | null> {
+  return new Promise((ok) => {
+    let faltam = ps.length;
+    if (!faltam) { ok(null); return; }
+    for (const p of ps) p.then((v) => { if (v) ok(v); else if (--faltam === 0) ok(null); }, () => { if (--faltam === 0) ok(null); });
+  });
+}
+
+/** O centro de `alvo` na tela (para clicar). null = ninguém achou. */
+export async function acharNaTela(r: Retangulo, alvo: string): Promise<Visto | null> {
+  const c = await acharCaixaNaTela(r, alvo);
+  return c ? { x: Math.round(c.x + c.w / 2), y: Math.round(c.y + c.h / 2), por: c.por } : null;
+}

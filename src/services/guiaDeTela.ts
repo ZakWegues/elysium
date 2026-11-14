@@ -38,7 +38,7 @@ export function pediuNaTela(texto: string): boolean {
 }
 
 const DESTRUTIVO_NOME = /\b(excluir|exclui|apagar|apaga|deletar|delete|remover|remove|desinstalar|uninstall|formatar|format|lixeira|esvaziar|descartar|discard|redefinir|resetar|reset|limpar tudo|clear all|erase|wipe|encerrar conta|cancelar assinatura)\b/;
-const DESTRUTIVO_PEDIDO = /\b(exclu|apag|delet|remov|desinstal|format|lixeira|esvazi|descart|redefin|reset|limp|cancel(a|ar) (a )?assinatura|encerr(a|ar) (a )?conta)/;
+const DESTRUTIVO_PEDIDO = /\b(exclu|apag|delet|remov|desinstal|format|lixeira|esvazi|descart|redefin|reset|limp|cancel(a|ar) (a )?assinatura|encerr(a|ar) (a )?conta|pag(a|ar|ue)\b|compr(a|ar)\b|transfer|pix\b|sai(r)? da conta|public|revog)/;
 
 /** O elemento/ação apaga ou desfaz algo de vez? Puro. */
 export function acaoDestrutiva(acao: Acao | null, els: ElementoUia[]): boolean {

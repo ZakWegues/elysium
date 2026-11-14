@@ -75,9 +75,14 @@ export function ehNao(texto: string): boolean {
 }
 
 /** Guarda a ação e devolve a pergunta que a Ely fala. */
+/** 14/11: avisado a cada pergunta nova (a bolota mostra a pílula Sim / Não). */
+let aoPedir: ((descricao: string) => void) | null = null;
+export function aoPedirConfirmacao(cb: ((descricao: string) => void) | null): void { aoPedir = cb; }
+
 export function pedirConfirmacao(descricao: string, executar: () => Promise<string>, agora = Date.now(), cancelar?: () => void): string {
   descartar();
   pendente = { descricao, executar, expiraEm: agora + VALIDADE_MS, cancelar };
+  try { aoPedir?.(descricao); } catch { /* quem ouve não derruba a pergunta */ }
   if (cancelar) {
     // Ninguém respondeu em 30 s: avisa quem perguntou, sem esperar o próximo pedido.
     const p = pendente;
