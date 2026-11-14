@@ -115,7 +115,7 @@ import { desenharRapido, pediuDesenho } from "../services/desenhoRapido";
 import { listarJanelas } from "../actions/janelas";
 import { janelaDaFrente } from "../services/isso";
 import { contextoRecente, recordAssistantReply, registrarJanelaDaFrente, registrarTurnoUsuario } from "../services/brain";
-import { definirAplicadorDeConfig } from "../services/rpc";
+import { definirAplicadorDeConfig, definirMarcadorNaTela } from "../services/rpc";
 import { comecarEscuta, garantirModelo, receberPcm, textoFinal } from "../services/parakeet";
 import { aoMudarEstadoAoVivo, avisarEstadoAoVivo } from "../services/estadoAoVivo";
 import { atalhoDeTela, pediuNaTela, pedirGuia, vksDe, type Acao } from "../services/guiaDeTela";
@@ -123,6 +123,7 @@ import { insistiu, janelaAlvo, pediuParaEscrever } from "../services/escreverNoA
 import { agirNaJanela, escreverNoCursor, literalParaAqui, pediuAcaoNaTela } from "../services/agenteDeTela";
 import { acharAlvos, falaDaMarca, imagemConfere, pedidoDeMarca, type PedidoDeMarca } from "../services/marcarNaTela";
 import { acharCaixaNaTela } from "../services/olhos";
+import { salvarTela } from "../services/telasSalvas";
 import { registrarForaDoHermes } from "../services/hermes/cerebro";
 import { semAcento } from "../services/texto";
 import type { Janela as JanelaDoPc } from "../actions/janelas";
@@ -860,6 +861,8 @@ async function lerJanela(hwnd: string): Promise<LeituraUia> {
  * acessibilidade; se não achar, pela imagem; e desenha a marca na camada. `false` = não era isso
  * (uma pergunta "onde fica…" sem nada parecido na tela segue para o guia/cérebro).
  */
+/** O resultado da última marca (o RPC do celular responde com ele). */
+let ultimaMarca: { marcou: number; fala: string } = { marcou: 0, fala: "" };
 async function marcarNaTela(pedido: string, p: PedidoDeMarca, meuToken: number): Promise<boolean> {
   const t0 = Date.now();
   const janelas = await listarJanelas().catch(() => [] as JanelaDoPc[]);
@@ -912,7 +915,9 @@ async function marcarNaTela(pedido: string, p: PedidoDeMarca, meuToken: number):
   }
   const ff = foraDaTela[0];
   const lado = ff && area ? (ff.y + ff.h / 2 > area.height ? "embaixo" : ff.y + ff.h / 2 < 0 ? "em cima" : ff.x + ff.w / 2 < 0 ? "à esquerda" : "à direita") : "";
+  ultimaMarca = { marcou: caixas.length, fala: "" };
   const fala = !caixas.length && foraDaTela.length ? `Está aqui ${lado}, fora da tela — a janela passa da borda.` : falaDaMarca(p, caixas.length, pelaImagem);
+  ultimaMarca.fala = fala;
   console.log(`[marcar] "${p.alvo}" → ${caixas.length} marca(s)${pelaImagem ? " pela imagem" : ""} em ${Date.now() - t0} ms`);
   await responderAcao(pedido, fala, `${fala} (marcou "${p.alvo}" na tela)`);
   return true;
@@ -1449,6 +1454,13 @@ ipcMain.handle("fundo:escolher", async () => {
 ipcMain.handle("config:set-all", async (_e, patchBruto: Partial<AppConfig>) => aplicarConfig(patchBruto));
 // 12/11: os Ajustes do PC mudados pelo celular passam por aqui também (rpc.ts, `pc.ajustes.set`).
 definirAplicadorDeConfig(aplicarConfig);
+// 14/11: o celular pede para marcar na tela do PC ("circula o YouTube no PC").
+definirMarcadorNaTela(async (texto) => {
+  const p = pedidoDeMarca(texto.replace(/\s+(no|do) (pc|computador)\b/i, ""));
+  if (!p) return null;
+  await marcarNaTela(texto, p, novoTurno());
+  return ultimaMarca;
+});
 // 13/11: o que ela está fazendo agora ("Pesquisando…", "Abrindo o Chrome…"), na bolota.
 aoMudarEstadoAoVivo((t) => enviarAoFlutuante("flutuante:status", t));
 
@@ -2072,6 +2084,14 @@ app.on("ready", async () => {
       if (id === "geral") { void responderPelaPilula(sim); return; }
       const f = confirmacoes.get(id); confirmacoes.delete(id); f?.(sim);
     },
+    telaGrande: (programa) => {
+      openDashboard();
+      if (!dashWin || dashWin.isDestroyed()) return;
+      dashWin.show(); dashWin.focus();
+      const mandar = () => dashWin?.webContents.send("tela:abrir-cheia", { programa });
+      if (dashWin.webContents.isLoading()) dashWin.webContents.once("did-finish-load", mandar); else mandar();
+    },
+    salvarTela: (programa) => { try { salvarTela(programa); } catch (e) { console.warn("[flutuante] não salvei a tela:", e); } },
     parar: pararFlutuante,
   });
   criarFlutuante();

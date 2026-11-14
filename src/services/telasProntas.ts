@@ -14,7 +14,9 @@ import { semAcento } from "./texto";
 
 export type TipoPronto =
   | "financiamento" | "dividir-conta"
-  | "painel" | "comparacao" | "flashcards" | "quiz" | "checklist" | "roteiro" | "cronograma";
+  | "painel" | "comparacao" | "flashcards" | "quiz" | "checklist" | "roteiro" | "cronograma"
+  // 14/11: receita, treino e resumo (o modelo manda os dados) e o conversor (na hora, sem modelo).
+  | "receita" | "treino" | "resumo" | "conversor";
 
 function norm(t: string): string {
   return semAcento(t).toLowerCase().replace(/\s+/g, " ").trim();
@@ -23,6 +25,10 @@ function norm(t: string): string {
 /** Qual tela pronta serve para o pedido (palavras-chave, sem modelo). null = gerador livre. Pura. */
 export function tipoDeTelaPronta(pedido: string): TipoPronto | null {
   const t = norm(pedido);
+  if (unidadesDoConversor(t)) return "conversor";
+  if (/\breceita\b|\bcomo (fazer|preparar) (um |uma |o |a )?(bolo|torta|pao|massa|molho|lasanha|feijoada|brigadeiro|pudim|frango|carne|arroz|sopa|salada|biscoito|cookie|panqueca|omelete|pizza)\b|\bmodo de preparo\b|\bingredientes\b/.test(t)) return "receita";
+  if (/\btreino\b(?! da semana)|\bexercicios? (para|de|pra)\b|\bmusculacao\b|\bworkout\b|\bficha de (treino|academia)\b|\bserie de exercicios\b/.test(t)) return "treino";
+  if (/\bresum\w*|\bsintese\b|\bpontos principais\b|\bguia rapido\b|\bcolinha\b|\bcola (de|sobre)\b/.test(t)) return "resumo";
   if (/\bdivid\w* (a |essa |esta )?conta\b|\brachar\b|\bgorjeta\b|taxa de servico/.test(t)) return "dividir-conta";
   if (/\bfinanci\w*|\bemprestim\w*|\bparcel\w*|\bprestac\w*|\bjuros\b|\bconsorcio\b|tabela price|\bsac\b/.test(t) && !/\bcompar/.test(t)) return "financiamento";
   if (/\bquiz\b|\bquestionario\b|\bsimulado\b|\bme testa\b|\bperguntas? (de|sobre)\b/.test(t)) return "quiz";
@@ -50,7 +56,98 @@ export function pedidoRico(pedido: string, tipo: TipoPronto): boolean {
 
 /** Os tipos que saem sem modelo (números do próprio texto). */
 export function semModelo(tipo: TipoPronto): boolean {
-  return tipo === "financiamento" || tipo === "dividir-conta";
+  return tipo === "financiamento" || tipo === "dividir-conta" || tipo === "conversor";
+}
+
+// ── conversor de unidades (sem modelo) ─────────────────────────────────────────────────
+type Categoria = "comprimento" | "massa" | "temperatura" | "volume" | "velocidade" | "area" | "dados" | "tempo";
+interface Unidade { id: string; nome: string; cat: Categoria; fator: number; padroes: RegExp }
+/** Fator para a unidade-base da categoria (metro, quilo, litro, km/h, m², byte, segundo). Temperatura é à parte. */
+const UNIDADES: Unidade[] = [
+  { id: "km", nome: "quilômetros", cat: "comprimento", fator: 1000, padroes: /^(km|quilometros?)$/ },
+  { id: "m", nome: "metros", cat: "comprimento", fator: 1, padroes: /^(m|metros?)$/ },
+  { id: "cm", nome: "centímetros", cat: "comprimento", fator: 0.01, padroes: /^(cm|centimetros?)$/ },
+  { id: "mm", nome: "milímetros", cat: "comprimento", fator: 0.001, padroes: /^(mm|milimetros?)$/ },
+  { id: "mi", nome: "milhas", cat: "comprimento", fator: 1609.344, padroes: /^(mi|milhas?)$/ },
+  { id: "ft", nome: "pés", cat: "comprimento", fator: 0.3048, padroes: /^(ft|pes|pe)$/ },
+  { id: "in", nome: "polegadas", cat: "comprimento", fator: 0.0254, padroes: /^(in|pol|polegadas?)$/ },
+  { id: "yd", nome: "jardas", cat: "comprimento", fator: 0.9144, padroes: /^(yd|jardas?)$/ },
+  { id: "kg", nome: "quilos", cat: "massa", fator: 1, padroes: /^(kg|quilos?|quilogramas?)$/ },
+  { id: "g", nome: "gramas", cat: "massa", fator: 0.001, padroes: /^(g|gramas?)$/ },
+  { id: "lb", nome: "libras", cat: "massa", fator: 0.45359237, padroes: /^(lb|lbs|libras?)$/ },
+  { id: "oz", nome: "onças", cat: "massa", fator: 0.028349523, padroes: /^(oz|oncas?)$/ },
+  { id: "t", nome: "toneladas", cat: "massa", fator: 1000, padroes: /^(t|toneladas?)$/ },
+  { id: "C", nome: "°C", cat: "temperatura", fator: 1, padroes: /^(c|celsius|graus celsius|graus)$/ },
+  { id: "F", nome: "°F", cat: "temperatura", fator: 1, padroes: /^(f|fahrenheit|graus fahrenheit)$/ },
+  { id: "K", nome: "K", cat: "temperatura", fator: 1, padroes: /^(k|kelvin)$/ },
+  { id: "l", nome: "litros", cat: "volume", fator: 1, padroes: /^(l|litros?)$/ },
+  { id: "ml", nome: "mililitros", cat: "volume", fator: 0.001, padroes: /^(ml|mililitros?)$/ },
+  { id: "gal", nome: "galões (EUA)", cat: "volume", fator: 3.785411784, padroes: /^(gal|galoes|galao)$/ },
+  { id: "xic", nome: "xícaras", cat: "volume", fator: 0.24, padroes: /^(xicaras?|xic)$/ },
+  { id: "colher", nome: "colheres de sopa", cat: "volume", fator: 0.015, padroes: /^(colheres?( de sopa)?)$/ },
+  { id: "kmh", nome: "km/h", cat: "velocidade", fator: 1, padroes: /^(km\/h|kmh|quilometros por hora)$/ },
+  { id: "mph", nome: "mph", cat: "velocidade", fator: 1.609344, padroes: /^(mph|milhas por hora)$/ },
+  { id: "ms", nome: "m/s", cat: "velocidade", fator: 3.6, padroes: /^(m\/s|metros por segundo)$/ },
+  { id: "nos", nome: "nós", cat: "velocidade", fator: 1.852, padroes: /^(nos|knots?)$/ },
+  { id: "m2", nome: "m²", cat: "area", fator: 1, padroes: /^(m2|m²|metros quadrados)$/ },
+  { id: "ha", nome: "hectares", cat: "area", fator: 10000, padroes: /^(ha|hectares?)$/ },
+  { id: "km2", nome: "km²", cat: "area", fator: 1_000_000, padroes: /^(km2|km²|quilometros quadrados)$/ },
+  { id: "alq", nome: "alqueires paulistas", cat: "area", fator: 24200, padroes: /^(alqueires?)$/ },
+  { id: "GB", nome: "GB", cat: "dados", fator: 1e9, padroes: /^(gb|gigas?|gigabytes?)$/ },
+  { id: "MB", nome: "MB", cat: "dados", fator: 1e6, padroes: /^(mb|megas?|megabytes?)$/ },
+  { id: "TB", nome: "TB", cat: "dados", fator: 1e12, padroes: /^(tb|teras?|terabytes?)$/ },
+  { id: "KB", nome: "KB", cat: "dados", fator: 1e3, padroes: /^(kb|kilobytes?)$/ },
+  { id: "h", nome: "horas", cat: "tempo", fator: 3600, padroes: /^(h|horas?)$/ },
+  { id: "min", nome: "minutos", cat: "tempo", fator: 60, padroes: /^(min|minutos?)$/ },
+  { id: "s", nome: "segundos", cat: "tempo", fator: 1, padroes: /^(s|seg|segundos?)$/ },
+  { id: "d", nome: "dias", cat: "tempo", fator: 86400, padroes: /^(d|dias?)$/ },
+  { id: "sem", nome: "semanas", cat: "tempo", fator: 604800, padroes: /^(semanas?)$/ },
+];
+const unidade = (palavra: string) => UNIDADES.find((u) => u.padroes.test(palavra.trim()));
+
+export interface Conversao { valor: number; de: string; para: string; cat: Categoria }
+
+/** "converte 5 km em milhas", "quanto é 100 °F em celsius", "30 kg em libras". null = não é conversão. Pura. */
+export function unidadesDoConversor(textoNorm: string): Conversao | null {
+  const t = norm(textoNorm).replace(/°/g, " ").replace(/\s+/g, " ");
+  const m = /(-?\d+(?:[.,]\d+)?)\s*([a-z\/²2]+(?: (?:por hora|por segundo|quadrados?|de sopa|celsius|fahrenheit))?)\s+(?:em|para|pra|to)\s+([a-z\/²2]+(?: (?:por hora|por segundo|quadrados?|de sopa))?)/.exec(t);
+  if (!m) return null;
+  const de = unidade(m[2]), para = unidade(m[3]);
+  if (!de || !para || de.cat !== para.cat || de.id === para.id) return null;
+  return { valor: Number(m[1].replace(",", ".")), de: de.id, para: para.id, cat: de.cat };
+}
+
+/** Converter na hora (usado nos testes; a tela faz o mesmo nas expressões). Pura. */
+export function converter(valor: number, de: string, para: string): number {
+  const a = UNIDADES.find((u) => u.id === de)!, b = UNIDADES.find((u) => u.id === para)!;
+  if (a.cat === "temperatura") {
+    const c = de === "C" ? valor : de === "F" ? (valor - 32) * 5 / 9 : valor - 273.15;
+    return para === "C" ? c : para === "F" ? c * 9 / 5 + 32 : c + 273.15;
+  }
+  return (valor * a.fator) / b.fator;
+}
+
+/** A expressão da linguagem que converte `$valor` (na unidade `de`) para `para`. Pura. */
+function expressaoConversao(de: string, para: string): string {
+  const a = UNIDADES.find((u) => u.id === de)!, b = UNIDADES.find((u) => u.id === para)!;
+  if (a.cat === "temperatura") {
+    const c = de === "C" ? "$valor" : de === "F" ? "(($valor - 32) * 5 / 9)" : "($valor - 273.15)";
+    return para === "C" ? c : para === "F" ? `(${c} * 9 / 5 + 32)` : `(${c} + 273.15)`;
+  }
+  return `($valor * ${num(a.fator / b.fator)})`;
+}
+
+export function programaConversor(c: Conversao): string {
+  const de = UNIDADES.find((u) => u.id === c.de)!, para = UNIDADES.find((u) => u.id === c.para)!;
+  const outras = UNIDADES.filter((u) => u.cat === c.cat && u.id !== c.de).slice(0, 8);
+  const casas = (u: Unidade) => (u.cat === "temperatura" || u.cat === "tempo" ? 1 : 3);
+  const linhas = outras.map((u) => `[${s(u.nome)}, @Format(${expressaoConversao(c.de, u.id)}, "number", ${casas(u)})]`);
+  const titulos: Record<Categoria, string> = { comprimento: "comprimento", massa: "peso", temperatura: "temperatura", volume: "volume", velocidade: "velocidade", area: "área", dados: "dados", tempo: "tempo" };
+  return `root = Col([topo, resultado, Input($valor, ${s(`Valor em ${de.nome}`)}, "number"), tabela])
+$valor = ${num(c.valor)}
+topo = Hero(${s(`Converter ${titulos[c.cat]}`)}, ${s(`${de.nome} → ${para.nome}`)}, "gauge", ${s(tomDe(c.cat))})
+resultado = Card([Caption(${s(`${de.nome} em ${para.nome}`)}), Title(@Format(${expressaoConversao(c.de, c.para)}, "number", ${casas(para)}) + " " + ${s(para.nome)}, "2xl", ${s(tomDe(c.cat))})], "soft", 3)
+tabela = Card([Caption("Em outras unidades"), Table(["Unidade", "Valor"], [${linhas.join(", ")}])], "soft", 3)`;
 }
 
 // ── números do texto ────────────────────────────────────────────────────────────────────
@@ -159,6 +256,28 @@ const esquemas = {
     })).min(2).max(40),
     dicas: z.array(texto(200)).max(8).default([]),
   }),
+  receita: z.object({
+    titulo, foto: z.string().max(60).optional(),
+    porcoes: z.number().int().min(1).max(50).default(4),
+    tempo: z.string().max(20).optional(), dificuldade: z.string().max(20).optional(),
+    ingredientes: z.array(z.object({ nome: texto(80), qtd: z.number().finite().positive().optional(), unidade: z.string().max(20).optional() })).min(2).max(30),
+    passos: z.array(z.object({ texto: texto(300), tempo: z.string().max(20).optional() })).min(2).max(20),
+    dicas: z.array(texto(200)).max(5).default([]),
+  }),
+  treino: z.object({
+    titulo, objetivo: z.string().max(120).optional(), duracao: z.string().max(20).optional(),
+    blocos: z.array(z.object({
+      nome: texto(40),
+      exercicios: z.array(z.object({ nome: texto(60), series: z.number().int().min(1).max(20).optional(), reps: z.string().max(20).optional(), descanso: z.string().max(20).optional(), dica: z.string().max(140).optional() })).min(1).max(12),
+    })).min(1).max(6),
+    dica: z.string().max(240).optional(),
+  }),
+  resumo: z.object({
+    titulo, essencia: texto(300),
+    topicos: z.array(z.object({ titulo: texto(60), texto: texto(400) })).min(2).max(10),
+    termos: z.array(z.object({ termo: texto(40), definicao: texto(200) })).max(8).default([]),
+    lembre: z.string().max(240).optional(),
+  }),
   cronograma: z.object({
     titulo,
     dias: z.array(z.object({ dia: texto(30), itens: z.array(z.object({ hora: z.string().max(12).default(""), tarefa: texto(160), duracao: z.string().max(20).optional() })).min(1).max(14) })).min(1).max(7),
@@ -177,6 +296,9 @@ const FORMATOS: Record<TipoComDados, string> = {
   quiz: `{"tema": string, "perguntas": [{"pergunta": string, "opcoes": [string] (3 ou 4), "certa": number (índice da certa, começando em 0), "explicacao": string (uma frase)}] (5 a 8)}`,
   checklist: `{"titulo": string, "grupos": [{"nome": string (pode ser ""), "itens": [string] (com quantidade quando fizer sentido, ex.: "3 camisetas")}] (1 a 8 grupos)}`,
   roteiro: `{"titulo": string, "resumo"?: string, "cidade": string (a cidade ou região principal), "paradas": [{"dia"?: string (ex.: "Dia 1 · Gramado", só em viagem de vários dias), "hora": string (ex.: "9h"), "lugar": string, "descricao": string (1–2 frases úteis: o que fazer, o que provar, por que vale), "foto": string (nome do lugar + cidade), "custo"?: number (reais por pessoa, aproximado), "duracao"?: string (ex.: "1h30"), "transporte"?: string (como chegar da parada anterior)}] (3 a 8 por dia; TODOS os dias pedidos), "dicas": [string] (até 6)}`,
+  receita: `{"titulo": string, "foto": string (nome do prato para buscar foto), "porcoes": number, "tempo"?: string (ex.: "40 min"), "dificuldade"?: string ("fácil", "média", "difícil"), "ingredientes": [{"nome": string, "qtd"?: number (para as porções indicadas), "unidade"?: string (ex.: "g", "xícara", "colher de sopa")}] (todos), "passos": [{"texto": string, "tempo"?: string}] (todos, na ordem), "dicas": [string] (até 4)}`,
+  treino: `{"titulo": string, "objetivo"?: string, "duracao"?: string (ex.: "50 min"), "blocos": [{"nome": string (ex.: "Aquecimento", "Pernas", "Core"), "exercicios": [{"nome": string, "series"?: number, "reps"?: string (ex.: "12" ou "30 s"), "descanso"?: string, "dica"?: string (postura, em uma frase)}]}] (1 a 6), "dica"?: string}`,
+  resumo: `{"titulo": string, "essencia": string (a ideia central em 1–2 frases), "topicos": [{"titulo": string, "texto": string (2–3 frases claras)}] (3 a 8), "termos": [{"termo": string, "definicao": string}] (até 6, os conceitos-chave), "lembre"?: string (o que não pode esquecer)}`,
   cronograma: `{"titulo": string, "dias": [{"dia": string (ex.: "Segunda"), "itens": [{"hora": string, "tarefa": string, "duracao"?: string}]}] (1 a 7; todos os dias pedidos), "nota"?: string}`,
 };
 
@@ -439,6 +561,47 @@ function programaCronograma(d: Dados<"cronograma">): string {
   return `root = Col([${hero}, StatRow([Stat("Dias", ${s(String(d.dias.length))}, "calendar-days"), Stat("Tarefas", ${s(String(tarefas))}, "list-checks"), Stat("Por dia", ${s(String(Math.round(tarefas / d.dias.length)))}, "gauge")]), WeekGrid(${dias})${nota}])`;
 }
 
+function programaReceita(d: Dados<"receita">): string {
+  const base = d.porcoes;
+  const vars: string[] = [];
+  const ing = d.ingredientes.map((x, i) => {
+    vars.push(`$i${i} = false`);
+    const qtd = x.qtd ? `@Format(${num(x.qtd)} * $porcoes / ${base}, "number", 1) + ${s(` ${x.unidade ?? ""} `.replace(/\s+/g, " "))} + ` : "";
+    return `Checkbox($i${i}, ${qtd}${s(x.nome)}, true)`;
+  });
+  const passos = d.passos.map((p, i) => `TimelineItem(${s(`Passo ${i + 1}`)}, ${s(p.texto)}, ${s(p.tempo ?? "")})`);
+  const stats = [`Stat("Porções", $porcoes + "", "users")`, d.tempo ? `Stat("Tempo", ${s(d.tempo)}, "clock")` : "", d.dificuldade ? `Stat("Dificuldade", ${s(d.dificuldade)}, "chef-hat")` : ""].filter(Boolean);
+  return `root = Col([capa, StatRow([${stats.join(", ")}]), Slider($porcoes, 1, ${Math.max(12, base * 3)}, 1, "Porções", ""), Tabs(["Ingredientes", "Modo de preparo"], [ingredientes, preparo])${d.dicas.length ? ", dicas" : ""}])
+$porcoes = ${base}
+capa = ImageCard(${s(d.foto || d.titulo)}, ${s(d.titulo)}, ${s(`${d.ingredientes.length} ingredientes · ${d.passos.length} passos`)})
+ingredientes = Card([Caption("Marque o que já separou"), ${ing.join(", ")}], "soft", 3, 1)
+preparo = Timeline([${passos.join(", ")}])${d.dicas.length ? `\ndicas = Section(${s("Dicas")}, [${d.dicas.map((t) => `Callout(${s(t)}, "dica")`).join(", ")}], true, "lightbulb")` : ""}
+${vars.join("\n")}`;
+}
+
+function programaTreino(d: Dados<"treino">): string {
+  let k = 0;
+  const vars: string[] = [];
+  const blocos = d.blocos.map((b) => `Col([${b.exercicios.map((x) => {
+    const v = `$e${k++}`; vars.push(`${v} = false`);
+    const meta = [x.series && x.reps ? `${x.series}×${x.reps}` : x.series ? `${x.series} séries` : x.reps ?? "", x.descanso ? `descanso ${x.descanso}` : ""].filter(Boolean).join(" · ");
+    return `Checkbox(${v}, ${s(meta ? `${x.nome} — ${meta}` : x.nome)}, true)${x.dica ? `, Text(${s(x.dica)}, "sm", "muted")` : ""}`;
+  }).join(", ")}], 2)`);
+  const feitos = Array.from({ length: k }, (_, i) => `($e${i} ? 1 : 0)`).join(" + ");
+  const corpo = d.blocos.length > 1 ? `Tabs([${d.blocos.map((b) => s(b.nome.slice(0, 14))).join(", ")}], [${blocos.join(", ")}])` : `Card([Title(${s(d.blocos[0].nome)}, "md"), ${blocos[0]}], "soft", 3)`;
+  return `root = Col([topo, StatRow([Stat("Exercícios", ${s(String(k))}, "dumbbell"), Stat("Blocos", ${s(String(d.blocos.length))}, "layers")${d.duracao ? `, Stat("Duração", ${s(d.duracao)}, "clock")` : ""}]), Progress(feitos, ${k}, "Feitos"), ${corpo}${d.dica ? `, Callout(${s(d.dica)}, "dica")` : ""}, Celebration(feitos == ${k})])
+feitos = ${feitos}
+topo = Hero(${s(d.titulo)}, ${s(d.objetivo || `${k} exercícios`)}, "dumbbell", ${s(tomDe(d.titulo))})
+${vars.join("\n")}`;
+}
+
+function programaResumo(d: Dados<"resumo">): string {
+  const topicos = d.topicos.map((t, i) => `Card([Row([Badge(${s(String(i + 1))}, "neutral"), Title(${s(t.titulo)}, "md")], 2, "center"), Text(${s(t.texto)}, "sm")], "soft", 3, 1)`);
+  const termos = d.termos.length ? `, Section(${s(`Termos-chave (${d.termos.length})`)}, [Table(["Termo", "O que é"], [${d.termos.map((t) => `[${s(t.termo)}, ${s(t.definicao)}]`).join(", ")}])], ${d.termos.length <= 4}, "book-open")` : "";
+  return `root = Col([topo, Callout(${s(d.essencia)}, "insight", null, "Em uma frase"), ${topicos.join(", ")}${termos}${d.lembre ? `, Callout(${s(d.lembre)}, "alerta", null, "Não esqueça")` : ""}])
+topo = Hero(${s(d.titulo)}, ${s(`${d.topicos.length} pontos principais`)}, "file-text", ${s(tomDe(d.titulo))})`;
+}
+
 /** Os dados validados viram o programa. Pura. */
 export function programaPronto<T extends TipoComDados>(tipo: T, dados: Dados<T>): string {
   switch (tipo) {
@@ -448,6 +611,9 @@ export function programaPronto<T extends TipoComDados>(tipo: T, dados: Dados<T>)
     case "quiz": return programaQuiz(dados as Dados<"quiz">);
     case "checklist": return programaChecklist(dados as Dados<"checklist">);
     case "roteiro": return programaRoteiro(dados as Dados<"roteiro">);
+    case "receita": return programaReceita(dados as Dados<"receita">);
+    case "treino": return programaTreino(dados as Dados<"treino">);
+    case "resumo": return programaResumo(dados as Dados<"resumo">);
     default: return programaCronograma(dados as Dados<"cronograma">);
   }
 }

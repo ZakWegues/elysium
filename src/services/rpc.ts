@@ -286,6 +286,10 @@ function perfilDoCelular(c: AppConfig) {
 let aplicadorDeConfig: ((patch: Partial<AppConfig>) => Promise<void>) | null = null;
 export function definirAplicadorDeConfig(fn: (patch: Partial<AppConfig>) => Promise<void>): void { aplicadorDeConfig = fn; }
 
+/** 14/11: quem marca na tela do PC (o main, a bolota) — o celular pede "circula o YouTube no PC". */
+let marcadorNaTela: ((texto: string) => Promise<{ marcou: number; fala: string } | null>) | null = null;
+export function definirMarcadorNaTela(fn: (texto: string) => Promise<{ marcou: number; fala: string } | null>): void { marcadorNaTela = fn; }
+
 const METHODS: Record<string, MethodDef> = {
   // — sistema —
   "system.telemetry": {
@@ -1614,6 +1618,17 @@ const METHODS: Record<string, MethodDef> = {
       if (!origem || !linhas.length) throw new RpcError(400, "origem e linhas são obrigatórios");
       for (const l of linhas) console.log(`[celular] ${origem}: ${mascarar(l.replace(/\s+/g, " ").slice(0, 300))}`);
       return { registradas: linhas.length };
+    },
+  },
+  // 14/11: "circula o YouTube no PC" pelo celular — a bolota do PC marca na tela dele.
+  "bolota.marcar": {
+    handler: async (params) => {
+      const texto = typeof params.texto === "string" ? params.texto.trim().slice(0, 300) : "";
+      if (!texto) throw new RpcError(400, "\"texto\" é obrigatório");
+      if (!marcadorNaTela) throw new RpcError(503, "a bolota não está pronta");
+      const r = await marcadorNaTela(texto);
+      if (!r) throw new RpcError(400, "isso não é um pedido de marcar na tela (ex.: \"circula o YouTube\")");
+      return r;
     },
   },
   // "Saúde do ELYSIUM" (fase 12): o que está quebrado, com o conserto de um clique.

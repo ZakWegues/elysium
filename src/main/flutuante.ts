@@ -132,6 +132,8 @@ export interface AcoesFlutuante {
   digitar(texto: string): void;
   parar(): void;
   confirmar?(id: string, sim: boolean): void;
+  telaGrande?(programa: string): void;
+  salvarTela?(programa: string): void;
 }
 
 export function registrarIpcFlutuante(acoes: AcoesFlutuante): void {
@@ -151,6 +153,9 @@ export function registrarIpcFlutuante(acoes: AcoesFlutuante): void {
   ipcMain.on("flutuante:abrir-link", (e, url: unknown) => {
     if (deLa(e) && typeof url === "string" && /^https:\/\/[^\s]+$/.test(url) && url.length < 2000) void shell.openExternal(url);
   });
+  // 14/11: a tela gerada na bolota — abrir grande (no ELYSIUM) e salvar.
+  ipcMain.on("flutuante:tela-grande", (e, programa: unknown) => { if (deLa(e) && typeof programa === "string" && programa.length < 200_000) acoes.telaGrande?.(programa); });
+  ipcMain.on("flutuante:salvar-tela", (e, programa: unknown) => { if (deLa(e) && typeof programa === "string" && programa.length < 200_000) acoes.salvarTela?.(programa); });
   ipcMain.on("flutuante:digitar", (e, texto: unknown) => {
     if (!deLa(e)) return;
     // Mandou: a camada volta a não ter foco (o pedido age no programa dele, que o main traz de volta).

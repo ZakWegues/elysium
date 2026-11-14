@@ -135,6 +135,13 @@
   .cartao.fixo { border-color: color-mix(in srgb, var(--a) 55%, rgba(255,255,255,.1)); }
   .cartao.fixo .bt.fix svg { stroke: var(--a2); fill: color-mix(in srgb, var(--a) 40%, transparent); }
   .cartao .corpo { padding: 2px 15px 13px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.18) transparent; overscroll-behavior: contain; }
+  /* 14/11: tela gerada na bolota: cartão mais largo e as ações embaixo. */
+  .cartao.larga { width: 520px; }
+  .acoes-tela { display: flex; gap: 6px; margin-top: 8px; }
+  .acao-tela { flex: 1; height: 30px; border-radius: 10px; border: 1px solid rgba(255,255,255,.12); background: rgba(255,255,255,.05);
+    color: var(--texto); font: 600 12px/1 inherit; cursor: pointer; transition: background .15s; }
+  .acao-tela:hover { background: rgba(255,255,255,.11); }
+  .acao-tela:disabled { opacity: .6; cursor: default; }
   .cartao.mini { width: auto; max-width: 260px; }
   .cartao.mini .corpo { display: none; }
   .cartao.mini .cab { padding-bottom: 7px; }

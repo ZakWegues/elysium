@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { semAcento } from "./texto";
-import { lerDados, numerosDaConta, numerosDeFinanciamento, pedidoDosDados, programaConta, programaFinanciamento, pedidoRico, programaPronto, semModelo, sistemaDosDados, tipoDeTelaPronta, type TipoComDados, type TipoPronto } from "./telasProntas";
+import { lerDados, numerosDaConta, numerosDeFinanciamento, pedidoDosDados, programaConta, programaConversor, programaFinanciamento, pedidoRico, programaPronto, semModelo, sistemaDosDados, tipoDeTelaPronta, unidadesDoConversor, type TipoComDados, type TipoPronto } from "./telasProntas";
 
 /**
  * Telas inteligentes (Fase 2, 22/10) — a resposta da Ely vira uma tela interativa (OpenUI Lang),
@@ -147,7 +147,9 @@ async function telaPronta(
   };
   if (semModelo(tipo)) {
     const texto = `${pergunta}\n${resposta}`;
-    return pronto(tipo === "financiamento" ? programaFinanciamento(numerosDeFinanciamento(texto)) : programaConta(numerosDaConta(texto)), 0, "pronta", null);
+    const conv = tipo === "conversor" ? unidadesDoConversor(pergunta) : null;
+    if (tipo === "conversor" && !conv) return null;
+    return pronto(conv ? programaConversor(conv) : tipo === "financiamento" ? programaFinanciamento(numerosDeFinanciamento(texto)) : programaConta(numerosDaConta(texto)), 0, "pronta", null);
   }
   const t = tipo as TipoComDados;
   const conversa = await ouCancela(gerador(sistemaDosDados(t)).catch(() => null));

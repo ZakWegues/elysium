@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { carregarValidador } from "../src/services/telaInteligente";
 import {
-  lerDados, numerosDaConta, numerosDeFinanciamento, programaConta, programaFinanciamento, programaPronto, sistemaDosDados, tipoDeTelaPronta,
+  converter, lerDados, numerosDaConta, numerosDeFinanciamento, programaConta, programaConversor, programaFinanciamento, programaPronto, sistemaDosDados, tipoDeTelaPronta, unidadesDoConversor,
   type TipoComDados,
 } from "../src/services/telasProntas";
 
@@ -27,6 +27,12 @@ describe("telas prontas: qual tela (24/10)", () => {
       ["roteiro de um dia no centro de Recife", "roteiro"],
       ["Quero que você gere um mapa do centro", "roteiro"],
       ["monta um cronograma de estudos pra semana", "cronograma"],
+      ["me passa a receita de bolo de cenoura", "receita"],
+      ["como fazer brigadeiro", "receita"],
+      ["monta um treino de pernas pra academia", "treino"],
+      ["faz um resumo da Revolução Francesa", "resumo"],
+      ["converte 5 km em milhas", "conversor"],
+      ["quanto é 100 F em celsius", "conversor"],
       ["qual a capital da França?", null],
       ["me explica fotossíntese", null],
     ];
@@ -44,6 +50,18 @@ describe("telas prontas: qual tela (24/10)", () => {
 });
 
 describe("telas prontas: os programas passam no validador do renderer (24/10)", () => {
+  it("conversor: unidades do pedido, conta certa e tela válida", () => {
+    expect(unidadesDoConversor("converte 5 km em milhas")).toMatchObject({ valor: 5, de: "km", para: "mi", cat: "comprimento" });
+    expect(unidadesDoConversor("quanto é 100 F em celsius")).toMatchObject({ de: "F", para: "C" });
+    expect(unidadesDoConversor("2,5 kg em libras")).toMatchObject({ valor: 2.5, de: "kg", para: "lb" });
+    expect(unidadesDoConversor("5 km em kg")).toBeNull();
+    expect(unidadesDoConversor("quero 3 pizzas em casa")).toBeNull();
+    expect(converter(100, "F", "C")).toBeCloseTo(37.78, 2);
+    expect(converter(5, "km", "mi")).toBeCloseTo(3.107, 3);
+    expect(valida(programaConversor(unidadesDoConversor("converte 5 km em milhas")!))).toBe("ok");
+    expect(valida(programaConversor(unidadesDoConversor("quanto é 100 F em celsius")!))).toBe("ok");
+  });
+
   it("instantâneas", () => {
     expect(valida(programaFinanciamento({ valor: 300000, taxaAno: 10, meses: 360 }))).toBe("ok");
     expect(valida(programaConta({ total: 240, pessoas: 4, servico: 10 }))).toBe("ok");
@@ -56,6 +74,9 @@ describe("telas prontas: os programas passam no validador do renderer (24/10)", 
     quiz: { tema: "História do Brasil", perguntas: [{ pergunta: "Em que ano foi a Independência?", opcoes: ["1500", "1822", "1889"], certa: 1, explicacao: "7 de setembro de 1822." }, { pergunta: "Quem proclamou a República?", opcoes: ["Deodoro", "Getúlio"], certa: 0, explicacao: "Deodoro da Fonseca, 1889." }, { pergunta: "Capital antes de Brasília?", opcoes: ["Salvador", "Rio de Janeiro"], certa: 1 }] },
     checklist: { titulo: "Viagem para a praia", grupos: [{ nome: "Roupas", itens: ["Biquíni", "Chinelo"] }, { nome: "", itens: ["Protetor \"FPS 50\""] }] },
     roteiro: { titulo: "Um dia no centro de Recife", cidade: "Recife", paradas: [{ hora: "9h", lugar: "Pinacoteca", descricao: "Abre cedo e é perto da Luz.", foto: "Pinacoteca Recife" }, { hora: "12h", lugar: "Mercado Municipal", descricao: "Sanduíche de mortadela." }], dicas: ["Vá de metrô."] },
+    receita: { titulo: "Bolo de cenoura", foto: "bolo de cenoura com chocolate", porcoes: 8, tempo: "50 min", dificuldade: "fácil", ingredientes: [{ nome: "cenouras médias", qtd: 3 }, { nome: "farinha de trigo", qtd: 2, unidade: "xícaras" }, { nome: "sal" }], passos: [{ texto: "Bata as cenouras com os ovos e o óleo.", tempo: "5 min" }, { texto: "Asse a 180 °C.", tempo: "40 min" }], dicas: ["Use cenoura bem laranja."] },
+    treino: { titulo: "Treino de pernas", objetivo: "Força e resistência", duracao: "50 min", blocos: [{ nome: "Aquecimento", exercicios: [{ nome: "Bicicleta", reps: "5 min" }] }, { nome: "Pernas", exercicios: [{ nome: "Agachamento", series: 4, reps: "12", descanso: "60 s", dica: "Joelho na linha do pé." }, { nome: "Leg press", series: 3, reps: "15" }] }], dica: "Beba água." },
+    resumo: { titulo: "Revolução Francesa", essencia: "Fim do absolutismo na França e ascensão da burguesia.", topicos: [{ titulo: "Causas", texto: "Crise fiscal e desigualdade." }, { titulo: "Fases", texto: "Assembleia, Convenção e Diretório." }], termos: [{ termo: "Jacobinos", definicao: "Grupo radical." }], lembre: "1789: queda da Bastilha." },
     cronograma: { titulo: "Semana de estudos", dias: [{ dia: "Segunda", itens: [{ hora: "19h", tarefa: "Bioquímica" }] }, { dia: "Terça", itens: [{ tarefa: "Revisão" }] }], nota: "Uma hora por dia." },
   };
 

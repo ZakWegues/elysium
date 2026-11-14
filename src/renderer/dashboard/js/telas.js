@@ -470,6 +470,11 @@ async function gerarAqui(ctrl, pergunta, resposta) {
   else ctrl.falhar(r?.erro ?? "Não consegui montar a tela agora.");
 }
 
+// 14/11: "Abrir grande" na tela da bolota: a tela cheia daqui, com salvar e mandar pro celular.
+window.nx.onAbrirTelaCheia?.((x) => {
+  if (x && typeof x.programa === "string" && x.programa) abrirTelaCheia({ programa: x.programa, estado: null, salvaId: null, iframe: null });
+});
+
 // ── geração vinda do main (oferta aceita, "priorizar", pedido explícito) ────────────────
 const telasGerando = new Map();
 window.nx.onChatTela?.((x) => {

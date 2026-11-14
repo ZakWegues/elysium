@@ -1030,6 +1030,21 @@
     f.title = "Tela da Ely";
     f.src = "ui/render.html";
     c.appendChild(f);
+    // 14/11: a tela na bolota é maior e tem "abrir grande" (tela cheia no ELYSIUM) e "salvar".
+    c.parentElement?.classList.add("larga");
+    // A coluna acompanha a largura (e entra na tela, se for passar da borda).
+    const col = c.parentElement?.parentElement;
+    if (col?.classList.contains("coluna")) {
+      col.style.width = "520px";
+      const x = parseFloat(col.style.left) || 0;
+      if (x + 520 > telaW - 16) col.style.left = `${Math.max(16, telaW - 16 - 520)}px`;
+    }
+    const acoes = el("div", "acoes-tela");
+    const grande = el("button", "acao-tela", "Abrir grande"), salvar = el("button", "acao-tela", "Salvar");
+    grande.addEventListener("click", () => window.ely.telaGrande(programa));
+    salvar.addEventListener("click", () => { window.ely.salvarTela(programa); salvar.textContent = "Salva ✓"; salvar.disabled = true; });
+    acoes.append(grande, salvar);
+    c.appendChild(acoes);
     const ctrl = { iframe: f, programa, cargas: 0 };
     telas.set(f.contentWindow, ctrl);
     f.addEventListener("load", () => {

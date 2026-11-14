@@ -22,4 +22,6 @@ contextBridge.exposeInMainWorld("ely", {
   digitar: (texto: string) => ipcRenderer.send("flutuante:digitar", String(texto ?? "")),
   confirmar: (id: string, sim: boolean) => ipcRenderer.send("flutuante:confirmacao", String(id), sim === true),
   abrir: (url: string) => ipcRenderer.send("flutuante:abrir-link", String(url ?? "")),
+  telaGrande: (programa: string) => ipcRenderer.send("flutuante:tela-grande", String(programa ?? "")),
+  salvarTela: (programa: string) => ipcRenderer.send("flutuante:salvar-tela", String(programa ?? "")),
 });
