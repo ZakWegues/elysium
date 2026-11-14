@@ -22,6 +22,7 @@ import * as path from "node:path";
  *   FOCADO                → OK <base64 {i,t,n,v,editavel,pid,x,y,w,h}>  (o campo com o cursor: o "aqui")
  *   FOCAR <i>             → OK
  *   NOPONTO <x> <y>       → OK <pid>          (de quem é o que está nesse ponto da tela)
+ *   TECLA <vk>            → OK 1|0            (a tecla está apertada agora? — segurar o atalho)
  *   MOSTRAR <i>           → OK x y w h       (rola até ele aparecer; onde está agora)
  *   VALORDE <i>           → OK <base64 do texto> | OK !   (para conferir o que ficou escrito)
  *   PREENCHER <i> <b64>   → OK <base64 do valor depois> | OK !   (! = sem ValuePattern)
@@ -36,7 +37,7 @@ $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
 Add-Type @"
 using System; using System.Runtime.InteropServices;
-public class NxUia { [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h); [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr h, int c); [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr h); [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow(); [DllImport("user32.dll")] public static extern void keybd_event(byte k, byte s, uint f, UIntPtr e); [DllImport("user32.dll")] public static extern bool SetProcessDPIAware(); [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y); [DllImport("user32.dll")] public static extern void mouse_event(uint f, int x, int y, uint d, UIntPtr e); }
+public class NxUia { [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h); [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr h, int c); [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr h); [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow(); [DllImport("user32.dll")] public static extern void keybd_event(byte k, byte s, uint f, UIntPtr e); [DllImport("user32.dll")] public static extern bool SetProcessDPIAware(); [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y); [DllImport("user32.dll")] public static extern void mouse_event(uint f, int x, int y, uint d, UIntPtr e); [DllImport("user32.dll")] public static extern short GetAsyncKeyState(int vk); }
 "@
 # Pixels físicos dos dois lados: a UIA já dá físicos; o SetCursorPos (CLICAR_EM) também precisa.
 [void][NxUia]::SetProcessDPIAware()
@@ -174,6 +175,7 @@ while ($true) {
       'VALOR'  { $t = $UTF8.GetString([Convert]::FromBase64String($p[2])); $e = $global:els[[int]$p[1]]; try { $e.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue($t) } catch { $e.SetFocus(); [System.Windows.Forms.SendKeys]::SendWait($t) }; [Console]::Out.WriteLine('OK') }
       'FOCADO' { [Console]::Out.WriteLine('OK ' + (Focado)) }
       'NOPONTO' { $e = $A::FromPoint((New-Object System.Windows.Point([double]$p[1], [double]$p[2]))); [Console]::Out.WriteLine('OK ' + $(if ($e) { $e.Current.ProcessId } else { 0 })) }
+      'TECLA'  { [Console]::Out.WriteLine('OK ' + $(if (([NxUia]::GetAsyncKeyState([int]$p[1]) -band 0x8000) -ne 0) { 1 } else { 0 })) }
       'MOSTRAR' { $e = $global:els[[int]$p[1]]; try { $e.GetCurrentPattern([System.Windows.Automation.ScrollItemPattern]::Pattern).ScrollIntoView(); Start-Sleep -Milliseconds 120 } catch {}; $r = $e.Current.BoundingRectangle; [Console]::Out.WriteLine('OK ' + [int]$r.X + ' ' + [int]$r.Y + ' ' + [int]$r.Width + ' ' + [int]$r.Height) }
       'FOCAR'  { $global:els[[int]$p[1]].SetFocus(); [Console]::Out.WriteLine('OK') }
       'VALORDE' { $v = ValorDe $global:els[[int]$p[1]]; if ($v -eq $null) { [Console]::Out.WriteLine('OK !') } else { [Console]::Out.WriteLine('OK ' + (B64 $v)) } }
@@ -275,6 +277,8 @@ class UiaHost {
   }
   /** O processo dono do que está no ponto (pixels físicos) — para não clicar em outra janela por cima. */
   async noPonto(x: number, y: number): Promise<number> { return Number(await this.pedir(`NOPONTO ${Math.round(x)} ${Math.round(y)}`, 3_000)) || 0; }
+  /** A tecla (código virtual) está apertada agora? */
+  async teclaApertada(vk: number): Promise<boolean> { return (await this.pedir(`TECLA ${Math.trunc(vk)}`, 2_000)) === "1"; }
   /** Rola até o elemento aparecer e devolve onde ele está agora (pixels físicos). */
   async mostrar(i: number): Promise<{ x: number; y: number; w: number; h: number }> {
     const [x, y, w, h] = (await this.pedir(`MOSTRAR ${Math.trunc(i)}`, 4_000)).split(" ").map(Number);

@@ -27,19 +27,24 @@
   .bola { position: absolute; left: -25px; top: -25px; width: 50px; height: 50px; border-radius: 50%; cursor: pointer; }
   /* A bolota é um <canvas> maior que a área de clique: os pontos espalhados passam da bolinha. */
   .bola canvas { position: absolute; left: -35px; top: -35px; width: 120px; height: 120px; pointer-events: none; }
-  /* 13/11: falar de novo, digitar e fechar — no canto superior direito da bolota. */
-  .botoes-bola { position: absolute; left: 10px; top: -44px; display: flex; gap: 4px; }
-  .bb { width: 24px; height: 24px; border-radius: 50%; border: 1px solid rgba(255,255,255,.14); background: rgba(var(--ink), .86);
-    display: grid; place-items: center; padding: 0; cursor: pointer; opacity: .78; transition: opacity .15s, transform .15s, background .15s; }
-  .bb:hover { opacity: 1; transform: scale(1.08); background: rgba(var(--ink), .96); }
-  .bb svg { width: 12px; height: 12px; fill: none; stroke: var(--texto); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-  .bb.ativo { opacity: 1; background: color-mix(in srgb, var(--b) 45%, rgba(var(--ink), .9)); border-color: var(--b); animation: respiraBt 1.2s ease-in-out infinite; }
-  @keyframes respiraBt { 50% { transform: scale(1.12); } }
-  #palco.fechando .botoes-bola { opacity: 0; transition: opacity .14s ease; }
-  .lado { position: absolute; left: 34px; top: -20px; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; width: 340px; }
-  #ely.esq .lado { left: auto; right: 34px; align-items: flex-end; }
-  #ely.cima .lado { top: auto; bottom: -20px; flex-direction: column-reverse; }
+  /* 14/11 (o dono: "igual ao Roamies"): sem botões; o texto colado na bolota. O lado não pega o
+     mouse (escondido ele ficava por cima das telas e roubava o clique) — só o campo e o balão visíveis. */
+  .lado { position: absolute; left: 29px; top: -15px; display: flex; flex-direction: column; align-items: flex-start; gap: 5px; width: 340px; pointer-events: none; }
+  .lado .campo.ve, .lado .balao.ve { pointer-events: auto; }
+  #ely.esq .lado { left: auto; right: 29px; align-items: flex-end; }
+  #ely.cima .lado { top: auto; bottom: -15px; flex-direction: column-reverse; }
   .linha1 { display: flex; align-items: center; gap: 8px; }
+  /* Sem estado nem nível: a linha não ocupa espaço (o texto fica rente à bolota). */
+  .linha1:not(:has(.ve)) { display: none; }
+
+  /* O balão da resposta: colado na bolota, o texto chegando aos poucos; rola se for longo. */
+  .balao { max-width: 340px; max-height: 230px; overflow-y: auto; border-radius: 16px; padding: 8px 12px;
+    background: rgba(var(--ink), .88); border: 1px solid rgba(255,255,255,.11);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.10), 0 8px 22px rgba(0,0,0,.32);
+    scrollbar-width: thin; scrollbar-color: rgba(255,255,255,.2) transparent; overscroll-behavior: contain;
+    display: none; }
+  .balao.ve { display: block; animation: entra .2s cubic-bezier(.2,.9,.3,1.15); }
+  #palco.fechando .balao { opacity: 0; transition: opacity .14s ease; }
   #ely.esq .linha1 { flex-direction: row-reverse; }
 
   /* O que ela está fazendo: o texto novo entra por cima do velho, com um brilho que corre. */
@@ -242,12 +247,7 @@
   <div id="legenda" aria-live="polite"></div>
   <div id="cartoes"></div>
   <div id="ely">
-    <div class="bola interativo" id="bola" title="Clique para levar · segure e arraste para mover"><canvas id="bolota"></canvas></div>
-    <div class="botoes-bola">
-      <button class="bb interativo" id="btMic" title="Falar"><svg viewBox="0 0 16 16"><rect x="5.5" y="1.5" width="5" height="8.5" rx="2.5"/><path d="M3 8a5 5 0 0 0 10 0M8 13v2"/></svg></button>
-      <button class="bb interativo" id="btTeclado" title="Digitar"><svg viewBox="0 0 16 16"><rect x="1.5" y="4" width="13" height="8" rx="1.8"/><path d="M4 7h1M7 7h1M10 7h2M4.5 9.5h7"/></svg></button>
-      <button class="bb interativo" id="btFechar" title="Fechar"><svg viewBox="0 0 16 16"><path d="M4.5 4.5l7 7M11.5 4.5l-7 7"/></svg></button>
-    </div>
+    <div class="bola interativo" id="bola" title="Clique para escrever · segure e arraste para mover"><canvas id="bolota"></canvas></div>
     <div class="lado">
       <div class="linha1">
         <div class="nivel" id="nivel"><i></i><i></i><i></i><i></i><i></i></div>
@@ -255,6 +255,7 @@
       </div>
       <input class="campo interativo" id="campo" placeholder="Pergunte à Ely…" maxlength="4000" spellcheck="false">
       <div class="fala" id="fala"><div id="aovivo"></div></div>
+      <div class="balao interativo" id="balao"><div class="resp" id="balaoTexto"></div></div>
     </div>
   </div>
 </div>

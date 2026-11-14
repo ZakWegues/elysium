@@ -13,7 +13,9 @@
   const $ = (id) => document.getElementById(id);
   const palco = $("palco"), ely = $("ely"), bola = $("bola"), estadoEl = $("estado"), campo = $("campo"), cartoes = $("cartoes");
   const falaEl = $("fala"), aoVivoEl = $("aovivo"), nivelEl = $("nivel");
-  const btMic = $("btMic"), btFechar = $("btFechar"), btTeclado = $("btTeclado");
+  // 14/11 (o dono: "igual ao Roamies, sem botão de fechar nem de escrever"): a resposta vai num
+  // balão colado na bolota; fechar = esperar; clique nela = escrever; segurar = arrastar.
+  const balao = $("balao"), balaoTexto = $("balaoTexto");
   // 13/11 (pedido do dono): parada 7 s — sem ouvir, pensar, falar e sem o mouse em cima — some sozinha.
   const ESPERA_FECHAR_MS = 7_000;
   /**
@@ -61,7 +63,7 @@
   let telaW = innerWidth, telaH = innerHeight;
   const pos = { x: -999, y: -999 }, vel = { x: 0, y: 0 };
   let parada = false, seguindo = false, ultimoQuadro = 0;
-  /** "seguindo" | "levando" | "parada" | "arrastando" — ver quadroSeguir. */
+  /** "seguindo" | "parada" | "arrastando" — ver quadroSeguir. */
   let modo = "seguindo";
   const OFF = 34, RAIO_PEGA = 38, RAIO_SOLTA = 110;
   // Velocidade do cursor (px/s, suavizada): passar rápido por cima não "pega" a bolota (13/11, medido).
@@ -80,10 +82,10 @@
     ely.classList.toggle("esq", pos.x > telaW - 380);
     ely.classList.toggle("cima", pos.y > telaH - 220);
   }
-  /** A área clicável da bolota: ela mais a fileira de botões do canto. */
+  /** A área clicável da bolota. */
   function areaDaBola() {
-    const a = bola.getBoundingClientRect(), b = btMic.parentElement.getBoundingClientRect();
-    return { l: Math.min(a.left, b.left), t: Math.min(a.top, b.top), r: Math.max(a.right, b.right), b: Math.max(a.bottom, b.bottom) };
+    const a = bola.getBoundingClientRect();
+    return { l: a.left, t: a.top, r: a.right, b: a.bottom };
   }
   function quadroSeguir(agora) {
     if (!palco.classList.contains("aberto")) { seguindo = false; return; }
@@ -93,10 +95,12 @@
     if (agora - cursorEm > 60) { velX *= 0.8; velY *= 0.8; velCursor *= 0.8; }
     const d = Math.hypot(cursor.x - pos.x, cursor.y - pos.y);
     const sobre = sobreClicavel();
-    // 13/11 (pedido do dono): três jeitos — "seguindo" (abre assim, ao lado do cursor), "levando"
-    // (clicou nela: vai grudada no cursor até o próximo clique) e "parada" (onde ele largou ou
-    // arrastou; fica ali até fechar). Seguindo, ela ainda para quando o cursor chega nela devagar.
+    // Dois jeitos: "seguindo" (abre assim, ao lado do cursor) e "parada" (onde ele arrastou; fica
+    // ali até fechar). Seguindo, ela para quando o cursor chega nela ou vai para uma tela dela.
     if (modo === "seguindo") {
+      // 14/11: em cima de uma tela/balão (algo clicável que não é a bolota), ela espera — senão
+      // vinha atrás do cursor e ficava por cima do que ele queria clicar ou arrastar.
+      if (sobre && ultimoSobre && ultimoSobre !== bola) parada = true;
       // Para quando o cursor vem NA DIREÇÃO dela (senão ela "foge" e não dá para clicar nos botões).
       const vv = Math.hypot(velX, velY);
       const indo = vv > 25 && d > 1 && (velX * (pos.x - cursor.x) + velY * (pos.y - cursor.y)) / (vv * d) > 0.82; // até ~35°
@@ -113,12 +117,7 @@
       if (!parada && ((d < RAIO_PEGA && quieto) || (d < 80 && indo) || (sobre && quieto) || (dArea < 70 && indoArea) || (dArea < 14 && quieto))) parada = true;
       else if (parada && d > RAIO_SOLTA && dArea > 60 && !sobre && !arrastando && document.activeElement !== campo && !campo.classList.contains("ve")) parada = false;
     }
-    if (modo === "levando") {
-      const k = 520, c = 2 * Math.sqrt(k);
-      if (reduzir()) { pos.x = cursor.x; pos.y = cursor.y; }
-      else { vel.x += ((cursor.x - pos.x) * k - vel.x * c) * dt; vel.y += ((cursor.y - pos.y) * k - vel.y * c) * dt; pos.x += vel.x * dt; pos.y += vel.y * dt; }
-      moverEly();
-    } else if (modo === "seguindo" && !parada) {
+    if (modo === "seguindo" && !parada) {
       const alvo = alvoDaBolota();
       if (reduzir()) { pos.x = alvo.x; pos.y = alvo.y; }
       else {
@@ -129,7 +128,7 @@
       }
       moverEly();
     }
-    marcarMouse(sobre || modo === "levando");
+    marcarMouse(sobre);
     falaVisivel();
     requestAnimationFrame(quadroSeguir);
   }
@@ -158,7 +157,7 @@
     clearTimeout(timerFechar);
     timerFechar = setTimeout(() => {
       // Cartão fixado: a camada fica (com ele); a bolota some sozinha só sem nada fixado.
-      if (dentro || ocupada || falando || modo === "levando" || document.activeElement === campo || cartoes.querySelector(".cartao.fixo")) { adiarFechar(); return; }
+      if (dentro || ocupada || falando || document.activeElement === campo || cartoes.querySelector(".cartao.fixo")) { adiarFechar(); return; }
       window.ely.fechar();
     }, ESPERA_FECHAR_MS);
   }
@@ -353,8 +352,6 @@
     ocupada = s === "listening" || s === "processing";
     Bolota.estado(s);
     nivelEl.classList.toggle("ve", s === "listening");
-    btMic.classList.toggle("ativo", s === "listening");
-    btMic.title = s === "listening" ? "Terminei de falar" : "Falar";
     falaEl.classList.toggle("ouvindo", s === "listening");
     if (s === "listening") aoVivoEl.textContent = "";
     // "Pensando…" não apaga um estado mais específico que acabou de chegar ("Pesquisando…").
@@ -492,35 +489,43 @@
   /** Pergunta nova: some o que não está fixado. */
   function limpar() {
     for (const c of [...cartoes.children]) if (!c.classList.contains("fixo")) fecharCartao(c);
-    resposta = null;
+    esconderBalao();
     esperando.clear();
     coluna = null;
     limparMarcas();
   }
 
-  /** O cartão da resposta (o primeiro): pergunta em cima, texto chegando aos poucos. */
+  /**
+   * A resposta: 14/11 (o dono: "o texto fica muito longe da bolota") — num balão colado nela, como
+   * no Roamies, e não mais num cartão lá do lado. O texto chega aos poucos; os desenhos e telas
+   * continuam em cartões (arrastáveis).
+   */
   let resposta = null;
-  function cartaoResposta(pergunta) {
+  function cartaoResposta() {
     if (resposta) return resposta;
-    const corpo = novoCartao("Ely");
-    const c = corpo.parentElement;
-    const p = el("div", "pergunta", pergunta || "");
-    if (!pergunta) p.style.display = "none";
-    const t = el("div", "resp");
-    t.appendChild(el("span", "cursor"));
-    corpo.append(p, t);
-    resposta = { c, p, t, bruto: "", fechado: false };
+    balaoTexto.textContent = "";
+    balaoTexto.appendChild(el("span", "cursor"));
+    balao.classList.add("ve");
+    resposta = { c: balao, t: balaoTexto, bruto: "", fechado: false };
     return resposta;
+  }
+  function esconderBalao() {
+    balao.classList.remove("ve");
+    balaoTexto.textContent = "";
+    resposta = null;
   }
   /** Negrito do markdown vira <b>; o resto entra como texto (nada de HTML vindo do modelo). */
   function pintarTexto(alvo, bruto, comCursor) {
     alvo.textContent = "";
-    const limpo = bruto.replace(/^#{1,6}\s+/gm, "").replace(/^\s*[-*]\s+/gm, "• ");
+    // As cercas de código (```) não aparecem cruas no balão.
+    const limpo = bruto.replace(/^#{1,6}\s+/gm, "").replace(/^\s*[-*]\s+/gm, "• ").replace(/^\s*```\w*\s*$/gm, "");
     for (const [i, parte] of limpo.split(/\*\*/).entries()) {
       if (!parte) continue;
       alvo.appendChild(i % 2 ? el("b", null, parte) : document.createTextNode(parte));
     }
     if (comCursor) alvo.appendChild(el("span", "cursor"));
+    // O balão rola sozinho junto com o texto novo.
+    if (alvo === balaoTexto) balao.scrollTop = balao.scrollHeight;
   }
   let pintura = 0;
   function chegouPedaco(token) {
@@ -1065,27 +1070,18 @@
     const moveu = toque.moveu;
     toque = null;
     if (moveu) { modo = "parada"; return; }
-    // Clique: pega para levar, ou larga onde está.
-    modo = modo === "levando" ? "parada" : "levando";
+    // 14/11: clique = escrever (o campo abre do lado; ela fica parada enquanto ele digita).
+    parada = true;
     vel.x = vel.y = 0;
     Bolota.espalhar();
-    adiarFechar();
-  };
-  bola.addEventListener("pointerup", soltarBola);
-  bola.addEventListener("pointercancel", soltarBola);
-
-  // Os botões no canto da bolota: falar de novo (ou terminar de falar), digitar e fechar.
-  btMic.addEventListener("click", () => {
-    if (estadoAtual === "listening") window.ely.terminarFala();
-    else window.ely.ouvir();
-  });
-  btFechar.addEventListener("click", () => window.ely.fechar());
-  btTeclado.addEventListener("click", () => {
     campo.classList.add("ve");
     estadoEl.classList.remove("ve");
     window.ely.focar();
     setTimeout(() => campo.focus(), 30);
-  });
+    adiarFechar();
+  };
+  bola.addEventListener("pointerup", soltarBola);
+  bola.addEventListener("pointercancel", soltarBola);
   campo.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && campo.value.trim()) {
       const t = campo.value.trim();
@@ -1111,7 +1107,7 @@
     moverEly();
     // Os cartões fixados ficam; o resto da vez anterior sai.
     for (const c of [...cartoes.children]) if (!c.classList.contains("fixo")) c.remove();
-    resposta = null;
+    esconderBalao();
     esperando.clear();
     coluna = null;
     campo.classList.remove("ve");

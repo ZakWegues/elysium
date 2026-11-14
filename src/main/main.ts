@@ -685,23 +685,82 @@ async function guiarNaTela(pedido: string, meuToken: number): Promise<boolean> {
   }
 }
 
-/** Ctrl+Espaço: fechada → abre ao lado do cursor e já ouve; aberta → para tudo e fecha. */
-function alternarFlutuante(): void {
-  if (flutuanteAberto()) {
-    pararFlutuante();
-    fecharFlutuante();
-    return;
-  }
-  if (!hasApiKey()) { openConfigWindow(); return; }
-  if (!state.is("idle")) {
-    interruptAll();
-    interromperHermes();
-    state.set("idle");
-  }
+// ── Ctrl+Espaço da bolota (14/11, o jeito que o dono pediu) ─────────────────────────────
+//   segurar        → ouve enquanto segura e manda ao soltar;
+//   toque, fechada → abre em voz contínua (depois de responder, volta a ouvir);
+//   toque ouvindo  → manda o que ele falou;
+//   toque parada   → some.
+/** A bolota volta a ouvir sozinha depois de cada resposta (até fechar). */
+let bolotaContinua = false;
+/** Um toque/segurada sendo tratado: as repetições do Windows enquanto ele segura não contam. */
+let atalhoEmCurso = false;
+const VK_ESPACO = 0x20;
+const SEGURAR_MS = 280;
+
+function terminarFala(): void {
+  if (recorderWin && !recorderWin.isDestroyed()) recorderWin.webContents.send("finish-recording");
+}
+
+/** Abre a bolota ao lado do cursor (sem ouvir ainda). */
+function abrirBolota(): boolean {
+  if (!hasApiKey()) { openConfigWindow(); return false; }
+  if (!state.is("idle")) { interruptAll(); interromperHermes(); state.set("idle"); }
   abrirFlutuante(getConfig().theme, getConfig().movimento ?? "");
   uiaHost.aquecer();
   void lembrarJanelaDaFrente();
-  startListening().catch((e) => console.error("[flutuante] não consegui começar a ouvir:", e));
+  return true;
+}
+
+/** Ouve de novo na bolota (voz contínua): espera ele falar por um tempo; ninguém falou → ela some sozinha. */
+function ouvirNaBolota(): void {
+  setTimeout(() => {
+    if (!bolotaContinua || !flutuanteAberto() || !state.is("idle") || estaFalando()) return;
+    startListening({ esperarFalaMs: SILENCIO_LIVE_MS }).catch((e) => console.error("[flutuante] não consegui ouvir de novo:", e));
+  }, 350);
+}
+
+/** O Espaço ainda está apertado daqui a `ms`? (pela leitura do teclado no host de janelas) */
+async function aindaSegurando(ms: number): Promise<boolean> {
+  const fim = Date.now() + ms;
+  while (Date.now() < fim) {
+    if (!(await uiaHost.teclaApertada(VK_ESPACO).catch(() => false))) return false;
+    await new Promise((r) => setTimeout(r, 35));
+  }
+  return true;
+}
+async function esperarSoltar(): Promise<void> {
+  for (let i = 0; i < 1200; i++) { // até 60 s
+    if (!(await uiaHost.teclaApertada(VK_ESPACO).catch(() => false))) return;
+    await new Promise((r) => setTimeout(r, 50));
+  }
+}
+
+async function alternarFlutuante(): Promise<void> {
+  if (atalhoEmCurso) return;
+  atalhoEmCurso = true;
+  try {
+    const aberta = flutuanteAberto();
+    const ouvindo = state.is("listening");
+    // Fechada: aparece já, enquanto decide se é toque ou segurada.
+    if (!aberta && !abrirBolota()) return;
+    if (await aindaSegurando(SEGURAR_MS)) {
+      // Segurando: falar enquanto segura (o silêncio não corta) e mandar ao soltar.
+      bolotaContinua = false;
+      if (ouvindo) { cancelarGravacao(); state.set("idle"); }
+      else if (!state.is("idle")) { interruptAll(); interromperHermes(); state.set("idle"); }
+      await startListening({ segurar: true }).catch((e) => console.error("[flutuante] não consegui ouvir:", e));
+      await esperarSoltar();
+      terminarFala();
+      return;
+    }
+    if (!aberta) { bolotaContinua = true; await startListening().catch((e) => console.error("[flutuante] não consegui ouvir:", e)); return; }
+    if (ouvindo) { terminarFala(); return; }
+    pararFlutuante();
+    fecharFlutuante();
+  } finally {
+    await esperarSoltar();
+    atalhoEmCurso = false;
+  }
 }
 
 /** Pedido digitado na bolota: o guia de tela, senão o caminho de sempre (com o desenho). */
@@ -792,6 +851,7 @@ async function agirDireto(texto: string, meuToken: number): Promise<boolean> {
 
 /** Fechou a flutuante: a gravação sem mandar, a fala calada. */
 function pararFlutuante(): void {
+  bolotaContinua = false;
   if (state.is("listening")) { cancelarGravacao(); state.set("idle"); }
   else if (!state.is("idle")) { interruptAll(); interromperHermes(); state.set("idle"); }
 }
@@ -940,6 +1000,8 @@ ipcMain.on("audio-data", async (_event, buffer: Buffer) => {
     if (turnoAtual() === meuToken) state.set("idle");
     // Modo live: terminou o turno (ou não tinha pedido) — volta a ouvir.
     if (liveLigado) ouvirNoLive();
+    // 14/11: a bolota em voz contínua volta a ouvir depois de responder.
+    else if (bolotaContinua && flutuanteAberto()) ouvirNaBolota();
     // 19/10: ela perguntou algo — o microfone abre uns segundos para a resposta, sem "Ely".
     else if (perguntou && turnoAtual() === meuToken && getConfig().continuarConversa !== false) ouvirResposta();
   }
@@ -1907,11 +1969,12 @@ app.on("ready", async () => {
   registrarIpcFlutuante({
     digitar: (texto) => { void digitadoNaBolota(texto); },
     confirmar: (id, sim) => { const f = confirmacoes.get(id); confirmacoes.delete(id); f?.(sim); },
-    ouvir: () => { if (!state.is("idle")) { interruptAll(); interromperHermes(); state.set("idle"); } void lembrarJanelaDaFrente(); startListening().catch(() => {}); },
-    terminarFala: () => { if (recorderWin && !recorderWin.isDestroyed()) recorderWin.webContents.send("finish-recording"); },
     parar: pararFlutuante,
   });
   criarFlutuante();
+  // 14/11: o atalho da bolota lê o teclado (segurar × tocar) pelo host de janelas; sobe ele já,
+  // senão o primeiro Ctrl+Espaço esperaria ~1,4 s pela partida do PowerShell.
+  setTimeout(() => uiaHost.aquecer(), 5_000);
   if (cfg.atalhoFlutuante && !globalShortcut.register(cfg.atalhoFlutuante, alternarFlutuante)) {
     console.warn(`[flutuante] atalho ${cfg.atalhoFlutuante} ocupado por outro programa`);
     notify("ELYSIUM — Aviso", `O atalho ${cfg.atalhoFlutuante} da Ely flutuante está ocupado. Troque em Configurações.`);

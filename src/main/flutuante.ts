@@ -130,10 +130,8 @@ export function fecharFlutuante(): void {
 
 export interface AcoesFlutuante {
   digitar(texto: string): void;
-  ouvir(): void;
   parar(): void;
   confirmar?(id: string, sim: boolean): void;
-  terminarFala?(): void;
 }
 
 export function registrarIpcFlutuante(acoes: AcoesFlutuante): void {
@@ -145,9 +143,6 @@ export function registrarIpcFlutuante(acoes: AcoesFlutuante): void {
   // O teclado da bolota: agora sim pega o foco (para digitar).
   ipcMain.on("flutuante:focar", (e) => { if (deLa(e)) { janela!.setFocusable(true); janela!.setIgnoreMouseEvents(false); janela!.focus(); } });
   ipcMain.on("flutuante:fechar", (e) => { if (deLa(e)) { acoes.parar(); fecharFlutuante(); } });
-  ipcMain.on("flutuante:ouvir", (e) => { if (deLa(e)) acoes.ouvir(); });
-  // 13/11: o botão do microfone de novo, ouvindo = "terminei de falar" (manda o que gravou).
-  ipcMain.on("flutuante:terminar-fala", (e) => { if (deLa(e)) acoes.terminarFala?.(); });
   // 13/11: a resposta ao "posso fazer isso?" (ação destrutiva no guia de tela).
   ipcMain.on("flutuante:confirmacao", (e, id: unknown, sim: unknown) => {
     if (deLa(e) && typeof id === "string") acoes.confirmar?.(id, sim === true);
