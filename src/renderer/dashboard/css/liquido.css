@@ -8,20 +8,20 @@
 
 /* O desfoque que vem DEPOIS da lente: baixo nas barras (para o fundo entortado aparecer), maior
    nos menus e painéis onde se lê muito texto. Os botões usam o da receita (design.css). */
-#viewtabs, #input-bar, .chat-switch { --lq-blur: blur(8px) saturate(160%); }
+#vtabs-vidro, #input-bar, .chat-switch { --lq-blur: blur(8px) saturate(160%); }
 /* A lente do seletor segurado quase não desfoca: os nomes das abas têm de ler através dela. */
 #vtab-thumb { --lq-blur: saturate(130%); }
 #paleta, .modal-box, .pop, #preset-pop, .modo-pop, .bolha-menu, .tc-menu, #toast-el { --lq-blur: blur(22px) saturate(190%); }
 
-body.theme-gl :is(#viewtabs, .chat-switch) { background-color: rgba(var(--glass-ink), 0.34) !important; }
-body.theme-ely :is(#viewtabs, .chat-switch) { background-color: rgba(var(--glass-ink), 0.5) !important; }
+body.theme-gl :is(#vtabs-vidro, .chat-switch) { background-color: rgba(var(--glass-ink), 0.34) !important; }
+body.theme-ely :is(#vtabs-vidro, .chat-switch) { background-color: rgba(var(--glass-ink), 0.5) !important; }
 body.theme-gl :is(#paleta, .modal-box, .pop, #preset-pop, .modo-pop, .bolha-menu, .tc-menu, #toast-el) { background-color: rgba(var(--glass-ink), 0.6) !important; }
 body.theme-ely :is(#paleta, .modal-box, .pop, #preset-pop, .modo-pop, .bolha-menu, .tc-menu, #toast-el) { background-color: rgba(var(--glass-ink), 0.72) !important; }
 /* A caixa de digitar encosta no chat (fundo opaco): tinta grossa, senão ela vira uma janela viva
    para as manchas e a tela parece "cortada" (31/10). */
 body.theme-gl #input-bar, body.theme-ely #input-bar { background-color: rgba(var(--glass-ink), 0.86) !important; }
 /* Segurado, o seletor é vidro limpo com um véu do acento: segue o tema (05/11). */
-#viewtabs.segurando #vtab-thumb { background-color: rgba(var(--purple-rgb), 0.1) !important; }
+#viewtabs:is(.segurando, .lente) #vtab-thumb { background-color: rgba(var(--purple-rgb), 0.1) !important; }
 
 /* As ilhas grandes flutuam: aro de meio pixel e sombra longa (os botões têm a curta, design.css). */
 body:not(.theme-stark) :is(#viewtabs, #paleta, .modal-box, .pop, #preset-pop, .modo-pop, .bolha-menu, .tc-menu, #toast-el) {

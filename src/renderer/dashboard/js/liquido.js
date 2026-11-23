@@ -16,7 +16,7 @@
 
 // Só o que FLUTUA (a caixa de digitar volta em 04/11 com tinta grossa, ver liquido.css).
 const LQ_PAINEIS = [
-  "#viewtabs", ".chat-switch", "#paleta", ".modal-box", "#input-bar", "#toast-el",
+  "#vtabs-vidro", ".chat-switch", "#paleta", ".modal-box", "#input-bar", "#toast-el",
   ".pop", "#preset-pop", ".modo-pop", ".bolha-menu", ".tc-menu",
 ].join(", ");
 // Botões e chips: o mesmo domo, e a mola de apertar (js/mola.js).
@@ -25,8 +25,8 @@ const LQ_BOTOES = [
   "#conv-btn", ".pop-form-acoes button", "#home-btn-personalizar", "#pc-reler", ".hoje-botoes button",
   ".home-chips span", ".modo-chip", ".home-clima-chip", ".gp-chips > *", ".clima-chips > *",
 ].join(", ");
-// Lentes (perfil "lente", marcadas com data-lq-perfil): o seletor da barra enquanto segurado.
-const LQ_LENTES = "#viewtabs.segurando #vtab-thumb";
+// Lentes (marcadas com data-lq-perfil; perfil "gota"): o seletor da barra segurado ou correndo.
+const LQ_LENTES = "#viewtabs:is(.segurando, .lente) #vtab-thumb";
 const LQ_ALVOS = `${LQ_PAINEIS}, ${LQ_BOTOES}, ${LQ_LENTES}`;
 /** Filtros vivos no máximo (10/11: eram 40): os maiores visíveis ganham a lente; o resto fica só com o desfoque. */
 const LQ_TETO = 14;
@@ -41,6 +41,9 @@ const LQ_DOMO = 0.62, LQ_DOMO_MAX = 84, LQ_LENTE_GANHO = 1.35;
 const LQ_DEGRAU_LENTE = 6;
 /** 10/11: o reflexo das bordas 4× mais forte (pedido do dono); a lente dos polegares fica como estava. */
 const LQ_REFLEXO = 4;
+/** 23/11: a gota do seletor da barra — aro largo, bem mais fundo que o da lente dos polegares, e
+ *  o miolo ampliado. É ela que entorta o fundo quando o seletor corre de lado. */
+const LQ_GOTA = { aro: 0.28, forca: 0.7, miolo: 0.2 };
 
 const lqSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
 lqSvg.setAttribute("aria-hidden", "true");
@@ -91,8 +94,8 @@ function lqPerfil(perfil, dentro, w, h, g) {
     const saida = Math.asin(Math.sin(entrada) / 1.5);
     return (Math.tan(entrada - saida) * (g.espessura + sup * g.bisel)) / g.max;
   }
-  // Domo: aro de 25% do lado menor; o arco é íngreme na aresta e some no miolo.
-  const aro = Math.min(w, h) * 0.25;
+  // Domo: aro de 25% do lado menor (na gota, 28%); o arco é íngreme na aresta e some no miolo.
+  const aro = Math.min(w, h) * (perfil === "gota" ? LQ_GOTA.aro : 0.25);
   if (dentro >= aro) return 0;
   const t = 1 - Math.max(0, dentro) / aro;
   return 1 - Math.sqrt(1 - t * t);
@@ -131,8 +134,15 @@ function lqDesenharMapas(perfil, w, h, r) {
       const { dentro, nx, ny } = lqSdf(px, py, hx, hy, rr);
       const m = lqPerfil(perfil, dentro, w, h, g);
       const o = (j * cw + i) * 4;
-      im.data[o] = Math.round(255 * (0.5 - 0.5 * nx * m));
-      im.data[o + 1] = Math.round(255 * (0.5 - 0.5 * ny * m));
+      let vx = nx * m, vy = ny * m;
+      if (perfil === "gota") {
+        // Ampliação: puxa o ponto para o centro, na medida da distância a ele.
+        const resto = (1 - m) * LQ_GOTA.miolo, lado = Math.min(w, h) / 2;
+        vx += Math.max(-1, Math.min(1, px / lado)) * resto;
+        vy += Math.max(-1, Math.min(1, py / lado)) * resto;
+      }
+      im.data[o] = Math.round(255 * (0.5 - 0.5 * Math.max(-1, Math.min(1, vx))));
+      im.data[o + 1] = Math.round(255 * (0.5 - 0.5 * Math.max(-1, Math.min(1, vy))));
       im.data[o + 2] = 128;
       im.data[o + 3] = 255;
       // Brilho: luz a 45° de cima-esquerda; o lado oposto devolve um reflexo mais fraco.
@@ -144,10 +154,10 @@ function lqDesenharMapas(perfil, w, h, r) {
         const bandas = [0.18, 0.42, 0.66].reduce((s, c) => s + Math.exp(-(((d - c) / 0.22) ** 2)), 0) / 3;
         // Na lente as três faixas viravam anéis em volta do polegar (o "contorno zoado"): ali
         // fica só um terço delas, e o brilho mora no fio da aresta.
-        a = bandas * (0.06 + 0.8 * glint + 0.35 * refl) * 0.85 * 0.35 * (perfil === "lente" ? 0.3 : 1);
+        a = bandas * (0.06 + 0.8 * glint + 0.35 * refl) * 0.85 * 0.35 * (perfil === "painel" ? 1 : 0.3);
       }
       if (dentro >= 0 && dentro < 1.22) a += 0.22 * (0.35 + 0.65 * glint);
-      if (perfil !== "lente") a *= LQ_REFLEXO;
+      if (perfil === "painel") a *= LQ_REFLEXO;
       il.data[o] = il.data[o + 1] = il.data[o + 2] = 255;
       il.data[o + 3] = Math.round(255 * Math.min(1, a));
     }
@@ -162,7 +172,9 @@ function lqDesenharMapas(perfil, w, h, r) {
  * brilho por cima em `screen`. Mesmo tamanho, raio, perfil e força = mesmo filtro.
  */
 function lqFiltro(perfil, w, h, r, fator) {
-  const forca = perfil === "lente" ? lqLente(w, h).max * LQ_LENTE_GANHO * fator : Math.min(LQ_DOMO_MAX, LQ_DOMO * Math.min(w, h)) * fator;
+  const forca = perfil === "lente" ? lqLente(w, h).max * LQ_LENTE_GANHO * fator
+    : perfil === "gota" ? LQ_GOTA.forca * Math.min(w, h) * fator
+    : Math.min(LQ_DOMO_MAX, LQ_DOMO * Math.min(w, h)) * fator;
   const chave = `${perfil}|${w}|${h}|${r}|${forca.toFixed(1)}`;
   const achado = lqCache.get(chave);
   if (achado) { achado.usos++; return chave; }
@@ -206,8 +218,8 @@ function lqAplicar(el) {
   const fator = lqFator();
   let w = Math.round(el.offsetWidth), h = Math.round(el.offsetHeight);
   if (!fator || w < 24 || h < 24) { lqTirar(el); return; }
-  const perfil = el.dataset.lqPerfil === "lente" ? "lente" : "painel";
-  if (perfil === "lente") { w = Math.ceil(w / LQ_DEGRAU_LENTE) * LQ_DEGRAU_LENTE; h = Math.ceil(h / LQ_DEGRAU_LENTE) * LQ_DEGRAU_LENTE; }
+  const perfil = el.dataset.lqPerfil ?? "painel";
+  if (perfil === "gota") { w = Math.ceil(w / LQ_DEGRAU_LENTE) * LQ_DEGRAU_LENTE; h = Math.ceil(h / LQ_DEGRAU_LENTE) * LQ_DEGRAU_LENTE; }
   const chave = lqFiltro(perfil, w, h, Math.round(lqRaio(el, w, h)), fator);
   const atual = lqFiltros.get(el);
   if (atual === chave) { lqSoltar(chave); return; }
@@ -239,7 +251,7 @@ const lqTamanho = new ResizeObserver((entradas) => {
   for (const e of entradas) {
     const el = e.target;
     if (!lqFiltros.has(el) && !lqEsperando.has(el)) continue;
-    if (el.dataset.lqPerfil === "lente") { lqAplicar(el); continue; }
+    if (el.dataset.lqPerfil === "gota") { lqAplicar(el); continue; }
     const chave = lqFiltros.get(el);
     if (chave) {
       const [, w, h] = chave.split("|");
@@ -260,7 +272,7 @@ const lqTamanho = new ResizeObserver((entradas) => {
  */
 function lqVarrer() {
   const visiveis = [...document.querySelectorAll(LQ_ALVOS)]
-    .filter((el) => (el.dataset.lqPerfil === "lente" || (el.offsetWidth >= LQ_MINIMO && el.offsetHeight >= LQ_MINIMO)) && el.getClientRects().length)
+    .filter((el) => (el.dataset.lqPerfil === "gota" || (el.offsetWidth >= LQ_MINIMO && el.offsetHeight >= LQ_MINIMO)) && el.getClientRects().length)
     .sort((a, b) => b.offsetWidth * b.offsetHeight - a.offsetWidth * a.offsetHeight);
   const vivos = new Set(visiveis.slice(0, LQ_TETO));
   for (const el of [...lqFiltros.keys()]) {
@@ -291,9 +303,9 @@ function lqAquecerSeletor() {
   const h = Math.ceil(t.offsetHeight / LQ_DEGRAU_LENTE) * LQ_DEGRAU_LENTE;
   const w0 = Math.ceil(t.offsetWidth / LQ_DEGRAU_LENTE) * LQ_DEGRAU_LENTE;
   if (w0 < 24 || h < 24) return;
-  for (let k = -1; k <= 6; k++) {
+  for (let k = -1; k <= 14; k++) {
     const w = w0 + k * LQ_DEGRAU_LENTE;
-    lqMapas("lente", w, h, Math.round(lqRaio(t, w, h)));
+    lqMapas("gota", w, h, Math.round(lqRaio(t, w, h)));
   }
 }
 (window.requestIdleCallback ?? setTimeout)(() => lqAquecerSeletor(), { timeout: 3000 });
@@ -339,7 +351,8 @@ new MutationObserver(() => {
 // escrita invalida o estilo da superfície e de tudo dentro dela).
 let lqCursor = null, lqCursorPendente = 0;
 document.addEventListener("pointermove", (e) => {
-  const el = e.target instanceof Element ? e.target.closest(".lq") : null;
+  // O vidro da barra é uma camada atrás dela, fora do caminho do mouse.
+  const el = e.target instanceof Element ? (e.target.closest(".lq") ?? e.target.closest("#viewtabs")?.querySelector("#vtabs-vidro.lq")) : null;
   if (!el) return;
   lqCursor = { el, x: e.clientX, y: e.clientY };
   if (lqCursorPendente) return;

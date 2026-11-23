@@ -93,6 +93,7 @@ function desenharPolegar() {
   thumb.style.translate = `${x}px ${y}px`;
   // Segurado, o brilho de dentro inclina para onde o seletor corre (a velocidade das molas, que
   // já volta a zero sozinha quando ele para). Só na barra deitada: o brilho mora no eixo x.
+  if (lenteLigada) furarVidroDaBarra();
   const inclina = deitada ? Math.max(-1, Math.min(1, (p.va + p.vb) / 2 / 1400)) : 0;
   thumb.style.setProperty("--inclina", inclina.toFixed(2));
 }
@@ -119,9 +120,36 @@ function passoDoPolegar(agora) {
   if (parado && !p.arrastando) {
     Object.assign(p, { a: t.a, b: t.b, c: t.c, d: t.d, va: 0, vb: 0, vc: 0, vd: 0, rodando: false });
     desenharPolegar();
+    // Segurado, continua lente mesmo parado.
+    if (!document.getElementById("viewtabs").classList.contains("segurando")) lenteDoSeletor(false);
     return;
   }
   requestAnimationFrame(passoDoPolegar);
+}
+/**
+ * 23/11: segurado ou correndo entre as abas, o seletor é uma gota de vidro (js/liquido.js) que
+ * entorta a página atrás dela. Parado, volta a ser só a tinta: não fica filtro vivo à toa.
+ */
+let lenteLigada = false;
+function lenteDoSeletor(ligar) {
+  if (ligar && (!lqFator() || document.body.classList.contains("barra-encolhida"))) return;
+  if (ligar === lenteLigada) return;
+  lenteLigada = ligar;
+  document.getElementById("viewtabs").classList.toggle("lente", ligar);
+  lqSo(document.getElementById("vtab-thumb"), ligar);
+  furarVidroDaBarra();
+}
+/** Debaixo da gota o vidro da barra abre um furo: a lente entorta a página nítida, e não o
+ *  desfoque da barra. */
+function furarVidroDaBarra() {
+  const vidro = document.getElementById("vtabs-vidro");
+  if (!lenteLigada) { vidro.style.clipPath = ""; return; }
+  const p = polegar, m = medidas();
+  const [px, py, w, h] = m.deitada ? [p.a, p.c, p.b - p.a, p.d - p.c] : [p.c, p.a, p.d - p.c, p.b - p.a];
+  // +1: a camada passa 1 px da barra (a borda) de cada lado.
+  const x = px + 1, y = py + 1, r = Math.max(0, Math.min(w, h) / 2);
+  const n = (v) => v.toFixed(1), arco = (dx, dy) => `a${n(r)} ${n(r)} 0 0 1 ${n(dx)} ${n(dy)}`;
+  vidro.style.clipPath = `path(evenodd, "M0 0H${m.largura + 2}V${m.altura + 2}H0Z M${n(x + r)} ${n(y)}h${n(w - 2 * r)}${arco(r, r)}v${n(h - 2 * r)}${arco(-r, r)}h${n(2 * r - w)}${arco(-r, -r)}v${n(2 * r - h)}${arco(r, -r)}Z")`;
 }
 function soltarMolas() {
   if (polegar.rodando) return;
@@ -130,7 +158,7 @@ function soltarMolas() {
   requestAnimationFrame(passoDoPolegar);
 }
 /** Leva o seletor até a aba ativa: de mola (`animar`) ou direto (abertura, redimensionar). */
-function moverPolegar(animar = true) {
+function moverPolegar(animar = true, lente = true) {
   const ativa = document.querySelector(".vtab.active");
   if (!ativa || !document.getElementById("vtab-thumb")) return;
   polegar.alvo = bordasDe(ativa);
@@ -142,6 +170,7 @@ function moverPolegar(animar = true) {
     desenharPolegar();
     return;
   }
+  if (lente && Math.abs(polegar.alvo.a - polegar.a) > 12) lenteDoSeletor(true);
   soltarMolas();
 }
 // A largura do rótulo muda quando a fonte termina de carregar, e a barra pode mudar de
@@ -155,7 +184,7 @@ document.fonts?.ready.then(() => { esquecerMedidasDaBarra(); moverPolegar(false)
   let folgaPendente = 0;
   const ro = new ResizeObserver(() => {
     esquecerMedidasDaBarra();
-    moverPolegar(true);
+    moverPolegar(true, false);
     clearTimeout(folgaPendente);
     folgaPendente = setTimeout(medirFolgaDaBarra, 480);
   });
@@ -344,7 +373,7 @@ document.getElementById("nav-recolher")?.addEventListener("click", () => gravarB
     if (e.button !== 0 || !e.target.closest(".vtab") || !polegar.alvo) return;
     barra.classList.add("segurando");
     // Segurado, o seletor vira lente (js/liquido.js).
-    lqSo(document.getElementById("vtab-thumb"), true);
+    lenteDoSeletor(true);
     arrasto = { p0: barraDeitada() ? e.clientX : e.clientY, alvo0: { ...polegar.alvo }, mexeu: false };
   });
   window.addEventListener("pointermove", (e) => {
@@ -361,7 +390,7 @@ document.getElementById("nav-recolher")?.addEventListener("click", () => gravarB
   });
   window.addEventListener("pointerup", () => {
     barra.classList.remove("segurando");
-    lqSo(document.getElementById("vtab-thumb"), false);
+    if (!polegar.rodando) lenteDoSeletor(false);
     if (!arrasto) return;
     const { mexeu } = arrasto;
     arrasto = null;
