@@ -483,6 +483,7 @@ function sendJson(res: http.ServerResponse, status: number, payload: unknown): v
 
 function makeHandler(
   processCommand: (text: string, canal?: "voz" | "texto") => Promise<string>,
+  processStream?: ComandoComStream,
 ): http.RequestListener {
   return async (req, res) => {
     // Sem CORS de propósito. O cliente é um app React Native, que não é browser e
@@ -589,9 +590,12 @@ function makeHandler(
       let text = "";
       // Bloco 130: "texto" = digitado no celular (resposta de chat); sem campo, voz (o curto de sempre).
       let canalHttp: "voz" | "texto" = "voz";
+      // 23/11: o app que sabe abrir apps e músicas avisa, e recebe `abrir` junto da resposta.
+      let abre = false;
       try {
-        const j = JSON.parse(body) as { text?: string; canal?: string };
+        const j = JSON.parse(body) as { text?: string; canal?: string; abre?: boolean };
         text = j.text?.trim() ?? "";
+        abre = j.abre === true;
         if (j.canal === "texto") canalHttp = "texto";
       } catch { /* */ }
       if (!text) {
@@ -599,8 +603,8 @@ function makeHandler(
         return;
       }
       try {
-        const reply = await processCommand(text, canalHttp);
-        sendJson(res, 200, { reply });
+        const r = abre && processStream ? await processStream(text, () => { /* sem pedaços no HTTP */ }, canalHttp, true) : { reply: await processCommand(text, canalHttp) };
+        sendJson(res, 200, { reply: r.reply, ...("abrir" in r && r.abrir ? { abrir: r.abrir } : {}) });
       } catch (e) {
         console.error("[HTTP] /api/command falhou:", e);
         sendJson(res, 500, { error: mensagemDeErro(e) });
@@ -806,7 +810,7 @@ function makeHandler(
 // ── WebSocket upgrade handler ─────────────────────────────────────────────────
 
 /** Um pedido com os pedaços da resposta no caminho. Ver `processCommandStream`. */
-type ComandoComStream = (text: string, onToken: (token: string) => void, canal?: "voz" | "texto") => Promise<ResultadoComando>;
+type ComandoComStream = (text: string, onToken: (token: string) => void, canal?: "voz" | "texto", abre?: boolean) => Promise<ResultadoComando>;
 
 function handleUpgrade(
   processCommand: (text: string, canal?: "voz" | "texto") => Promise<string>,
@@ -913,9 +917,9 @@ function handleUpgrade(
   const enviarAqui = (t: string) => sendToClient(client, t);
   socket.on("close", () => { fechado = true; soltarDestino(enviarAqui); });
 
-  const executar = async (texto: string, canal: "voz" | "texto" = "voz", aoPedaco?: (t: string) => void): Promise<{ reply: string; fontes?: Fonte[]; local?: boolean; semCensura?: boolean; rapidas?: Rapidas; conversa?: boolean; desfazer?: string; memoria?: { id: string; text: string }[] }> => {
+  const executar = async (texto: string, canal: "voz" | "texto" = "voz", aoPedaco?: (t: string) => void, abre = false): Promise<{ abrir?: ResultadoComando["abrir"]; reply: string; fontes?: Fonte[]; local?: boolean; semCensura?: boolean; rapidas?: Rapidas; conversa?: boolean; desfazer?: string; memoria?: { id: string; text: string }[] }> => {
     if (!processStream) return { reply: await processCommand(texto, canal) };
-    const r = await processStream(texto, aoPedaco ?? ((token) => sendToClient(client, JSON.stringify({ type: "chunk", text: token }))), canal);
+    const r = await processStream(texto, aoPedaco ?? ((token) => sendToClient(client, JSON.stringify({ type: "chunk", text: token }))), canal, abre);
     // Bloco 132: as sugestões chegam DEPOIS do reply, numa mensagem própria — o celular já
     // fechou a bolha; app antigo ignora o tipo que não conhece.
     // 22/10: respostas rápidas no próprio reply; com pergunta, sem sugestões de continuação.
@@ -927,7 +931,7 @@ function handleUpgrade(
     }
     // `conversa` é o critério da tela (só conversa, sem ação no PC) — vale também para a voz,
     // que não ganha chips mas pode ganhar a oferta de tela (31/10).
-    return { reply: r.reply, fontes: r.fontes, local: r.local, ...(r.semCensura ? { semCensura: true } : {}), rapidas, conversa: deveSugerir(r.actions, "texto"), ...(r.desfazer ? { desfazer: r.desfazer } : {}), ...(r.memoria ? { memoria: r.memoria } : {}) };
+    return { reply: r.reply, fontes: r.fontes, local: r.local, ...(r.semCensura ? { semCensura: true } : {}), rapidas, conversa: deveSugerir(r.actions, "texto"), ...(r.desfazer ? { desfazer: r.desfazer } : {}), ...(r.memoria ? { memoria: r.memoria } : {}), ...(r.abrir ? { abrir: r.abrir } : {}) };
   };
 
   // A tela vai com o ajuste "Telas com internet" (fotos, mapa e rotas) do momento.
@@ -940,13 +944,13 @@ function handleUpgrade(
 
   // 31/10: o celular novo anuncia o próximo áudio (`{type:"audio", id, telas}`) antes do frame
   // binário — aí o áudio vira pedido com id (retomada, tela, oferta), como o texto.
-  let audioAnunciado: { id: string; telas: boolean } | null = null;
+  let audioAnunciado: { id: string; telas: boolean; abre: boolean } | null = null;
 
   /**
    * Pedido com id (texto, ou áudio já transcrito): a resposta fica guardada para retomar se o
    * socket cair. Com `comTelas`, pedido explícito e "sim" à oferta vão direto ao gerador.
    */
-  function responderPedido(p: Pedido, texto: string, canal: "voz" | "texto", comTelas: boolean, refazer: boolean): void {
+  function responderPedido(p: Pedido, texto: string, canal: "voz" | "texto", comTelas: boolean, refazer: boolean, abre: boolean): void {
     const modoTelas = getConfig().respostasInterativas;
     const atalho = comTelas ? atalhoDeTela(texto, refazer, modoTelas, provedorDeTelas() !== null) : null;
     if (atalho) {
@@ -957,13 +961,13 @@ function handleUpgrade(
         : { pronto: "Pronto, aqui está a tela.", falhou: "Não consegui montar a tela agora. Quer que eu responda em texto?" }, p.id);
       return;
     }
-    executar(texto, canal, (t) => pedaco(p, t))
-      .then(({ reply, fontes, local, semCensura, rapidas, conversa, desfazer, memoria }) => {
+    executar(texto, canal, (t) => pedaco(p, t), abre)
+      .then(({ reply, fontes, local, semCensura, rapidas, conversa, desfazer, memoria, abrir }) => {
         if (p.parado) { desfazerTurno(p.texto, reply); return; }
         const tela = comTelas ? depoisDaResposta(texto, reply, conversa === true && !(telaMostrada() !== null && !pediuTela(texto)), modoTelas, provedorDeTelas() !== null) : { reply, gerar: false };
         // Com a oferta no fim, as respostas rápidas viram as da pergunta nova (Sim/Não).
         const rap = tela.reply !== reply ? rapidasPara(tela.reply, getConfig()) ?? undefined : rapidas;
-        terminar(p, { type: "reply", reply: tela.reply, ...(fontes?.length ? { fontes } : {}), ...(local ? { local } : {}), ...(semCensura ? { semCensura } : {}), ...(rap ? { rapidas: rap } : {}), ...(desfazer ? { desfazer } : {}), ...(memoria ? { memoria } : {}) });
+        terminar(p, { type: "reply", reply: tela.reply, ...(fontes?.length ? { fontes } : {}), ...(local ? { local } : {}), ...(semCensura ? { semCensura } : {}), ...(rap ? { rapidas: rap } : {}), ...(desfazer ? { desfazer } : {}), ...(memoria ? { memoria } : {}), ...(abrir ? { abrir } : {}) });
         if (tela.gerar) void gerarParaCelular(texto, reply, geradorDeTelas(), paraUi(p), {}, p.id);
       })
       .catch(err => {
@@ -974,7 +978,7 @@ function handleUpgrade(
 
   function handleTextFrame(text: string): void {
     try {
-      const msg = JSON.parse(text) as { type?: string; text?: string; canal?: string; refazer?: boolean; ev?: unknown; id?: unknown; telas?: unknown; pergunta?: unknown; resposta?: unknown; programa?: unknown; vars?: unknown };
+      const msg = JSON.parse(text) as { type?: string; text?: string; canal?: string; refazer?: boolean; ev?: unknown; id?: unknown; telas?: unknown; abre?: unknown; pergunta?: unknown; resposta?: unknown; programa?: unknown; vars?: unknown };
       // 21/10: batimento do celular — sem resposta em 2 tentativas ele reabre o socket.
       if (msg.type === "ping") { sendToClient(client, JSON.stringify({ type: "pong" })); return; }
       if (msg.type === "retomar") {
@@ -1017,11 +1021,11 @@ function handleUpgrade(
         if (msg.refazer === true) desfazerUltimoTurno();
         const p = abrirPedido(msg.id, msg.text, enviarAqui);
         if (!p) { retomar(msg.id, enviarAqui); return; } // o mesmo pedido chegou de novo: só reconecta
-        responderPedido(p, msg.text, msg.canal === "texto" ? "texto" : "voz", comTelas, msg.refazer === true);
+        responderPedido(p, msg.text, msg.canal === "texto" ? "texto" : "voz", comTelas, msg.refazer === true, msg.abre === true);
         return;
       }
       if (msg.type === "audio") {
-        audioAnunciado = idValido(msg.id) ? { id: msg.id, telas: msg.telas === true } : null;
+        audioAnunciado = idValido(msg.id) ? { id: msg.id, telas: msg.telas === true, abre: msg.abre === true } : null;
         return;
       }
       if (msg.type === "input") {
@@ -1073,7 +1077,7 @@ function handleUpgrade(
         if (!text) { terminar(p, { type: "error", error: "Could not transcribe audio" }); return; }
         p.texto = text;
         p.destino?.(JSON.stringify({ type: "transcript", text, id: p.id }));
-        responderPedido(p, text, "voz", anuncio.telas, false);
+        responderPedido(p, text, "voz", anuncio.telas, false, anuncio.abre);
       } catch (e) {
         console.error("[WS] falha ao transcrever áudio:", e);
         terminar(p, { type: "error", error: mensagemDeErro(e) });
@@ -1139,7 +1143,7 @@ export function startServer(
   processStream?: ComandoComStream,
 ): void {
   activeToken = token;
-  const server = http.createServer(makeHandler(processCommand));
+  const server = http.createServer(makeHandler(processCommand, processStream));
   // Fase 23.2: teto de conexões e prazos curtos — milhares de sockets parados (slowloris)
   // esgotavam o processo principal; os padrões do Node só cortavam em 60 s/300 s.
   server.maxConnections = 200;
@@ -1157,7 +1161,7 @@ export function startServer(
   // 31/10: TLS na porta seguinte (4201), com o mesmo atendimento e o mesmo WebSocket. O celular
   // novo fixa o certificado (tls.info) e passa a usar https/wss; o app antigo segue no 4200.
   void certificadoDoServidor().then((c) => {
-    const seguro = https.createServer({ key: c.key, cert: c.cert }, makeHandler(processCommand));
+    const seguro = https.createServer({ key: c.key, cert: c.cert }, makeHandler(processCommand, processStream));
     seguro.maxConnections = 200;
     seguro.headersTimeout = 15_000;
     seguro.requestTimeout = 120_000;

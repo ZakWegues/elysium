@@ -176,7 +176,7 @@ const CARDS = {
           <button data-media="play" class="principal" title="Play/Pause">${ico("play")}</button>
           <button data-media="skip" title="Próxima">${ico("skip-forward", "ico-sm")}</button>
         </div>
-        <div class="home-acoes"><button data-spotify="login">${ico("music", "ico-sm")}<span>Conectar o Spotify</span></button></div>`;
+        <div class="home-acoes"><button data-spotify="login">${ico("music", "ico-sm")}<span>Conectar o Spotify</span></button></div>${mgHtml(3)}`;
       }
 
       const capa = n.albumArt
@@ -218,7 +218,7 @@ const CARDS = {
         ${ico(icoVol, "ico-sm")}
         <input type="range" id="mus-vol" min="0" max="100" value="${vol}" title="Volume">
         <span id="mus-vol-val">${vol}</span>
-      </div>`}`;
+      </div>`}${mgHtml(3)}`;
     },
   },
 

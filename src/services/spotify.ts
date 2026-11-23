@@ -2,6 +2,7 @@ import * as crypto from "node:crypto";
 import { shell } from "electron";
 import Store from "electron-store";
 import { cifrarTexto, decifrarTexto, getConfig } from "../main/config";
+import { observarFaixa } from "./gostos";
 
 /**
  * Spotify Web API.
@@ -35,6 +36,8 @@ const SCOPES = [
   "user-read-playback-state",
   "user-modify-playback-state",
   "user-read-currently-playing",
+  // 23/11: guardar as sugestões numa playlist. Quem conectou antes precisa reconectar para isso.
+  "playlist-modify-private",
 ].join(" ");
 
 interface SpotifyAuth {
@@ -249,9 +252,9 @@ export async function getNowPlaying(): Promise<NowPlaying | null> {
     };
   } | null;
 
-  if (!data?.item) return null;
+  if (!data?.item) { observarFaixa(null); return null; }
 
-  return {
+  const agora: NowPlaying = {
     isPlaying:  !!data.is_playing,
     track:      data.item.name ?? "",
     artist:     (data.item.artists ?? []).map(a => a.name).filter(Boolean).join(", "),
@@ -265,6 +268,9 @@ export async function getNowPlaying(): Promise<NowPlaying | null> {
     shuffle:    !!data.shuffle_state,
     repeat:     data.repeat_state ?? "off",
   };
+  // 23/11: o que ele ouve até o fim e o que pula entra nas sugestões.
+  observarFaixa(agora);
+  return agora;
 }
 
 export async function setShuffle(on: boolean): Promise<void> {
@@ -303,6 +309,72 @@ export async function playSearch(query: string): Promise<{ track: string; artist
     track: item.name ?? query,
     artist: (item.artists ?? []).map(a => a.name).filter(Boolean).join(", "),
   };
+}
+
+// ── 23/11: o aparelho certo, fila e playlist ─────────────────────────────────
+
+/** A primeira faixa da busca. "Angel da banda Massive Attack" vira busca com artista. */
+export async function acharFaixa(busca: string): Promise<{ uri: string; track: string; artist: string } | null> {
+  const found = await api("/search", { query: { q: busca, type: "track", limit: "1" } }) as {
+    tracks?: { items?: { uri?: string; name?: string; artists?: { name?: string }[] }[] };
+  } | null;
+  const i = found?.tracks?.items?.[0];
+  return i?.uri ? { uri: i.uri, track: i.name ?? busca, artist: (i.artists ?? []).map(a => a.name).filter(Boolean).join(", ") } : null;
+}
+
+const TIPOS = { pc: /^computer$/i, celular: /^smartphone$/i };
+async function idDoAparelho(aparelho: "pc" | "celular"): Promise<string | null> {
+  const r = await api("/me/player/devices") as { devices?: { id?: string | null; type?: string; is_active?: boolean; is_restricted?: boolean }[] } | null;
+  const ds = (r?.devices ?? []).filter(d => d.id && !d.is_restricted && TIPOS[aparelho].test(d.type ?? ""));
+  return (ds.find(d => d.is_active) ?? ds[0])?.id ?? null;
+}
+
+/** Toca a faixa naquele aparelho. false = o Spotify de lá está fechado (ou a conta não deixa). */
+export async function tocarNo(aparelho: "pc" | "celular", uri: string): Promise<boolean> {
+  try {
+    const id = await idDoAparelho(aparelho);
+    if (!id) return false;
+    await api("/me/player/play", { method: "PUT", query: { device_id: id }, body: { uris: [uri] } });
+    return true;
+  } catch (e) {
+    console.warn("[spotify] não toquei no aparelho:", e instanceof Error ? e.message : e);
+    return false;
+  }
+}
+
+export async function transferirPara(aparelho: "pc" | "celular"): Promise<boolean> {
+  const id = await idDoAparelho(aparelho);
+  if (!id) return false;
+  await api("/me/player", { method: "PUT", body: { device_ids: [id], play: true } });
+  return true;
+}
+
+async function uris(musicas: { titulo: string; artista: string }[]): Promise<string[]> {
+  const achadas = await Promise.all(musicas.slice(0, 20).map(m => acharFaixa(`${m.titulo} ${m.artista}`).catch(() => null)));
+  return [...new Set(achadas.filter((f): f is NonNullable<typeof f> => f !== null).map(f => f.uri))];
+}
+
+/** Põe na fila do que está tocando. Devolve quantas entraram. */
+export async function porNaFila(musicas: { titulo: string; artista: string }[]): Promise<number> {
+  let n = 0;
+  for (const uri of await uris(musicas)) { await api("/me/player/queue", { method: "POST", query: { uri } }); n++; }
+  return n;
+}
+
+export async function criarPlaylist(nome: string, musicas: { titulo: string; artista: string }[]): Promise<{ nome: string; total: number }> {
+  const lista = await uris(musicas);
+  if (!lista.length) throw new Error("não achei essas músicas no Spotify");
+  try {
+    const p = await api("/me/playlists", { method: "POST", body: { name: nome, public: false } }) as { id?: string } | null;
+    if (!p?.id) throw new Error("o Spotify não criou a playlist");
+    try { await api(`/playlists/${p.id}/items`, { method: "POST", body: { uris: lista } }); }
+    catch { await api(`/playlists/${p.id}/tracks`, { method: "POST", body: { uris: lista } }); }
+    return { nome, total: lista.length };
+  } catch (e) {
+    const m = e instanceof Error ? e.message : String(e);
+    if (/Premium|scope|HTTP 401/i.test(m)) throw new Error("Saia e conecte o Spotify de novo no PC para liberar playlists.");
+    throw e;
+  }
 }
 
 async function safeText(res: Response): Promise<string> {

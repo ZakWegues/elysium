@@ -1,4 +1,6 @@
 import { marcarPeloPedido } from "./marcarNaTela";
+import { cuidarDoDestino } from "./tocar";
+import type { AlvoNoCelular } from "./destino";
 import { semAcento } from "./texto";
 import { actionSummary, composeChatReply, decideBrain, noteFastRouted, recordAssistantReply, registrarTurnoUsuario, BrainAction } from "./brain";
 import { contaComoAtividade, registrarAtividade } from "./atividade";
@@ -10,7 +12,7 @@ import { trackUsage } from "./history";
 import { getApiKey, getConfig } from "../main/config";
 import { viaRapida } from "./cerebroHibrido";
 import type { Canal } from "./estiloResposta";
-import { comContexto, Fonte, fontesDoPedido, marcarReserva, registrarFontes, usouReserva } from "./contextoComando";
+import { aberturaDoPedido, comContexto, Fonte, fontesDoPedido, marcarReserva, registrarFontes, usouReserva } from "./contextoComando";
 import { agirViaHermes, registrarForaDoHermes, responderEsclarecimentoHermes } from "./hermes/cerebro";
 import { criarFiltroDeFontes, separarFontes } from "./hermes/pesquisa";
 import { ehEntradaDoLive } from "./live";
@@ -37,6 +39,8 @@ export type ResultadoComando = {
   desfazer?: string;
   /** 31/10: fatos da memória que a resposta usou — o rodapé "Lembrei: …". */
   memoria?: { id: string; text: string }[];
+  /** 23/11: o celular que pediu abre isto (app, site, música). */
+  abrir?: AlvoNoCelular;
 };
 
 /**
@@ -61,6 +65,8 @@ export type GanchosComando = {
    * a resposta curta para falar; "texto" (chat digitado) responde como chat.
    */
   canal?: Canal;
+  /** 23/11: o pedido veio do celular, e o app de lá sabe abrir apps. */
+  doCelular?: { abre: boolean };
 };
 
 export function executarComando(text: string, ganchos: GanchosComando = {}): Promise<ResultadoComando> {
@@ -73,8 +79,9 @@ export function executarComando(text: string, ganchos: GanchosComando = {}): Pro
     const reply = dosarTratamento(r.reply, getConfig().tratamento ?? "", permitido);
     const novo = ultimoDesfazer();
     const memoria = fatosUsados(text, reply);
-    return { ...r, reply, fontes: fontesDoPedido(), ...(usouReserva() ? { local: true } : {}), ...(novo && novo.id !== antes ? { desfazer: novo.rotulo } : {}), ...(memoria.length ? { memoria } : {}) };
-  }, text);
+    const abrir = aberturaDoPedido();
+    return { ...r, reply, fontes: fontesDoPedido(), ...(abrir ? { abrir } : {}), ...(usouReserva() ? { local: true } : {}), ...(novo && novo.id !== antes ? { desfazer: novo.rotulo } : {}), ...(memoria.length ? { memoria } : {}) };
+  }, text, ganchos.doCelular ? "celular" : "pc", ganchos.doCelular?.abre === true);
 }
 
 async function executarNoContexto(
@@ -150,6 +157,17 @@ async function executarNoContexto(
   }
 
   const shortcut = fastRoute(text);
+  // 23/11: abrir e tocar no aparelho certo — o de onde veio o pedido, ou o que ele disser.
+  if (!shortcut) {
+    const d = await cuidarDoDestino(text).catch((e) => { console.warn("[destino]", e instanceof Error ? e.message : e); return null; });
+    if (d && "fala" in d) {
+      registrarTurnoUsuario(text);
+      recordAssistantReply(d.fala);
+      ganchos.onToken?.(d.fala);
+      return { actions: [{ action: "chat" }], reply: d.fala, atalho: true };
+    }
+    if (d) text = d.seguir;
+  }
   if (shortcut) noteFastRouted(text, shortcut);
 
   let actions: BrainAction[] | null = shortcut;
@@ -256,14 +274,14 @@ function ferramentaComoAcao(nome: string, args: Record<string, unknown>): BrainA
   return ferramenta(nome)?.acao?.(args) ?? null;
 }
 
-/** Só a resposta. É o contrato do `POST /api/command`. */
+/** Só a resposta. É o contrato do `POST /api/command` (quem chama é sempre o celular). */
 export async function processCommand(text: string, canal: Canal = "voz"): Promise<string> {
-  return (await executarComando(text, { canal })).reply;
+  return (await executarComando(text, { canal, doCelular: { abre: false } })).reply;
 }
 
 /** A resposta com os pedaços no caminho — o que o WebSocket do celular usa. */
-export async function processCommandStream(text: string, onToken: (token: string) => void, canal: Canal = "voz"): Promise<ResultadoComando> {
-  return executarComando(text, { onToken, canal });
+export async function processCommandStream(text: string, onToken: (token: string) => void, canal: Canal = "voz", abre = false): Promise<ResultadoComando> {
+  return executarComando(text, { onToken, canal, doCelular: { abre } });
 }
 
 /**

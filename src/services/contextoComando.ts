@@ -1,5 +1,6 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import type { Canal } from "./estiloResposta";
+import type { AlvoNoCelular, Aparelho } from "./destino";
 
 /**
  * O que um pedido carrega pelo caminho inteiro (bloco 131), sem passar parâmetro por
@@ -12,12 +13,29 @@ import type { Canal } from "./estiloResposta";
  */
 export interface Fonte { titulo: string; url: string }
 
-interface Contexto { canal: Canal; fontes: Fonte[]; pedido?: string; reserva?: boolean }
+interface Contexto { canal: Canal; fontes: Fonte[]; pedido?: string; reserva?: boolean; origem: Aparelho; abreNoCelular: boolean; abrir?: AlvoNoCelular }
 
 const als = new AsyncLocalStorage<Contexto>();
 
-export function comContexto<T>(canal: Canal, fn: () => Promise<T>, pedido?: string): Promise<T> {
-  return als.run({ canal, fontes: [], pedido }, fn);
+export function comContexto<T>(canal: Canal, fn: () => Promise<T>, pedido?: string, origem: Aparelho = "pc", abreNoCelular = false): Promise<T> {
+  return als.run({ canal, fontes: [], pedido, origem, abreNoCelular }, fn);
+}
+
+/** De que aparelho veio o pedido (23/11). App antigo, que não sabe abrir nada, conta como PC. */
+export function aparelhoDoPedido(): Aparelho {
+  const c = als.getStore();
+  return c?.origem === "celular" && c.abreNoCelular ? "celular" : "pc";
+}
+
+/** Põe o alvo na resposta deste pedido, se ele veio do celular. false = não veio de lá. */
+export function abrirNoCelularAtual(alvo: AlvoNoCelular): boolean {
+  const c = als.getStore();
+  if (!c || c.origem !== "celular" || !c.abreNoCelular) return false;
+  c.abrir = alvo;
+  return true;
+}
+export function aberturaDoPedido(): AlvoNoCelular | undefined {
+  return als.getStore()?.abrir;
 }
 
 /**

@@ -64,7 +64,7 @@ import { revisaoDaSemana } from "./revisaoSemana";
 import { cancelarTimer, criarTimer, listarTimers } from "./timers";
 import { apagarComando, listarComandos, rodarComando, salvarComando } from "./comandosIa";
 import { resumirLink } from "./leitorDeLink";
-import { comContexto, fontesDoPedido } from "./contextoComando";
+import { aberturaDoPedido, comContexto, fontesDoPedido } from "./contextoComando";
 import { comecarFoco, estadoFoco, pararFoco, salvarListaFoco } from "./foco";
 import { abrirNoPc, AlvoAbrir, AlvoLimpeza, lerArmazenamento, limpar } from "../actions/armazenamento";
 import { aguardarDownloads, estadoAtualizacao, instalarAtualizacaoDesktop, verificarAtualizacoes } from "./atualizacao";
@@ -94,6 +94,10 @@ import {
 } from "./presetsStore";
 import { runPreset } from "../actions/runPreset";
 import * as spotify from "./spotify";
+import { previa as previaDaMusica } from "./deezer";
+import { artistasDoEstilo, estadoDosGostos, marcarArtista, marcarEstilo, marcarMusica, musicasParaPerguntar, procurarArtista, sugerir, type Valor } from "./gostos";
+import { MOMENTOS } from "./catalogoMusical";
+import { tocarMusica, passarMusica } from "./tocar";
 import { apagarEpisodio, apagarTodosEpisodios, definirAnonimo, listarEpisodios, modoAnonimo } from "./episodios";
 import { marcarAcompanhado, pendentesDeAcompanhamento } from "./acompanhamento";
 import { adiarTarefaPor, concluirTarefaCompleta } from "./operacoes";
@@ -177,6 +181,16 @@ export function validarAcoesDePreset(acoes: unknown[], confirmado: boolean): voi
 }
 
 // ── validadores de params ─────────────────────────────────────────────────────
+
+/** `musicas: [{titulo, artista}]`, no máximo 20. */
+function listaDeMusicas(params: Record<string, unknown>): { titulo: string; artista: string }[] {
+  const crua = Array.isArray(params["musicas"]) ? (params["musicas"] as unknown[]) : [];
+  const boas = crua.map((m) => m as { titulo?: unknown; artista?: unknown })
+    .filter((m) => typeof m?.titulo === "string" && typeof m.artista === "string")
+    .map((m) => ({ titulo: String(m.titulo).slice(0, 120), artista: String(m.artista).slice(0, 80) })).slice(0, 20);
+  if (!boas.length) throw new RpcError(400, "nenhuma música");
+  return boas;
+}
 
 function requireString(params: Record<string, unknown>, key: string): string {
   const v = params[key];
@@ -538,6 +552,47 @@ const METHODS: Record<string, MethodDef> = {
       return { ok: true };
     },
   },
+
+  // — 23/11: gostos e sugestões de música —
+  "gostos.get": { handler: async () => estadoDosGostos() },
+  "gostos.artistas": { handler: async (params) => ({ artistas: await artistasDoEstilo(requireString(params, "estilo")) }) },
+  "gostos.buscar": { handler: async (params) => ({ artistas: await procurarArtista(requireString(params, "q").slice(0, 80)) }) },
+  "gostos.musicas": { handler: async () => ({ musicas: await musicasParaPerguntar() }) },
+  "gostos.marcar": {
+    handler: async (params) => {
+      const tipo = requireEnum(params, "tipo", ["estilo", "artista", "musica"] as const);
+      const v = params["valor"];
+      if (v !== null && v !== 1 && v !== -1 && v !== 0) throw new RpcError(400, 'param "valor" deve ser 1, -1, 0 ou null');
+      const valor = v as Valor | null;
+      if (tipo === "estilo") marcarEstilo(requireString(params, "id"), valor);
+      else if (tipo === "artista") marcarArtista(requireString(params, "nome"), valor);
+      else marcarMusica(requireNumber(params, "musica"), requireString(params, "titulo"), requireString(params, "artista"), valor);
+      return { ok: true, pronto: estadoDosGostos().pronto };
+    },
+  },
+  "gostos.sugestoes": {
+    handler: async (params) => {
+      const m = optionalString(params, "momento") ?? "geral";
+      return sugerir(MOMENTOS.find((x) => x === m) ?? "geral", params["refazer"] === true);
+    },
+  },
+  "gostos.previa": { handler: async (params) => ({ url: await previaDaMusica(requireNumber(params, "musica")) }) },
+  "musica.tocar": {
+    // Do celular com `abre: true`, o que for para abrir lá volta em `abrir`.
+    handler: async (params) => {
+      const busca = `${requireString(params, "titulo")} ${optionalString(params, "artista") ?? ""}`.trim().slice(0, 200);
+      const no = requireEnum(params, "no", ["pc", "celular"] as const);
+      return comContexto("texto", async () => ({ fala: await tocarMusica(busca, null, no), abrir: aberturaDoPedido() ?? null }), undefined, params["abre"] === true ? "celular" : "pc", params["abre"] === true);
+    },
+  },
+  "musica.passar": {
+    handler: async (params) => {
+      const para = requireEnum(params, "para", ["pc", "celular"] as const);
+      return comContexto("texto", async () => ({ fala: await passarMusica(para), abrir: aberturaDoPedido() ?? null }), undefined, params["abre"] === true ? "celular" : "pc", params["abre"] === true);
+    },
+  },
+  "musica.fila": { handler: async (params) => ({ total: await spotify.porNaFila(listaDeMusicas(params)) }) },
+  "musica.playlist": { handler: async (params) => spotify.criarPlaylist((optionalString(params, "nome") ?? "Sugestões da Ely").slice(0, 80), listaDeMusicas(params)) },
 
   // — visão e busca —
   "vision.ask": {

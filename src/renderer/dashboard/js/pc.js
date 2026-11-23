@@ -177,7 +177,7 @@ function desenharMidia() {
       <button data-volume="${pcVolume?.mudo ? "unmute" : "mute"}" title="${pcVolume?.mudo ? "Tirar do mudo" : "Mudo"}">${ico(pcVolume?.mudo ? "volume-x" : (pcVolume?.nivel ?? 50) < 50 ? "volume-1" : "volume", "ico-sm")}</button>
       <input type="range" id="pc-vol-range" min="0" max="100" step="1" value="${pcVolume?.nivel ?? 50}" aria-label="Volume do PC"${pcVolume ? "" : " disabled"}>
       <span id="pc-vol-num">${pcVolume ? `${pcVolume.nivel}%` : "…"}</span>
-    </div>`;
+    </div>${mgHtml(4)}`;
 }
 
 // ── Os painéis ────────────────────────────────────

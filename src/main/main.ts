@@ -75,6 +75,8 @@ import { habitosParaLembrar } from "../services/habitos";
 import { podeAvisarAlto } from "../services/avisos";
 import { ElysiumError } from "../services/errors";
 import { processCommand, processCommandStream, executarComando } from "../services/command";
+import { lerPedido, refDoAlvo } from "../services/destino";
+import { definirAberturaNoCelular } from "../services/tocar";
 import { startServer, setActiveToken, broadcastMailboxEvent, broadcastNotify, broadcastEstadoPc, broadcastModo, broadcastPomodoro, ligarMcp } from "../services/server";
 import { iniciarPomodoro, pararRelogioPomodoro, pomodoroParaCliente } from "../services/pomodoro";
 import { aoMudarModo, modoParaCliente } from "../services/modos";
@@ -925,6 +927,9 @@ async function marcarNaTela(pedido: string, p: PedidoDeMarca, meuToken: number):
 
 async function agirDireto(texto: string, meuToken: number): Promise<boolean> {
   let pedido = texto;
+  // 23/11: música, e o que é para o celular, não são ação na tela do PC (command.ts cuida).
+  const comDestino = lerPedido(texto);
+  if (comDestino && (comDestino.dito === "celular" || comDestino.pedido.tipo === "tocar" || comDestino.pedido.tipo === "passar")) return false;
   if (pendente && Date.now() - pendente.em < 3 * 60_000 && insistiu(texto)) { pedido = `${pendente.pedido} (ele insistiu: faça)`; pendente = null; }
   // 14/11: circular / apontar / sublinhar / "onde está X" — marca na tela, sem modelo e sem licença.
   const marca = pedidoDeMarca(pedido);
@@ -1922,6 +1927,15 @@ app.on("ready", async () => {
   setTimeout(() => { void garantirModelo(); }, 60_000);
   // 12/11: os "beats" do VoiceStudio (frases curtas já gravadas) — também esquenta o motor na GPU.
   setTimeout(() => { void prepararBeats(path.join(app.getPath("userData"), "beats")).catch(() => {}); }, 8000);
+
+  // 23/11: "abre o YouTube no celular" dito no PC. Com o app na frente ele abre na hora; senão, o
+  // toque na notificação abre (o Android não deixa um app no fundo abrir outro).
+  definirAberturaNoCelular((alvo) => {
+    const ref = refDoAlvo(alvo);
+    mandarAoCelular("aviso", `Abrir ${alvo.rotulo}`, "Toque para abrir.", { push: "pc", ref, dados: { ref } });
+  });
+  // O que ele ouve entra nas sugestões de música, mesmo com as telas fechadas.
+  setInterval(() => { if (isSpotifyConnected()) getSpotifyNowPlaying().catch(() => { /* sem rede */ }); }, 40_000);
 
   const serverToken = getOrCreateServerToken();
   const cfg = getConfig();

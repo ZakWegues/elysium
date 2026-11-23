@@ -1,0 +1,69 @@
+/* dashboard/css/musica.css — sugestões e gostos de música (23/11). */
+
+.mg { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
+.gaveta-musica .mg { margin-top: 0; padding-top: 0; border-top: 0; }
+.pc-midia .mg { flex-basis: 100%; width: 100%; }
+.mg button, .mg-abas button, .mg-bt, .mg-chip, .mg-estilos button, .mg-artista { font-family: inherit; cursor: pointer; }
+
+.mg-cab { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.mg-cab b { font-size: 12px; font-weight: 600; color: var(--text); flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mg-momentos { display: flex; gap: 2px; }
+.mg-momentos button, .mg-estilos button, .mg-abas button {
+  padding: 4px 9px; border: 0; border-radius: 999px; background: none; color: var(--muted); font-size: 11px; white-space: nowrap;
+  transition: color 160ms, background 160ms;
+}
+.mg-momentos button:hover, .mg-estilos button:hover, .mg-abas button:hover { color: var(--text); }
+.mg-momentos button.aceso, .mg-estilos button.aceso, .mg-abas button.aceso { background: rgba(var(--purple-rgb), 0.18); color: var(--purple-bright); }
+.mg-ico { width: 26px; height: 26px; border: 0; border-radius: 50%; background: none; color: var(--muted); display: grid; place-items: center; }
+.mg-ico:hover { background: rgba(var(--purple-rgb), 0.16); color: var(--text); }
+.mg-ico.girando svg { animation: mg-gira 900ms linear infinite; }
+@keyframes mg-gira { to { transform: rotate(360deg); } }
+
+.mg-itens { display: flex; flex-direction: column; gap: 2px; transition: opacity 160ms; }
+.mg-itens.apagado { opacity: 0.5; }
+.mg-linha { display: flex; align-items: center; gap: 10px; padding: 5px 6px; border-radius: var(--radius-8); }
+.mg-linha:hover { background: rgba(var(--purple-rgb), 0.1); }
+.mg-capa { position: relative; width: 38px; height: 38px; flex-shrink: 0; padding: 0; border: 0; border-radius: 8px; overflow: hidden; background: rgba(var(--purple-rgb), 0.12); color: #fff; }
+.mg-capa img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.mg-capa i { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(0,0,0,0.5); opacity: 0; transition: opacity 140ms; }
+.mg-linha:hover .mg-capa i, .mg-capa:focus-visible i { opacity: 1; }
+.mg-txt { flex: 1; min-width: 0; padding: 0; border: 0; background: none; text-align: left; color: var(--text); display: flex; flex-direction: column; gap: 1px; }
+.mg-txt b, .mg-txt span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mg-txt b { font-size: 12.5px; font-weight: 600; }
+.mg-txt span { font-size: 11px; color: var(--muted); }
+.mg-acoes { display: flex; gap: 2px; opacity: 0.55; transition: opacity 140ms; }
+.mg-linha:hover .mg-acoes, .mg-acoes:focus-within { opacity: 1; }
+.mg-acoes button { width: 28px; height: 28px; border: 0; border-radius: 50%; background: none; color: var(--muted); display: grid; place-items: center; }
+.mg-acoes button:hover { background: rgba(var(--purple-rgb), 0.2); color: var(--text); }
+.mg-acoes button.aceso { color: var(--purple-bright); }
+
+.mg-vazio { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 2px; font-size: 12px; color: var(--muted); }
+.mg-bt { display: inline-flex; align-items: center; gap: 6px; padding: 7px 13px; border: 1px solid var(--border); border-radius: 999px; background: rgba(var(--purple-rgb), 0.12); color: var(--text); font-size: 12px; }
+.mg-bt:hover { background: rgba(var(--purple-rgb), 0.24); }
+.mg-rodape { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.mg-dica { margin: 0 0 10px; font-size: 11.5px; color: var(--muted); }
+
+.mg-abas { display: flex; gap: 4px; margin-bottom: 14px; }
+.mg-abas button { font-size: 12.5px; padding: 6px 13px; }
+.mg-chips { display: flex; flex-wrap: wrap; gap: 7px; }
+.mg-chip { padding: 8px 14px; border: 1px solid var(--border); border-radius: 999px; background: none; color: var(--text); font-size: 12.5px; transition: background 160ms, border-color 160ms, opacity 160ms; }
+.mg-chip:hover { border-color: rgba(var(--purple-rgb), 0.5); }
+.mg-chip.gosto { background: rgba(var(--purple-rgb), 0.24); border-color: rgba(var(--purple-rgb), 0.6); color: var(--purple-bright); }
+.mg-chip.nao { opacity: 0.45; text-decoration: line-through; }
+
+#mg-busca { width: 100%; box-sizing: border-box; padding: 9px 13px; margin-bottom: 10px; border: 1px solid var(--border); border-radius: 999px; background: rgba(var(--purple-rgb), 0.06); color: var(--text); font-family: inherit; font-size: 13px; }
+.mg-estilos { display: flex; gap: 2px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 6px; scrollbar-width: thin; }
+.mg-artistas { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 10px; }
+.mg-artista { padding: 8px 4px; border: 0; border-radius: var(--radius-8); background: none; color: var(--text); display: flex; flex-direction: column; align-items: center; gap: 7px; transition: opacity 160ms, background 160ms; }
+.mg-artista:hover { background: rgba(var(--purple-rgb), 0.1); }
+.mg-artista img, .mg-artista > i { width: 66px; height: 66px; border-radius: 50%; object-fit: cover; box-shadow: 0 0 0 2px transparent; transition: box-shadow 180ms, filter 180ms; }
+.mg-artista > i { display: grid; place-items: center; font-style: normal; font-size: 22px; background: rgba(var(--purple-rgb), 0.16); }
+.mg-artista span { font-size: 11px; text-align: center; line-height: 1.25; }
+.mg-artista.gosto img, .mg-artista.gosto > i { box-shadow: 0 0 0 3px var(--purple-bright); }
+.mg-artista.gosto span { color: var(--purple-bright); font-weight: 600; }
+.mg-artista.nao { opacity: 0.4; }
+.mg-artista.nao img { filter: grayscale(1); }
+.mg-artista.nao span { text-decoration: line-through; }
+
+/* A barra de abas embaixo não cobre os botões do fim. */
+body.barra-baixo .gaveta-musica { padding-bottom: calc(var(--fb-b, 80px) + 20px); }
