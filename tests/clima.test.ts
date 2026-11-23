@@ -69,11 +69,25 @@ describe("clima — parse", () => {
     config.climaCidade = "Recife";
   });
 
-  it("usa o cache por uma hora", async () => {
+  it("usa o cache", async () => {
     const m = await carregar();
     await m.climaAgora();
     await m.climaAgora();
-    expect(fetch).toHaveBeenCalledTimes(1);
+    // A previsão e as estações, uma vez cada.
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("23/11: a estação perto manda no agora, na máxima e no céu, e corrige as próximas horas", async () => {
+    const em = (h: number) => new Date(2026, 8, 18, h).getTime() / 1000;
+    const metar = [
+      { icaoId: "X", lat: -8.1, lon: -34.9, obsTime: em(13), temp: 24, wxString: "-TSRA", cover: "BKN" },
+      { icaoId: "X", lat: -8.1, lon: -34.9, obsTime: em(11), temp: 27, wxString: "", cover: "FEW" },
+    ];
+    vi.stubGlobal("fetch", vi.fn(async (u: string) => ({ ok: true, status: 200, json: async () => (u.includes("metar") ? metar : resposta) })));
+    const c = (await (await carregar()).climaAgora())!;
+    expect(c).toMatchObject({ temperatura: 24, max: 27, descricao: "tempestade", icone: "zap" });
+    expect(c.sensacao).toBeCloseTo(25.5, 1);
+    expect(c.horas![0].temp).toBeCloseTo(22 + 2.4 * 0.5 ** (1 / 3), 1);
   });
 });
 

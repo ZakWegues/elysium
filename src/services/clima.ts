@@ -21,6 +21,7 @@
  */
 
 import { getConfig } from "../main/config";
+import { buscarEstacoes, correcaoEm, medir } from "./estacoes";
 
 export interface Clima {
   cidade: string;
@@ -62,8 +63,8 @@ function descreverWmo(codigo: number): { descricao: string; icone: string; chuva
   return { descricao: "tempestade", icone: "zap", chuva: true };
 }
 
-/** Uma leitura por hora basta: a previsão da Open-Meteo não muda mais rápido que isso. */
-const VALIDADE_MS = 60 * 60 * 1000;
+/** 23/11: a medição das estações muda no meio da hora (uma tempestade derruba 6° em 20 minutos). */
+const VALIDADE_MS = 15 * 60 * 1000;
 /**
  * Falha vale bem menos tempo. Guardar "não deu" por uma hora significa que tirar o cabo da
  * rede por um minuto deixa o card mudo pelo resto da manhã.
@@ -123,7 +124,7 @@ export async function climaAgora(): Promise<Clima | null> {
     // uma rede que aceita a conexão mas não responde travaria a Início.
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), 6000);
-    const r = await fetch(url, { signal: ctrl.signal });
+    const [r, estacoes] = await Promise.all([fetch(url, { signal: ctrl.signal }), buscarEstacoes(lat, lon)]);
     clearTimeout(t);
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
 
@@ -180,6 +181,7 @@ export async function climaAgora(): Promise<Clima | null> {
     }
     if (d?.sunrise?.[0]) dado.nascer = d.sunrise[0].slice(11, 16);
     if (d?.sunset?.[0]) dado.porDoSol = d.sunset[0].slice(11, 16);
+    aplicarMedido(dado, estacoes, j.hourly, agora);
     ultimaFalha = null;
     cache = { em: Date.now(), dado };
     return dado;
@@ -191,6 +193,38 @@ export async function climaAgora(): Promise<Clima | null> {
     cache = { em: Date.now(), dado: null };
     return null;
   }
+}
+
+/**
+ * 23/11: põe o que as estações mediram no lugar da conta do modelo — agora, a máxima e a mínima que
+ * já aconteceram hoje — e corrige as próximas horas pelo erro de agora, que some aos poucos.
+ */
+function aplicarMedido(
+  dado: Clima,
+  estacoes: Awaited<ReturnType<typeof buscarEstacoes>>,
+  hourly: { time?: string[]; temperature_2m?: number[] } | undefined,
+  agora: Date,
+): void {
+  const meiaNoite = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate()).getTime();
+  const m = medir(estacoes, meiaNoite, agora.getTime());
+  if (!m) return;
+  const erro = m.temp - dado.temperatura;
+  // Mais que isto não é o mesmo lugar (serra, praia): fica a previsão.
+  if (Math.abs(erro) > 8) return;
+  dado.temperatura = m.temp;
+  if (typeof dado.sensacao === "number") dado.sensacao += erro;
+  if (m.umidade !== undefined) dado.umidade = m.umidade;
+  if (m.ventoKmh !== undefined) dado.ventoKmh = m.ventoKmh;
+  if (m.ceu) { dado.descricao = m.ceu.descricao; dado.icone = m.ceu.icone; dado.chuvaHoje = m.ceu.chuva; }
+  dado.horas?.forEach((h, k) => { h.temp += correcaoEm(erro, k + 1); });
+  // O resto de hoje pela previsão corrigida; o que já passou, pelo que foi medido.
+  const dia = `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, "0")}-${String(agora.getDate()).padStart(2, "0")}`;
+  const resto = (hourly?.time ?? [])
+    .map((t, i) => ({ t, h: Number(t.slice(11, 13)) - agora.getHours(), temp: hourly?.temperature_2m?.[i] }))
+    .filter((x): x is { t: string; h: number; temp: number } => x.t.startsWith(dia) && x.h > 0 && typeof x.temp === "number")
+    .map((x) => x.temp + correcaoEm(erro, x.h));
+  dado.max = Math.max(m.max, ...resto);
+  dado.min = Math.min(m.min, ...resto);
 }
 
 /**

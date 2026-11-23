@@ -41,9 +41,9 @@ const LQ_DOMO = 0.62, LQ_DOMO_MAX = 84, LQ_LENTE_GANHO = 1.35;
 const LQ_DEGRAU_LENTE = 6;
 /** 10/11: o reflexo das bordas 4× mais forte (pedido do dono); a lente dos polegares fica como estava. */
 const LQ_REFLEXO = 4;
-/** 23/11: a gota do seletor da barra — aro largo, bem mais fundo que o da lente dos polegares, e
- *  o miolo ampliado. É ela que entorta o fundo quando o seletor corre de lado. */
-const LQ_GOTA = { aro: 0.28, forca: 0.7, miolo: 0.2 };
+/** 23/11: a gota do seletor da barra — aro curto (não chega nos ícones) e
+ *  o miolo um pouco ampliado. É ela que entorta o fundo quando o seletor corre de lado. */
+const LQ_GOTA = { aro: 0.16, forca: 0.34, miolo: 0.12 };
 
 const lqSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
 lqSvg.setAttribute("aria-hidden", "true");
@@ -94,7 +94,7 @@ function lqPerfil(perfil, dentro, w, h, g) {
     const saida = Math.asin(Math.sin(entrada) / 1.5);
     return (Math.tan(entrada - saida) * (g.espessura + sup * g.bisel)) / g.max;
   }
-  // Domo: aro de 25% do lado menor (na gota, 28%); o arco é íngreme na aresta e some no miolo.
+  // Domo: aro de 25% do lado menor (na gota, 16%); o arco é íngreme na aresta e some no miolo.
   const aro = Math.min(w, h) * (perfil === "gota" ? LQ_GOTA.aro : 0.25);
   if (dentro >= aro) return 0;
   const t = 1 - Math.max(0, dentro) / aro;
