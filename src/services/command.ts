@@ -1,6 +1,7 @@
 import { marcarPeloPedido } from "./marcarNaTela";
 import { cuidarDoDestino } from "./tocar";
 import type { AlvoNoCelular } from "./destino";
+import { aprenderDaFala, musicasParecidas, pedeParecidas } from "./musicaConversa";
 import { semAcento } from "./texto";
 import { actionSummary, composeChatReply, decideBrain, noteFastRouted, recordAssistantReply, registrarTurnoUsuario, BrainAction } from "./brain";
 import { contaComoAtividade, registrarAtividade } from "./atividade";
@@ -12,7 +13,7 @@ import { trackUsage } from "./history";
 import { getApiKey, getConfig } from "../main/config";
 import { viaRapida } from "./cerebroHibrido";
 import type { Canal } from "./estiloResposta";
-import { aberturaDoPedido, comContexto, Fonte, fontesDoPedido, marcarReserva, registrarFontes, usouReserva } from "./contextoComando";
+import { aberturaDoPedido, comContexto, Fonte, fontesDoPedido, marcarReserva, musicasDaResposta, MusicasDaResposta, registrarFontes, registrarMusicas, usouReserva } from "./contextoComando";
 import { agirViaHermes, registrarForaDoHermes, responderEsclarecimentoHermes } from "./hermes/cerebro";
 import { criarFiltroDeFontes, separarFontes } from "./hermes/pesquisa";
 import { ehEntradaDoLive } from "./live";
@@ -41,6 +42,8 @@ export type ResultadoComando = {
   memoria?: { id: string; text: string }[];
   /** 23/11: o celular que pediu abre isto (app, site, música). */
   abrir?: AlvoNoCelular;
+  /** 23/11: músicas sugeridas, com botões de tocar embaixo da resposta. */
+  musicas?: MusicasDaResposta;
 };
 
 /**
@@ -79,8 +82,10 @@ export function executarComando(text: string, ganchos: GanchosComando = {}): Pro
     const reply = dosarTratamento(r.reply, getConfig().tratamento ?? "", permitido);
     const novo = ultimoDesfazer();
     const memoria = fatosUsados(text, reply);
-    const abrir = aberturaDoPedido();
-    return { ...r, reply, fontes: fontesDoPedido(), ...(abrir ? { abrir } : {}), ...(usouReserva() ? { local: true } : {}), ...(novo && novo.id !== antes ? { desfazer: novo.rotulo } : {}), ...(memoria.length ? { memoria } : {}) };
+    const abrir = aberturaDoPedido(), musicas = musicasDaResposta();
+    // Em segundo plano: o gosto que ele disse nesta fala (a lista de parecidas já aprende sozinha).
+    if (!musicas) void aprenderDaFala(text).catch(() => {});
+    return { ...r, reply, fontes: fontesDoPedido(), ...(abrir ? { abrir } : {}), ...(musicas ? { musicas } : {}), ...(usouReserva() ? { local: true } : {}), ...(novo && novo.id !== antes ? { desfazer: novo.rotulo } : {}), ...(memoria.length ? { memoria } : {}) };
   }, text, ganchos.doCelular ? "celular" : "pc", ganchos.doCelular?.abre === true);
 }
 
@@ -163,10 +168,23 @@ async function executarNoContexto(
     if (d && "fala" in d) {
       registrarTurnoUsuario(text);
       recordAssistantReply(d.fala);
+      registrarForaDoHermes(text, d.fala);
       ganchos.onToken?.(d.fala);
       return { actions: [{ action: "chat" }], reply: d.fala, atalho: true };
     }
     if (d) text = d.seguir;
+    // 23/11: "músicas parecidas com X" — a lista sai conferida na Deezer, com botões de tocar.
+    if (!d && pedeParecidas(text)) {
+      const m = await musicasParecidas(text).catch((e) => { console.warn("[musica]", e instanceof Error ? e.message : e); return null; });
+      if (m) {
+        registrarMusicas({ itens: m.itens, aprendi: m.aprendi });
+        registrarTurnoUsuario(text);
+        recordAssistantReply(m.fala);
+        registrarForaDoHermes(text, m.fala);
+        ganchos.onToken?.(m.fala);
+        return { actions: [{ action: "chat" }], reply: m.fala, atalho: true };
+      }
+    }
   }
   if (shortcut) noteFastRouted(text, shortcut);
 

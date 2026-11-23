@@ -446,6 +446,12 @@ export function contextoRecente(): string {
   return (antes ? `(antes disso: ${antes})\n${recente}` : recente) + blocoDaTela();
 }
 
+/** 23/11: as últimas mensagens em texto, antes de o pedido atual entrar no histórico. */
+export function conversaRecente(n = 10): string {
+  if (Date.now() - lastActivity > getConfig().chatIdleResetMs) return "";
+  return history.slice(-n).map(m => `${m.role === "user" ? "Usuário" : "Ely"}: ${m.content.slice(0, 900)}`).join("\n");
+}
+
 /** A falha técnica em português de gente — a fala que substitui o "não entendi". */
 export function motivoDaFalha(falha: string): string {
   if (/\b429\b|rate limit/i.test(falha)) {

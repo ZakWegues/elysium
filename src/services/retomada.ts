@@ -23,7 +23,11 @@ export interface Pedido {
   parado: boolean;
   /** 22/10: a tela inteligente deste pedido (frame `ui`), que chega depois do reply. */
   ui: Record<string, unknown> | null;
+  /** 23/11: o "ainda estou trabalhando" que segura a espera do celular. */
+  batida?: ReturnType<typeof setInterval>;
 }
+const BATIDA_MS = 12_000;
+const BATIDA_MAXIMA_MS = 4 * 60_000;
 
 export const VALIDADE_MS = 10 * 60_000;
 const MAXIMO = 50;
@@ -46,6 +50,13 @@ export function abrirPedido(id: string, texto: string, destino: Envio, agora = D
   if (pedidos.has(id)) return null;
   const p: Pedido = { id, texto, parcial: "", final: null, criadoEm: agora, destino, parado: false, ui: null };
   pedidos.set(id, p);
+  // Pergunta longa com busca na web passa de um minuto sem nenhum pedaço; sem isto o celular
+  // desistia aos 45 s com o PC ainda respondendo.
+  p.batida = setInterval(() => {
+    if (p.final || p.parado || Date.now() - p.criadoEm > BATIDA_MAXIMA_MS) { clearInterval(p.batida); return; }
+    try { p.destino?.(JSON.stringify({ type: "andamento", id: p.id })); } catch { p.destino = null; }
+  }, BATIDA_MS);
+  p.batida.unref?.();
   return p;
 }
 
@@ -60,6 +71,7 @@ export function pedaco(p: Pedido, texto: string): void {
 /** Terminou: guarda o frame final e entrega se houver alguém. */
 export function terminar(p: Pedido, final: Record<string, unknown>): void {
   p.final = { ...final, id: p.id };
+  clearInterval(p.batida);
   if (p.destino && !p.parado) {
     try { p.destino(JSON.stringify(p.final)); } catch { p.destino = null; }
   }
@@ -100,6 +112,7 @@ export function parar(id: string): Pedido | null {
   if (!p) return null;
   p.parado = true;
   p.destino = null;
+  clearInterval(p.batida);
   return p;
 }
 

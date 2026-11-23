@@ -67,3 +67,7 @@
 
 /* A barra de abas embaixo não cobre os botões do fim. */
 body.barra-baixo .gaveta-musica { padding-bottom: calc(var(--fb-b, 80px) + 20px); }
+
+/* 23/11: a lista no chat e o que ela aprendeu. */
+.chat-musicas { width: min(460px, 100%); border-top: 0; margin-top: 0; padding-top: 0; }
+.mg-chip .ico { width: 11px; height: 11px; margin-left: 7px; opacity: 0.6; vertical-align: -1px; }

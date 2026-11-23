@@ -21,7 +21,10 @@ export interface Gostos {
   artistas: Record<string, { nome: string; valor: Valor }>;
   musicas: Record<string, MusicaMarcada>;
   escutados: Record<string, Escutado>;
+  /** O que ela aprendeu pela conversa ("eu amo Lonely Day"), para ele ver e apagar. */
+  aprendidos?: Aprendido[];
 }
+export interface Aprendido { tipo: "artista" | "musica"; nome: string; artista?: string; id?: number; valor: 1 | -1; em: number }
 
 export interface Semente { nome: string; peso: number; estilo?: string }
 export interface Candidato { artista: ArtistaDz; pontos: number; porque: string[] }
@@ -105,7 +108,7 @@ const store = new Store<{ gostos: Gostos; fotos: Record<string, ArtistaDz> }>({ 
 
 export function lerGostos(): Gostos {
   const g = store.get("gostos") as Partial<Gostos> | undefined;
-  return { estilos: { ...g?.estilos }, artistas: { ...g?.artistas }, musicas: { ...g?.musicas }, escutados: { ...g?.escutados } };
+  return { estilos: { ...g?.estilos }, artistas: { ...g?.artistas }, musicas: { ...g?.musicas }, escutados: { ...g?.escutados }, aprendidos: Array.isArray(g?.aprendidos) ? [...g.aprendidos] : [] };
 }
 function gravar(g: Gostos): void { store.set("gostos", g); sugestoesFeitas.clear(); }
 
@@ -119,14 +122,48 @@ export function marcarArtista(nome: string, valor: Valor | null): void {
   const g = lerGostos(), k = chave(nome);
   if (!k) return;
   if (valor === null) delete g.artistas[k]; else g.artistas[k] = { nome: nome.trim().slice(0, 80), valor };
+  // Ele respondeu à mão: vale a resposta dele, não mais o que ela aprendeu.
+  g.aprendidos = (g.aprendidos ?? []).filter((a) => a.tipo !== "artista" || chave(a.nome) !== k);
   gravar(g);
 }
 export function marcarMusica(id: number, titulo: string, artista: string, valor: Valor | null): void {
   const g = lerGostos();
   if (valor === null) delete g.musicas[id]; else g.musicas[id] = { valor, titulo: titulo.slice(0, 120), artista: artista.slice(0, 80) };
+  g.aprendidos = (g.aprendidos ?? []).filter((a) => a.tipo !== "musica" || a.id !== id);
   // A lista já mostrada continua na tela: só esta música sai (quem avalia não perde as outras).
   store.set("gostos", g);
   for (const s of sugestoesFeitas.values()) s.itens = s.itens.filter((x) => x.id !== id);
+}
+
+/**
+ * O que ele disse numa conversa (23/11). Devolve o aprendido se mudou algo; null se ela já sabia.
+ * Só os 80 mais novos aparecem na lista; a marca continua valendo.
+ */
+export function aprender(x: { tipo: "artista"; nome: string } | { tipo: "musica"; nome: string; artista: string; id: number }, valor: 1 | -1, agora = Date.now()): Aprendido | null {
+  const g = lerGostos();
+  if (x.tipo === "artista") {
+    const k = chave(x.nome);
+    if (!k || g.artistas[k]?.valor === valor) return null;
+    g.artistas[k] = { nome: x.nome.slice(0, 80), valor };
+  } else {
+    if (g.musicas[x.id]?.valor === valor) return null;
+    g.musicas[x.id] = { valor, titulo: x.nome.slice(0, 120), artista: x.artista.slice(0, 80) };
+  }
+  const novo: Aprendido = { ...x, valor, em: agora };
+  g.aprendidos = [novo, ...(g.aprendidos ?? []).filter((a) => a.tipo !== x.tipo || (x.tipo === "musica" ? a.id !== x.id : chave(a.nome) !== chave(x.nome)))].slice(0, 80);
+  gravar(g);
+  return novo;
+}
+
+/** Nomes que ajudam a transcrição a acertar ("System of Fade Down" → System of a Down). */
+export function nomesParaOuvir(max = 24): string[] {
+  const g = lerGostos();
+  const nomes = [
+    ...(g.aprendidos ?? []).filter((a) => a.valor === 1).flatMap((a) => (a.artista ? [a.artista, a.nome] : [a.nome])),
+    ...Object.values(g.escutados).filter((e) => e.ok > e.pulou).reverse().map((e) => e.nome),
+    ...Object.values(g.artistas).filter((a) => a.valor === 1).reverse().map((a) => a.nome),
+  ];
+  return [...new Set(nomes)].slice(0, max);
 }
 
 /** O que está tocando, visto de tempos em tempos: aprende com o que ele ouve e pula. */
@@ -201,6 +238,7 @@ const VALIDADE = 12 * 3_600_000;
 export function temGostoBastante(g: Gostos): boolean {
   return Object.values(g.artistas).filter((a) => a.valor === 1).length >= 3
     || Object.values(g.estilos).filter((v) => v === 1).length >= 1
+    || Object.values(g.musicas).filter((m) => m.valor === 1).length >= 3
     || Object.values(g.escutados).filter((e) => e.ok >= 3).length >= 3;
 }
 
@@ -248,7 +286,7 @@ export async function sugerir(momento: Momento = "geral", refazer = false, quant
 }
 
 /** O catálogo com as respostas, para as telas. */
-export function estadoDosGostos(): { estilos: { id: string; nome: string; valor: Valor | null }[]; gosta: string[]; naoGosta: string[]; respostas: Record<string, Valor>; pronto: boolean } {
+export function estadoDosGostos(): { estilos: { id: string; nome: string; valor: Valor | null }[]; gosta: string[]; naoGosta: string[]; respostas: Record<string, Valor>; aprendidos: Aprendido[]; pronto: boolean } {
   const g = lerGostos();
   const artistas = Object.values(g.artistas);
   return {
@@ -256,6 +294,7 @@ export function estadoDosGostos(): { estilos: { id: string; nome: string; valor:
     gosta: artistas.filter((a) => a.valor === 1).map((a) => a.nome),
     naoGosta: artistas.filter((a) => a.valor === -1).map((a) => a.nome),
     respostas: Object.fromEntries(artistas.map((a) => [a.nome, a.valor])),
+    aprendidos: g.aprendidos ?? [],
     pronto: temGostoBastante(g),
   };
 }

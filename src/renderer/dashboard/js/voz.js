@@ -314,6 +314,12 @@ function anexarExtras(x) {
     rodape.insertAdjacentHTML("beforeend", `<button type="button" class="chat-memoria" title="O que eu usei da memória. Clique para ver ou corrigir.">Lembrei: ${itens}</button>`);
     rodape.querySelector(".chat-memoria").addEventListener("click", () => { switchView("pc"); setTimeout(() => abrirPainelPc("memoria"), 80); });
   }
+  // 23/11: músicas sugeridas — as mesmas linhas da lista "Talvez você goste" (musica.js).
+  if (x?.musicas?.itens?.length) {
+    rodape.querySelector(".chat-musicas")?.remove();
+    rodape.insertAdjacentHTML("beforeend", `<div class="mg chat-musicas"><div class="mg-itens">${x.musicas.itens.map(mgLinha).join("")}</div>${x.musicas.aprendi?.length
+      ? `<button type="button" class="chat-memoria" data-mg="abrir" data-aba="musicas">Anotei que você gosta de ${escHtml(x.musicas.aprendi.slice(0, 3).join(", "))}</button>` : ""}</div>`);
+  }
   // 22/10: respostas rápidas — Sim/Não/opções dela + as prontas + "Outra resposta…".
   if (x?.rapidas) {
     rodape.querySelector(".chat-rapidas")?.remove();

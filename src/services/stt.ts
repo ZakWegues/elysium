@@ -1,5 +1,6 @@
 import { getApiKey, getConfig } from "../main/config";
 import { apiKeyError, networkError } from "./errors";
+import { nomesParaOuvir } from "./gostos";
 
 const GROQ_STT_URL = "https://api.groq.com/openai/v1/audio/transcriptions";
 
@@ -28,6 +29,10 @@ export async function transcribe(audio: Uint8Array): Promise<string> {
   form.append("language", "pt");
   form.append("response_format", "json");
   form.append("temperature", "0");
+  // 23/11: os artistas dele ajudam o nome em inglês a sair certo. Áudio curto fica sem: no silêncio
+  // o Whisper repetiria a lista.
+  const nomes = audio.byteLength > 24_000 ? nomesParaOuvir() : [];
+  if (nomes.length) form.append("prompt", `Pedido em português para a Ely. Pode citar: ${nomes.join(", ")}.`.slice(0, 600));
 
   let res: Response;
   try {

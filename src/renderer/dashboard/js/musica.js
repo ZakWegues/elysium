@@ -65,6 +65,12 @@ function mgLinha(m) {
 /** Só o miolo das listas que estão na tela: os cards em volta não se redesenham. */
 function mgDesenhar() {
   document.querySelectorAll("[data-mg-lista]").forEach((el) => { el.innerHTML = mgMiolo(Number(el.dataset.mgLista)); });
+  // As linhas do chat não se redesenham (o chat guarda o HTML): só o que mudou nelas.
+  document.querySelectorAll(".chat-musicas .mg-linha").forEach((el) => {
+    const id = Number(el.dataset.id);
+    el.querySelector(".mg-capa i").innerHTML = ico(mg.tocandoPrevia === id ? "pause" : "play", "ico-sm");
+    el.querySelectorAll('[data-mg="nota"]').forEach((n) => n.classList.toggle("aceso", mg.notas[id] === Number(n.dataset.valor)));
+  });
   mgDesenharGaveta();
 }
 
@@ -136,10 +142,12 @@ function mgDesenharGaveta() {
       <p class="mg-dica">${g.gosta.length} de que gosta, ${g.naoGosta.length} de que não gosta.</p>`;
     if (foco) { const b = document.getElementById("mg-busca"); b.focus(); b.setSelectionRange(texto.length, texto.length); }
   } else {
-    corpo.innerHTML = mg.musicas === null ? `<div class="mg-vazio"><span>Procurando músicas para perguntar…</span></div>`
+    const aprendidos = g?.aprendidos ?? [];
+    corpo.innerHTML = (aprendidos.length ? `<p class="mg-dica">Aprendi com você</p><div class="mg-chips">${aprendidos.map((a, i) =>
+      `<button data-mg="esquecer" data-i="${i}" class="mg-chip${mgClasse(a.valor)}" title="Esquecer">${escHtml(a.artista ? `${a.nome}, ${a.artista}` : a.nome)}${ico("x", "ico-sm")}</button>`).join("")}</div>` : "") + (mg.musicas === null ? `<div class="mg-vazio"><span>Procurando músicas para perguntar…</span></div>`
       : !mg.musicas.length ? `<div class="mg-vazio"><span>Marque antes alguns artistas.</span></div>`
       : `<p class="mg-dica">Ouça um trecho na capa e diga se gosta.</p><div class="mg"><div class="mg-itens">${mg.musicas.map(mgLinha).join("")}</div></div>
-         <div class="mg-rodape"><button class="mg-bt" data-mg="mais-musicas">${ico("refresh", "ico-sm")}<span>Outras músicas</span></button></div>`;
+         <div class="mg-rodape"><button class="mg-bt" data-mg="mais-musicas">${ico("refresh", "ico-sm")}<span>Outras músicas</span></button></div>`);
   }
 }
 
@@ -220,6 +228,12 @@ document.addEventListener("click", async (e) => {
         g.naoGosta = Object.keys(g.respostas).filter((n) => g.respostas[n] === -1);
         mgDesenharGaveta();
         mgMudou(await mgRpc("gostos.marcar", { tipo: "artista", nome, valor: v }));
+        break;
+      }
+      case "esquecer": {
+        const [a] = mg.gostos.aprendidos.splice(Number(b.dataset.i), 1);
+        mgDesenharGaveta();
+        mgMudou(await mgRpc("gostos.marcar", a.tipo === "musica" ? { tipo: "musica", musica: a.id, titulo: a.nome, artista: a.artista, valor: null } : { tipo: "artista", nome: a.nome, valor: null }));
         break;
       }
       case "mais-musicas": await mgMaisMusicas(); break;

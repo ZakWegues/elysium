@@ -3,6 +3,7 @@ import { shell } from "electron";
 import Store from "electron-store";
 import { cifrarTexto, decifrarTexto, getConfig } from "../main/config";
 import { observarFaixa } from "./gostos";
+import { melhorFaixa } from "./qualMusica";
 
 /**
  * Spotify Web API.
@@ -297,29 +298,31 @@ export async function seek(positionMs: number): Promise<void> {
 
 /** Procura e toca no dispositivo ativo. Devolve o que começou a tocar. */
 export async function playSearch(query: string): Promise<{ track: string; artist: string }> {
-  const found = await api("/search", { query: { q: query, type: "track", limit: "1" } }) as {
-    tracks?: { items?: { uri?: string; name?: string; artists?: { name?: string }[] }[] };
-  } | null;
+  const faixa = await acharFaixa(query);
+  if (!faixa) throw new Error(`não achei "${query}" no Spotify`);
 
-  const item = found?.tracks?.items?.[0];
-  if (!item?.uri) throw new Error(`não achei "${query}" no Spotify`);
-
-  await api("/me/player/play", { method: "PUT", body: { uris: [item.uri] } });
-  return {
-    track: item.name ?? query,
-    artist: (item.artists ?? []).map(a => a.name).filter(Boolean).join(", "),
-  };
+  await api("/me/player/play", { method: "PUT", body: { uris: [faixa.uri] } });
+  return { track: faixa.track, artist: faixa.artist };
 }
 
 // ── 23/11: o aparelho certo, fila e playlist ─────────────────────────────────
 
-/** A primeira faixa da busca. "Angel da banda Massive Attack" vira busca com artista. */
-export async function acharFaixa(busca: string): Promise<{ uri: string; track: string; artist: string } | null> {
-  const found = await api("/search", { query: { q: busca, type: "track", limit: "1" } }) as {
-    tracks?: { items?: { uri?: string; name?: string; artists?: { name?: string }[] }[] };
-  } | null;
-  const i = found?.tracks?.items?.[0];
-  return i?.uri ? { uri: i.uri, track: i.name ?? busca, artist: (i.artists ?? []).map(a => a.name).filter(Boolean).join(", ") } : null;
+/**
+ * A faixa da busca que combina com o pedido. O Spotify sempre devolve algo, mesmo sem relação
+ * (23/11: "Roll It do System of a Down" tocou Mac Miller); nada que combine = null.
+ */
+export async function acharFaixa(busca: string, exata?: { titulo: string; artista: string }): Promise<{ uri: string; track: string; artist: string } | null> {
+  const buscas = exata?.artista ? [`track:${exata.titulo} artist:${exata.artista}`, `${exata.titulo} ${exata.artista}`] : [busca];
+  for (const q of buscas) {
+    const found = await api("/search", { query: { q, type: "track", limit: "10" } }) as {
+      tracks?: { items?: { uri?: string; name?: string; artists?: { name?: string }[] }[] };
+    } | null;
+    const faixas = (found?.tracks?.items ?? []).filter(i => i?.uri)
+      .map(i => ({ uri: i.uri as string, track: i.name ?? busca, artist: (i.artists ?? []).map(a => a.name).filter(Boolean).join(", ") }));
+    const f = melhorFaixa(exata ? `${exata.titulo} ${exata.artista}` : busca, faixas);
+    if (f) return f;
+  }
+  return null;
 }
 
 const TIPOS = { pc: /^computer$/i, celular: /^smartphone$/i };
@@ -330,11 +333,11 @@ async function idDoAparelho(aparelho: "pc" | "celular"): Promise<string | null> 
 }
 
 /** Toca a faixa naquele aparelho. false = o Spotify de lá está fechado (ou a conta não deixa). */
-export async function tocarNo(aparelho: "pc" | "celular", uri: string): Promise<boolean> {
+export async function tocarNo(aparelho: "pc" | "celular", uri: string | string[]): Promise<boolean> {
   try {
     const id = await idDoAparelho(aparelho);
     if (!id) return false;
-    await api("/me/player/play", { method: "PUT", query: { device_id: id }, body: { uris: [uri] } });
+    await api("/me/player/play", { method: "PUT", query: { device_id: id }, body: { uris: [uri].flat() } });
     return true;
   } catch (e) {
     console.warn("[spotify] não toquei no aparelho:", e instanceof Error ? e.message : e);
@@ -349,8 +352,8 @@ export async function transferirPara(aparelho: "pc" | "celular"): Promise<boolea
   return true;
 }
 
-async function uris(musicas: { titulo: string; artista: string }[]): Promise<string[]> {
-  const achadas = await Promise.all(musicas.slice(0, 20).map(m => acharFaixa(`${m.titulo} ${m.artista}`).catch(() => null)));
+export async function uris(musicas: { titulo: string; artista: string }[]): Promise<string[]> {
+  const achadas = await Promise.all(musicas.slice(0, 20).map(m => acharFaixa("", m).catch(() => null)));
   return [...new Set(achadas.filter((f): f is NonNullable<typeof f> => f !== null).map(f => f.uri))];
 }
 

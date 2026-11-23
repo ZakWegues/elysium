@@ -32,7 +32,7 @@ import { desfazerTurno, desfazerUltimoTurno, registrarEstadoDaTela, telaMostrada
 import type { ResultadoComando } from "./command";
 import type { Fonte } from "./contextoComando";
 import { deveSugerir, sugerirContinuacoes } from "./continuacoes";
-import { rapidasPara, type Rapidas } from "./respostasRapidas";
+import { RAPIDAS_DE_MUSICA, rapidasPara, type Rapidas } from "./respostasRapidas";
 import { getConfig } from "../main/config";
 import { proxyDoApp } from "./uiProxy";
 import * as crypto from "node:crypto";
@@ -917,21 +917,21 @@ function handleUpgrade(
   const enviarAqui = (t: string) => sendToClient(client, t);
   socket.on("close", () => { fechado = true; soltarDestino(enviarAqui); });
 
-  const executar = async (texto: string, canal: "voz" | "texto" = "voz", aoPedaco?: (t: string) => void, abre = false): Promise<{ abrir?: ResultadoComando["abrir"]; reply: string; fontes?: Fonte[]; local?: boolean; semCensura?: boolean; rapidas?: Rapidas; conversa?: boolean; desfazer?: string; memoria?: { id: string; text: string }[] }> => {
+  const executar = async (texto: string, canal: "voz" | "texto" = "voz", aoPedaco?: (t: string) => void, abre = false): Promise<{ abrir?: ResultadoComando["abrir"]; reply: string; fontes?: Fonte[]; local?: boolean; semCensura?: boolean; rapidas?: Rapidas; conversa?: boolean; desfazer?: string; memoria?: { id: string; text: string }[]; musicas?: ResultadoComando["musicas"] }> => {
     if (!processStream) return { reply: await processCommand(texto, canal) };
     const r = await processStream(texto, aoPedaco ?? ((token) => sendToClient(client, JSON.stringify({ type: "chunk", text: token }))), canal, abre);
     // Bloco 132: as sugestões chegam DEPOIS do reply, numa mensagem própria — o celular já
     // fechou a bolha; app antigo ignora o tipo que não conhece.
     // 22/10: respostas rápidas no próprio reply; com pergunta, sem sugestões de continuação.
-    const rapidas = rapidasPara(r.reply, getConfig()) ?? undefined;
-    if (deveSugerir(r.actions, canal) && !fechado && !rapidas?.pergunta) {
+    const rapidas = r.musicas ? RAPIDAS_DE_MUSICA : rapidasPara(r.reply, getConfig()) ?? undefined;
+    if (deveSugerir(r.actions, canal) && !fechado && !rapidas?.pergunta && !r.musicas) {
       sugerirContinuacoes(texto, r.reply)
         .then(sugestoes => { if (sugestoes.length) sendToClient(client, JSON.stringify({ type: "sugestoes", sugestoes })); })
         .catch(() => { /* sem chips */ });
     }
     // `conversa` é o critério da tela (só conversa, sem ação no PC) — vale também para a voz,
     // que não ganha chips mas pode ganhar a oferta de tela (31/10).
-    return { reply: r.reply, fontes: r.fontes, local: r.local, ...(r.semCensura ? { semCensura: true } : {}), rapidas, conversa: deveSugerir(r.actions, "texto"), ...(r.desfazer ? { desfazer: r.desfazer } : {}), ...(r.memoria ? { memoria: r.memoria } : {}), ...(r.abrir ? { abrir: r.abrir } : {}) };
+    return { reply: r.reply, fontes: r.fontes, local: r.local, ...(r.semCensura ? { semCensura: true } : {}), rapidas, conversa: !r.musicas && deveSugerir(r.actions, "texto"), ...(r.musicas ? { musicas: r.musicas } : {}), ...(r.desfazer ? { desfazer: r.desfazer } : {}), ...(r.memoria ? { memoria: r.memoria } : {}), ...(r.abrir ? { abrir: r.abrir } : {}) };
   };
 
   // A tela vai com o ajuste "Telas com internet" (fotos, mapa e rotas) do momento.
@@ -962,12 +962,12 @@ function handleUpgrade(
       return;
     }
     executar(texto, canal, (t) => pedaco(p, t), abre)
-      .then(({ reply, fontes, local, semCensura, rapidas, conversa, desfazer, memoria, abrir }) => {
+      .then(({ reply, fontes, local, semCensura, rapidas, conversa, desfazer, memoria, abrir, musicas }) => {
         if (p.parado) { desfazerTurno(p.texto, reply); return; }
         const tela = comTelas ? depoisDaResposta(texto, reply, conversa === true && !(telaMostrada() !== null && !pediuTela(texto)), modoTelas, provedorDeTelas() !== null) : { reply, gerar: false };
         // Com a oferta no fim, as respostas rápidas viram as da pergunta nova (Sim/Não).
         const rap = tela.reply !== reply ? rapidasPara(tela.reply, getConfig()) ?? undefined : rapidas;
-        terminar(p, { type: "reply", reply: tela.reply, ...(fontes?.length ? { fontes } : {}), ...(local ? { local } : {}), ...(semCensura ? { semCensura } : {}), ...(rap ? { rapidas: rap } : {}), ...(desfazer ? { desfazer } : {}), ...(memoria ? { memoria } : {}), ...(abrir ? { abrir } : {}) });
+        terminar(p, { type: "reply", reply: tela.reply, ...(fontes?.length ? { fontes } : {}), ...(local ? { local } : {}), ...(semCensura ? { semCensura } : {}), ...(rap ? { rapidas: rap } : {}), ...(desfazer ? { desfazer } : {}), ...(memoria ? { memoria } : {}), ...(abrir ? { abrir } : {}), ...(musicas ? { musicas } : {}) });
         if (tela.gerar) void gerarParaCelular(texto, reply, geradorDeTelas(), paraUi(p), {}, p.id);
       })
       .catch(err => {

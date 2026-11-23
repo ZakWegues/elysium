@@ -411,7 +411,7 @@ export const FERRAMENTAS: Ferramenta[] = [
   {
     name: "tocar_musica",
     description: "Toca uma música, artista ou playlist no Spotify.",
-    parameters: obj({ busca: s("Música, artista, álbum ou estilo") }, ["busca"]),
+    parameters: obj({ busca: s("Título e artista exatos. 'Ela', 'essa', 'a segunda': troque pelo nome verdadeiro, tirado da conversa") }, ["busca"]),
     executar: a => acao({ action: "play_music", query: str(a, "busca") }),
     acao: a => ({ action: "play_music", query: str(a, "busca") }),
   },

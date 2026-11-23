@@ -10,7 +10,7 @@ import { app, BrowserWindow, globalShortcut, ipcMain, clipboard, nativeImage, di
 import { paraFala } from "../services/estiloResposta";
 import { ouvirTimers, retomarTimers } from "../services/timers";
 import { deveSugerir, sugerirContinuacoes } from "../services/continuacoes";
-import { rapidasPara } from "../services/respostasRapidas";
+import { RAPIDAS_DE_MUSICA, rapidasPara } from "../services/respostasRapidas";
 import { aoPedirConfirmacao, ehSim, responderConfirmacao } from "../services/confirmacao";
 import { decidirTela, estadoEmTexto, gerarTela, OFERTA, pediuTela, quandoMostrarTela, textoDaTela } from "../services/telaInteligente";
 import { geradorDeTelas, provedorDeTelas } from "../services/geradorDeTelas";
@@ -1065,7 +1065,7 @@ ipcMain.on("audio-data", async (_event, buffer: Buffer) => {
       // agente, histórico fora de ordem). A tela sabe da fala pelo `tts:falando`.
       falas.push(speak(frase, humor).catch(() => {}));
     };
-    const { reply: combined, desfazer, memoria } = await executarComando(text, {
+    const { reply: combined, desfazer, memoria, musicas } = await executarComando(text, {
       onActions: (actions) => {
         const label = getActionsLabel(actions);
         enviarAoDash("voice:action-label", label);
@@ -1087,7 +1087,8 @@ ipcMain.on("audio-data", async (_event, buffer: Buffer) => {
     // embaixo da resposta falada. Oferta e "priorizar" continuam só no texto.
     if (pediuTela(text) && getConfig().respostasInterativas !== "nunca" && provedorDeTelas() !== null) void telaNoChat(text, combined);
     // 22/10: os botões de resposta também valem depois da voz (o microfone segue aberto).
-    const rapidasVoz = rapidasPara(combined, getConfig());
+    const rapidasVoz = musicas ? null : rapidasPara(combined, getConfig());
+    if (musicas) enviarAoDash("chat:extras", { musicas });
     if (rapidasVoz) enviarAoDash("chat:extras", { rapidas: rapidasVoz });
     if (desfazer) enviarAoDash("chat:extras", { desfazer });
     if (memoria) enviarAoDash("chat:extras", { memoria });
@@ -1205,7 +1206,7 @@ async function enviarTexto(text: string, opcoes?: { refazer?: boolean }): Promis
     // e não conta de novo nas perguntas frequentes.
     if (opcoes?.refazer) desfazerUltimoTurno();
     else registrarPergunta(text);
-    const { reply: combined, fontes, actions, local, desfazer, memoria, semCensura } = await executarComando(text, {
+    const { reply: combined, fontes, actions, local, desfazer, memoria, semCensura, musicas } = await executarComando(text, {
       canal: "texto",
       onActions: (actions) => {
         const label = getActionsLabel(actions);
@@ -1228,7 +1229,7 @@ async function enviarTexto(text: string, opcoes?: { refazer?: boolean }): Promis
     const sobreATela = telaMostrada() !== null && !pediuTela(text);
     // 12/11: pela Ely flutuante, explicação já ganha o desenho rápido — sem tela/oferta repetindo.
     const desenhada = flutuanteAberto() && pediuDesenho(text) && !pediuTela(text);
-    const decisao = deveSugerir(actions, "texto") && !sobreATela && !desenhada && (getConfig().respostasInterativas === "priorizar" || !pedeResposta(combined))
+    const decisao = !musicas && deveSugerir(actions, "texto") && !sobreATela && !desenhada && (getConfig().respostasInterativas === "priorizar" || !pedeResposta(combined))
       ? decidirTela(getConfig().respostasInterativas, text, "texto", provedorDeTelas() !== null)
       : "nada";
     const textoFinal = decisao === "oferecer" ? `${combined}\n\n${OFERTA}` : combined;
@@ -1245,9 +1246,11 @@ async function enviarTexto(text: string, opcoes?: { refazer?: boolean }): Promis
     // 31/10: fez algo reversível — o botão "Desfazer" no rodapé da bolha.
     if (desfazer) enviarAoDash("chat:extras", { desfazer });
     if (memoria) enviarAoDash("chat:extras", { memoria });
+    // 23/11: a lista de músicas, com trecho, joinha e tocar.
+    if (musicas) enviarAoDash("chat:extras", { musicas });
     // 22/10: respostas rápidas. Se ela perguntou algo, a linha é de resposta — sem as
     // sugestões de continuação (uma linha só embaixo da bolha).
-    const rapidas = rapidasPara(textoFinal, getConfig());
+    const rapidas = musicas ? { ...RAPIDAS_DE_MUSICA, opcoes: ["Toca todas", "Toca a primeira", "Toca todas no celular"] } : rapidasPara(textoFinal, getConfig());
     if (rapidas) enviarAoDash("chat:extras", { rapidas });
     if (deveSugerir(actions, "texto") && !rapidas?.pergunta) {
       sugerirContinuacoes(text, combined).then((sugestoes) => {

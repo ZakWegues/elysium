@@ -29,6 +29,9 @@ const RESPOSTA_CURTA = 120;
 const MAX_OPCOES = 4;
 const MAX_OPCAO = 40;
 
+/** Embaixo de uma lista de músicas (23/11). */
+export const RAPIDAS_DE_MUSICA: Rapidas = { pergunta: true, sim: false, nao: false, opcoes: ["Toca todas", "Toca a primeira", "Toca todas no PC"], prontas: [] };
+
 /** Pergunta aberta: "qual…", "onde…", "como…" — Sim/Não não responde. */
 const ABERTA = /^(o que|oque|para onde|pra onde|de onde|qual|quais|quando|onde|aonde|como|quanto|quantos|quantas|quem|por que|porque|pra que|para que|de que|em que)\b/;
 /** "Qual você prefere", "o que acha": abertura antes da vírgula. */
@@ -97,6 +100,15 @@ function opcoesDaLista(texto: string): string[] {
   return itens.slice(0, MAX_OPCOES);
 }
 
+/** "as que eu falei foram Lonely Day, Aerials e Spiders." → as três. Só nomes curtos. Pura. */
+function opcoesDaFrase(antes: string): string[] {
+  const frase = ultimaFrase(antes).replace(/[.!…:]+$/, "");
+  const m = /(?:^|\s)(?:s[ãa]o|foram|temos|tem|h[áa]|:)\s+(.+)$/u.exec(frase);
+  if (!m || !m[1].includes(",")) return [];
+  const itens = m[1].split(/,\s*|\s+e\s+(?=[^,]+$)/).map(limparOpcao);
+  return itens.length >= 2 && itens.length <= MAX_OPCOES && itens.every((o) => o && o.length <= MAX_OPCAO) ? itens : [];
+}
+
 /** O que mostrar embaixo da resposta. `prontas` vem dos Ajustes. Pura. */
 export function opcoesDaResposta(reply: string, prontas: string[] = []): Rapidas {
   const vazio: Rapidas = { pergunta: false, sim: false, nao: false, opcoes: [], prontas: limparProntas(prontas) };
@@ -109,7 +121,9 @@ export function opcoesDaResposta(reply: string, prontas: string[] = []): Rapidas
   const p = norm(pergunta);
   let opcoes = opcoesDoOu(pergunta);
   if (!opcoes.length && ESCOLHA.test(p)) opcoes = opcoesDaLista(t);
-  if (opcoes.length) return { ...vazio, pergunta: true, opcoes };
+  // 23/11: "foram A, B e C. Qual delas…?" — as escolhas estão na frase anterior.
+  if (!opcoes.length && ESCOLHA.test(p)) opcoes = opcoesDaFrase(t.slice(0, t.length - pergunta.length));
+  if (opcoes.length) return { ...vazio, pergunta: true, opcoes, prontas: [] };
   const simNao = !ABERTA.test(p);
   return { ...vazio, pergunta: true, sim: simNao, nao: simNao };
 }

@@ -13,7 +13,10 @@ import type { AlvoNoCelular, Aparelho } from "./destino";
  */
 export interface Fonte { titulo: string; url: string }
 
-interface Contexto { canal: Canal; fontes: Fonte[]; pedido?: string; reserva?: boolean; origem: Aparelho; abreNoCelular: boolean; abrir?: AlvoNoCelular }
+/** 23/11: as músicas sugeridas nesta resposta, com os botões de tocar embaixo dela. */
+export interface MusicasDaResposta { itens: { id: number; titulo: string; artista: string; capa: string | null; motivo: string }[]; aprendi: string[] }
+
+interface Contexto { canal: Canal; fontes: Fonte[]; pedido?: string; reserva?: boolean; origem: Aparelho; abreNoCelular: boolean; abrir?: AlvoNoCelular; musicas?: MusicasDaResposta }
 
 const als = new AsyncLocalStorage<Contexto>();
 
@@ -36,6 +39,14 @@ export function abrirNoCelularAtual(alvo: AlvoNoCelular): boolean {
 }
 export function aberturaDoPedido(): AlvoNoCelular | undefined {
   return als.getStore()?.abrir;
+}
+
+export function registrarMusicas(m: MusicasDaResposta): void {
+  const c = als.getStore();
+  if (c) c.musicas = m;
+}
+export function musicasDaResposta(): MusicasDaResposta | undefined {
+  return als.getStore()?.musicas;
 }
 
 /**

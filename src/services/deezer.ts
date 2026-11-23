@@ -1,3 +1,4 @@
+import { COMBINA_MINIMO, combina } from "./qualMusica";
 import { semAcento } from "./texto";
 
 /**
@@ -84,6 +85,18 @@ export async function parecidos(id: number): Promise<ArtistaDz[]> {
 
 export async function maisTocadas(id: number, limite = 10): Promise<MusicaDz[]> {
   return semNulos(lista(await pegar(`/artist/${id}/top?limit=${limite}`, DIA)).map(lerMusica));
+}
+
+/** A música com este nome e artista — null se a que vier não combina com o pedido (23/11). */
+export async function acharMusica(titulo: string, artista: string): Promise<MusicaDz | null> {
+  const aspas = (t: string) => `"${t.replace(/"/g, " ")}"`;
+  const buscas = artista ? [`artist:${aspas(artista)} track:${aspas(titulo)}`, `${titulo} ${artista}`] : [titulo];
+  for (const q of buscas) {
+    const achadas = semNulos(lista(await pegar(`/search?q=${encodeURIComponent(q)}&limit=8`, DIA)).map(lerMusica))
+      .filter((m) => combina(titulo, { track: m.titulo, artist: "" }) >= COMBINA_MINIMO && (!artista || combina(artista, { track: "", artist: m.artista }) >= COMBINA_MINIMO));
+    if (achadas.length) return achadas[0];
+  }
+  return null;
 }
 
 /** O trecho de 30 s. O endereço vence em minutos: pedido na hora de tocar, nunca guardado. */

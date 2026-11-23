@@ -1,3 +1,4 @@
+import { ehReferencia } from "./qualMusica";
 import { semAcento } from "./texto";
 
 /**
@@ -10,7 +11,8 @@ export type Aparelho = "pc" | "celular";
 export type Pedido =
   | { tipo: "abrir"; nome: string }
   | { tipo: "pesquisar"; busca: string; site: "youtube" | "google" | "spotify" | "maps" }
-  | { tipo: "tocar"; busca: string; app: "spotify" | "youtube" | null }
+  /** `referencia`: "ela", "a segunda", "a mais parecida" — quem sabe o nome é a conversa. */
+  | { tipo: "tocar"; busca: string; app: "spotify" | "youtube" | null; referencia?: boolean }
   | { tipo: "passar" };
 
 export interface PedidoComDestino {
@@ -40,7 +42,7 @@ const OUTRO_PEDIDO = /\s(?:e|depois|a[íi])\s+(?:depois\s+|tamb[eé]m\s+)?(?:abr
 /** O pedido é de abrir, tocar, pesquisar num app ou passar a música? Só a frase inteira e simples. Pura. */
 export function lerPedido(texto: string): PedidoComDestino | null {
   const { dito, sem } = tirarAparelho(texto);
-  const t = sem.replace(ENFEITE, "").replace(/[.!?\s]+$/, "").replace(/[,\s]+(?:por favor|pra mim|para mim|a[íi])$/i, "").trim();
+  const t = sem.replace(ENFEITE, "").replace(/[.!?\s]+$/, "").replace(/(?:[,\s]+(?:por favor|por gentileza|(?:fazendo |faz )?(?:um )?favor|pra mim|para mim|a[íi]|agora))+$/i, "").trim();
   if (!t || t.length > 140 || OUTRO_PEDIDO.test(t)) return null;
   const feito = (pedido: Pedido): PedidoComDestino => ({ pedido, dito, semAparelho: sem });
 
@@ -49,10 +51,10 @@ export function lerPedido(texto: string): PedidoComDestino | null {
     || /^(?:passa|passar|transfere|transferir|joga|leva|manda|muda|toca)\s+(?:a m[uú]sica|o som|o spotify|essa m[uú]sica|esta m[uú]sica)$/i.test(t))) return feito({ tipo: "passar" });
 
   // Tocar: "toca Angel do Massive Attack", "coloca pra tocar…", "bota a música X", "põe X no Spotify".
-  const app = /[,\s]+(?:n[oa]|pel[oa])\s+(spotify|youtube(?: music)?)$/i.exec(t);
+  const app = /[,\s]+(?:n[oa]|pel[oa])\s+(?:meu\s+)?(spotify|youtube(?: music)?)$/i.exec(t);
   const semApp = app ? t.slice(0, app.index).trim() : t;
   const qualApp = app ? (/spotify/i.test(app[1]) ? "spotify" as const : "youtube" as const) : null;
-  const toca = /^(?:toca|toque|tocar|reproduz|reproduza|(?:coloca|coloque|bota|bote|p[oõ]e|ponha)\s+(?:pra|para|a)\s+tocar)\s+(.+)$/i.exec(semApp);
+  const toca = /^(?:toca|toque|tocar|reproduz|reproduza|(?:coloca|coloque|bota|bote|p[oõ]e|ponha)\s+(?:a[íi]\s+)?(?:pra|para|a)\s+tocar)\s+(?:a[íi][,\s]+)?(?:pra mim\s+|para mim\s+)?(.+)$/i.exec(semApp);
   const poe = /^(?:coloca|coloque|colocar|bota|bote|botar|p[oõ]e|ponha|p[oô]r)\s+(.+)$/i.exec(semApp);
   const bruto = toca?.[1] ?? (poe && (qualApp || /^(?:a |o |uma |um )?(?:m[uú]sica|som|faixa|can[cç][aã]o|[aá]lbum|playlist)\b/i.test(poe[1])) ? poe[1] : null);
   if (bruto) {
@@ -61,7 +63,7 @@ export function lerPedido(texto: string): PedidoComDestino | null {
     const busca = bruto
       .replace(/^(?:a |o |uma |um |as )?(?:m[uú]sica|som|faixa|can[cç][aã]o)s?\s+(?:chamada |que chama )?/i, "")
       .replace(/["'“”]/g, "").replace(/[,\s]+d[aeo]s?\s+(?:banda|grupo|cantora?|dupla|artista|dj)\s+/i, " ").trim();
-    return busca.length >= 2 ? feito({ tipo: "tocar", busca, app: qualApp }) : null;
+    return busca.length >= 2 ? feito({ tipo: "tocar", busca, app: qualApp, ...(ehReferencia(bruto) ? { referencia: true } : {}) }) : null;
   }
 
   // Pesquisar dentro de um app.

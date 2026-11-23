@@ -2,6 +2,8 @@ import { shell } from "electron";
 import { playMusic } from "../actions/playMusic";
 import { abrirNoCelularAtual, aparelhoDoPedido } from "./contextoComando";
 import { alvoDoApp, lerPedido, urlDaBusca, type AlvoNoCelular, type Aparelho, type Pedido } from "./destino";
+import { corrigeMusica, type MusicaDita } from "./qualMusica";
+import { resolverPelaConversa } from "./musicaConversa";
 import * as spotify from "./spotify";
 
 /**
@@ -35,10 +37,25 @@ async function urlDoVideo(busca: string): Promise<string> {
 
 const onde = (a: Aparelho) => (a === "celular" ? "no celular" : "no PC");
 
-export async function tocarMusica(busca: string, app: "spotify" | "youtube" | null, aparelho: Aparelho): Promise<string> {
+/** A última que tocou a pedido: "não, nada a ver" logo depois é a correção dela. */
+let ultimaTocada: { em: number; nome: string; app: "spotify" | "youtube" | null; aparelho: Aparelho } | null = null;
+const CORRECAO_MS = 3 * 60_000;
+
+/**
+ * `exata` = título e artista já sabidos. `pedido` = a frase dele: sem nada que combine no Spotify,
+ * a conversa diz que música era (a transcrição erra nome em inglês).
+ */
+export async function tocarMusica(busca: string, app: "spotify" | "youtube" | null, aparelho: Aparelho, exata?: MusicaDita, pedido?: string): Promise<string> {
   if (app !== "youtube" && spotify.isConnected()) {
-    const faixa = await spotify.acharFaixa(busca).catch(() => null);
+    let faixa: Awaited<ReturnType<typeof spotify.acharFaixa>> = null, semRede = false;
+    try { faixa = await spotify.acharFaixa(busca, exata); } catch { semRede = true; }
+    if (!faixa && !semRede && pedido) {
+      const [m] = await resolverPelaConversa(pedido, busca);
+      if (m) faixa = await spotify.acharFaixa("", m).catch(() => null);
+    }
+    if (!faixa && !semRede) return `Não achei "${busca}" no Spotify. Me diz o nome e o artista de novo?`;
     if (faixa) {
+      ultimaTocada = { em: Date.now(), nome: `${faixa.track}, de ${faixa.artist}`, app, aparelho };
       const nome = faixa.artist ? `${faixa.track}, de ${faixa.artist}` : faixa.track;
       if (await spotify.tocarNo(aparelho, faixa.uri)) return `Tocando ${nome}, ${onde(aparelho)}.`;
       // O Spotify daquele aparelho está fechado: abre direto na faixa.
@@ -71,6 +88,16 @@ export async function tocarMusica(busca: string, app: "spotify" | "youtube" | nu
   return playMusic(busca);
 }
 
+/** Várias seguidas, na ordem. Com o Spotify do aparelho fechado, abre na primeira. */
+async function tocarVarias(musicas: MusicaDita[], app: "spotify" | "youtube" | null, aparelho: Aparelho): Promise<string> {
+  const [primeira] = musicas;
+  if (app !== "youtube" && spotify.isConnected() && musicas.length > 1) {
+    const uris = await spotify.uris(musicas).catch(() => []);
+    if (uris.length && await spotify.tocarNo(aparelho, uris)) return `Tocando ${uris.length} músicas, começando por ${primeira.titulo}, ${onde(aparelho)}.`;
+  }
+  return tocarMusica(`${primeira.titulo} ${primeira.artista}`.trim(), app, aparelho, primeira);
+}
+
 /** "Continua no celular": leva o que está tocando para o outro aparelho. */
 export async function passarMusica(para: Aparelho): Promise<string> {
   if (!spotify.isConnected()) return "Para passar a música de um aparelho para o outro, conecte o Spotify no PC.";
@@ -89,12 +116,23 @@ export async function passarMusica(para: Aparelho): Promise<string> {
  */
 export async function cuidarDoDestino(texto: string): Promise<{ fala: string } | { seguir: string } | null> {
   const p = lerPedido(texto);
+  // "Não, é Roulette, do System of a Down": corrige a que acabou de tocar, no mesmo aparelho.
+  if (!p && ultimaTocada && Date.now() - ultimaTocada.em < CORRECAO_MS && corrigeMusica(texto)) {
+    const u = ultimaTocada;
+    const certas = await resolverPelaConversa(texto, texto, u.nome);
+    if (certas.length) { ultimaTocada = null; return { fala: await tocarVarias(certas, u.app, u.aparelho) }; }
+  }
   if (!p) return null;
   const origem = aparelhoDoPedido();
   const destino = p.dito ?? origem;
   const pedido: Pedido = p.pedido;
   if (pedido.tipo === "passar") return { fala: await passarMusica(destino) };
-  if (pedido.tipo === "tocar") return { fala: await tocarMusica(pedido.busca, pedido.app, destino) };
+  if (pedido.tipo === "tocar") {
+    if (!pedido.referencia) return { fala: await tocarMusica(pedido.busca, pedido.app, destino, undefined, texto) };
+    const quais = await resolverPelaConversa(texto, pedido.busca);
+    // Não deu para saber qual é: a conversa segue e ela pergunta.
+    return quais.length ? { fala: await tocarVarias(quais, pedido.app, destino) } : null;
+  }
   if (destino === "pc") return p.dito ? { seguir: p.semAparelho } : null;
 
   if (pedido.tipo === "pesquisar") {
