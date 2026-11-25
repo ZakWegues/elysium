@@ -57,7 +57,7 @@ import { aCada, esperarOcioso, pararIntervalos } from "./proativo";
 import { notify } from "./notify";
 import { createTray, refreshTray, updateLastCommand, buildIcon as iconePadrao, aoInterromperFala, marcarFalaNaBandeja } from "./tray";
 import { transcribe } from "../services/stt";
-import { clearHistory, desfazerUltimoTurno, registrarEstadoDaTela, registrarFalaDaEly, registrarTelaMostrada, telaMostrada } from "../services/brain";
+import { clearHistory, desfazerUltimoTurno, registrarEstadoDaTela, registrarFalaDaEly, ultimaConversaEm, registrarTelaMostrada, telaMostrada } from "../services/brain";
 import { modelosDaGroq } from "../services/catalogoGroq";
 import { desligarPalavraDeAtivacao, escutarDuranteFala, ligarPalavraDeAtivacao, Ouvido, podeInterromper } from "../services/palavraAtivacao";
 
@@ -73,6 +73,12 @@ import { envelopeDasPalavras } from "../services/bolota";
 import { aoMudarFala, estaFalando, falaAtual, falar as speak, interromperTudo as interruptAll, novoTurno, turnoAtual } from "./fala";
 import { habitosParaLembrar } from "../services/habitos";
 import { podeAvisarAlto } from "../services/avisos";
+import { quandoChegarImportante } from "../services/notificacoesDoCelular";
+import { olharIniciativa } from "../services/iniciativa";
+import { conferirVigias } from "../services/vigias";
+import { ligarSegundoPlano } from "../services/segundoPlano";
+import { quemOcupaGpu } from "../services/gpuGuard";
+import { registrarAtividade } from "../services/atividade";
 import { ElysiumError } from "../services/errors";
 import { processCommand, processCommandStream, executarComando } from "../services/command";
 import { lerPedido, refDoAlvo } from "../services/destino";
@@ -512,6 +518,32 @@ async function resumoDaManha(): Promise<void> {
 // (compromisso que passou, pendência de conversa). Passa pelo orçamento de avisos — no foco
 // ou com o orçamento gasto, fica só o card do Hoje. A pergunta entra no histórico como fala
 // da Ely: "foi bem, tirei 8" logo depois tem contexto.
+const avisadasDoCelular = new Set<string>();
+
+/**
+ * 25/11: a iniciativa. No PC, com ele na frente e o app livre: balão, voz (de dia) e os botões no chat.
+ * Fora do PC: vai para o celular, e o toque abre o Chat com a fala dela.
+ */
+async function puxarConversa(): Promise<void> {
+  try {
+    const ausente = powerMonitor.getSystemIdleTime() > 300;
+    const ocupado = !state.is("idle") || estadoFoco().ativo || (!ausente && !!(await quemOcupaGpu().catch(() => null)));
+    const i = await olharIniciativa({ ocupado, ultimaConversa: ultimaConversaEm() });
+    if (!i) return;
+    registrarFalaDaEly(i.texto);
+    registrarAtividade(`Puxei conversa: ${i.texto} (${i.porque})`);
+    if (ausente) {
+      // Mensagem de outra pessoa não passa pelo push da nuvem, só pela ligação direta.
+      mandarAoCelular("aviso", "Ely", i.texto, { ...(i.tipo === "mensagem" ? {} : { push: "pc" as const }), ref: `ely:${i.id}`, dados: { ref: `ely:${i.id}`, fala: i.texto } });
+      return;
+    }
+    notify("Ely", i.texto);
+    enviarAoDash("chat:reply", `${i.texto}\n\n_${i.porque}_`);
+    enviarAoDash("chat:extras", { rapidas: { pergunta: true, sim: false, nao: false, opcoes: [...(i.passo ? [i.passo.pedido] : []), "Agora não", "Não quero esse aviso"], prontas: [] } });
+    if (!ehNoite()) speak(i.texto).catch(() => { /* best-effort */ });
+  } catch (e) { console.warn("[iniciativa]", e instanceof Error ? e.message : e); }
+}
+
 const comoFoiStore = new Store<{ ultimoDia: string }>({ name: "como-foi", defaults: { ultimoDia: "" } });
 async function perguntarComoFoi(): Promise<void> {
   try {
@@ -1937,6 +1969,34 @@ app.on("ready", async () => {
     const ref = refDoAlvo(alvo);
     mandarAoCelular("aviso", `Abrir ${alvo.rotulo}`, "Toque para abrir.", { push: "pc", ref, dados: { ref } });
   });
+  // 25/11: mensagem importante no celular, com ele no PC: avisa aqui (o celular já tocou lá).
+  quandoChegarImportante((c) => {
+    if (powerMonitor.getSystemIdleTime() > 300 || avisadasDoCelular.has(c.chave + c.em)) return;
+    avisadasDoCelular.add(c.chave + c.em);
+    void quemOcupaGpu().catch(() => null).then((jogo) => {
+      if (jogo || !podeAvisarAlto()) return;
+      notify(`${c.quem} no ${c.app}`, c.mensagens[c.mensagens.length - 1]?.texto.slice(0, 160) ?? "");
+      if (!ehNoite() && state.is("idle")) speak(`${c.quem} te mandou mensagem no ${c.app}.`).catch(() => { /* best-effort */ });
+    });
+  });
+  // 25/11: a Ely puxa conversa — olha a cada 10 min e, se vale, fala onde ele está.
+  aCada(10 * 60_000, "iniciativa", () => { void puxarConversa(); });
+  // 25/11: vigias ("me avisa quando…").
+  aCada(5 * 60_000, "vigias", () => {
+    void conferirVigias().then((avisos) => {
+      for (const a of avisos) { notify(a.titulo, a.corpo); mandarAoCelular("aviso", a.titulo, a.corpo, { push: "reminder" }); registrarFalaDaEly(`${a.titulo}: ${a.corpo}`); }
+    }).catch(() => {});
+  });
+  // 25/11: tarefas em segundo plano: terminou, avisa aqui e no celular.
+  ligarSegundoPlano(
+    async (pedido) => (await executarComando(pedido, { canal: "texto", deFundo: true })).reply,
+    (t) => {
+      const titulo = t.estado === "pronta" ? "Terminei" : "Não deu";
+      notify(titulo, `${t.pedido.slice(0, 80)} — ${t.resultado.slice(0, 160)}`);
+      mandarAoCelular("aviso", titulo, t.resultado.slice(0, 900) || t.pedido, { push: "reminder", ref: `ely:${t.id}`, dados: { ref: `ely:${t.id}`, fala: t.resultado.slice(0, 900) } });
+      enviarAoDash("chat:reply", `**${titulo}:** ${t.pedido}\n\n${t.resultado}`);
+    },
+  );
   // O que ele ouve entra nas sugestões de música, mesmo com as telas fechadas.
   setInterval(() => { if (isSpotifyConnected()) getSpotifyNowPlaying().catch(() => { /* sem rede */ }); }, 40_000);
 

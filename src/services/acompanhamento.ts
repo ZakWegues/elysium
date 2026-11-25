@@ -3,6 +3,11 @@ import { ehCompromisso, limparDataDoTexto } from "./planoDeLembrete";
 import { fimDoPrazo, listarTarefasTodas, type Tarefa } from "./tarefas";
 import { listarEpisodios, marcarPerguntado, type Episodio } from "./episodios";
 
+/** "Pedir ajuda caso surjam dúvidas" não é pendência que se pergunte (25/11). Pura. */
+export function pendenciaConcreta(p: string): boolean {
+  return !/\b(?:caso|se (?:surgi|precis|quis|houve|for)\w*|quando (?:precis|quis)\w*|pedir ajuda|aguardar|esperar|retorno)\b/i.test(p);
+}
+
 /**
  * "E aí, como foi a prova?" (fase 19, bloco 191).
  *
@@ -55,7 +60,8 @@ export function acompanhamentos(tarefas: Tarefa[], episodios: Episodio[], pergun
     if (e.perguntado || perguntados.has(id) || !e.pendencias.length) continue;
     const idade = agora - e.em;
     if (idade < DIA || idade > 7 * DIA) continue;
-    const p = e.pendencias[0].replace(/[.!?]+$/, "");
+    const p = e.pendencias.find(pendenciaConcreta)?.replace(/[.!?]+$/, "");
+    if (!p) continue;
     lista.push({ id, pergunta: `Da última vez você ficou de ${p.charAt(0).toLowerCase()}${p.slice(1)}. Conseguiu?`, em: e.em });
   }
   return lista.sort((a, b) => b.em - a.em).slice(0, 3);

@@ -1,7 +1,13 @@
 import { marcarPeloPedido } from "./marcarNaTela";
 import { cuidarDoDestino } from "./tocar";
 import type { AlvoNoCelular } from "./destino";
+import { opinar, opiniaoSobreIniciativa } from "./iniciativa";
+import { perguntaDoFundo, pedeSegundoPlano, porEmSegundoPlano, situacaoDoFundo } from "./segundoPlano";
+import { comandoDeVigia, criarVigia, pedeVigia } from "./vigias";
+import { aplicarPedidoDeAssunto, pedidoDeAssunto } from "./assuntosDoBriefing";
+import { buscarNovidades } from "./novidades";
 import { aprenderDaFala, musicasParecidas, pedeParecidas } from "./musicaConversa";
+import { conversaDe, pedeNotificacoes, pedeResponder, responderConversa, resumirNotificacoes, temNotificacoes } from "./notificacoesDoCelular";
 import { semAcento } from "./texto";
 import { actionSummary, composeChatReply, decideBrain, noteFastRouted, recordAssistantReply, registrarTurnoUsuario, BrainAction } from "./brain";
 import { contaComoAtividade, registrarAtividade } from "./atividade";
@@ -70,6 +76,8 @@ export type GanchosComando = {
   canal?: Canal;
   /** 23/11: o pedido veio do celular, e o app de lá sabe abrir apps. */
   doCelular?: { abre: boolean };
+  /** 25/11: tarefa em segundo plano — não passa pelo Hermes (a sessão dele é a da conversa). */
+  deFundo?: boolean;
 };
 
 export function executarComando(text: string, ganchos: GanchosComando = {}): Promise<ResultadoComando> {
@@ -151,7 +159,7 @@ async function executarNoContexto(
   }
 
   // 14/11: "circula o YouTube no PC" (pedido do celular): a bolota do PC marca na tela dele.
-  if (/(no|do|na tela do) (pc|computador|notebook)/i.test(semAcento(text))) {
+  if (/\b(no|do|na tela do) (pc|computador|notebook)\b/i.test(semAcento(text))) {
     const marca = await marcarPeloPedido(text).catch(() => null);
     if (marca) {
       registrarTurnoUsuario(text);
@@ -159,6 +167,60 @@ async function executarNoContexto(
       ganchos.onToken?.(marca.fala);
       return { actions: [{ action: "chat" }], reply: marca.fala, atalho: true };
     }
+  }
+
+  // 25/11: o que ele achou da última vez em que ela puxou conversa.
+  const opiniao = opiniaoSobreIniciativa(text);
+  const falaOpiniao = opiniao ? opinar(opiniao) : null;
+  if (falaOpiniao) {
+    registrarTurnoUsuario(text);
+    recordAssistantReply(falaOpiniao);
+    ganchos.onToken?.(falaOpiniao);
+    return { actions: [], reply: falaOpiniao, atalho: true };
+  }
+
+  // 25/11: segundo plano e vigias.
+  if (!ganchos.deFundo) {
+    const fundo = pedeSegundoPlano(text);
+    const vigia = fundo ? null : pedeVigia(text);
+    const reply = perguntaDoFundo(text) ? situacaoDoFundo() : fundo ? porEmSegundoPlano(fundo) : vigia ? criarVigia(vigia, text) : comandoDeVigia(text);
+    if (reply) {
+      registrarTurnoUsuario(text);
+      recordAssistantReply(reply);
+      ganchos.onToken?.(reply);
+      return { actions: [{ action: "chat" }], reply, atalho: true };
+    }
+  }
+
+  // 25/11: os assuntos do briefing são dele.
+  const assunto = pedidoDeAssunto(text);
+  if (assunto) {
+    const reply = aplicarPedidoDeAssunto(assunto);
+    if (assunto.acao === "por") void buscarNovidades().catch(() => {});
+    registrarTurnoUsuario(text);
+    recordAssistantReply(reply);
+    ganchos.onToken?.(reply);
+    return { actions: [], reply, atalho: true };
+  }
+
+  // 25/11: "o que eu perdi?", "o que o João mandou?" — as notificações do celular, resumidas neste PC.
+  // O conteúdo não entra no histórico nem vai ao Hermes: são mensagens de outras pessoas.
+  const querNotif = pedeNotificacoes(text);
+  if (querNotif) {
+    const reply = await resumirNotificacoes(querNotif.quem);
+    registrarTurnoUsuario(text);
+    recordAssistantReply("(resumi as notificações do celular dele)");
+    ganchos.onToken?.(reply);
+    return { actions: [{ action: "chat" }], reply, atalho: true };
+  }
+  const querResponder = temNotificacoes() ? pedeResponder(text) : null;
+  const conversa = querResponder ? conversaDe(querResponder.quem) : null;
+  if (querResponder && conversa) {
+    const reply = pedirConfirmacao(`Responder ${conversa.quem} no ${conversa.app}: “${querResponder.texto}”.`, () => responderConversa(conversa, querResponder.texto));
+    registrarTurnoUsuario(text);
+    recordAssistantReply(`(perguntei se podia responder ${conversa.quem})`);
+    ganchos.onToken?.(reply);
+    return { actions: [{ action: "chat" }], reply, atalho: true };
   }
 
   const shortcut = fastRoute(text);
@@ -222,7 +284,7 @@ async function executarNoContexto(
       return { actions: [{ action: "chat" }], reply: rapida, atalho: false };
     }
   }
-  if (!actions && getConfig().cerebro === "hermes") {
+  if (!actions && getConfig().cerebro === "hermes" && !ganchos.deFundo) {
     if (!turnoRegistrado) registrarTurnoUsuario(text);
     turnoRegistrado = true;
     // Fase 23: o bloco "FONTES:" do Hermes não aparece no streaming; vira os chips de fonte.

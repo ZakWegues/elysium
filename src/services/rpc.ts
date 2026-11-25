@@ -13,6 +13,7 @@
  * contra esse, a defesa é o token não vazar e a porta não ser exposta à internet.
  */
 
+import { apagarNotificacoes, novaChave, respostaFeita, resumirNotificacoes } from "./notificacoesDoCelular";
 import { ajustesComValores, campoRemoto, valorRemotoValido } from "./ajustesRemotos";
 import { apagarTarefa, concluirTarefa, criarTarefa, desvincularLembrete, editarTarefa, editarTarefaProxima, estaAtrasada, listarPorFiltro, listarTarefas, obterTarefa, reabrirTarefa } from "./tarefas";
 import { createReminderAction, criarLembreteComTarefa, proximaDaRepeticao, reagendarTarefa, reavisarTarefa, rotuloDoPrazo } from "../actions/memoryActions";
@@ -552,6 +553,12 @@ const METHODS: Record<string, MethodDef> = {
       return { ok: true };
     },
   },
+
+  // — 25/11: notificações do celular —
+  "notif.chave": { handler: async () => novaChave() },
+  "notif.respondida": { handler: async (params) => { respostaFeita(requireString(params, "id"), params["ok"] === true); return { ok: true }; } },
+  "notif.resumo": { handler: async () => ({ texto: await resumirNotificacoes(null) }) },
+  "notif.apagar": { handler: async () => { apagarNotificacoes(); return { ok: true }; } },
 
   // — 23/11: gostos e sugestões de música —
   "gostos.get": { handler: async () => estadoDosGostos() },

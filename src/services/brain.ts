@@ -446,6 +446,9 @@ export function contextoRecente(): string {
   return (antes ? `(antes disso: ${antes})\n${recente}` : recente) + blocoDaTela();
 }
 
+/** 25/11: quando ele e a Ely se falaram pela última vez. */
+export function ultimaConversaEm(): number { return lastActivity; }
+
 /** 23/11: as últimas mensagens em texto, antes de o pedido atual entrar no histórico. */
 export function conversaRecente(n = 10): string {
   if (Date.now() - lastActivity > getConfig().chatIdleResetMs) return "";

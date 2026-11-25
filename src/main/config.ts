@@ -122,6 +122,12 @@ export interface AppConfig {
    * código — decisão do dono. Vazio = saudação sem nome e "o usuário" nos prompts.
    */
   nomeDoUsuario: string;
+  /** 25/11: de quem a mensagem no celular é sempre importante (avisa no PC). */
+  notifPessoas?: string[];
+  /** 25/11: os assuntos do briefing (sem isto, os de fábrica). */
+  assuntosBriefing?: string[];
+  /** 25/11: quantas vezes por dia a Ely pode puxar conversa (0 = nunca). */
+  iniciativasPorDia?: number;
   /** Fala o resumo do dia na primeira volta ao PC entre 6 e 11 h (fase 13). */
   resumoAutomatico: boolean;
   /** 31/10: a janela do resumo da manhã, "de-até" em horas (padrão "6-11"). */

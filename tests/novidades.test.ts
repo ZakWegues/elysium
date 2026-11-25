@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 vi.mock("electron-store", () => ({ default: class { private m = new Map(); get(k: string) { return this.m.get(k); } set(o: Record<string, unknown>) { for (const [k, v] of Object.entries(o)) this.m.set(k, v); } } }));
 vi.mock("../src/services/webSearch", () => ({ searchWeb: vi.fn() }));
-import { diaDasNovidades, frasesDasNovidades, topicosDaResposta, TEMAS } from "../src/services/novidades";
+vi.mock("../src/main/config", () => ({ getConfig: () => ({}), setOverride: () => {} }));
+import { diaDasNovidades, frasesDasNovidades, topicosDaResposta, perguntaDoAssunto } from "../src/services/novidades";
 
 describe("novidades do dia (fase 23)", () => {
   it("o dia vira às 6h", () => {
@@ -22,7 +23,8 @@ describe("novidades do dia (fase 23)", () => {
   it("frase para a fala do resumo", () => {
     expect(frasesDasNovidades([{ tema: "IA", topicos: ["Gemini 4 saiu"] }, { tema: "Cinema", topicos: [] }])).toBe("IA: Gemini 4 saiu.");
   });
-  it("três assuntos: IA, cinema e em alta (sem música)", () => {
-    expect(TEMAS.map(t => t.tema)).toEqual(["IA", "Cinema", "Em alta"]);
+  it("a pergunta de fábrica, ou a de um assunto dele", () => {
+    expect(perguntaDoAssunto("IA")).toContain("inteligência artificial");
+    expect(perguntaDoAssunto("Fórmula 1")).toContain("sobre Fórmula 1");
   });
 });

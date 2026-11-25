@@ -99,6 +99,28 @@ const arr = (a: Record<string, unknown>, k: string): string[] => {
 const obj = (props: Record<string, unknown>, required: string[] = []) => ({ type: "object", properties: props, required });
 const s = (description: string, extra: Record<string, unknown> = {}) => ({ type: "string", description, ...extra });
 
+/** 25/11: abriu mesmo? Espera a janela até 6 s antes de dizer que deu certo. */
+async function conferirAbriu(nome: string, fala: string): Promise<string> {
+  if (!/^abr/i.test(fala)) return fala;
+  for (let i = 0; i < 4; i++) {
+    await new Promise(r => setTimeout(r, i ? 1600 : 1000));
+    try {
+      if (janelaCombina(nome, await getRunningApps())) return fala;
+    } catch { return fala; }
+  }
+  return `${fala} (ainda não vi a janela aparecer; pode estar carregando)`;
+}
+
+/** Alguma janela aberta é este programa? Pelo nome do processo ou pelo título. Pura. */
+export function janelaCombina(nome: string, apps: { name?: string; title?: string }[]): boolean {
+  const palavras = semAcento(nome).replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter(p => p.length >= 3);
+  const alvo = semAcento(nome).replace(/[^a-z0-9]/g, "");
+  return apps.some(a => {
+    const t = semAcento(`${a.name ?? ""} ${a.title ?? ""}`);
+    return t.replace(/[^a-z0-9]/g, "").includes(alvo) || palavras.some(p => t.includes(p));
+  });
+}
+
 /** Executa uma BrainAction pelo executor de sempre e devolve a fala dele. */
 async function acao(a: BrainAction): Promise<string> {
   const r = await routeAction(a);
@@ -297,7 +319,7 @@ export const FERRAMENTAS: Ferramenta[] = [
     name: "abrir_programa",
     description: "Abre um programa pelo nome (chrome, spotify, vs code, calculadora, bloco de notas…).",
     parameters: obj({ nome: s("Nome do programa como o usuário falou") }, ["nome"]),
-    executar: a => acao({ action: "open_app", app_name: str(a, "nome") }),
+    executar: async a => conferirAbriu(str(a, "nome"), await acao({ action: "open_app", app_name: str(a, "nome") })),
     acao: a => ({ action: "open_app", app_name: str(a, "nome") }),
   },
   {

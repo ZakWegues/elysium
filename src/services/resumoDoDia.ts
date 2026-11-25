@@ -12,6 +12,7 @@ import { frasesDasNovidades, novidadesEmCache } from "./novidades";
 import { listarTarefas } from "./tarefas";
 import { notasDaVersaoAtual, secoesDasNotas } from "./atualizacao";
 import { atividadeDeOntem } from "./atividade";
+import { conversasNovas, fraseDeNotificacoes } from "./notificacoesDoCelular";
 
 /**
  * Resumo do dia falado (fase 13, bloco 117) — "bom dia".
@@ -44,6 +45,8 @@ export interface FatosResumo {
   ideia?: string | null;
   /** Fase 23: novidades do dia (IA, cinema, em alta) — só se já estiverem no cache. */
   novidades?: string;
+  /** 25/11: quem mandou mensagem no celular (só nomes). */
+  celular?: string | null;
   /** 31/10: o que a Ely fez ontem (linha do tempo) — quantas ações e as primeiras, sem repetir. */
   ontem?: { total: number; exemplos: string[] };
 }
@@ -77,6 +80,7 @@ export function montarResumo(f: FatosResumo): string {
   const rotinas = [...f.rotinas].sort((a, b) => a.em - b.em);
   if (rotinas.length) partes.push(`${rotinas.length === 1 ? "Rotina" : "Rotinas"} de hoje: ${lista(rotinas.slice(0, 3).map(r => `${r.nome} às ${hhmm(r.em)}`))}.`);
 
+  if (f.celular) partes.push(f.celular);
   if (f.recadosNovos === 1) partes.push("Tem um recado do celular que você ainda não viu.");
   else if (f.recadosNovos > 1) partes.push(`Tem ${f.recadosNovos} recados do celular que você ainda não viu.`);
 
@@ -135,6 +139,7 @@ export async function resumoDoDia(agenda?: FatosResumo["agenda"]): Promise<strin
     lembretes,
     rotinas,
     recadosNovos,
+    celular: fraseDeNotificacoes(conversasNovas(undefined, agora.getTime())),
     alertas,
     versaoNova: e.desktop?.pronto ? e.desktop.versao : null,
     habitosFaltando: listarHabitos().map(h => resumirHabito(h, agora)).filter(h => h.valeHoje && !h.feitoHoje).map(h => ({ nome: h.nome, sequencia: h.sequencia })),

@@ -48,6 +48,7 @@ import {
 import { completeLogin as completeSpotifyLogin } from "./spotify";
 import { handleRpc, listRpcMethods, RpcError } from "./rpc";
 import { emitirEvento } from "./eventos";
+import { ligarResposta, receberPacote } from "./notificacoesDoCelular";
 import { sintetizarAudio } from "./tts";
 import { registrarAcesso } from "./aparelhos";
 import { criarCanal, CanalDeInput } from "./inputCanal";
@@ -230,6 +231,16 @@ export function broadcastModo(modo: object | null): void {
   }
 }
 
+/** Pede ao celular para responder uma notificação. false = nenhum app conectado. */
+export function broadcastResponderNotif(frame: { id: string; chave: string; texto: string }): boolean {
+  if (wsClients.size === 0) return false;
+  const f = buildTextFrame(JSON.stringify({ type: "notif.responder", ...frame }));
+  for (const c of wsClients) {
+    try { c.socket.write(f); } catch { wsClients.delete(c); }
+  }
+  return wsClients.size > 0;
+}
+
 export function broadcastMailboxEvent(direction: "toMobile" | "toDesktop", id: string): void {
   if (wsClients.size === 0) return;
   const frame = buildTextFrame(JSON.stringify({ type: "mailbox_new", direction, id }));
@@ -237,6 +248,8 @@ export function broadcastMailboxEvent(direction: "toMobile" | "toDesktop", id: s
     try { c.socket.write(frame); } catch { wsClients.delete(c); }
   }
 }
+
+ligarResposta(broadcastResponderNotif);
 
 // ── auth ──────────────────────────────────────────────────────────────────────
 
@@ -516,6 +529,16 @@ function makeHandler(
     // Fase 21: o MCP das ferramentas do ELYSIUM para o Hermes. Token próprio no caminho (o
     // cliente MCP do Hermes não manda o nosso cabeçalho), e só do próprio PC.
     if ((req.url ?? "").startsWith("/mcp/")) { await atenderMcp(req, res); return; }
+
+    // 25/11: as notificações do celular. Sem o token do app: o corpo vem cifrado e autenticado com uma
+    // chave que só serve para isto (quem tem a chave entrega; quem não tem, conta como recusa).
+    if (req.method === "POST" && (req.url ?? "") === "/api/notificacoes") {
+      let corpo = "";
+      try { corpo = await readBody(req); } catch { sendJson(res, 413, { error: "Body too large" }); return; }
+      if (receberPacote(corpo)) { sendJson(res, 200, { ok: true }); return; }
+      sendJson(res, 403, { error: "Recusado" });
+      return;
+    }
 
     if (!authorized(req)) {
       contarRecusa(req);
