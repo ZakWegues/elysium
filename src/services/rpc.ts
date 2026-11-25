@@ -27,6 +27,8 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import { getAllLocalIPv4 } from "../main/network";
 import { broadcastNotify, clientesConectados, infoTls } from "./server";
+import { adotar } from "./aparelhosTokens";
+import { infoDaPonte } from "./ponte";
 import { marcarPeloPedido } from "./marcarNaTela";
 import { apagarTelaSalva, atualizarEstadoSalvo, listarTelasSalvas, obterTelaSalva, salvarTela } from "./telasSalvas";
 import { getConfig, patchDeConfigSeguro, setOverride, type AppConfig } from "../main/config";
@@ -146,6 +148,8 @@ export class RpcError extends Error {
 export interface RpcContext {
   /** true quando o cliente mandou X-Elysium-Confirm (biometria já validada no celular). */
   confirmed: boolean;
+  /** Com qual token o pedido veio (celular); sem ele, é o próprio app do PC. */
+  aparelho?: { id: string; token: string };
 }
 
 type Handler = (params: Record<string, unknown>, ctx: RpcContext) => Promise<unknown>;
@@ -998,7 +1002,15 @@ const METHODS: Record<string, MethodDef> = {
   // 31/10: rotinas aprendidas (padroes.ts) — a oferta do Início e do Hoje.
   // 31/10: a porta TLS e a impressão do certificado, assinadas com o token (o celular fixa e passa
   // a usar https/wss). null = o servidor seguro não subiu.
-  "tls.info": { handler: async () => ({ tls: infoTls() }) },
+  "tls.info": { handler: async (_p, ctx) => ({ tls: infoTls(ctx.aparelho?.token) }) },
+  // — 25/11: usar fora de casa (ponte) e um token por aparelho —
+  "ponte.info": { handler: async () => ({ ponte: infoDaPonte() }) },
+  "aparelho.adotar": {
+    handler: async (params, ctx) => {
+      if (!ctx.aparelho) throw new RpcError(400, "só para um celular pareado");
+      return adotar(ctx.aparelho.id, typeof params["nome"] === "string" ? params["nome"] : "");
+    },
+  },
   "padroes.listar": {
     handler: async () => ({ padroes: padroesParaOferecer().map(p => ({ ...p, texto: textoDaOferta(p) })) }),
   },

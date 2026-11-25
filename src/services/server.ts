@@ -51,6 +51,9 @@ import { emitirEvento } from "./eventos";
 import { ligarResposta, receberPacote } from "./notificacoesDoCelular";
 import { sintetizarAudio } from "./tts";
 import { registrarAcesso } from "./aparelhos";
+import type { Duplex } from "node:stream";
+import { MESTRE, tokensVivos, vistoAgora } from "./aparelhosTokens";
+import { ehDaPonte } from "./ponte";
 import { criarCanal, CanalDeInput } from "./inputCanal";
 import { inputHost } from "./inputHost";
 import { estadoAtualizacao } from "./atualizacao";
@@ -172,6 +175,10 @@ function buildFrame(opcode: number, p: Buffer): Buffer {
 interface WSClient {
   socket: Socket;
   buf:    Buffer;
+  /** Qual aparelho abriu (token próprio). */
+  aparelho?: string;
+  /** O chat não usa a telemetria: o celular pede para não receber (25/11, bateria). */
+  semTelemetria?: boolean;
 }
 
 const wsClients = new Set<WSClient>();
@@ -186,6 +193,7 @@ function broadcastTelemetry(payload: object): void {
   if (wsClients.size === 0) return;
   const frame = buildTextFrame(JSON.stringify({ type: "telemetry", ...payload }));
   for (const c of wsClients) {
+    if (c.semTelemetria) continue;
     try { c.socket.write(frame); } catch { wsClients.delete(c); }
   }
 }
@@ -260,9 +268,9 @@ let activeToken = "";
 let tls: { porta: number; sha256: string } | null = null;
 
 /** Para o `tls.info`: porta, impressão e a assinatura dela com o token (o celular confere). */
-export function infoTls(): { porta: number; sha256: string; assinatura: string } | null {
-  if (!tls || !activeToken) return null;
-  return { ...tls, assinatura: assinarImpressao(activeToken, tls.sha256, tls.porta) };
+export function infoTls(token = activeToken): { porta: number; sha256: string; assinatura: string } | null {
+  if (!tls || !token) return null;
+  return { ...tls, assinatura: assinarImpressao(token, tls.sha256, tls.porta) };
 }
 
 /** Atualiza o token aceito pelo servidor em runtime — ver src/main/main.ts (pairing:regenerate-token). */
@@ -293,6 +301,8 @@ export function setActiveToken(token: string): void {
   if (mudou) for (const c of [...wsClients]) { try { c.socket.destroy(); } catch { /* já caiu */ } wsClients.delete(c); }
 }
 
+/** Com qual token este pedido foi assinado. */
+const quemPediu = new WeakMap<http.IncomingMessage, { id: string; token: string }>();
 const noncesVistos = new NoncesVistos();
 const seguranca = new Store<{ assinaturaVista: boolean }>({ name: "seguranca", defaults: { assinaturaVista: false } });
 
@@ -315,7 +325,15 @@ function authorized(req: http.IncomingMessage): boolean {
   // 31/10: pedido assinado (ver assinatura.ts) — o token não viaja.
   const assinatura = req.headers["x-elysium-assinatura"];
   if (typeof assinatura === "string") {
-    const r = verificarAssinatura(assinatura, req.method ?? "GET", req.url ?? "/", activeToken, Math.floor(Date.now() / 1000), noncesVistos);
+    // 25/11: cada aparelho tem o seu token; o do PC só vale daqui mesmo (ou na semana da adoção).
+    const doPc = ehDoProprioPc(req.socket.remoteAddress);
+    const candidatos = tokensVivos(activeToken);
+    if (doPc && !candidatos.some((c) => c.id === MESTRE)) candidatos.push({ id: MESTRE, token: activeToken });
+    let r: { ok: boolean } = { ok: false };
+    for (const c of candidatos) {
+      r = verificarAssinatura(assinatura, req.method ?? "GET", req.url ?? "/", c.token, Math.floor(Date.now() / 1000), noncesVistos);
+      if (r.ok) { quemPediu.set(req, c); if (!doPc) vistoAgora(c.id); break; }
+    }
     // Só um aparelho DE FORA (o celular) liga a obrigatoriedade — um teste no próprio PC não.
     if (r.ok && !seguranca.get("assinaturaVista") && !ehDoProprioPc(req.socket.remoteAddress)) seguranca.set("assinaturaVista", true);
     return r.ok;
@@ -333,7 +351,8 @@ function authorized(req: http.IncomingMessage): boolean {
     // processo principal caía. Sem token nenhum: qualquer aparelho na rede derrubava o PC.
     // Os dois hashes têm sempre 32 bytes.
     const h = (t: string) => crypto.createHash("sha256").update(t, "utf8").digest();
-    return crypto.timingSafeEqual(h(supplied), h(activeToken));
+    const aceitos = [...tokensVivos(activeToken).map((c) => c.token), ...(ehDoProprioPc(req.socket.remoteAddress) ? [activeToken] : [])];
+    return aceitos.some((t) => crypto.timingSafeEqual(h(supplied), h(t)));
   }
   return false;
 }
@@ -660,7 +679,7 @@ function makeHandler(
         req.headers["x-elysium-confirm"] === "1" || req.headers["x-neuroaxis-confirm"] === "1";
 
       try {
-        const result = await handleRpc(parsed.method, parsed.params, { confirmed });
+        const result = await handleRpc(parsed.method, parsed.params, { confirmed, ...(quemPediu.has(req) ? { aparelho: quemPediu.get(req) } : {}) });
         sendJson(res, 200, { result });
       } catch (e) {
         if (e instanceof RpcError) {
@@ -877,7 +896,7 @@ function handleUpgrade(
     `Sec-WebSocket-Accept: ${accept}\r\n\r\n`,
   );
 
-  const client: WSClient = { socket, buf: head };
+  const client: WSClient = { socket, buf: head, aparelho: quemPediu.get(req)?.id };
   // Vivo? O OkHttp do celular responde ping sozinho; sem nada chegando por 90 s, fecha.
   let ultimoSinal = Date.now();
   const vigia = setInterval(() => {
@@ -1003,6 +1022,7 @@ function handleUpgrade(
     try {
       const msg = JSON.parse(text) as { type?: string; text?: string; canal?: string; refazer?: boolean; ev?: unknown; id?: unknown; telas?: unknown; abre?: unknown; pergunta?: unknown; resposta?: unknown; programa?: unknown; vars?: unknown };
       // 21/10: batimento do celular — sem resposta em 2 tentativas ele reabre o socket.
+      if (msg.type === "semTelemetria") { client.semTelemetria = true; return; }
       if (msg.type === "ping") { sendToClient(client, JSON.stringify({ type: "pong" })); return; }
       if (msg.type === "retomar") {
         if (!idValido(msg.id) || !retomar(msg.id, enviarAqui)) sendToClient(client, JSON.stringify({ type: "retomada_falhou", id: idValido(msg.id) ? msg.id : null }));
@@ -1159,6 +1179,17 @@ export function tamanhoAnunciado(buf: Buffer): number {
 
 // ── public API ────────────────────────────────────────────────────────────────
 
+let servidorHttp: http.Server | null = null;
+/** Uma conexão que chegou pela ponte (ponte.ts): o mesmo atendimento das outras. */
+export function atenderDaPonte(conexao: Duplex): void {
+  if (servidorHttp) servidorHttp.emit("connection", conexao); else conexao.destroy();
+}
+
+/** Revogou um aparelho: as conexões abertas com o token dele caem na hora. */
+export function derrubarAparelho(id: string): void {
+  for (const c of [...wsClients]) if (c.aparelho === id) { try { c.socket.destroy(); } catch { /* já caiu */ } wsClients.delete(c); }
+}
+
 export function startServer(
   token: string,
   processCommand: (text: string, canal?: "voz" | "texto") => Promise<string>,
@@ -1167,6 +1198,7 @@ export function startServer(
 ): void {
   activeToken = token;
   const server = http.createServer(makeHandler(processCommand, processStream));
+  servidorHttp = server;
   // Fase 23.2: teto de conexões e prazos curtos — milhares de sockets parados (slowloris)
   // esgotavam o processo principal; os padrões do Node só cortavam em 60 s/300 s.
   server.maxConnections = 200;
@@ -1226,7 +1258,7 @@ export function startServer(
   // 31/10: sem sobreposição — se uma leitura demorar mais de 5 s, a próxima espera.
   let lendo = false;
   setInterval(async () => {
-    if (wsClients.size === 0 || lendo) return;
+    if (lendo || ![...wsClients].some((c) => !c.semTelemetria)) return;
     lendo = true;
     try {
       const telem = await getSystemTelemetry();

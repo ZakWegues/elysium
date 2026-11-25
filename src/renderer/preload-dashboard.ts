@@ -103,6 +103,8 @@ contextBridge.exposeInMainWorld("nx", {
   // ── Pairing (ELYSIUM-M mobile) ───────────────────────────────────────
   getPairingInfo:  ()                           => ipcRenderer.invoke("pairing:get-info"),
   aparelhos:       ()                           => ipcRenderer.invoke("aparelhos:lista"),
+  revogarAparelho: (id: string)                 => ipcRenderer.invoke("aparelhos:revogar", id),
+  ligarPonte:      (v: boolean)                 => ipcRenderer.invoke("ponte:ligar", v),
   regenerateToken: ()                           => ipcRenderer.invoke("pairing:regenerate-token"),
 
   // ── Mailbox self-chat (PC ↔ celular) ─────────────────────────────────────────

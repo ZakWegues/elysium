@@ -30,6 +30,8 @@ import { iniciarLogEmArquivo, pastaDeLogs } from "./logArquivo";
 import { aplicarBackup, lerBackup, montarBackup } from "../services/backup";
 import { montarDiagnostico } from "../services/diagnostico";
 import { esquecerAparelhos, listarAparelhos } from "../services/aparelhos";
+import { avisarQuandoMudar, esquecerPareados, idDoQr, listarPareados, revogar, tokenDoAparelho, tokensVivos } from "../services/aparelhosTokens";
+import { estadoDaPonte, iniciarPonte, ligarPonte, permitidosMudaram } from "../services/ponte";
 import * as QRCode from "qrcode";
 import { getConfig, getApiKey, setApiKey, hasApiKey, setOverride, patchDeConfigSeguro, getOrCreateServerToken, getOrCreateMcpToken, regenerateServerToken, AppConfig, getGithubToken, setGithubToken, setGoogleCliente, getGeminiKey, setGeminiKey, DEFAULTS } from "./config";
 import { limparCacheClima } from "../services/clima";
@@ -83,7 +85,7 @@ import { ElysiumError } from "../services/errors";
 import { processCommand, processCommandStream, executarComando } from "../services/command";
 import { lerPedido, refDoAlvo } from "../services/destino";
 import { definirAberturaNoCelular } from "../services/tocar";
-import { startServer, setActiveToken, broadcastMailboxEvent, broadcastNotify, broadcastEstadoPc, broadcastModo, broadcastPomodoro, ligarMcp } from "../services/server";
+import { atenderDaPonte, derrubarAparelho, startServer, setActiveToken, broadcastMailboxEvent, broadcastNotify, broadcastEstadoPc, broadcastModo, broadcastPomodoro, ligarMcp } from "../services/server";
 import { iniciarPomodoro, pararRelogioPomodoro, pomodoroParaCliente } from "../services/pomodoro";
 import { aoMudarModo, modoParaCliente } from "../services/modos";
 import { iniciarRotinas, pararRotinas, enfileirarEntrega, listarRotinas, type Entrega } from "../services/rotinas";
@@ -1778,7 +1780,8 @@ async function getPairingPayload() {
   const endpoints = getAllLocalIPv4();
   const cfg       = getConfig();
   const port      = cfg.serverPort ?? 4200;
-  const token     = getOrCreateServerToken();
+  // 25/11: o QR leva um token só daquele aparelho (revogar um não mexe nos outros).
+  const token     = tokenDoAparelho(getOrCreateServerToken(), idDoQr());
   const ip        = getLocalIPv4();
 
   // v2 do payload: lista de endereços em vez de um só, para o celular correr todos
@@ -1793,7 +1796,7 @@ async function getPairingPayload() {
     endpoints: endpoints.map(e => e.address),
   }));
 
-  return { ip, port, token, qrDataUrl, endpoints };
+  return { ip, port, token, qrDataUrl, endpoints, ponte: estadoDaPonte(), pareados: listarPareados() };
 }
 
 ipcMain.handle("pairing:get-info", () => getPairingPayload());
@@ -1801,8 +1804,16 @@ ipcMain.handle("pairing:get-info", () => getPairingPayload());
 // Quem usou o token (bloco 98) — aparece no pareamento.
 ipcMain.handle("aparelhos:lista", () => listarAparelhos());
 
+ipcMain.handle("aparelhos:revogar", (_e, id: unknown) => {
+  if (typeof id !== "string") return;
+  revogar(id);
+  derrubarAparelho(id);
+});
+ipcMain.handle("ponte:ligar", (_e, v: unknown) => { ligarPonte(v === true); return estadoDaPonte(); });
+
 ipcMain.handle("pairing:regenerate-token", async () => {
   const token = regenerateServerToken();
+  esquecerPareados();
   setActiveToken(token);
   // O token velho deixou de valer agora: a lista de quem o usava vira história.
   esquecerAparelhos();
@@ -2003,6 +2014,8 @@ app.on("ready", async () => {
   const serverToken = getOrCreateServerToken();
   const cfg = getConfig();
   startServer(serverToken, processCommand, cfg.serverPort ?? 4200, processCommandStream);
+  avisarQuandoMudar(permitidosMudaram);
+  iniciarPonte({ tokens: () => tokensVivos(getOrCreateServerToken()), atender: atenderDaPonte });
   // Fase 21: o Hermes como cérebro. As ferramentas do ELYSIUM vão para ele por MCP (só a lista
   // permitida, sempre pela política de conteúdo de fora); o servidor dele sobe em segundo plano.
   const mcpToken = getOrCreateMcpToken();

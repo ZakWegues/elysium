@@ -228,8 +228,44 @@ async function loadPairing() {
     const info = await window.nx.getPairingInfo();
     renderPairing(info);
     renderRemoteAccess(info);
-  } catch { renderPairing(null); renderRemoteAccess(null); }
+    renderPareados(info?.pareados ?? []);
+  } catch { renderPairing(null); renderRemoteAccess(null); renderPareados([]); }
   renderAparelhos();
+}
+
+/** 25/11: os celulares pareados, cada um com o seu token. Revogar desliga só aquele, na hora. */
+function renderPareados(lista) {
+  const alvo = document.getElementById("pareados-lista");
+  if (!alvo) return;
+  alvo.replaceChildren();
+  if (!lista.length) return;
+  const titulo = document.createElement("div");
+  titulo.className = "aparelhos-titulo";
+  titulo.textContent = "Pareados";
+  alvo.appendChild(titulo);
+  for (const a of lista) {
+    const linha = document.createElement("div");
+    linha.className = "aparelho";
+    const nome = document.createElement("span");
+    nome.className = "aparelho-nome";
+    nome.textContent = a.nome;
+    const botao = document.createElement("button");
+    botao.className = "aparelho-revogar";
+    botao.textContent = "Revogar";
+    let certeza = null;
+    botao.addEventListener("click", async () => {
+      if (!certeza) {
+        botao.textContent = "Tem certeza?";
+        certeza = setTimeout(() => { certeza = null; botao.textContent = "Revogar"; }, 4000);
+        return;
+      }
+      clearTimeout(certeza);
+      await window.nx.revogarAparelho(a.id);
+      loadPairing();
+    });
+    linha.append(nome, botao);
+    alvo.appendChild(linha);
+  }
 }
 
 /** Quem usou o token (bloco 98): endereço, tipo de cliente, última vez e recusas. */
@@ -245,7 +281,7 @@ async function renderAparelhos() {
   };
   alvo.innerHTML = `<div class="aparelhos-titulo">Quem usou o token</div>` + lista.slice(0, 8).map(a => `
     <div class="aparelho${a.recusas > 5 && !a.pedidos ? " suspeito" : ""}">
-      <span class="aparelho-ip">${escHtml(a.ip === "127.0.0.1" ? "este PC" : a.ip)}</span>
+      <span class="aparelho-ip">${escHtml(a.ip === "127.0.0.1" ? "este PC" : a.ip.startsWith("fde1:e:") ? "fora de casa (ponte)" : a.ip)}</span>
       <span class="aparelho-tipo">${escHtml(a.cliente)}</span>
       <span class="aparelho-quando">${a.pedidos ? quando(a.ultimaVez) : "nunca entrou"}${a.recusas ? ` · ${a.recusas} recusa${a.recusas === 1 ? "" : "s"}` : ""}</span>
     </div>`).join("");
@@ -263,6 +299,25 @@ function renderRemoteAccess(info) {
   const dot   = document.getElementById("remote-dot");
   const label = document.getElementById("remote-label");
   const body  = document.getElementById("remote-body");
+
+  // 25/11: a ponte (Cloudflare, cifrada de ponta a ponta) vem antes do túnel.
+  const ponte = info?.ponte;
+  if (ponte?.configurada) {
+    dot.className = ponte.conectada ? "on" : "off";
+    label.textContent = !ponte.ligada ? "Ponte desligada" : ponte.conectada ? "Ativo pela ponte" : "Ponte reconectando…";
+    body.replaceChildren();
+    const texto = document.createElement("div");
+    texto.textContent = "O celular alcança este PC de qualquer lugar, cifrado de ponta a ponta. Basta abrir o app uma vez em casa.";
+    const botao = document.createElement("button");
+    botao.className = "save-btn";
+    botao.textContent = ponte.ligada ? "Desligar a ponte" : "Ligar a ponte";
+    botao.addEventListener("click", async () => {
+      await window.nx.ligarPonte(!ponte.ligada);
+      setTimeout(loadPairing, 1500);
+    });
+    body.append(texto, botao);
+    return;
+  }
 
   const tunnels = (info?.endpoints ?? []).filter(e => e.tunnel);
 

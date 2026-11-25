@@ -1,0 +1,11 @@
+{
+  // A ponte do ELYSIUM. Publicar: node scripts/publicar-ponte.mjs
+  "name": "elysium-ponte",
+  "main": "worker.js",
+  "compatibility_date": "2026-01-15",
+  "workers_dev": true,
+  "preview_urls": false,
+  "send_metrics": false,
+  "durable_objects": { "bindings": [{ "name": "SALA", "class_name": "Sala" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Sala"] }]
+}
