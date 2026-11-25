@@ -61,13 +61,16 @@ export function salvarAtalhos(lista: unknown): Atalho[] {
 /** O Spotify não manda capa para o Windows: busca na API dele (uma vez por música). */
 let capaDe = "";
 let capaUrl = "";
+let tentouEm = 0;
 async function capaDoSpotify(e: EstadoMesa): Promise<string> {
   const m = e.midia;
   if (!m || m.capa || nomeDoApp(m.app) !== "Spotify" || !spotify.isConnected()) return "";
   const chave = `${m.titulo}|${m.artista}`;
-  if (chave === capaDe) return capaUrl;
+  if (chave === capaDe && (capaUrl || Date.now() - tentouEm < 30_000)) return capaUrl;
+  // Pausado há tempo, a API do Spotify não diz nada: tenta de novo em 30 s (ao tocar, acha).
   capaDe = chave;
   capaUrl = "";
+  tentouEm = Date.now();
   try { const n = await spotify.getNowPlaying(); if (n?.track === m.titulo && n.albumArt?.startsWith("https://")) capaUrl = n.albumArt; } catch { /* sem capa */ }
   return capaUrl;
 }
