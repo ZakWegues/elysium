@@ -58,13 +58,18 @@ export function salvarAtalhos(lista: unknown): Atalho[] {
   return unicos;
 }
 
+/** O app do Spotify manda ao Windows um quadrado preto no lugar da capa. Pura. */
+export function capaVazia(m: { capa: string; cor: string }): boolean {
+  return !m.capa || (m.cor === "#000000" && m.capa.length < 6000);
+}
+
 /** O Spotify não manda capa para o Windows: busca na API dele (uma vez por música). */
 let capaDe = "";
 let capaUrl = "";
 let tentouEm = 0;
 async function capaDoSpotify(e: EstadoMesa): Promise<string> {
   const m = e.midia;
-  if (!m || m.capa || nomeDoApp(m.app) !== "Spotify" || !spotify.isConnected()) return "";
+  if (!m || (m.capa && !capaVazia(m)) || nomeDoApp(m.app) !== "Spotify" || !spotify.isConnected()) return "";
   const chave = `${m.titulo}|${m.artista}`;
   if (chave === capaDe && (capaUrl || Date.now() - tentouEm < 30_000)) return capaUrl;
   // Pausado há tempo, a API do Spotify não diz nada: tenta de novo em 30 s (ao tocar, acha).
@@ -78,7 +83,8 @@ async function capaDoSpotify(e: EstadoMesa): Promise<string> {
 /** O estado como vai ao celular: nome do app legível e a capa (a do Windows ou a do Spotify). */
 export async function paraOCelular(e: EstadoMesa): Promise<EstadoMesa & { midia: (EstadoMesa["midia"] & { nomeApp: string; capaUrl: string }) | null }> {
   if (!e.midia) return { ...e, midia: null };
-  return { ...e, midia: { ...e.midia, nomeApp: nomeDoApp(e.midia.app), capaUrl: await capaDoSpotify(e) } };
+  const capaUrl = await capaDoSpotify(e);
+  return { ...e, midia: { ...e.midia, capa: capaVazia(e.midia) ? "" : e.midia.capa, nomeApp: nomeDoApp(e.midia.app), capaUrl } };
 }
 
 export async function estadoParaOCelular(): Promise<Awaited<ReturnType<typeof paraOCelular>> | null> {

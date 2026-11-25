@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { lerEstado, nomeDoApp, SCRIPT } from "../src/services/midiaAgora";
-import { ATALHOS_PADRAO, atalhoValido, lerAtalhos, salvarAtalhos } from "../src/services/mesa";
+import { ATALHOS_PADRAO, atalhoValido, capaVazia, lerAtalhos, salvarAtalhos } from "../src/services/mesa";
 
 describe("Modo Mesa — o que toca no PC (25/11)", () => {
   it("lê o estado do PowerShell e corta o que vier estranho", () => {
@@ -27,6 +27,15 @@ describe("Modo Mesa — o que toca no PC (25/11)", () => {
     expect(SCRIPT).toContain("OpenStandardInput");
     // Duas classes COM com o mesmo CLSID no mesmo processo não convertem uma na outra.
     expect(SCRIPT.match(/class \w+ ?\{\}/g)?.filter((c) => c.includes("MDE") || c.includes("MesaEnum")).length).toBe(1);
+  });
+});
+
+describe("Modo Mesa — capa", () => {
+  it("o quadrado preto do Spotify conta como sem capa", () => {
+    expect(capaVazia({ capa: "a".repeat(1884), cor: "#000000" })).toBe(true);
+    expect(capaVazia({ capa: "", cor: "" })).toBe(true);
+    expect(capaVazia({ capa: "a".repeat(20000), cor: "#000000" })).toBe(false);
+    expect(capaVazia({ capa: "a".repeat(1884), cor: "#ff6a3d" })).toBe(false);
   });
 });
 
