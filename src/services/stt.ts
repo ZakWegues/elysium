@@ -27,7 +27,8 @@ export async function transcribe(audio: Uint8Array): Promise<string> {
   form.append("file", blob, `audio.${ext}`);
   form.append("model", cfg.sttModel);
   form.append("language", "pt");
-  form.append("response_format", "json");
+  // 25/11: com detalhes, para saber quando não havia fala nenhuma.
+  form.append("response_format", "verbose_json");
   form.append("temperature", "0");
   // 23/11: os artistas dele ajudam o nome em inglês a sair certo. Áudio curto fica sem: no silêncio
   // o Whisper repetiria a lista.
@@ -55,14 +56,30 @@ export async function transcribe(audio: Uint8Array): Promise<string> {
     throw networkError(`STT HTTP ${res.status} ${text}`);
   }
 
-  let data: { text?: string };
+  let data: { text?: string; segments?: { text?: string; no_speech_prob?: number; avg_logprob?: number }[] };
   try {
-    data = (await res.json()) as { text?: string };
+    data = (await res.json()) as typeof data;
   } catch (e) {
     console.error("[STT] resposta da Groq não é JSON válido:", e);
     throw networkError(`resposta inválida da Groq: ${String(e)}`);
   }
+  if (semFala(data)) {
+    console.log("[STT] áudio sem fala; descartado");
+    return "";
+  }
   return (data.text || "").trim();
+}
+
+/** O que o Whisper inventa no silêncio. */
+const DE_SILENCIO = /^(?:obrigad[oa]|muito obrigad[oa]|tchau(?: tchau)?|legendas? (?:pela|por).*|inscreva-se.*|e a[íi]|[.…\s]*|amara\.org.*)[.!…]?$/i;
+
+/** Áudio sem fala: todos os trechos dizem isso, ou é uma frase típica de silêncio com dúvida. Pura. */
+export function semFala(d: { text?: string; segments?: { no_speech_prob?: number; avg_logprob?: number }[] }): boolean {
+  const s = d.segments ?? [];
+  if (!s.length) return false;
+  const duvida = (x: { no_speech_prob?: number }) => x.no_speech_prob ?? 0;
+  if (s.every((x) => duvida(x) > 0.7 && (x.avg_logprob ?? 0) < -0.5)) return true;
+  return DE_SILENCIO.test((d.text ?? "").trim()) && s.every((x) => duvida(x) > 0.25 || (x.avg_logprob ?? 0) < -0.7);
 }
 
 /** Identifica o container real pelos magic bytes (independe do que o cliente alega mandar) e escolhe mime/extensão corretos pra Groq. */

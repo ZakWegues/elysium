@@ -5,7 +5,7 @@ import * as crypto from "node:crypto";
  * Histórico de conversas do dashboard.
  *
  * Espelha, de propósito, a semântica do `chatHistoryStore.ts` do Portal: mesmo formato
- * de sessão, mesmo teto de 5 conversas não favoritadas, favoritas sem limite, mesmo
+ * de sessão, mesmo teto de 40 conversas não favoritadas, favoritas sem limite, mesmo
  * critério de título. Os dois lados guardam localmente e **não sincronizam** — cada um
  * tem a sua conversa. Divergir no comportamento seria pior que não ter a feature,
  * porque o usuário aprenderia uma regra num lugar e ela valeria outra coisa no outro.
@@ -43,7 +43,7 @@ export interface ChatSession {
 export interface ChatTombstone { id: string; at: number; }
 
 /** Favoritar é o que tira uma conversa desta contagem. */
-const MAX_NON_FAVORITE_SESSIONS = 5;
+const MAX_NON_FAVORITE_SESSIONS = 40;
 
 /**
  * 🔴 LÁPIDES DO LADO PC. A exclusão feita aqui precisa ficar REGISTRADA, não só sumir
@@ -65,7 +65,7 @@ const store = new Store<{ sessions: ChatSession[]; deleted: ChatTombstone[] }>({
 /**
  * Teto e validade das lápides. Um celular que nunca mais sincroniza não pode fazer este
  * registro crescer para sempre; 180 dias é muito mais que a janela real de um aparelho
- * fora do ar, e passar disso significa que a conversa já saiu da poda de 5 há muito tempo.
+ * fora do ar, e passar disso significa que a conversa já saiu da poda há muito tempo.
  */
 const MAX_TOMBSTONES = 200;
 const TOMBSTONE_TTL_MS = 180 * 24 * 60 * 60 * 1000;
@@ -137,7 +137,7 @@ export function saveSession(session: ChatSession): ChatSession {
   if (index >= 0) sessions[index] = session;
   else sessions.push(session);
 
-  // Favoritas sobrevivem sempre; das demais, só as 5 mais recentes.
+  // Favoritas sobrevivem sempre; das demais, só as 40 mais recentes.
   const favorites = sessions.filter(s => s.favorite);
   const recent = sessions
     .filter(s => !s.favorite)

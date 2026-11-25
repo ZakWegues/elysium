@@ -3,6 +3,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 import { getConfig, getGeminiKey, nomeDoUsuario, setOverride } from "../../main/config";
 import { modeloDoHermes } from "../gemini";
+import { hermesSemCota } from "../cotaGemini";
 import type { Canal } from "../estiloResposta";
 import { modoAtivo } from "../modos";
 import { telaMostrada } from "../brain";
@@ -56,7 +57,24 @@ const s = {
   /** Fase 23: sessão só de pesquisa (a conversa não fica poluída) e quantas estão rodando. */
   sessaoPesquisa: null as { id: string; ultimoUso: number; turnos: number } | null,
   pesquisando: 0,
+  /** 25/11: depois de travar, por quanto tempo nem tenta; e quando trocou de modelo por cota. */
+  ruimAte: 0,
+  falhasSeguidas: 0,
+  trocouModeloEm: 0,
 };
+
+/** Pausa depois de travar: 1ª vez nada, depois 2, 4… até 15 min. Pura. */
+export function pausaDoHermes(falhas: number): number {
+  return falhas < 2 ? 0 : Math.min(15 * 60_000, 60_000 * 2 ** (falhas - 1));
+}
+
+/** A cota do modelo do Hermes acabou: sobe de novo com outro que responda (no máximo a cada 20 min). */
+function trocarModeloSemCota(): void {
+  if (!hermesSemCota(getConfig().geminiModelo) || Date.now() - s.trocouModeloEm < 20 * 60_000) return;
+  s.trocouModeloEm = Date.now();
+  console.log("[hermes] modelo sem cota; subindo com outro");
+  reiniciarHermesPorModelo();
+}
 
 export function estadoHermes(): { estado: EstadoHermes; erro: string | null; modelo: string | null; perfil: string; latenciaMs: number | null; ligado: boolean } {
   return { estado: s.estado, erro: s.erro, modelo: s.modelo, perfil: perfil(), latenciaMs: s.ultimaLatenciaMs, ligado: getConfig().cerebro === "hermes" };
@@ -238,6 +256,8 @@ export function blocoForaDoHermes(agora = Date.now()): string {
  * no cérebro de sempre.
  */
 export async function agirViaHermes(texto: string, op: { canal?: Canal; onToken?: (t: string) => void } = {}): Promise<RespostaHermes | null> {
+  // 25/11: sem cota (ou acabou de travar duas vezes) vai direto à reserva, em vez de esperar o prazo.
+  if (Date.now() < s.ruimAte || hermesSemCota(getConfig().geminiModelo)) { trocarModeloSemCota(); return null; }
   if (!hermesPronto()) { if (s.estado === "erro" || s.estado === "desligado") void iniciarHermes(); return null; }
   const con = s.con!;
   let sessao;
@@ -269,10 +289,12 @@ export async function agirViaHermes(texto: string, op: { canal?: Canal; onToken?
 }
 
 async function tratarFim(fim: FimDoTurno, noTurno: boolean): Promise<RespostaHermes | null> {
-  if (fim.tipo === "resposta") { s.pedido = ""; return { reply: fim.texto }; }
+  if (fim.tipo === "resposta") { s.pedido = ""; s.falhasSeguidas = 0; return { reply: fim.texto }; }
   if (fim.tipo === "erro") {
     s.pedido = "";
     console.warn(`[hermes] turno falhou: ${fim.motivo}`);
+    s.ruimAte = Date.now() + pausaDoHermes(++s.falhasSeguidas);
+    trocarModeloSemCota();
     // Sessão que demorou a começar pode estar presa: a próxima abre outra.
     if (/demorou|não terminou|parou no meio/.test(fim.motivo)) s.sessao = null;
     return noTurno ? null : { reply: "Não consegui terminar isso agora." };

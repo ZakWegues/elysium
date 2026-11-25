@@ -1074,7 +1074,7 @@ function handleUpgrade(
       audiosEmCurso++;
       try {
         const text = await transcribe(new Uint8Array(audio));
-        if (!text) { terminar(p, { type: "error", error: "Could not transcribe audio" }); return; }
+        if (!text) { terminar(p, { type: "error", error: "Não ouvi nada nesse áudio." }); return; }
         p.texto = text;
         p.destino?.(JSON.stringify({ type: "transcript", text, id: p.id }));
         responderPedido(p, text, "voz", anuncio.telas, false, anuncio.abre);
@@ -1091,7 +1091,7 @@ function handleUpgrade(
       const text = await transcribe(new Uint8Array(audio));
       if (!text) {
         console.error("[WS] transcribe() retornou vazio — ver logs [STT] acima pro motivo");
-        sendToClient(client, JSON.stringify({ type: "error", error: "Could not transcribe audio" }));
+        sendToClient(client, JSON.stringify({ type: "error", error: "Não ouvi nada nesse áudio." }));
         return;
       }
       sendToClient(client, JSON.stringify({ type: "transcript", text }));

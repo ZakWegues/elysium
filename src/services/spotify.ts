@@ -4,6 +4,7 @@ import Store from "electron-store";
 import { cifrarTexto, decifrarTexto, getConfig } from "../main/config";
 import { observarFaixa } from "./gostos";
 import { melhorFaixa } from "./qualMusica";
+import { semAcento } from "./texto";
 
 /**
  * Spotify Web API.
@@ -216,7 +217,6 @@ async function api(
   try {
     return JSON.parse(text);
   } catch {
-    console.warn(`[spotify] ${path} respondeu ${res.status} com corpo não-JSON:`, text.slice(0, 80));
     return null;
   }
 }
@@ -325,6 +325,22 @@ export async function acharFaixa(busca: string, exata?: { titulo: string; artist
   return null;
 }
 
+/** Podcast, álbum, playlist ou artista com este nome (25/11) — o que combina melhor. */
+export async function acharColecao(busca: string): Promise<{ uri: string; nome: string; tipo: string } | null> {
+  const pedido = semAcento(busca);
+  const limpa = busca.replace(/\b(?:o |a |os |as )?(?:podcasts?|epis[oó]dios?|[aá]lbum|disco|playlist|r[aá]dio)\b(?:\s+(?:d[aeo]s?|chamad[ao]))?/gi, " ").replace(/\s+/g, " ").trim() || busca;
+  const ordem = /podcast|episodio/.test(pedido) ? ["show"] : /album|disco/.test(pedido) ? ["album"] : /playlist/.test(pedido) ? ["playlist"] : ["show", "album", "playlist"];
+  type Item = { uri?: string; name?: string; publisher?: string; artists?: { name?: string }[]; owner?: { display_name?: string } };
+  const found = await api("/search", { query: { q: limpa, type: ordem.join(","), limit: "8" } }) as Record<string, { items?: (Item | null)[] }> | null;
+  for (const tipo of ordem) {
+    const itens = (found?.[`${tipo}s`]?.items ?? []).filter((i): i is Item => !!i?.uri)
+      .map(i => ({ uri: i.uri as string, tipo, nome: i.name ?? limpa, track: i.name ?? "", artist: i.publisher ?? (i.artists ?? []).map(a => a.name).join(", ") }));
+    const m = melhorFaixa(limpa, itens);
+    if (m) return { uri: m.uri, nome: m.nome, tipo };
+  }
+  return null;
+}
+
 const TIPOS = { pc: /^computer$/i, celular: /^smartphone$/i };
 async function idDoAparelho(aparelho: "pc" | "celular"): Promise<string | null> {
   const r = await api("/me/player/devices") as { devices?: { id?: string | null; type?: string; is_active?: boolean; is_restricted?: boolean }[] } | null;
@@ -333,11 +349,11 @@ async function idDoAparelho(aparelho: "pc" | "celular"): Promise<string | null> 
 }
 
 /** Toca a faixa naquele aparelho. false = o Spotify de lá está fechado (ou a conta não deixa). */
-export async function tocarNo(aparelho: "pc" | "celular", uri: string | string[]): Promise<boolean> {
+export async function tocarNo(aparelho: "pc" | "celular", uri: string | string[] | { contexto: string }): Promise<boolean> {
   try {
     const id = await idDoAparelho(aparelho);
     if (!id) return false;
-    await api("/me/player/play", { method: "PUT", query: { device_id: id }, body: { uris: [uri].flat() } });
+    await api("/me/player/play", { method: "PUT", query: { device_id: id }, body: typeof uri === "object" && !Array.isArray(uri) ? { context_uri: uri.contexto } : { uris: [uri].flat() } });
     return true;
   } catch (e) {
     console.warn("[spotify] não toquei no aparelho:", e instanceof Error ? e.message : e);

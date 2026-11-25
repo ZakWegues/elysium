@@ -11,7 +11,7 @@ import { app } from "electron";
  */
 
 export type Categoria = "voz" | "texto";
-type Modelo = { usos: number; limite?: number; esgotado?: boolean; pausaAte?: number; categoria: Categoria };
+type Modelo = { usos: number; limite?: number; esgotado?: boolean; pausaAte?: number; /** 25/11: quantos 429 seguidos. */ seguidos?: number; categoria: Categoria };
 type Estado = { dia: string; modelos: Record<string, Modelo>; avisado: Record<string, boolean> };
 
 /** O dia do Google para a cota: a data no fuso do Pacífico. Pura. */
@@ -50,6 +50,14 @@ export function tipoDo429(corpo: string): { porDia: boolean; esperaMs: number | 
   return { porDia, esperaMs };
 }
 
+/**
+ * Disjuntor (25/11): cada 429 seguido dobra a pausa, até 30 min. Antes era sempre 1 min, e com a
+ * cota no fim toda resposta gastava três tentativas antes de ir para a reserva. Pura.
+ */
+export function pausaDepoisDe(seguidos: number, esperaMs: number | null): number {
+  return Math.min(30 * 60_000, Math.max(esperaMs ?? 0, 60_000 * 2 ** Math.max(0, seguidos - 1)));
+}
+
 let estado: Estado | null = null;
 let avisar: ((titulo: string, corpo: string) => void) | null = null;
 
@@ -82,7 +90,7 @@ export function registrarUsoGemini(categoria: Categoria, modelo: string, status:
   let e: Estado;
   try { e = carregar(); } catch { return; }
   const m = e.modelos[modelo] ??= { usos: 0, categoria };
-  if (status >= 200 && status < 300) m.usos++;
+  if (status >= 200 && status < 300) { m.usos++; m.seguidos = 0; }
   if (status === 429) {
     const { porDia, esperaMs } = tipoDo429(corpoErro);
     if (porDia) {
@@ -91,7 +99,8 @@ export function registrarUsoGemini(categoria: Categoria, modelo: string, status:
       if (limite) m.limite = limite;
     } else {
       // Limite por minuto (ou 429 sem detalhe): só uma pausa curta.
-      m.pausaAte = Date.now() + (esperaMs ?? 60_000);
+      m.seguidos = (m.seguidos ?? 0) + 1;
+      m.pausaAte = Date.now() + pausaDepoisDe(m.seguidos, esperaMs);
     }
   }
   salvar();
@@ -168,6 +177,12 @@ function usoDoHermes(): { uso: Record<string, number>; esgotados: string[] } {
   } catch { /* sem Hermes ou sem log */ }
   cacheHermes = { em: Date.now(), ...r };
   return r;
+}
+
+/** O modelo do Hermes está sem cota, pelo que o app e o log dele viram? */
+export function hermesSemCota(modelo: string | null | undefined): boolean {
+  if (!modelo || !/^gemini/.test(modelo)) return false;
+  return cotaEsgotada(modelo) || usoDoHermes().esgotados.includes(modelo);
 }
 
 /** Para Ajustes: uso do dia por modelo (do app e do Hermes), limites aprendidos e a hora da virada. */

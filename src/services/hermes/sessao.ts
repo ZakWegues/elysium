@@ -16,7 +16,9 @@ export const PRAZO_SINAL_QUENTE_MS = 6_000;
 export const PRAZO_SINAL_FRIO_MS = 20_000;
 export const PRAZO_TURNO_MS = 120_000;
 /** Sem nenhum evento por este tempo no meio do turno = o Hermes travou (ferramenta lenta conta como evento). */
-export const PRAZO_SILENCIO_MS = 25_000;
+export const PRAZO_SILENCIO_MS = 12_000;
+/** 25/11: com uma ferramenta rodando (pesquisa, navegador) o silêncio é normal por mais tempo. */
+export const PRAZO_SILENCIO_FERRAMENTA_MS = 30_000;
 
 export type FimDoTurno =
   | { tipo: "resposta"; texto: string }
@@ -83,16 +85,18 @@ export function rodarTurno(
     // qualquer coisa — o turno ficava preso até os 120 s. Sem evento nenhum por
     // `prazoSilencioMs` depois do primeiro sinal, desiste e o chamador cai na reserva.
     let tSilencio: ReturnType<typeof setTimeout> | null = null;
+    let emFerramenta = false;
     const vigiarSilencio = () => {
       if (tSilencio) clearTimeout(tSilencio);
       tSilencio = setTimeout(() => {
         void con.chamar("session.interrupt", { session_id: sessionId }, 5_000).catch(() => {});
         terminar(acumulado.trim() ? { tipo: "resposta", texto: acumulado.trim() } : { tipo: "erro", motivo: "o Hermes parou no meio" });
-      }, op.prazoSilencioMs ?? PRAZO_SILENCIO_MS);
+      }, op.prazoSilencioMs ?? (emFerramenta ? PRAZO_SILENCIO_FERRAMENTA_MS : PRAZO_SILENCIO_MS));
     };
 
     const desligar = con.ouvir((e: EventoHermes) => {
       if (e.session_id && e.session_id !== sessionId) return;
+      emFerramenta = /^tool\.(start|generating|progress)$/.test(e.type);
       if (sinal && !esperandoDono) vigiarSilencio();
       if (ehSinalDeVida(e.type)) { if (!sinal) vigiarSilencio(); sinal = true; clearTimeout(tSinal); }
       if (e.type === "message.delta") {

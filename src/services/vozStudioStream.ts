@@ -34,6 +34,9 @@ export function registrarTocador(t: Tocador): void { tocador = t; }
 
 /** Studio caiu (fechado, erro): 60 s sem tentar, a fala vai pelo Gemini/Edge. */
 let ruimAte = 0;
+let falhas = 0;
+/** 1, 2, 4… até 30 min. Pura. */
+export function pausaDoStudio(n: number): number { return Math.min(30 * 60_000, 60_000 * 2 ** Math.max(0, n - 1)); }
 
 /** O motor escolhido é o VoiceStudio e ele não falhou há pouco. */
 export function usaStudio(): boolean {
@@ -78,8 +81,10 @@ let perfil: { em: number; id: string | null } | null = null;
 function avisarPedido(p: Pedido): void { for (const f of p.ouvintes) f(); }
 
 function falhar(motivo: string): void {
-  console.warn(`[TTS] VoiceStudio: ${motivo} — a fala vai pela outra voz por 60 s`);
-  ruimAte = Date.now() + 60_000;
+  // 25/11: fechado, cada fala tentava e falhava. A pausa dobra a cada falha (até 30 min) e só a
+  // primeira vai para o log; abriu de novo, volta ao normal.
+  if (falhas === 0) console.warn(`[TTS] VoiceStudio: ${motivo} — a fala vai pela outra voz`);
+  ruimAte = Date.now() + pausaDoStudio(++falhas);
   for (const p of [atual, ...filaEnvio]) if (p) { p.falhou = true; avisarPedido(p); pedidos.delete(p.texto); }
   filaEnvio.length = 0;
   atual = null;
@@ -108,7 +113,7 @@ function abrir(): Promise<boolean> {
     try { s = new WebSocket(`${VOICESTUDIO_URL.replace(/^http/, "ws")}/ws/tts`); } catch { falhar("não abriu"); ok(false); return; }
     s.binaryType = "arraybuffer";
     const t = setTimeout(() => { falhar("não respondeu ao abrir"); ok(false); }, 5000);
-    s.onopen = () => { clearTimeout(t); ws = s; ok(true); bombear(); };
+    s.onopen = () => { clearTimeout(t); ws = s; falhas = 0; ok(true); bombear(); };
     s.onerror = () => { clearTimeout(t); if (ws === s || !ws) { falhar("conexão caiu"); ok(false); } };
     s.onclose = () => { clearTimeout(t); if (ws === s) { ws = null; if (atual) falhar("fechou no meio"); } };
     s.onmessage = (e) => {

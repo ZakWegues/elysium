@@ -48,10 +48,20 @@ const CORRECAO_MS = 3 * 60_000;
 export async function tocarMusica(busca: string, app: "spotify" | "youtube" | null, aparelho: Aparelho, exata?: MusicaDita, pedido?: string): Promise<string> {
   if (app !== "youtube" && spotify.isConnected()) {
     let faixa: Awaited<ReturnType<typeof spotify.acharFaixa>> = null, semRede = false;
+    // 25/11: "o podcast do Clóvis", "o álbum Toxicity", "a playlist Foco": não é uma faixa.
+    const colecao = !exata && /\b(?:podcasts?|epis[oó]dios?|[aá]lbum|disco|playlist)\b/i.test(`${pedido ?? ""} ${busca}`);
+    if (colecao) {
+      const c = await tocarColecao(`${/podcast|epis[oó]dio/i.test(pedido ?? "") && !/podcast/i.test(busca) ? "podcast " : ""}${busca}`, aparelho);
+      if (c) return c;
+    }
     try { faixa = await spotify.acharFaixa(busca, exata); } catch { semRede = true; }
     if (!faixa && !semRede && pedido) {
       const [m] = await resolverPelaConversa(pedido, busca);
       if (m) faixa = await spotify.acharFaixa("", m).catch(() => null);
+    }
+    if (!faixa && !semRede && !exata) {
+      const c = await tocarColecao(busca, aparelho);
+      if (c) return c;
     }
     if (!faixa && !semRede) return `Não achei "${busca}" no Spotify. Me diz o nome e o artista de novo?`;
     if (faixa) {
@@ -86,6 +96,21 @@ export async function tocarMusica(busca: string, app: "spotify" | "youtube" | nu
     return `Tocando ${busca} no YouTube.`;
   }
   return playMusic(busca);
+}
+
+/** Podcast, álbum ou playlist. null = nenhum combina. */
+async function tocarColecao(busca: string, aparelho: Aparelho): Promise<string | null> {
+  const c = await spotify.acharColecao(busca).catch(() => null);
+  if (!c) return null;
+  const o = c.tipo === "show" ? "o podcast" : c.tipo === "album" ? "o álbum" : "a playlist";
+  if (await spotify.tocarNo(aparelho, { contexto: c.uri })) return `Tocando ${o} ${c.nome}, ${onde(aparelho)}.`;
+  const [, tipo, id] = c.uri.split(":");
+  if (aparelho === "celular") {
+    const ja = noCelular({ rotulo: c.nome, url: c.uri, reserva: `https://open.spotify.com/${tipo}/${id}` });
+    return ja ? `Abri ${o} ${c.nome} no Spotify do celular.` : `Mandei ${o} ${c.nome} para o celular.`;
+  }
+  await shell.openExternal(c.uri).catch(() => {});
+  return `Abri ${o} ${c.nome} no Spotify do PC.`;
 }
 
 /** Várias seguidas, na ordem. Com o Spotify do aparelho fechado, abre na primeira. */
