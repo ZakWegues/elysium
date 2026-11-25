@@ -54,6 +54,8 @@ import { registrarAcesso } from "./aparelhos";
 import type { Duplex } from "node:stream";
 import { MESTRE, tokensVivos, vistoAgora } from "./aparelhosTokens";
 import { ehDaPonte } from "./ponte";
+import { assinarMesa } from "./midiaAgora";
+import { paraOCelular } from "./mesa";
 import { criarCanal, CanalDeInput } from "./inputCanal";
 import { inputHost } from "./inputHost";
 import { estadoAtualizacao } from "./atualizacao";
@@ -957,7 +959,8 @@ function handleUpgrade(
   // 21/10: quem manda os frames deste cliente. O pedido com id (retomada.ts) guarda esta
   // função; o socket caindo só a solta — o pedido segue e outro socket pode retomar.
   const enviarAqui = (t: string) => sendToClient(client, t);
-  socket.on("close", () => { fechado = true; soltarDestino(enviarAqui); });
+  let largarMesa: (() => void) | null = null;
+  socket.on("close", () => { fechado = true; soltarDestino(enviarAqui); largarMesa?.(); largarMesa = null; });
 
   const executar = async (texto: string, canal: "voz" | "texto" = "voz", aoPedaco?: (t: string) => void, abre = false): Promise<{ abrir?: ResultadoComando["abrir"]; reply: string; fontes?: Fonte[]; local?: boolean; semCensura?: boolean; rapidas?: Rapidas; conversa?: boolean; desfazer?: string; memoria?: { id: string; text: string }[]; musicas?: ResultadoComando["musicas"] }> => {
     if (!processStream) return { reply: await processCommand(texto, canal) };
@@ -1020,9 +1023,16 @@ function handleUpgrade(
 
   function handleTextFrame(text: string): void {
     try {
-      const msg = JSON.parse(text) as { type?: string; text?: string; canal?: string; refazer?: boolean; ev?: unknown; id?: unknown; telas?: unknown; abre?: unknown; pergunta?: unknown; resposta?: unknown; programa?: unknown; vars?: unknown };
+      const msg = JSON.parse(text) as { type?: string; text?: string; canal?: string; refazer?: boolean; ev?: unknown; id?: unknown; telas?: unknown; abre?: unknown; pergunta?: unknown; resposta?: unknown; programa?: unknown; vars?: unknown; ligado?: unknown };
       // 21/10: batimento do celular — sem resposta em 2 tentativas ele reabre o socket.
       if (msg.type === "semTelemetria") { client.semTelemetria = true; return; }
+      // 25/11: o Modo Mesa abriu (ou fechou) no celular: o que toca e o volume vêm ao vivo, só quando mudam.
+      if (msg.type === "mesa") {
+        largarMesa?.();
+        largarMesa = null;
+        if (msg.ligado === true) largarMesa = assinarMesa((e) => { void paraOCelular(e).then((x) => sendToClient(client, JSON.stringify({ type: "mesa", ...x }))); });
+        return;
+      }
       if (msg.type === "ping") { sendToClient(client, JSON.stringify({ type: "pong" })); return; }
       if (msg.type === "retomar") {
         if (!idValido(msg.id) || !retomar(msg.id, enviarAqui)) sendToClient(client, JSON.stringify({ type: "retomada_falhou", id: idValido(msg.id) ? msg.id : null }));

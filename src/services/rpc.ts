@@ -29,6 +29,8 @@ import { getAllLocalIPv4 } from "../main/network";
 import { broadcastNotify, clientesConectados, infoTls } from "./server";
 import { adotar } from "./aparelhosTokens";
 import { infoDaPonte } from "./ponte";
+import { comandoDeMidia, listarSaidas, mudarMicrofone, pularPara, usarSaida } from "./midiaAgora";
+import { ATALHOS_PADRAO, estadoParaOCelular, lerAtalhos, salvarAtalhos } from "./mesa";
 import { marcarPeloPedido } from "./marcarNaTela";
 import { apagarTelaSalva, atualizarEstadoSalvo, listarTelasSalvas, obterTelaSalva, salvarTela } from "./telasSalvas";
 import { getConfig, patchDeConfigSeguro, setOverride, type AppConfig } from "../main/config";
@@ -101,6 +103,7 @@ import { previa as previaDaMusica } from "./deezer";
 import { artistasDoEstilo, estadoDosGostos, marcarArtista, marcarEstilo, marcarMusica, musicasParaPerguntar, procurarArtista, sugerir, type Valor } from "./gostos";
 import { MOMENTOS } from "./catalogoMusical";
 import { tocarMusica, passarMusica } from "./tocar";
+import { openUrl } from "../actions/openUrl";
 import { apagarEpisodio, apagarTodosEpisodios, definirAnonimo, listarEpisodios, modoAnonimo } from "./episodios";
 import { marcarAcompanhado, pendentesDeAcompanhamento } from "./acompanhamento";
 import { adiarTarefaPor, concluirTarefaCompleta } from "./operacoes";
@@ -1003,6 +1006,39 @@ const METHODS: Record<string, MethodDef> = {
   // 31/10: a porta TLS e a impressão do certificado, assinadas com o token (o celular fixa e passa
   // a usar https/wss). null = o servidor seguro não subiu.
   "tls.info": { handler: async (_p, ctx) => ({ tls: infoTls(ctx.aparelho?.token) }) },
+  // — 25/11: Modo Mesa (o celular como central de controle ao lado do PC) —
+  "mesa.estado": { handler: async () => ({ estado: await estadoParaOCelular() }) },
+  "midia.comando": {
+    handler: async (params) => ({ ok: await comandoDeMidia(requireEnum(params, "operation", ["alternar", "proxima", "anterior"] as const)) }),
+  },
+  "midia.pular": { handler: async (params) => ({ ok: await pularPara(requireNumber(params, "segundos")) }) },
+  "saida.listar": { handler: async () => ({ saidas: await listarSaidas() }) },
+  "saida.usar": { handler: async (params) => ({ ok: await usarSaida(requireString(params, "id")) }) },
+  "microfone.mudo": {
+    handler: async (params) => {
+      if (typeof params["mudo"] !== "boolean") throw new RpcError(400, "mudo (true/false) é obrigatório");
+      await mudarMicrofone(params["mudo"]);
+      return { ok: true };
+    },
+  },
+  "mesa.atalhos": { handler: async () => ({ atalhos: lerAtalhos(), padrao: ATALHOS_PADRAO }) },
+  "mesa.atalhos.salvar": { handler: async (params) => ({ atalhos: salvarAtalhos(params["atalhos"]) }) },
+  "mesa.por": {
+    // "Pôr no PC": música ou vídeo pelo nome, no Spotify (ou no YouTube, se pedir).
+    handler: async (params) => {
+      const texto = requireString(params, "texto").trim().slice(0, 200);
+      const onde = params["onde"] === "youtube" ? "youtube" : null;
+      return { fala: await comContexto("texto", () => tocarMusica(texto, onde, "pc", undefined, texto), undefined, "pc", false) };
+    },
+  },
+  "mesa.abrir": {
+    handler: async (params) => {
+      const url = requireString(params, "url");
+      if (!/^https?:\/\/[^\s]+$/i.test(url) || url.length > 500) throw new RpcError(400, "só link http(s)");
+      return { fala: await openUrl(url) };
+    },
+  },
+
   // — 25/11: usar fora de casa (ponte) e um token por aparelho —
   "ponte.info": { handler: async () => ({ ponte: infoDaPonte() }) },
   "aparelho.adotar": {
