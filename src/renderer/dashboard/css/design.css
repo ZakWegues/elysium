@@ -115,28 +115,39 @@ body.barra-nuvio #input-bar { padding-bottom: calc(10px + var(--fb-b)); transiti
 body.barra-nuvio #view-inicio, body.barra-nuvio #view-hoje, body.barra-nuvio #chat-mode-tabs,
 body.barra-nuvio #layout > #center { transition: padding 320ms var(--mov-suave), top 320ms var(--mov-suave), left 320ms var(--mov-suave), right 320ms var(--mov-suave), bottom 320ms var(--mov-suave); }
 
+/* 26/11: a barra do celular (BarraVidro do elysium-m): trilho de 64 px, abas de 56 px TODAS do
+   mesmo tamanho (--aba-w × --aba-h) e sem sobra entre elas. Tamanho fixo é o que deixa o seletor
+   andar só de `transform` (js/abas.js): nada de layout por quadro. */
+body.barra-nuvio { --aba-w: 84px; --aba-h: 56px; }
 body.barra-nuvio #viewtabs {
   position: fixed; z-index: 450;
-  display: flex; align-items: center; gap: 2px;
-  height: auto; padding: 6px;
-  background: none;
-  border: 1px solid rgba(255,255,255,0.09);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 12px 36px rgba(0,0,0,0.42);
+  display: flex; align-items: center; gap: 0;
+  height: auto; padding: 4px;
+  background: none; border: 0;
+  box-shadow: 0 12px 36px rgba(0,0,0,0.42);
   border-radius: 999px;
-  transition: opacity 260ms var(--mov-suave), translate 420ms cubic-bezier(0.34, 1.3, 0.64, 1), padding 260ms var(--mov-suave);
+  transition: opacity 260ms var(--mov-suave), translate 420ms cubic-bezier(0.34, 1.3, 0.64, 1);
 }
 /* 23/11: o vidro da barra mora numa camada ATRÁS. Com backdrop-filter na própria #viewtabs, o
    seletor (filho dela) só enxergava o que estava dentro da barra, e a lente dele não tinha página
-   nenhuma para entortar. */
+   nenhuma para entortar. 26/11: o desfoque é um só, o --lq-blur (liquido.css), que vale com e sem
+   a lente do js/liquido.js. */
 body.barra-nuvio #vtabs-vidro {
-  position: absolute; inset: -1px; z-index: -1; pointer-events: none; border-radius: inherit;
-  background: rgba(22,22,26,0.52);
-  backdrop-filter: blur(22px) saturate(165%);
+  position: absolute; inset: 0; z-index: -1; pointer-events: none; border-radius: inherit;
+  background: rgba(22,22,26,0.4);
+  backdrop-filter: var(--lq-blur);
+}
+/* O aro: degradê branco de 27 % em cima a 2 % embaixo, 1 px, desenhado uma vez (máscara de anel). */
+body.barra-nuvio #viewtabs::before {
+  content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  border-radius: inherit; padding: 1px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.27), rgba(255,255,255,0.02));
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
 }
 body.barra-topo #viewtabs    { top: 52px; left: 50%; transform: translateX(-50%); flex-direction: row; }
 body.barra-baixo #viewtabs   { bottom: 14px; left: 50%; transform: translateX(-50%); flex-direction: row; }
 body.barra-esquerda #viewtabs,
-body.barra-direita #viewtabs { top: calc(50% + var(--topo, 42px) / 2); transform: translateY(-50%); flex-direction: column; border-radius: 28px; }
+body.barra-direita #viewtabs { top: calc(50% + var(--topo, 42px) / 2); transform: translateY(-50%); flex-direction: column; }
 body.barra-esquerda #viewtabs { left: 12px; }
 body.barra-direita #viewtabs  { right: 12px; }
 /* Fechada: desliza para fora pelo próprio lado e some. */
@@ -146,50 +157,41 @@ body.barra-baixo.barra-fechada #viewtabs     { translate: 0 24px; }
 body.barra-esquerda.barra-fechada #viewtabs  { translate: -24px 0; }
 body.barra-direita.barra-fechada #viewtabs   { translate: 24px 0; }
 
-/* As abas: ícone em cima, nome embaixo. */
+/* As abas: ícone de 24 em cima, nome de 11 px embaixo; inativa em branco 82 %. */
 body.barra-nuvio .vtab {
-  position: relative; z-index: 1;
-  flex-direction: column; justify-content: center; gap: 3px;
-  min-width: 70px; height: 50px; padding: 0 10px;
-  border: 0; border-radius: 999px;
-  font-size: 11px; font-weight: 500; color: rgba(235,235,245,0.6);
-  transition: color 180ms var(--mov-curva), background 180ms var(--mov-curva), height 300ms var(--mov-suave), min-width 300ms var(--mov-suave);
+  position: relative; z-index: 1; flex: none;
+  width: var(--aba-w); height: var(--aba-h); padding: 0;
+  flex-direction: column; justify-content: center; gap: 1px;
+  border: 0; border-radius: 999px; background: none;
+  font-size: 11px; font-weight: 600;
+  transition: color 180ms var(--mov-curva);
 }
-body.barra-nuvio .vtab.active { color: var(--purple-bright); font-weight: 600; }
-/* Passar o mouse acende a aba de leve: fica claro qual é a ativa e qual está sob o cursor. */
-body.barra-nuvio .vtab:not(.active):hover { color: var(--text); background: rgba(255,255,255,0.07); }
+body.barra-nuvio .vtab:not(.active) { color: rgba(255,255,255,0.82); }
+body.barra-nuvio .vtab.active { color: var(--purple-bright); }
+body.barra-nuvio .vtab:not(.active):hover { color: var(--text); background: transparent; }
 body.barra-nuvio .vtab:active { transform: none; }
-body.barra-nuvio .vtab-ico .ico { width: 20px; height: 20px; }
-body.barra-nuvio .vtab-label { display: block; max-height: 16px; line-height: 14px; overflow: hidden; transition: opacity 220ms, max-height 300ms var(--mov-suave); }
-body.barra-nuvio .vtab-dot { top: 6px; right: 12px; }
+body.barra-nuvio .vtab-ico .ico { width: 24px; height: 24px; }
+body.barra-nuvio .vtab-label { display: block; line-height: 14px; white-space: nowrap; }
+body.barra-nuvio .vtab-dot { top: 6px; right: 14px; }
 body.barra-nuvio .vtab-fim { margin: 0; }
+/* Janela estreita: só os ícones (e abas mais curtas), em vez de a barra passar da janela. */
+@media (max-width: 880px) {
+  body.barra-nuvio { --aba-w: 64px; }
+  body.barra-nuvio .vtab-label { display: none; }
+}
 
-/* O seletor: tinta do acento, borda e brilho. Posição e tamanho vêm das molas (js/abas.js). */
+/* O seletor: pílula do tamanho da aba, base escura com um véu da cor do tema e aro de 1 px. A
+   posição, o esticão e o aperto são um `transform` só, escrito pelas molas (js/abas.js). */
 body.barra-nuvio #vtab-thumb {
-  position: absolute; left: 0; top: 0; bottom: auto; z-index: 0;
+  position: absolute; left: 0; top: 0; z-index: 0; pointer-events: none;
+  width: var(--aba-w); height: var(--aba-h);
   border-radius: 999px;
-  background: rgba(var(--purple-rgb), 0.18);
-  border: 1px solid rgba(var(--purple-rgb), 0.32);
-  box-shadow: 0 0 16px rgba(var(--purple-rgb), 0.3);
-  transition: scale 320ms cubic-bezier(0.34, 1.56, 0.64, 1);
-  scale: 1; will-change: transform, width, height;
+  background: linear-gradient(rgba(var(--purple-rgb), 0.2), rgba(var(--purple-rgb), 0.2)), rgba(22,22,26,0.52);
+  box-shadow: inset 0 0 0 1px rgba(var(--purple-rgb), 0.32);
+  transform-origin: center center; will-change: transform;
 }
-body.barra-nuvio #vtab-thumb::after { content: none; }
-/* Segurar faz o seletor crescer, sem passar da barra (a barra tem 6 px de folga). */
-/* 05/11: segurado continua na cor do tema (era branco/cinza, e o aro ficava de outra cor).
-   O brilho de dentro inclina com a velocidade do arrasto (--inclina, de -1 a 1, js/abas.js). */
-body.barra-nuvio #viewtabs.segurando #vtab-thumb {
-  scale: 1.12 1.18; z-index: 3; pointer-events: none;
-  border-color: rgba(var(--purple-rgb), 0.55);
-  box-shadow: inset 0 0 0 0.5px rgba(var(--purple-rgb), 0.35), 0 0 18px rgba(var(--purple-rgb), 0.28), 0 7px 11px rgba(0,0,0,0.28);
-}
-body.barra-nuvio #viewtabs.segurando #vtab-thumb::after {
-  background: radial-gradient(55% 80% at calc(50% + var(--inclina, 0) * 38%) 18%, rgba(var(--purple-rgb), 0.32), transparent 70%) !important;
-}
-/* A escala cresce do centro (a base.css usa a borda esquerda, do seletor antigo). */
-body.barra-nuvio #vtab-thumb { transform-origin: center center; }
-/* 23/11: correndo entre as abas (clique, teclado, atalho) ele também vira lente. */
-body.barra-nuvio #viewtabs.lente:not(.segurando) #vtab-thumb { scale: 1.06 1.12; z-index: 3; }
+/* Segurado, passa por cima das abas (a lente entorta o ícone e o nome). */
+body.barra-nuvio #viewtabs.segurando #vtab-thumb { z-index: 3; }
 body.barra-nuvio #viewtabs.segurando { cursor: grabbing; }
 /* Arrastar o seletor (ou apertar e esticar um botão do topo) não pode selecionar texto. */
 #viewtabs, #topbar { user-select: none; }
@@ -247,63 +249,27 @@ body.barra-nuvio #viewtabs.segurando { cursor: grabbing; }
 
 /* ═════════════ POLIMENTO (31/10) — ideias do 21st.dev, refeitas aqui ═════════════ */
 
-/* Lâmpada (Tubelight): um filete de luz na borda de fora do seletor, com a luz caindo para
-   dentro. A borda "de fora" depende do lado da barra. */
-body.barra-nuvio #vtab-thumb::before,
-body.barra-nuvio #vtab-thumb::after { content: ""; position: absolute; pointer-events: none; }
-body.barra-nuvio #vtab-thumb::before {
-  background: var(--purple-bright); border-radius: 3px;
-  box-shadow: 0 0 10px 1px rgba(var(--purple-rgb), 0.85), 0 0 22px 4px rgba(var(--purple-rgb), 0.35);
-}
-body.barra-topo #vtab-thumb::before,
-body.barra-baixo #vtab-thumb::before { left: 30%; right: 30%; height: 3px; }
-body.barra-topo #vtab-thumb::before { top: -1px; }
-body.barra-baixo #vtab-thumb::before { bottom: -1px; }
-body.barra-esquerda #vtab-thumb::before,
-body.barra-direita #vtab-thumb::before { top: 30%; bottom: 30%; width: 3px; }
-body.barra-esquerda #vtab-thumb::before { left: -1px; }
-body.barra-direita #vtab-thumb::before { right: -1px; }
-/* O ::after antigo (base.css) tinha largura de 1 px, escala e borda: tudo zerado aqui. */
-body.barra-nuvio #vtab-thumb::after { inset: 0; width: auto; transform: none; border: 0; box-shadow: none; backdrop-filter: none; border-radius: inherit; opacity: 0.9; }
-body.barra-topo #vtab-thumb::after      { background: radial-gradient(60% 70% at 50% 0%, rgba(var(--purple-rgb), 0.35), transparent 70%); }
-body.barra-baixo #vtab-thumb::after     { background: radial-gradient(60% 70% at 50% 100%, rgba(var(--purple-rgb), 0.35), transparent 70%); }
-body.barra-esquerda #vtab-thumb::after  { background: radial-gradient(70% 60% at 0% 50%, rgba(var(--purple-rgb), 0.35), transparent 70%); }
-body.barra-direita #vtab-thumb::after   { background: radial-gradient(70% 60% at 100% 50%, rgba(var(--purple-rgb), 0.35), transparent 70%); }
-
 /* O ícone da aba ativa cresce um pouco quando o seletor assenta (Glass Tab Bar). */
 body.barra-nuvio .vtab-ico { transition: transform 420ms cubic-bezier(0.34, 1.56, 0.64, 1) 120ms; }
 body.barra-nuvio .vtab.active .vtab-ico { transform: scale(1.1); }
 
-/* Pílula de hover (Glass Nav): segue o mouse entre as abas, bem fraca, de mola frouxa. */
+/* Pílula de hover (Glass Nav): segue o mouse entre as abas, bem fraca, de mola frouxa. Do
+   tamanho da aba; o JS só escreve a posição. */
 #vtab-hover {
   position: absolute; left: 0; top: 0; z-index: 0; pointer-events: none;
+  width: var(--aba-w); height: var(--aba-h);
   border-radius: 999px; background: rgba(255,255,255,0.07);
   opacity: 0;
-  transition: transform 380ms cubic-bezier(0.3, 1.35, 0.5, 1), width 380ms cubic-bezier(0.3, 1.35, 0.5, 1), height 380ms cubic-bezier(0.3, 1.35, 0.5, 1), opacity 200ms;
+  transition: transform 380ms cubic-bezier(0.3, 1.35, 0.5, 1), opacity 200ms;
 }
 #vtab-hover.visivel { opacity: 1; }
-/* Com a pílula de hover, a aba não precisa mais do fundo próprio no hover. */
-body.barra-nuvio .vtab:not(.active):hover { background: transparent; }
+#vtab-hover.no-lugar { transition: none; }
 
-/* Fio de luz no topo da pílula da barra: o vidro com espessura. */
-body.barra-nuvio #viewtabs::before {
-  content: ""; position: absolute; left: 12%; right: 12%; top: 0; height: 1px; pointer-events: none;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.28), transparent);
-}
-
-/* Encolhida (Glass Nav): rolando para baixo, só a aba ativa fica; clicar (ou rolar para cima) abre. */
-body.barra-nuvio .vtab { max-width: 140px; }
-body.barra-encolhida #viewtabs .vtab:not(.active) {
-  max-width: 0; min-width: 0; padding: 0; opacity: 0; pointer-events: none; overflow: hidden;
-}
-/* 31/10: sem o gap, as abas escondidas (largura 0) não empurram a ativa — ela ficava 1–3 px à esquerda. */
-body.barra-encolhida #viewtabs { padding: 4px; gap: 0; cursor: pointer; }
-/* Encolhida, o fio de luz do topo e a pílula de hover saem: sobrava uma linha solta acima dela. */
-body.barra-encolhida #viewtabs::before, body.barra-encolhida #vtab-hover { opacity: 0; }
-body.barra-nuvio .vtab { transition: color 180ms var(--mov-curva), opacity 220ms var(--mov-curva), max-width 420ms cubic-bezier(0.34, 1.2, 0.64, 1), min-width 420ms cubic-bezier(0.34, 1.2, 0.64, 1), padding 420ms cubic-bezier(0.34, 1.2, 0.64, 1); }
-body.barra-esquerda .vtab, body.barra-direita .vtab { transition-property: color, opacity, max-height, min-height, height, padding; }
-body.barra-esquerda.barra-encolhida #viewtabs .vtab:not(.active),
-body.barra-direita.barra-encolhida #viewtabs .vtab:not(.active) { max-width: none; min-width: 70px; height: 0; overflow: hidden; }
+/* Encolhida (Glass Nav): rolando para baixo, só a aba ativa fica; clicar (ou rolar para cima) abre.
+   26/11: as outras saem de uma vez (antes max-width/padding animavam = layout por quadro). */
+body.barra-encolhida #viewtabs .vtab:not(.active) { display: none; }
+body.barra-encolhida #viewtabs { cursor: pointer; }
+body.barra-encolhida #vtab-hover { opacity: 0; }
 
 /* Spotlight nos cards: luz fraca do acento seguindo o cursor, borda que acende no hover. */
 .home-card::after, .hoje-painel::after {

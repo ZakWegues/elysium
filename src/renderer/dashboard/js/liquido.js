@@ -25,8 +25,8 @@ const LQ_BOTOES = [
   "#conv-btn", ".pop-form-acoes button", "#home-btn-personalizar", "#pc-reler", ".hoje-botoes button",
   ".home-chips span", ".modo-chip", ".home-clima-chip", ".gp-chips > *", ".clima-chips > *",
 ].join(", ");
-// Lentes (marcadas com data-lq-perfil; perfil "gota"): o seletor da barra segurado ou correndo.
-const LQ_LENTES = "#viewtabs:is(.segurando, .lente) #vtab-thumb";
+// Lentes (marcadas com data-lq-perfil; perfil "gota"): o seletor da barra segurado.
+const LQ_LENTES = "#viewtabs.segurando #vtab-thumb";
 const LQ_ALVOS = `${LQ_PAINEIS}, ${LQ_BOTOES}, ${LQ_LENTES}`;
 /** Filtros vivos no máximo (10/11: eram 40): os maiores visíveis ganham a lente; o resto fica só com o desfoque. */
 const LQ_TETO = 14;
@@ -313,7 +313,16 @@ function lqAquecerSeletor() {
 let lqPendente = 0;
 function lqLogo() {
   if (lqPendente) return;
-  lqPendente = requestAnimationFrame(() => { lqPendente = 0; lqVarrer(); });
+  lqPendente = 1;
+  // 26/11: com o seletor da barra correndo (js/abas.js), a varredura espera ele assentar. Ela custa
+  // até 50 ms na primeira vez de uma tela e caía bem no primeiro quadro da mola: era o tranco do
+  // começo de toda troca de aba.
+  const vez = () => {
+    if (typeof polegar !== "undefined" && polegar.rodando) { setTimeout(() => requestAnimationFrame(vez), 80); return; }
+    lqPendente = 0;
+    lqVarrer();
+  };
+  requestAnimationFrame(vez);
 }
 /**
  * 09/11: a resposta da Ely chega aos pedaços (`textContent` da bolha a cada pedaço) e cada um

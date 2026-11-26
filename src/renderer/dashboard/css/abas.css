@@ -40,9 +40,7 @@
    Dois indicadores ao mesmo tempo era o que deixava a barra pesada. */
 .vtab.active { color: var(--purple-bright); }
 .vtab-ico { font-size: 14px; line-height: 1; }
-/* Abaixo de ~880px de largura os rótulos saem e ficam só os ícones, em vez de a barra
-   quebrar em duas linhas ou cortar destino. */
-@media (max-width: 880px) { .vtab-label { display: none; } .vtab { padding: 0 11px; } }
+/* Abaixo de ~880px de largura os rótulos saem (a regra mora em design.css, 26/11). */
 
 /* Um ponto no destino que tem novidade — mesma ideia do badge da TabBar do celular. */
 .vtab-dot {
