@@ -13,16 +13,24 @@ export const ACOES = ["bloquear", "print", "microfone", "foco", "timer", "area",
 export type Acao = (typeof ACOES)[number];
 export interface Atalho { id: string; tipo: TipoAtalho; rotulo: string; icone: string; valor: string }
 
+// 25/11 noite: 16, em quatro fileiras de quatro — sistema, copiar e colar, programas, funções.
 export const ATALHOS_PADRAO: Atalho[] = [
-  { id: "a1", tipo: "acao", rotulo: "Bloquear", icone: "lock", valor: "bloquear" },
+  { id: "a1", tipo: "acao", rotulo: "Print", icone: "camera", valor: "print" },
   { id: "a2", tipo: "acao", rotulo: "Microfone", icone: "mic-off", valor: "microfone" },
-  { id: "a3", tipo: "acao", rotulo: "Print", icone: "camera", valor: "print" },
+  { id: "a3", tipo: "acao", rotulo: "Bloquear", icone: "lock", valor: "bloquear" },
   { id: "a4", tipo: "acao", rotulo: "Área de trabalho", icone: "monitor", valor: "area" },
-  { id: "a5", tipo: "acao", rotulo: "YouTube", icone: "youtube", valor: "youtube" },
-  { id: "a6", tipo: "acao", rotulo: "Foco 25 min", icone: "target", valor: "foco" },
-  { id: "a7", tipo: "acao", rotulo: "Timer 5 min", icone: "clock", valor: "timer" },
-  { id: "a8", tipo: "acao", rotulo: "Copiar do PC", icone: "download", valor: "copiar" },
-  { id: "a9", tipo: "acao", rotulo: "Colar no PC", icone: "upload", valor: "colar" },
+  { id: "a5", tipo: "acao", rotulo: "Copiar do PC", icone: "copy", valor: "copiar" },
+  { id: "a6", tipo: "acao", rotulo: "Colar no PC", icone: "clipboard", valor: "colar" },
+  { id: "a7", tipo: "teclas", rotulo: "Desfazer", icone: "rotate-ccw", valor: "ctrl+z" },
+  { id: "a8", tipo: "acao", rotulo: "Janelas", icone: "layers", valor: "janelas" },
+  { id: "a9", tipo: "acao", rotulo: "YouTube", icone: "youtube", valor: "youtube" },
+  { id: "a10", tipo: "app", rotulo: "Spotify", icone: "music", valor: "spotify" },
+  { id: "a11", tipo: "app", rotulo: "WhatsApp", icone: "message-circle", valor: "whatsapp" },
+  { id: "a12", tipo: "app", rotulo: "Arquivos", icone: "folder", valor: "explorador de arquivos" },
+  { id: "a13", tipo: "acao", rotulo: "Foco 25 min", icone: "target", valor: "foco" },
+  { id: "a14", tipo: "acao", rotulo: "Timer 5 min", icone: "clock", valor: "timer" },
+  { id: "a15", tipo: "teclas", rotulo: "Tela cheia", icone: "maximize", valor: "f11" },
+  { id: "a16", tipo: "teclas", rotulo: "Tarefas", icone: "activity", valor: "ctrl+shift+esc" },
 ];
 
 const store = new Store<{ atalhos: Atalho[] | null }>({ name: "mesa", defaults: { atalhos: null } });

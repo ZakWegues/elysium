@@ -28,7 +28,7 @@ describe("temas: dashboard e janela de configuração iguais", () => {
 
   it("mesmos temas com as mesmas cores", () => {
     const a = temas(dash), b = temas(cfg);
-    expect(Object.keys(a)).toHaveLength(9);
+    expect(Object.keys(a)).toHaveLength(12);
     expect(b).toEqual(a);
   });
 

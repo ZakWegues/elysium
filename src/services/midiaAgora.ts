@@ -20,6 +20,8 @@ export interface MidiaAgora {
   dur: number;
   podeVoltar: boolean;
   podeAvancar: boolean;
+  /** O app aceita pular para um ponto (YouTube no navegador aceita; nem todo app aceita). */
+  podePular: boolean;
   /** JPEG pequeno em base64 e a cor que manda nele (#rrggbb). */
   capa: string;
   cor: string;
@@ -136,7 +138,7 @@ function Ler {
     app = "$($s.SourceAppUserModelId)"; titulo = "$($p.Title)"; artista = "$($p.Artist)"; album = "$($p.AlbumTitle)"
     tocando = ("$($info.PlaybackStatus)" -eq 'Playing'); pos = [Math]::Round($tl.Position.TotalSeconds, 1)
     posEm = $(if ("$($info.PlaybackStatus)" -eq 'Playing') { $tl.LastUpdatedTime.ToUnixTimeMilliseconds() } else { 0 }); dur = [Math]::Round($tl.EndTime.TotalSeconds, 1)
-    podeVoltar = $info.Controls.IsPreviousEnabled; podeAvancar = $info.Controls.IsNextEnabled; capa = $script:capa; cor = $script:cor } }
+    podeVoltar = $info.Controls.IsPreviousEnabled; podeAvancar = $info.Controls.IsNextEnabled; podePular = $info.Controls.IsPlaybackPositionEnabled; capa = $script:capa; cor = $script:cor } }
 }
 function Fazer($cmd, $arg) {
   $s = $gm.GetCurrentSession()
@@ -192,7 +194,7 @@ export function lerEstado(bruto: unknown): EstadoMesa | null {
     midia: {
       app: txt(m.app, 120), titulo: txt(m.titulo), artista: txt(m.artista), album: txt(m.album),
       tocando: m.tocando === true, pos: Math.max(0, Number(m.pos) || 0), posEm: Number(m.posEm) || Date.now(),
-      dur: Math.max(0, Number(m.dur) || 0), podeVoltar: m.podeVoltar !== false, podeAvancar: m.podeAvancar !== false,
+      dur: Math.max(0, Number(m.dur) || 0), podeVoltar: m.podeVoltar !== false, podeAvancar: m.podeAvancar !== false, podePular: m.podePular === true,
       capa: typeof m.capa === "string" && m.capa.length < 200_000 ? m.capa : "", cor: /^#[0-9a-f]{6}$/i.test(String(m.cor)) ? String(m.cor) : "",
     },
   };

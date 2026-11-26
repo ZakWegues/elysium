@@ -47,7 +47,7 @@ import { closeApp } from "../actions/closeApp";
 import { powerControl, PowerOperation } from "../actions/powerControl";
 import { mediaControl, MediaOperation } from "../actions/mediaControl";
 import { lerVolume, volumeControl } from "../actions/volumeControl";
-import { controlarJanela, listarJanelas } from "../actions/janelas";
+import { controlarJanela, escolherNavegador, focarNavegador, listarJanelas } from "../actions/janelas";
 import { montarDiagnostico } from "./diagnostico";
 import { consertarSaude, verificarSaude } from "./saude";
 import { mascarar } from "../main/logArquivo";
@@ -1028,14 +1028,28 @@ const METHODS: Record<string, MethodDef> = {
     handler: async (params) => {
       const texto = requireString(params, "texto").trim().slice(0, 200);
       const onde = params["onde"] === "youtube" ? "youtube" : null;
-      return { fala: await comContexto("texto", () => tocarMusica(texto, onde, "pc", undefined, texto), undefined, "pc", false) };
+      const fala = await comContexto("texto", () => tocarMusica(texto, onde, "pc", undefined, texto), undefined, "pc", false);
+      if (onde) void focarNavegador(/youtube/i).catch(() => {});
+      return { fala };
     },
   },
   "mesa.abrir": {
     handler: async (params) => {
       const url = requireString(params, "url");
       if (!/^https?:\/\/[^\s]+$/i.test(url) || url.length > 500) throw new RpcError(400, "só link http(s)");
-      return { fala: await openUrl(url) };
+      const fala = await openUrl(url);
+      void focarNavegador(/youtube\./i.test(url) ? /youtube/i : undefined).catch(() => {});
+      return { fala };
+    },
+  },
+  "midia.telaCheia": {
+    // O "f" do YouTube: traz a janela dele para a frente e aperta. Sem YouTube aberto, não aperta nada.
+    handler: async () => {
+      const yt = escolherNavegador(await listarJanelas(), /youtube/i);
+      if (!yt || !/youtube/i.test(yt.titulo)) throw new RpcError(404, "Não achei o YouTube aberto no PC.");
+      if (!yt.emFoco) { await controlarJanela(yt.hwnd, "focar"); await new Promise((r) => setTimeout(r, 200)); }
+      await inputHost.keys(teclasParaVk(["f"]) ?? []);
+      return { ok: true };
     },
   },
 

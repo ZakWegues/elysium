@@ -148,5 +148,30 @@ export async function controlarJanela(hwnd: string, operacao: OperacaoJanela): P
   }
 }
 
+const NAVEGADORES = /^(chrome|msedge|brave|firefox|opera|vivaldi)$/i;
+
+/** A janela de navegador para trazer à frente: a de cima com o título pedido, senão a de cima. Pura. */
+export function escolherNavegador(lista: readonly Janela[], titulo?: RegExp): Janela | null {
+  const nav = lista.filter((j) => NAVEGADORES.test(j.processo));
+  return (titulo ? nav.find((j) => titulo.test(j.titulo)) : undefined) ?? nav[0] ?? null;
+}
+
+/**
+ * 25/11: o link aberto pelo celular ia para uma aba escondida — o Windows não deixa o navegador
+ * roubar o foco de quem está na frente. Espera a aba ganhar o título (até ~3 s) e traz a janela.
+ */
+export async function focarNavegador(titulo?: RegExp): Promise<boolean> {
+  for (let i = 0; i < 6; i++) {
+    await new Promise((r) => setTimeout(r, 500));
+    const lista = await listarJanelas().catch(() => []);
+    const alvo = escolherNavegador(lista, titulo);
+    if (!alvo) continue;
+    if (titulo && !titulo.test(alvo.titulo) && i < 5) continue;
+    if (!alvo.emFoco) await controlarJanela(alvo.hwnd, "focar");
+    return true;
+  }
+  return false;
+}
+
 /** O mesmo PowerShell com o tipo `ElyWin`, para quem posiciona janelas (organizarJanelas.ts). */
 export const rodarPsJanelas = rodarPs;

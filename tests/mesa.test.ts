@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { lerEstado, nomeDoApp, SCRIPT } from "../src/services/midiaAgora";
 import { ATALHOS_PADRAO, atalhoValido, capaVazia, lerAtalhos, salvarAtalhos } from "../src/services/mesa";
+import { escolherNavegador, type Janela } from "../src/actions/janelas";
 
 describe("Modo Mesa — o que toca no PC (25/11)", () => {
   it("lê o estado do PowerShell e corta o que vier estranho", () => {
@@ -9,7 +10,8 @@ describe("Modo Mesa — o que toca no PC (25/11)", () => {
       midia: { app: "Chrome", titulo: "Vídeo", artista: "Canal", album: "", tocando: true, pos: 12.5, posEm: 1000, dur: 300, podeVoltar: false, podeAvancar: true, capa: "abc", cor: "red" },
     });
     expect(e?.som).toEqual({ volume: 100, mudo: true, micMudo: false });
-    expect(e?.midia).toMatchObject({ titulo: "Vídeo", tocando: true, pos: 12.5, podeVoltar: false, capa: "abc", cor: "" });
+    expect(e?.midia).toMatchObject({ titulo: "Vídeo", tocando: true, pos: 12.5, podeVoltar: false, podePular: false, capa: "abc", cor: "" });
+    expect(lerEstado({ som: {}, midia: { titulo: "x", podePular: true } })?.midia?.podePular).toBe(true);
     expect(lerEstado({ som: { volume: 30 }, midia: { titulo: "" } })?.midia).toBeNull();
     expect(lerEstado({ midia: null })).toBeNull();
     expect(lerEstado(null)).toBeNull();
@@ -57,5 +59,22 @@ describe("Modo Mesa — atalhos", () => {
     expect(salvos.length).toBe(20);
     expect(lerAtalhos()).toEqual(salvos);
     expect(() => salvarAtalhos("nada")).toThrow();
+  });
+});
+
+describe("Modo Mesa — 16 atalhos e o navegador na frente (25/11 noite)", () => {
+  it("o padrão são 16, todos válidos e sem id repetido", () => {
+    expect(ATALHOS_PADRAO).toHaveLength(16);
+    expect(ATALHOS_PADRAO.every((a) => atalhoValido(a))).toBe(true);
+    expect(new Set(ATALHOS_PADRAO.map((a) => a.id)).size).toBe(16);
+    expect(ATALHOS_PADRAO.slice(0, 4).map((a) => a.valor)).toEqual(["print", "microfone", "bloquear", "area"]);
+  });
+
+  it("acha a janela do YouTube entre as do navegador, senão a de cima", () => {
+    const j = (processo: string, titulo: string, emFoco = false): Janela => ({ hwnd: String(titulo.length), pid: 1, processo, titulo, minimizada: false, maximizada: false, emFoco });
+    const lista = [j("Code", "mesa.ts - YouTube"), j("chrome", "Gmail - Google Chrome"), j("chrome", "Música - YouTube - Google Chrome")];
+    expect(escolherNavegador(lista, /youtube/i)?.titulo).toBe("Música - YouTube - Google Chrome");
+    expect(escolherNavegador(lista)?.titulo).toBe("Gmail - Google Chrome");
+    expect(escolherNavegador([j("Code", "x")], /youtube/i)).toBeNull();
   });
 });
