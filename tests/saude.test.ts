@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { avaliarSaude, FatosSaude } from "../src/services/saude";
+import { avaliarSaude, FatosSaude, problemasParaAvisar } from "../src/services/saude";
 
 const base = (): FatosSaude => ({
   cerebroLocal: true,
@@ -133,5 +133,35 @@ describe("som no card Saúde (fase 19, bloco 195)", () => {
   it("saída normal é ok; sem leitura, o item nem aparece", () => {
     expect(avaliarSaude({ ...base(), som: som("SAMSUNG (NVIDIA High Definition Audio)", 40) }).find(i => i.id === "som")?.nivel).toBe("ok");
     expect(avaliarSaude(base()).some(i => i.id === "som")).toBe(false);
+  });
+
+  it("27/11: Hermes, Gemini e os olhos locais aparecem no card", () => {
+    const f = base();
+    f.hermes = { estado: "pronto", erro: null, modelo: "gemini-3.1-flash-lite", semCota: true };
+    f.gemini = { semCotaEmTodos: true };
+    f.visaoLocal = { ok: false, detalhe: '"qwen3-vl:2b" não foi baixado — rode: ollama pull qwen3-vl:2b' };
+    const por = Object.fromEntries(avaliarSaude(f).map(i => [i.id, i]));
+    expect(por.hermes.nivel).toBe("aviso");
+    expect(por.hermes.detalhe).toMatch(/fila de reserva/);
+    expect(por.gemini.nivel).toBe("aviso");
+    expect(por.visao.nivel).toBe("aviso");
+    f.hermes = { estado: "erro", erro: "a conexão caiu", modelo: null, semCota: false };
+    expect(avaliarSaude(f).find(i => i.id === "hermes")?.nivel).toBe("erro");
+  });
+
+  it("27/11: só avisa erro que continua na checagem seguinte, uma vez", () => {
+    const erro = { id: "hermes", titulo: "Hermes", nivel: "erro" as const, detalhe: "fora do ar" };
+    const aviso = { id: "gemini", titulo: "Gemini", nivel: "aviso" as const, detalhe: "sem cota" };
+    let r = problemasParaAvisar([erro, aviso], new Map());
+    expect(r.avisar).toEqual([]);
+    r = problemasParaAvisar([erro, aviso], r.seguidas);
+    expect(r.avisar.map(i => i.id)).toEqual(["hermes"]);
+    r = problemasParaAvisar([erro], r.seguidas);
+    expect(r.avisar).toEqual([]);
+    // Sarou e voltou: avisa de novo na segunda checagem.
+    r = problemasParaAvisar([], r.seguidas);
+    r = problemasParaAvisar([erro], r.seguidas);
+    r = problemasParaAvisar([erro], r.seguidas);
+    expect(r.avisar.map(i => i.id)).toEqual(["hermes"]);
   });
 });

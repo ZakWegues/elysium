@@ -360,6 +360,18 @@ export function interpretarAcoes(content: string): BrainAction[] | null {
  * ele?" depois de "quem foi Alan Turing" perdia o fio. Quem chama é o `executarComando`,
  * uma vez por pedido, com o texto final.
  */
+/**
+ * 27/11: as últimas falas da conversa (sem o pedido que está entrando), enquanto ela vale. O Hermes
+ * abre sessão nova quando troca de modelo por cota — sem isto, "entra aí e me diz" chegava sem saber
+ * do quê. Até `max` falas, cada uma cortada.
+ */
+export function falasRecentes(max = 8, agora = Date.now()): { role: "user" | "assistant"; content: string }[] {
+  if (agora - lastActivity > getConfig().chatIdleResetMs) return [];
+  const h = history.filter((m) => m.role === "user" || m.role === "assistant").map((m) => ({ role: m.role as "user" | "assistant", content: String(m.content ?? "").slice(0, 700) }));
+  if (h.length && h[h.length - 1].role === "user") h.pop();
+  return h.slice(-max);
+}
+
 export function recordAssistantReply(text: string): void {
   history.push({ role: "assistant", content: text });
   podarHistorico();

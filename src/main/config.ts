@@ -531,7 +531,11 @@ export function marcarModeloMorto(provider: "groq" | "ollama", modelo: string): 
   const alvo = provider === "groq" ? DECOMMISSIONED_MODELS : OLLAMA_MODELS_MORTOS;
   if (alvo.has(modelo)) return;
   alvo.add(modelo);
-  console.warn(`[config] "${modelo}" não existe no provedor ${provider}; caindo no padrão a partir de agora.`);
+  // 27/11: para o Ollama não há padrão para onde cair (a lista de candidatos é o próprio modelo) — os
+  // pedidos vão à reserva (Groq) e o card de saúde mostra o modelo que falta.
+  console.warn(provider === "groq"
+    ? `[config] "${modelo}" não existe no provedor groq; caindo no padrão a partir de agora.`
+    : `[config] "${modelo}" não existe no Ollama; os pedidos locais vão para a reserva. Veja a Saúde do ELYSIUM.`);
 }
 
 /** Vozes masculinas do seletor de Ajustes — as que a troca de 02/10 substitui. */

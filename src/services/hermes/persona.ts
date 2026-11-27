@@ -47,6 +47,12 @@ export interface DadosDaPersona {
   tela?: string;
 }
 
+/**
+ * 27/11: número de site (PortWatch, placar, cotação de uma página) vem da página aberta, não do
+ * trecho de uma busca. Vai em todo turno: a sessão do Hermes dura a conversa inteira.
+ */
+export const REGRA_DE_SITE = "Número, status ou progresso que está num site (\"segundo o X\", \"entra/abre/olha no X\"): chame a ferramenta mcp__elysium__ler_site com o site e a pergunta, e responda pelo que ela devolver — nunca pelo trecho de uma busca nem de memória. Para pesquisar, prefira mcp__elysium__buscar_na_web. Diga de qual site veio o número.";
+
 export function contextoDoTurno(pedido: string, canal: Canal, d: DadosDaPersona, primeiro: boolean, agora = new Date()): string {
   const data = agora.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
   const hora = agora.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
@@ -64,6 +70,7 @@ export function contextoDoTurno(pedido: string, canal: Canal, d: DadosDaPersona,
   linhas.push(canal === "voz" ? "Canal: VOZ." : "Canal: TEXTO (chat).");
   linhas.push(regrasDaConversa(canal, estiloValido(d.estilo)));
   linhas.push(regraDeFontes(canal));
+  linhas.push(REGRA_DE_SITE);
   const humor = linhaDoHumor(lerHumor(pedido));
   if (humor) linhas.push(humor.trim());
   const modo = blocoDoModo(d.modo, canal).trim();

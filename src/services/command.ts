@@ -17,7 +17,7 @@ import { ferramenta } from "./ferramentas";
 import { routeAction } from "../actions/router";
 import { trackUsage } from "./history";
 import { getApiKey, getConfig } from "../main/config";
-import { viaRapida } from "./cerebroHibrido";
+import { respostaSemSaber, viaRapida } from "./cerebroHibrido";
 import type { Canal } from "./estiloResposta";
 import { aberturaDoPedido, comContexto, Fonte, fontesDoPedido, marcarReserva, musicasDaResposta, MusicasDaResposta, registrarFontes, registrarMusicas, usouReserva } from "./contextoComando";
 import { agirViaHermes, registrarForaDoHermes, responderEsclarecimentoHermes } from "./hermes/cerebro";
@@ -276,8 +276,12 @@ async function executarNoContexto(
   if (!actions && getConfig().cerebro === "hermes" && getConfig().viaRapida !== false && getApiKey() && viaRapida(text)) {
     registrarTurnoUsuario(text);
     turnoRegistrado = true;
-    const rapida = await composeChatReply(text, ganchos.onToken, ganchos.canal ?? "voz").catch((e) => { console.warn("[via rápida] falhou; vai pelo Hermes:", e instanceof Error ? e.message : e); return null; });
-    if (rapida) {
+    // 27/11: a resposta rápida chega inteira (~1 s) antes de aparecer: se ela disser que não sabe
+    // ou que não tem a informação atualizada, o pedido vai ao Hermes (que pesquisa) sem mostrar isso.
+    const rapida = await composeChatReply(text, undefined, ganchos.canal ?? "voz").catch((e) => { console.warn("[via rápida] falhou; vai pelo Hermes:", e instanceof Error ? e.message : e); return null; });
+    if (rapida && respostaSemSaber(rapida)) console.log("[via rápida] respondeu que não sabe; vai pelo Hermes");
+    else if (rapida) {
+      ganchos.onToken?.(rapida);
       registrarForaDoHermes(text, rapida);
       recordAssistantReply(rapida);
       trackUsage(text, { action: "chat" });
@@ -345,6 +349,8 @@ async function executarNoContexto(
   // "quem foi Alan Turing" só funciona se o modelo souber o que ele mesmo disse. O atalho
   // já registrou o próprio turno em `noteFastRouted`.
   if (reply && !shortcut) recordAssistantReply(reply);
+  // 27/11: a reserva respondeu (o Hermes caiu ou demorou): o próximo turno do Hermes fica sabendo.
+  if (reply && !shortcut && getConfig().cerebro === "hermes" && usouReserva()) registrarForaDoHermes(text, reply);
 
   return { actions, reply, atalho: shortcut !== null };
 }

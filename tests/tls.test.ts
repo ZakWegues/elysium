@@ -58,7 +58,8 @@ describe("TLS do servidor", () => {
     const c = await certificadoDoServidor(pasta);
     const { startServer, infoTls } = await import("../src/services/server");
     startServer(TOKEN, async () => "ok", PORTA);
-    for (let i = 0; i < 50 && !infoTls(); i++) await new Promise((r) => setTimeout(r, 100));
+    // 27/11: no runner do CI o https levou mais de 5 s para subir (a espera antiga) — até 25 s.
+    for (let i = 0; i < 250 && !infoTls(); i++) await new Promise((r) => setTimeout(r, 100));
     const info = infoTls();
     expect(info).toEqual({ porta: PORTA + 1, sha256: c.sha256, assinatura: assinarImpressao(TOKEN, c.sha256, PORTA + 1) });
 

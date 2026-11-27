@@ -96,6 +96,42 @@ export async function gravarModeloDoPerfil(exe: string, perfil: string, provider
   await rodarHermes(exe, ["-p", perfil, "config", "set", "model.default", modelo], 30_000);
 }
 
+/**
+ * 27/11: a fila de reserva do perfil (`fallback_providers`), lida do YAML que o `config get`
+ * imprime ("- provider: x" / "  model: y"). Pura.
+ */
+export function filaDoYaml(texto: string): Record<string, string>[] {
+  const fila: Record<string, string>[] = [];
+  for (const linha of texto.split(/\r?\n/)) {
+    const m = /^\s*(-\s+)?([A-Za-z_]+):\s*(.*?)\s*$/.exec(linha);
+    if (!m) continue;
+    if (m[1] || !fila.length) fila.push({});
+    fila[fila.length - 1][m[2]] = m[3].replace(/^(['"])(.*)\1$/, "$2");
+  }
+  return fila.filter((f) => f.provider && f.model);
+}
+
+export async function lerFilaDoPerfil(exe: string, perfil: string): Promise<Record<string, string>[]> {
+  return filaDoYaml(await rodarHermes(exe, ["-p", perfil, "config", "get", "fallback_providers"], 30_000));
+}
+
+/** Grava a fila inteira (o Hermes relê a fila do disco no próximo pedido, sem reiniciar). */
+export async function gravarFilaDoPerfil(exe: string, perfil: string, fila: Record<string, string>[]): Promise<void> {
+  await rodarHermes(exe, ["-p", perfil, "config", "set", "fallback_providers", JSON.stringify(fila)], 30_000);
+}
+
+/**
+ * 27/11: a busca do próprio Hermes estava em `nous`, que pede login — cada pesquisa falhava e caía
+ * num socorro sem chave, com trecho velho. Fica a `ddgs` (sem chave) como reserva; a busca boa é a
+ * do ELYSIUM (Gemini com Google), oferecida pelo MCP.
+ */
+export async function garantirBuscaDoHermes(exe: string, perfil: string): Promise<void> {
+  const atual = (await rodarHermes(exe, ["-p", perfil, "config", "get", "web.backend"], 30_000)).trim();
+  if (atual && atual !== "nous") return;
+  await rodarHermes(exe, ["-p", perfil, "config", "set", "web.backend", "ddgs"], 30_000);
+  console.log(`[hermes] busca do perfil ${perfil}: ddgs (era ${atual || "vazia"})`);
+}
+
 /** O perfil existe? Lê a tabela do `hermes profile list` (a primeira coluna é o nome). Pura. */
 export function perfilNaLista(saida: string, perfil: string): boolean {
   return saida.split(/\r?\n/).some(l => l.replace(/^[\s◆*]+/, "").split(/\s+/)[0] === perfil);

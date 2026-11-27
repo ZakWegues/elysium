@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { compararVersoes, partesDaVersao } from "../src/services/atualizacao";
+import { celularJaTem, compararVersoes, partesDaVersao } from "../src/services/atualizacao";
 import { mascarar } from "../src/main/logArquivo";
 
 describe("atualização automática (bloco 95)", () => {
@@ -79,5 +79,14 @@ describe("atualizador mais firme (07/10)", async () => {
   it("lê o versionCode das notas", () => {
     expect(versionCodeDasNotas("Novidades\n\nversionCode 20")).toBe(20);
     expect(versionCodeDasNotas("sem")).toBeUndefined();
+  });
+
+  it("27/11: o APK não fica guardado quando o celular já tem a versão", () => {
+    expect(celularJaTem({ versao: "2.17.0", versionCode: 40 }, null)).toBe(false);
+    expect(celularJaTem({ versao: "2.17.0", versionCode: 40 }, { versao: "2.17.0", versionCode: 40 })).toBe(true);
+    expect(celularJaTem({ versao: "2.17.0", versionCode: 41 }, { versao: "2.17.0", versionCode: 40 })).toBe(false);
+    expect(celularJaTem({ versao: "v2.18.0" }, { versao: "2.17.0" })).toBe(false);
+    expect(celularJaTem({ versao: "2.16.0" }, { versao: "2.17.0" })).toBe(true);
+    expect(celularJaTem({ versao: "2.17.0" }, { versao: "2.17.0" })).toBe(true);
   });
 });

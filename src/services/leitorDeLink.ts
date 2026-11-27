@@ -83,7 +83,7 @@ export function urlPermitida(url: string): boolean {
  * O nome resolve para um IP público? Um domínio qualquer pode apontar para 127.0.0.1
  * ("127.0.0.1.nip.io") — conferir só o texto da URL deixava passar (08/10).
  */
-async function resolvePublico(url: string): Promise<boolean> {
+export async function resolvePublico(url: string): Promise<boolean> {
   const host = new URL(url).hostname.replace(/^\[|\]$/g, "");
   if (/^[\d.]+$/.test(host) || host.includes(":")) return !ipPrivado(host);
   try {

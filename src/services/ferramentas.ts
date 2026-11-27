@@ -845,10 +845,28 @@ export const FERRAMENTAS: Ferramenta[] = [
   },
   {
     name: "buscar_na_web",
-    description: "Pesquisa na internet e resume. Use para notícias, preços, fatos recentes que você não sabe.",
+    description: "Pesquisa na internet (Google) e resume. Use para notícias, preços, fatos recentes que você não sabe.",
     parameters: obj({ busca: s("O que pesquisar") }, ["busca"]),
-    executar: a => acao({ action: "web_search", query: str(a, "busca") }),
+    executar: async a => {
+      // 27/11: o pedido era para ABRIR um site ("entra no portwatch", "entra aí e me diz") e o
+      // modelo pesquisou: abre as páginas mesmo assim — o trecho da busca trazia número velho.
+      const { siteDoPedido, lerSite } = await import("./webSearch");
+      const { pedidoDoHermes } = await import("./hermes/cerebro");
+      const { pedidoAtual } = await import("./contextoComando");
+      const alvo = siteDoPedido(pedidoDoHermes() || pedidoAtual() || "");
+      const busca = str(a, "busca");
+      if (alvo) return lerSite(alvo.site ?? busca, busca);
+      return acao({ action: "web_search", query: busca });
+    },
     acao: a => ({ action: "web_search", query: str(a, "busca") }),
+  },
+  {
+    // 27/11: "o port de GTA 6 está a quantos por cento segundo o PortWatch? entra aí e me diz".
+    name: "ler_site",
+    description: "Abre um site e lê o que está nele AGORA (número, porcentagem, status, placar, preço da página). Use quando ele citar um site ('segundo o X', 'de acordo com o X', 'entra no X', 'olha no X') ou pedir um número que muda. Aceita o endereço ou só o nome do site.",
+    parameters: obj({ site: s("Endereço ou nome do site: 'portwatch', 'https://…'"), pergunta: s("O que ele quer saber da página") }, ["site", "pergunta"]),
+    executar: async (a) => { const { lerSite } = await import("./webSearch"); return lerSite(str(a, "site"), str(a, "pergunta")); },
+    acao: a => ({ action: "web_search", query: `${str(a, "pergunta")} ${str(a, "site")}`.trim() }),
   },
   {
     name: "criar_lembrete",

@@ -137,7 +137,14 @@ export function cotaEsgotada(modelo: string): boolean {
 
 let cacheHermes: { em: number; uso: Record<string, number>; esgotados: string[] } | null = null;
 
-/** Conta as chamadas do Hermes ao Gemini no dia da cota, no texto do log. Pura. */
+/**
+ * Conta as chamadas do Hermes ao Gemini no dia da cota, no texto do log. Pura.
+ *
+ * 27/11: o log do Hermes não diz se o 429 foi "por minuto" ou "por dia" — antes, um 429 de minuto
+ * marcava o modelo como esgotado o dia inteiro, e o app pulava o Hermes e o reiniciava sem parar.
+ * Agora o modelo só fica esgotado se o 429 foi o ÚLTIMO sinal dele: uma chamada que deu certo
+ * depois limpa a marca.
+ */
 export function usoNoLogDoHermes(texto: string, desdeLocal: Date): { uso: Record<string, number>; esgotados: string[] } {
   const uso: Record<string, number> = {};
   const esgotados = new Set<string>();
@@ -145,7 +152,7 @@ export function usoNoLogDoHermes(texto: string, desdeLocal: Date): { uso: Record
     const d = /^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})/.exec(linha);
     if (!d || new Date(d[1].replace(" ", "T")) < desdeLocal) continue;
     const c = /API call #\d+: model=(\S+) provider=gemini/.exec(linha);
-    if (c) uso[c[1]] = (uso[c[1]] ?? 0) + 1;
+    if (c) { uso[c[1]] = (uso[c[1]] ?? 0) + 1; esgotados.delete(c[1]); }
     if (/provider=gemini/.test(linha) && /RESOURCE_EXHAUSTED|\b429\b/.test(linha)) {
       const m = /model=(gemini[\w.-]+)/.exec(linha);
       if (m) esgotados.add(m[1]);

@@ -18,7 +18,7 @@ export const PRAZO_TURNO_MS = 120_000;
 /** Sem nenhum evento por este tempo no meio do turno = o Hermes travou (ferramenta lenta conta como evento). */
 export const PRAZO_SILENCIO_MS = 12_000;
 /** 25/11: com uma ferramenta rodando (pesquisa, navegador) o silêncio é normal por mais tempo. */
-export const PRAZO_SILENCIO_FERRAMENTA_MS = 30_000;
+export const PRAZO_SILENCIO_FERRAMENTA_MS = 45_000;
 
 export type FimDoTurno =
   | { tipo: "resposta"; texto: string }
@@ -96,7 +96,10 @@ export function rodarTurno(
 
     const desligar = con.ouvir((e: EventoHermes) => {
       if (e.session_id && e.session_id !== sessionId) return;
-      emFerramenta = /^tool\.(start|generating|progress)$/.test(e.type);
+      // 27/11: a ferramenta segue rodando até terminar — antes, qualquer outro evento no meio
+      // (status) voltava o prazo para 12 s e o `ler_site` (~20 s abrindo páginas) era cortado.
+      if (/^tool\.(start|started|generating|progress)$/.test(e.type)) emFerramenta = true;
+      else if (/^tool\.(complete|completed|end|error)$|^message\.(delta|complete)$/.test(e.type)) emFerramenta = false;
       if (sinal && !esperandoDono) vigiarSilencio();
       if (ehSinalDeVida(e.type)) { if (!sinal) vigiarSilencio(); sinal = true; clearTimeout(tSinal); }
       if (e.type === "message.delta") {

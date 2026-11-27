@@ -121,11 +121,37 @@ export function ordenarPorVelocidade(modelos: string[], ms: Map<string, number |
  * Medido em 26/10: no Lite cada chamada do Hermes leva 1–3 s (chat 2–5 s, pesquisa ~7 s); no
  * Flash, 3–32 s, e o 3.7/3.8 nem respondiam. As respostas do Lite saíram certas.
  */
-export async function modeloDoHermes(chave: string, busca: Busca = fetch): Promise<string> {
-  const { flash, lite } = await modelosGemini(chave, busca);
-  const ms = await medirModelosGemini(chave, busca);
-  const ok = (m: string) => typeof ms.get(m) === "number";
-  return ordenarPorVelocidade(lite, ms).find(ok) ?? ordenarPorVelocidade(flash, ms).find(ok) ?? lite[0];
+export async function modeloDoHermes(chave: string, busca: Busca = fetch, semCota: (m: string) => boolean = () => false): Promise<string> {
+  const modelos = await modelosGemini(chave, busca);
+  return escolherDoHermes(modelos, await medirModelosGemini(chave, busca), (m) => cotaEsgotada(m) || semCota(m));
+}
+
+/**
+ * 27/11: a escolha em si. A medição vale 30 min, mas a cota pode acabar no meio: o modelo que ficou
+ * sem cota depois de medido não volta a ser escolhido (antes, o Hermes reiniciava e subia de novo
+ * no mesmo modelo travado). Todos sem cota → o mais rápido mesmo assim. Pura.
+ */
+export function escolherDoHermes({ flash, lite }: Modelos, ms: Map<string, number | null>, semCota: (m: string) => boolean): string {
+  const ok = (m: string) => typeof ms.get(m) === "number" && !semCota(m);
+  const respondeu = (m: string) => typeof ms.get(m) === "number";
+  return ordenarPorVelocidade(lite, ms).find(ok) ?? ordenarPorVelocidade(flash, ms).find(ok)
+    ?? lite.find((m) => !semCota(m)) ?? flash.find((m) => !semCota(m))
+    ?? ordenarPorVelocidade(lite, ms).find(respondeu) ?? lite[0];
+}
+
+/** Um item da fila de reserva do Hermes (`fallback_providers` do perfil). */
+export type ItemDaFila = Record<string, string>;
+
+/**
+ * 27/11: a fila de reserva do Hermes. Quando o modelo principal leva 429, o próprio Hermes passa
+ * para o próximo da fila no mesmo pedido — sem o app reiniciar nada. Na frente, os outros Gemini
+ * com cota (cada modelo tem a sua cota no plano grátis), Lite antes do Flash; depois, o que a fila
+ * já tinha que não é Gemini (o modelo local, os grátis do OpenRouter), na mesma ordem. Pura.
+ */
+export function filaDoHermes(principal: string, { flash, lite }: Modelos, semCota: (m: string) => boolean, existente: ItemDaFila[]): ItemDaFila[] {
+  const geminis = [...lite, ...flash].filter((m, i, l) => m !== principal && !semCota(m) && l.indexOf(m) === i).slice(0, 4);
+  const resto = existente.filter((f) => f.provider !== "gemini" && f.provider && f.model);
+  return [...geminis.map((model) => ({ provider: "gemini", model })), ...resto];
 }
 
 /** A ordem de tentativa: a preferência, com quem falhou na medição por último. Pura. */
@@ -149,6 +175,8 @@ export type PedidoGemini = {
   sinal?: AbortSignal;
   /** 26/10: pesquisa no Google antes de responder (grounding); as fontes voltam em `fontes`. */
   buscar?: boolean;
+  /** 27/11: também abre as páginas (`url_context`): o número que está NO site agora, não o trecho da busca. */
+  lerPaginas?: boolean;
   /** 11/11: raciocínio baixo nos modelos 3.x (as telas: mais rápido, a qualidade não muda). */
   pensamento?: "baixo";
 };
@@ -190,7 +218,7 @@ export async function gerarGemini(p: PedidoGemini, busca: Busca = fetch, chave =
     const corpo = {
       ...(p.sistema ? { systemInstruction: { parts: [{ text: p.sistema }] } } : {}),
       contents: p.mensagens.map((m) => ({ role: m.papel, parts: [{ text: m.texto }, ...(m.imagem ? [{ inlineData: { mimeType: m.imagem.mime, data: m.imagem.base64 } }] : [])] })),
-      ...(p.buscar ? { tools: [{ google_search: {} }] } : {}),
+      ...(p.buscar || p.lerPaginas ? { tools: [...(p.lerPaginas ? [{ url_context: {} }] : []), { google_search: {} }] } : {}),
       generationConfig: {
         temperature: p.temperatura ?? 0.3,
         maxOutputTokens: p.maxTokens ?? 8192,

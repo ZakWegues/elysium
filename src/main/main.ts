@@ -78,6 +78,7 @@ import { podeAvisarAlto } from "../services/avisos";
 import { quandoChegarImportante } from "../services/notificacoesDoCelular";
 import { olharIniciativa } from "../services/iniciativa";
 import { conferirVigias } from "../services/vigias";
+import { problemasParaAvisar, verificarSaude } from "../services/saude";
 import { ligarSegundoPlano } from "../services/segundoPlano";
 import { quemOcupaGpu } from "../services/gpuGuard";
 import { registrarAtividade } from "../services/atividade";
@@ -106,7 +107,7 @@ import Store from "electron-store";
 import { closeApp } from "../actions/closeApp";
 import {
   aoMudarAtualizacao, estadoAtualizacao, iniciarAtualizacoes, instalarAtualizacaoDesktop, verificarAtualizacoes,
-  marcarNovidadesVistas, novidadesPendentes,
+  marcarNovidadesVistas, novidadesPendentes, limparInstaladorCopiado,
 } from "../services/atualizacao";
 import { startMonitor, getDashboardTelemetry, killProcess, cpuERam, type DashboardTelemetry } from "../actions/systemInfo";
 import type { BrainAction } from "../services/brain";
@@ -1992,6 +1993,22 @@ app.on("ready", async () => {
   });
   // 25/11: a Ely puxa conversa — olha a cada 10 min e, se vale, fala onde ele está.
   aCada(10 * 60_000, "iniciativa", () => { void puxarConversa(); });
+  // 27/11: "à prova de bala" — o que quebrou aparece sozinho (aqui e no celular), sem o dono abrir
+  // o card de saúde. Só erro, e só se continuar quebrado na checagem seguinte.
+  // 27/11: a cópia do instalador que o NSIS deixa em %LOCALAPPDATA%\elysium-updater (~110 MB).
+  setTimeout(() => limparInstaladorCopiado(), 60_000).unref?.();
+  let saudeSeguidas = new Map<string, number>();
+  aCada(10 * 60_000, "saude", () => {
+    void verificarSaude().then((itens) => {
+      const r = problemasParaAvisar(itens, saudeSeguidas);
+      saudeSeguidas = r.seguidas;
+      for (const i of r.avisar) {
+        const titulo = `Algo quebrou: ${i.titulo}`;
+        notify(titulo, i.detalhe);
+        mandarAoCelular("aviso", titulo, i.detalhe, { push: "reminder" });
+      }
+    }).catch(() => {});
+  });
   // 25/11: vigias ("me avisa quando…").
   aCada(5 * 60_000, "vigias", () => {
     void conferirVigias().then((avisos) => {

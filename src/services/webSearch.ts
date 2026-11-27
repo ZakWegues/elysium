@@ -1,5 +1,6 @@
 import { getApiKey, getConfig, getGeminiKey } from "../main/config";
 import { gerarGemini } from "./gemini";
+import { callChat } from "./llm";
 import { apiKeyError, networkError } from "./errors";
 import { canalAtual, Fonte, registrarFontes } from "./contextoComando";
 
@@ -65,6 +66,80 @@ export function extrairFontes(executadas: FerramentaExecutada[] | undefined, max
 /** Tira as marcas de citação do gpt-oss ("【0†L6-L11】") — as fontes vão à parte. */
 export function limparCitacoes(texto: string): string {
   return texto.replace(/\s*【[^】]*】/g, "").replace(/[ \t]+\n/g, "\n").trim();
+}
+
+/**
+ * 27/11 (o dono: "o PortWatch tá marcando 91,3%, não 86,7%"): a Ely respondia número de site pelo
+ * trecho velho de uma busca. `lerSite` abre a página de verdade (Gemini com `url_context`, achando o
+ * endereço pelo Google quando ele só disse o nome) e responde com o que está nela agora.
+ */
+export const LER_SITE_PROMPT = `Você abre páginas da web para um assistente em português do Brasil.
+- Ache a página certa (pelo endereço, ou pelo nome do site no Google) e ABRA a página: leia o que está nela agora.
+- Responda a pergunta com o número, o status ou o texto exato da página, e diga de qual site veio.
+- Nunca responda pelo resumo de um resultado de busca, nem por notícia sobre o site: só pelo que a página mostra.
+- Se não conseguir abrir a página, diga isso em uma frase; não invente nem estime.
+- Curto, sem markdown.`;
+
+/**
+ * 27/11: o pedido quer que ela ABRA um site ("entra no portwatch", "entra aí e me diz", "segundo o
+ * X", "de acordo com o X", "no site do X")? Devolve o nome do site quando ele disse, ou `site: null`
+ * quando é "entra aí" (o site está na busca). `null` = não é pedido de site. O modelo do Hermes nem
+ * sempre escolhe `ler_site`; a `buscar_na_web` usa isto para abrir as páginas mesmo assim. Pura.
+ */
+export function siteDoPedido(pedido: string): { site: string | null } | null {
+  const t = pedido.toLowerCase();
+  const nome = /(?:\bsegundo|\bde acordo com|\bconforme|\bno site d[oa]|\bna p[aá]gina d[oa]|\b(?:entr[ae]|abr[ae]|olh[ae]|vej[ao]|v[eê]|confer[ea]|chec[ao]|d[aá] uma olhada)\s+(?:no site d[oa]\s+|no|na|em|o|a))\s+(?:(?:o|a|os|as)\s+)?(?:site\s+(?:d[oa]\s+)?)?([\w][\w.-]*\.[a-z]{2,}(?:\/\S*)?|[a-z0-9][\w-]{2,})/i.exec(t);
+  const ignorar = /^(pc|computador|celular|spotify|youtube|chrome|navegador|app|aplicativo|programa|jogo|tela|arquivo|pasta|whatsapp|google|internet|meu|minha|seu|sua|ele|ela|isso|esse|essa)$/;
+  if (nome && !ignorar.test(nome[1])) return { site: nome[1] };
+  if (/\b(entr[ae]|abr[ae]|olh[ae]|confer[ea]|chec[ao])\s+(a[ií]|l[aá])(?![a-zà-ú])|\bno site\b|\bna p[aá]gina\b/.test(t)) return { site: null };
+  return null;
+}
+
+export async function lerSite(site: string, pergunta: string): Promise<string> {
+  if (!getGeminiKey()) return searchWeb(`${pergunta} ${site}`);
+  const t0 = Date.now();
+  const data = new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  const r = await gerarGemini({
+    sistema: `${LER_SITE_PROMPT}\nHoje é ${data}.`,
+    mensagens: [{ papel: "user", texto: `Site: ${site}\nPergunta: ${pergunta || "o que a página mostra agora?"}` }],
+    lerPaginas: true, temperatura: 0.1, maxTokens: 1024, prazoMs: 40_000,
+  }).catch(() => null);
+  if (r?.texto) {
+    console.log(`[site] Gemini leu em ${Date.now() - t0} ms, ${r.fontes.length} fonte(s) (${r.modelo})`);
+    registrarFontes(r.fontes);
+    return canalAtual() === "voz" ? r.texto.replace(/\*\*/g, "") : r.texto;
+  }
+  // 27/11: sem o Gemini (cota), abre a página num navegador escondido e a Groq lê o texto montado.
+  const viaNavegador = await lerSiteNoNavegador(site, pergunta).catch((e) => { console.warn("[site] navegador não leu:", e instanceof Error ? e.message : e); return null; });
+  if (viaNavegador) return viaNavegador;
+  console.warn("[site] não consegui abrir a página; indo pela busca");
+  return searchWeb(`${pergunta} ${site}`);
+}
+
+async function lerSiteNoNavegador(site: string, pergunta: string): Promise<string | null> {
+  const t0 = Date.now();
+  const { acharEnderecos, textoRenderizado } = await import("./leitorRenderizado");
+  const urls = await acharEnderecos(site, pergunta);
+  if (!urls.length) { console.warn("[site] não achei o endereço de", site); return null; }
+  const lidas = (await Promise.all(urls.map((u) => textoRenderizado(u).catch((e) => { console.warn(`[site] ${u}:`, e instanceof Error ? e.message : e); return null; }))))
+    .filter((p): p is NonNullable<typeof p> => !!p);
+  if (!lidas.length) return null;
+  const cfg = getConfig();
+  const varias = lidas.length > 1;
+  const sistema = `${LER_SITE_PROMPT}\nO texto abaixo é o que ${varias ? "cada página mostra" : "a página mostra"} AGORA, já aberta. Responda só por ele.`
+    + (varias ? " São sites diferentes com nome parecido: se o número for igual, diga uma vez; se divergir, diga o de cada um com o domínio, curto." : "");
+  const paginas = lidas.map((p) => `PÁGINA: ${p.titulo} (${new URL(p.url).hostname})\n${p.texto.slice(0, varias ? 6000 : 15_000)}`).join("\n\n---\n\n");
+  const resposta = (await callChat({
+    provider: "groq", model: cfg.brainModel, temperature: 0.1, maxTokens: 700, timeoutMs: 40_000, esforco: "low",
+    messages: [
+      { role: "system", content: sistema },
+      { role: "user", content: `${paginas}\n\nPERGUNTA: ${pergunta}` },
+    ],
+  })).trim();
+  if (!resposta) return null;
+  console.log(`[site] navegador leu ${lidas.map((p) => new URL(p.url).hostname).join(", ")} em ${Date.now() - t0} ms`);
+  registrarFontes(lidas.map((p) => ({ titulo: p.titulo || new URL(p.url).hostname, url: p.url })));
+  return canalAtual() === "voz" ? resposta.replace(/\*\*/g, "") : resposta;
 }
 
 export async function searchWeb(query: string): Promise<string> {

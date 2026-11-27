@@ -21,3 +21,17 @@ describe("velocidade e precisão (25/11)", () => {
     expect(semFala({ text: "oi" })).toBe(false);
   });
 });
+
+describe("sessão nova do Hermes no meio da conversa (27/11)", () => {
+  it("leva a conversa até aqui; sem conversa, nada", async () => {
+    const { blocoDaConversa } = await import("../src/services/hermes/cerebro");
+    expect(blocoDaConversa([])).toBe("");
+    const b = blocoDaConversa([
+      { role: "user", content: "O port de GTA 6 está a quantos porcento segundo o portwatch?" },
+      { role: "assistant", content: "Não tenho a informação atualizada." },
+    ]);
+    expect(b).toMatch(/^\[A CONVERSA ATÉ AGORA/);
+    expect(b).toMatch(/Ele: O port de GTA 6/);
+    expect(b).toMatch(/Ely: Não tenho/);
+  });
+});

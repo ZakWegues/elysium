@@ -104,6 +104,56 @@ function mudar(patch: Partial<EstadoAtualizacao>): void {
   for (const cb of ouvintes) { try { cb(estadoAtualizacao()); } catch { /* ouvinte quebrado não derruba os outros */ } }
 }
 
+// ── o que o celular já tem (27/11) ──────────────────────────────────────────
+
+/**
+ * 27/11 (o dono pediu o ELYSIUM mais leve): o APK do celular (~165 MB) ficava guardado para sempre,
+ * porque o PC não sabia a versão instalada lá. Agora o celular diz a versão dele no `update.status`;
+ * se ele já tem a da release, o APK nem é baixado (ou é apagado). Versão nova → baixa de novo.
+ */
+type VersaoCelular = { versao: string; versionCode?: number };
+let versaoDoCelular: VersaoCelular | null | undefined;
+function arquivoDoCelular(): string { return path.join(app.getPath("userData"), "versao-do-celular.json"); }
+function lerVersaoDoCelular(): VersaoCelular | null {
+  if (versaoDoCelular !== undefined) return versaoDoCelular;
+  try { versaoDoCelular = JSON.parse(fs.readFileSync(arquivoDoCelular(), "utf8")) as VersaoCelular; } catch { versaoDoCelular = null; }
+  return versaoDoCelular;
+}
+
+/** O celular já tem esta release (mesma versão com versionCode igual ou maior, ou versão mais nova)? Pura. */
+export function celularJaTem(release: { versao: string; versionCode?: number }, cel: VersaoCelular | null): boolean {
+  if (!cel?.versao) return false;
+  const c = compararVersoes(release.versao, cel.versao);
+  if (c !== 0) return c < 0;
+  return release.versionCode === undefined || (cel.versionCode ?? 0) >= release.versionCode;
+}
+
+/** O celular contou a versão nativa dele: guarda e, se o APK guardado é o que ele já tem, apaga. */
+export function registrarVersaoDoCelular(v: VersaoCelular): void {
+  if (!/^\d+\.\d+\.\d+/.test(v.versao)) return;
+  const antes = lerVersaoDoCelular();
+  versaoDoCelular = { versao: v.versao, ...(Number.isFinite(v.versionCode) ? { versionCode: v.versionCode } : {}) };
+  if (antes?.versao !== versaoDoCelular.versao || antes?.versionCode !== versaoDoCelular.versionCode) {
+    try { fs.writeFileSync(arquivoDoCelular(), JSON.stringify(versaoDoCelular)); } catch { /* fica na memória */ }
+  }
+  const c = estado.celular;
+  if (c && celularJaTem(c, versaoDoCelular) && !baixando) {
+    try { fs.rmSync(c.arquivo, { force: true }); } catch { /* em uso: fica para a próxima */ }
+    if (c.pronto) mudar({ celular: { ...c, pronto: false, progresso: 0 } });
+  }
+}
+
+/**
+ * 27/11: o instalador NSIS copia a si mesmo (~110 MB) para `%LOCALAPPDATA%\elysium-updater` a cada
+ * instalação. O ELYSIUM não usa essa cópia (a atualização é a própria, com o instalador baixado e
+ * conferido); depois que a versão nova abriu, ela sai.
+ */
+export function limparInstaladorCopiado(): void {
+  if (!app.isPackaged || !process.env.LOCALAPPDATA) return;
+  const p = path.join(process.env.LOCALAPPDATA, "elysium-updater", "installer.exe");
+  try { if (fs.existsSync(p)) { fs.rmSync(p, { force: true }); console.log("[atualizacao] cópia do instalador apagada (elysium-updater)"); } } catch { /* em uso: fica para a próxima */ }
+}
+
 function pasta(): string {
   const p = path.join(app.getPath("userData"), "atualizacoes");
   fs.mkdirSync(p, { recursive: true });
@@ -329,8 +379,9 @@ export async function verificarAtualizacoes(): Promise<EstadoAtualizacao> {
 
     // Só interessa o instalador se for MAIS NOVO que o que está rodando.
     const desktop = falhou.has(REPO_DESKTOP) ? estado.desktop : relPc && assetPc && compararVersoes(relPc.tag_name, estado.atual) > 0 ? pacoteDe(relPc, assetPc) : undefined;
-    // O APK é guardado sempre (o PC não sabe a versão do celular; quem compara é o app).
+    // O APK é guardado enquanto o celular não tem essa versão (27/11: ele conta a dele no update.status).
     const celular = falhou.has(REPO_CELULAR) ? estado.celular : relCel && assetCel ? pacoteDe(relCel, assetCel) : undefined;
+    const celularEmDia = !!celular && celularJaTem(celular, lerVersaoDoCelular());
     // Durante um download, o estado de quem está baixando fica como está: recriar o pacote
     // zeraria a barra até o próximo aviso de progresso.
     mudar({
@@ -343,11 +394,12 @@ export async function verificarAtualizacoes(): Promise<EstadoAtualizacao> {
     // Nunca com download em curso: o `.parcial` que está sendo escrito não está na lista de
     // quem fica, e seria apagado debaixo do próprio download.
     if (!baixando) {
-      limparAntigos([desktop?.arquivo, celular?.arquivo].filter((x): x is string => !!x));
+      limparAntigos([desktop?.arquivo, celularEmDia ? undefined : celular?.arquivo].filter((x): x is string => !!x));
+      if (celularEmDia && estado.celular?.pronto) mudar({ celular: { ...estado.celular, pronto: false, progresso: 0 } });
       // Em segundo plano: quem pediu a verificação (a tela, o celular) recebe a resposta na
       // hora e acompanha o progresso pelos eventos — esperar 80 + 115 MB aqui estourava o
       // prazo do celular e deixava a tela em "Procurando…" durante o download inteiro.
-      void baixarPendentes(tk, assetPc, assetCel);
+      void baixarPendentes(tk, assetPc, celularEmDia ? undefined : assetCel);
     }
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);

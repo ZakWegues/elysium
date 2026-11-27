@@ -24,6 +24,9 @@ export const FERRAMENTAS_DO_HERMES = new Set([
   "processos_pesados", "clima", "lembretes", "rotinas", "presets", "tocando_agora", "ver_lista", "ver_tarefas",
   "ver_habitos", "painel_do_dia", "ver_timers", "hora_em", "calcular", "nota_necessaria", "revisao_da_semana",
   "treino_de_hoje", "ver_meta_calorias",
+  // 27/11: a pesquisa do Google pelo Gemini e abrir o site de verdade (a busca do próprio Hermes
+  // devolvia trecho velho: "86,7%" com a página marcando 91,3%).
+  "buscar_na_web", "ler_site",
   // Ação
   "tocar_musica", "gerar_playlist", "midia", "volume", "janela", "modo_foco", "abrir_programa", "fechar_programa",
   "adicionar_na_lista", "concluir_tarefa", "adiar_tarefa", "editar_tarefa", "anotar_varias", "marcar_item",

@@ -58,6 +58,12 @@ export interface FatosSaude {
   servidor?: { ouvindo: boolean; erro: string | null };
   /** Fase 19: para onde vai o som (a voz da Ely). Ausente = não deu para ler. */
   som?: SaidaDeSom | null;
+  /** 27/11: o cérebro Hermes. Ausente = desligado em Ajustes ou teste antigo. */
+  hermes?: { estado: string; erro: string | null; modelo: string | null; semCota: boolean };
+  /** 27/11: o Gemini (cérebro, voz, telas e pesquisa). Ausente = sem chave. */
+  gemini?: { semCotaEmTodos: boolean };
+  /** 27/11: o modelo de visão local (olhos da Ely). Ausente = não deu para ler. */
+  visaoLocal?: { ok: boolean; detalhe: string };
   agora: number;
 }
 
@@ -82,6 +88,18 @@ export function avaliarSaude(f: FatosSaude): ItemSaude[] {
   } else {
     itens.push({ id: "cerebro", titulo: "Cérebro", nivel: "ok", detalhe: "na nuvem (Groq), por escolha em Ajustes" });
   }
+
+  // 27/11: o Hermes, o Gemini e os olhos locais. Antes o Hermes reiniciava o dia todo por cota e o
+  // modelo local sumiu do Ollama sem ninguém saber — o card não olhava nenhum dos dois.
+  if (f.hermes) {
+    const h = f.hermes;
+    if (h.estado === "sem-hermes") itens.push({ id: "hermes", titulo: "Hermes", nivel: "erro", detalhe: "não está instalado — a Ely responde pelo cérebro de reserva" });
+    else if (h.estado === "erro") itens.push({ id: "hermes", titulo: "Hermes", nivel: "erro", detalhe: `fora do ar (${h.erro ?? "erro"}) — tentando subir de novo; até lá, a reserva responde` });
+    else if (h.semCota) itens.push({ id: "hermes", titulo: "Hermes", nivel: "aviso", detalhe: `${h.modelo ?? "o modelo"} sem cota hoje — respondendo pela fila de reserva` });
+    else itens.push({ id: "hermes", titulo: "Hermes", nivel: "ok", detalhe: h.estado === "pronto" ? `pronto${h.modelo ? ` (${h.modelo})` : ""}` : h.estado });
+  }
+  if (f.gemini?.semCotaEmTodos) itens.push({ id: "gemini", titulo: "Gemini", nivel: "aviso", detalhe: "cota grátis do dia acabou em todos os modelos — voz, telas e pesquisa vão pelas reservas até a virada" });
+  if (f.visaoLocal && !f.visaoLocal.ok) itens.push({ id: "visao", titulo: "Olhos locais", nivel: "aviso", detalhe: `${f.visaoLocal.detalhe} — a Ely olha a tela só pelo Gemini` });
 
   // Groq: visão, busca e transcrição dependem dela mesmo com o cérebro local.
   if (!f.groqChave) itens.push({ id: "groq", titulo: "Groq", nivel: "erro", detalhe: "sem chave — voz, visão e busca na web param" });
@@ -167,6 +185,23 @@ function lerBackupChaves(): number | null {
   } catch { return null; }
 }
 
+/**
+ * 27/11: quais problemas avisar agora, sem o dono abrir o card. Só "erro", e só quando ele aparece
+ * em duas checagens seguidas (um Hermes reiniciando por 30 s não vira aviso). Devolve os itens a
+ * avisar e a contagem nova (quem sarou sai dela e pode avisar de novo se voltar). Pura.
+ */
+export function problemasParaAvisar(itens: ItemSaude[], seguidas: Map<string, number>): { avisar: ItemSaude[]; seguidas: Map<string, number> } {
+  const nova = new Map<string, number>();
+  const avisar: ItemSaude[] = [];
+  for (const i of itens) {
+    if (i.nivel !== "erro") continue;
+    const n = (seguidas.get(i.id) ?? 0) + 1;
+    nova.set(i.id, n);
+    if (n === 2) avisar.push(i);
+  }
+  return { avisar, seguidas: nova };
+}
+
 export async function verificarSaude(): Promise<ItemSaude[]> {
   const cfg = getConfig();
   // 24/10: com a chave do Gemini o "local" roda no Gemini; o Ollama só importa como reserva ligada.
@@ -181,6 +216,19 @@ export async function verificarSaude(): Promise<ItemSaude[]> {
     ultimaSaidaDeSom() ? Promise.resolve(ultimaSaidaDeSom()) : lerSaidaDeSom().catch(() => null),
   ]);
   const limite = momentoDoUltimoLimiteGroq();
+  // 27/11: o Hermes, o Gemini e o modelo de visão local (import tardio: o cérebro puxa o Electron).
+  const { estadoHermes } = await import("./hermes/cerebro");
+  const { hermesSemCota, cotaEsgotada } = await import("./cotaGemini");
+  const h = estadoHermes();
+  const chaveGemini = getGeminiKey();
+  let semCotaEmTodos = false;
+  if (chaveGemini) {
+    const { modelosGemini } = await import("./gemini");
+    const m = await modelosGemini(chaveGemini).catch(() => null);
+    semCotaEmTodos = !!m && [...m.flash, ...m.lite].every((x) => cotaEsgotada(x) || hermesSemCota(x));
+  }
+  const { MODELO_VISAO_LOCAL } = await import("./olhos");
+  const visaoLocal = await ollamaDisponivel(MODELO_VISAO_LOCAL).catch(() => undefined);
   const celular = listarAparelhos().filter(a => /ELYSIUM-M/.test(a.cliente) && a.pedidos > 0);
   return avaliarSaude({
     cerebroLocal,
@@ -198,6 +246,10 @@ export async function verificarSaude(): Promise<ItemSaude[]> {
     tailscale,
     servidor: estadoDoServidor(),
     som,
+    hermes: h.ligado ? { estado: h.estado, erro: h.erro, modelo: cfg.geminiModelo || h.modelo, semCota: hermesSemCota(cfg.geminiModelo) } : undefined,
+    gemini: chaveGemini ? { semCotaEmTodos } : undefined,
+    // Ollama parado já aparece no item do cérebro; aqui só o modelo que sumiu.
+    visaoLocal: visaoLocal && /não foi baixado/.test(visaoLocal.detalhe) ? visaoLocal : undefined,
     agora: Date.now(),
   });
 }

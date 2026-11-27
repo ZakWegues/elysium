@@ -72,7 +72,7 @@ import { resumirLink } from "./leitorDeLink";
 import { aberturaDoPedido, comContexto, fontesDoPedido } from "./contextoComando";
 import { comecarFoco, estadoFoco, pararFoco, salvarListaFoco } from "./foco";
 import { abrirNoPc, AlvoAbrir, AlvoLimpeza, lerArmazenamento, limpar } from "../actions/armazenamento";
-import { aguardarDownloads, estadoAtualizacao, instalarAtualizacaoDesktop, verificarAtualizacoes } from "./atualizacao";
+import { aguardarDownloads, estadoAtualizacao, instalarAtualizacaoDesktop, registrarVersaoDoCelular, verificarAtualizacoes } from "./atualizacao";
 import { captureScreen, listScreens } from "./screenCapture";
 import { screenshot } from "../actions/screenshot";
 import { inputHost, MouseButton } from "./inputHost";
@@ -1154,6 +1154,8 @@ const METHODS: Record<string, MethodDef> = {
   // arquivo: o celular não tem o que fazer com eles.
   "update.status": {
     handler: async (params) => {
+      // 27/11: o celular conta a versão nativa dele — o PC não guarda APK que ele já tem.
+      if (typeof params["versaoNativa"] === "string") registrarVersaoDoCelular({ versao: params["versaoNativa"], versionCode: typeof params["versionCode"] === "number" ? params["versionCode"] : undefined });
       if (params["verificar"] === true) await verificarAtualizacoes();
       // `aguardar`: só para diagnóstico e teste — espera o download terminar antes de responder.
       if (params["aguardar"] === true) await aguardarDownloads();

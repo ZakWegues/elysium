@@ -2,15 +2,15 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { getConfig, getGeminiKey, nomeDoUsuario, setOverride } from "../../main/config";
-import { modeloDoHermes } from "../gemini";
+import { filaDoHermes, modeloDoHermes, modelosGemini } from "../gemini";
 import { hermesSemCota } from "../cotaGemini";
 import type { Canal } from "../estiloResposta";
 import { modoAtivo } from "../modos";
-import { telaMostrada } from "../brain";
+import { falasRecentes, telaMostrada } from "../brain";
 import { buildMemoryBlock } from "../memoryStore";
 import { liberacaoAtiva, pedirConfirmacao } from "../confirmacao";
 import { ConexaoHermes } from "./conexao";
-import { acharHermes, encerrarArvore, garantirMcp, garantirPerfil, gravarModeloDoPerfil, lerModeloDoPerfil, subirServidor, ServidorHermes, PERFIL_PADRAO, PERFIL_TELAS, garantirPerfilDeTelas } from "./processo";
+import { acharHermes, encerrarArvore, garantirBuscaDoHermes, garantirMcp, garantirPerfil, gravarFilaDoPerfil, gravarModeloDoPerfil, lerFilaDoPerfil, lerModeloDoPerfil, subirServidor, ServidorHermes, PERFIL_PADRAO, PERFIL_TELAS, garantirPerfilDeTelas } from "./processo";
 import { contextoDoTurno } from "./persona";
 import { FimDoTurno, PRAZO_SINAL_FRIO_MS, PRAZO_SINAL_QUENTE_MS, rodarTurno } from "./sessao";
 import { aprovacaoPerigosa, descricaoDaAprovacao, falaDoEsclarecimento, respostaDeRecusa, respostasDoEsclarecimento, tipoDaPergunta } from "./aprovacoes";
@@ -61,6 +61,8 @@ const s = {
   ruimAte: 0,
   falhasSeguidas: 0,
   trocouModeloEm: 0,
+  /** 27/11: o último reinício por modelo (último recurso: no máximo 1 por hora). */
+  reiniciouPorModeloEm: 0,
 };
 
 /** Pausa depois de travar: 1ª vez nada, depois 2, 4… até 15 min. Pura. */
@@ -68,11 +70,32 @@ export function pausaDoHermes(falhas: number): number {
   return falhas < 2 ? 0 : Math.min(15 * 60_000, 60_000 * 2 ** (falhas - 1));
 }
 
-/** A cota do modelo do Hermes acabou: sobe de novo com outro que responda (no máximo a cada 20 min). */
-function trocarModeloSemCota(): void {
-  if (!hermesSemCota(getConfig().geminiModelo) || Date.now() - s.trocouModeloEm < 20 * 60_000) return;
+/**
+ * A cota do modelo do Hermes acabou. 27/11 (o dono: "o Hermes reinicia várias vezes"): antes, o
+ * processo caía e subia de novo — às vezes no mesmo modelo travado. Agora o perfil ganha outro
+ * principal e a fila de reserva é refeita SEM reiniciar; a próxima sessão já abre no modelo novo.
+ * Se a sessão nova ainda vier no modelo velho (`abrirSessao`), aí sim reinicia — no máximo 1 vez
+ * por hora. No meio do caminho, a fila do próprio Hermes cobre os 429.
+ */
+async function trocarModeloSemCota(): Promise<void> {
+  if (!hermesSemCota(getConfig().geminiModelo) || Date.now() - s.trocouModeloEm < 5 * 60_000) return;
   s.trocouModeloEm = Date.now();
-  console.log("[hermes] modelo sem cota; subindo com outro");
+  const exe = acharHermes(), chave = getGeminiKey();
+  if (!exe || !chave) return;
+  const antes = getConfig().geminiModelo;
+  await ajustarModeloDoHermes(exe, perfil(), chave).catch((e) => console.warn("[hermes] modelo Gemini:", e instanceof Error ? e.message : e));
+  if (getConfig().geminiModelo !== antes) {
+    console.log(`[hermes] ${antes} sem cota; próxima sessão em ${getConfig().geminiModelo}, sem reiniciar`);
+    s.sessao = null;
+  }
+}
+
+/** O modelo da sessão não é o do perfil (o Hermes não releu): reinicia, no máximo 1 vez por hora. */
+function conferirModeloDaSessao(modeloDaSessao: string | undefined): void {
+  const alvo = getConfig().geminiModelo;
+  if (!modeloDaSessao || !alvo || modeloDaSessao === alvo || Date.now() - s.reiniciouPorModeloEm < 60 * 60_000) return;
+  s.reiniciouPorModeloEm = Date.now();
+  console.log(`[hermes] sessão abriu em ${modeloDaSessao}, o perfil pede ${alvo}; reiniciando (último recurso)`);
   reiniciarHermesPorModelo();
 }
 
@@ -108,14 +131,22 @@ async function ajustarModeloDoHermes(exe: string, p: string, chave: string): Pro
   const atual = await lerModeloDoPerfil(exe, p);
   const antes = getConfig().hermesModeloAntes ?? {};
   if (chave) {
-    // 26/10: o Flash-Lite mais rápido que responde agora (ver modeloDoHermes).
-    const alvo = await modeloDoHermes(chave);
+    // 26/10: o Flash-Lite mais rápido que responde agora (ver modeloDoHermes). 27/11: sem os que
+    // o Hermes já viu sem cota.
+    const alvo = await modeloDoHermes(chave, fetch, hermesSemCota);
     if (atual.provider !== "gemini") setOverride({ hermesModeloAntes: { ...antes, [p]: atual } });
     if (atual.provider !== "gemini" || atual.modelo !== alvo) {
       await gravarModeloDoPerfil(exe, p, "gemini", alvo);
       console.log(`[hermes] perfil ${p} no Gemini: ${alvo}`);
     }
     setOverride({ geminiModelo: alvo });
+    // 27/11: a fila de reserva — os outros Gemini com cota na frente do que já havia.
+    const existente = await lerFilaDoPerfil(exe, p).catch(() => []);
+    const fila = filaDoHermes(alvo, await modelosGemini(chave), hermesSemCota, existente);
+    if (JSON.stringify(fila) !== JSON.stringify(existente)) {
+      await gravarFilaDoPerfil(exe, p, fila);
+      console.log(`[hermes] fila de reserva: ${fila.slice(0, 5).map((f) => f.model).join(" → ")}${fila.length > 5 ? " → …" : ""}`);
+    }
   } else if (atual.provider === "gemini" && antes[p]) {
     await gravarModeloDoPerfil(exe, p, antes[p].provider, antes[p].modelo);
     setOverride({ geminiModelo: "" });
@@ -140,6 +171,7 @@ export async function iniciarHermes(): Promise<void> {
   try {
     await garantirPerfil(exe, perfil());
     if (s.urlMcp) await garantirMcp(exe, s.urlMcp, perfil()).catch(e => console.warn("[hermes] MCP:", e instanceof Error ? e.message : e));
+    await garantirBuscaDoHermes(exe, perfil()).catch(e => console.warn("[hermes] busca:", e instanceof Error ? e.message : e));
     // 22/10: o perfil das telas (sem ferramentas). Em segundo plano: não segura a subida do Hermes.
     void garantirPerfilDeTelas(exe).catch(e => console.warn("[hermes] perfil das telas:", e instanceof Error ? e.message : e));
     const chaveGemini = getGeminiKey();
@@ -204,6 +236,7 @@ async function abrirSessao(): Promise<{ id: string; ultimoUso: number; turnos: n
   const r = await con.chamar<{ session_id: string; info?: { model?: string } }>("session.create", { title: "ELYSIUM", hidden: false }, 30_000);
   s.modelo = r.info?.model ?? s.modelo;
   s.sessao = { id: r.session_id, ultimoUso: Date.now(), turnos: 0 };
+  conferirModeloDaSessao(r.info?.model);
   return s.sessao;
 }
 
@@ -244,6 +277,15 @@ export function registrarForaDoHermes(ele: string, ely: string): void {
   foraDoHermes.push({ ele: ele.slice(0, 600), ely: ely.slice(0, 900), em: Date.now() });
   while (foraDoHermes.length > 6) foraDoHermes.shift();
 }
+/**
+ * 27/11: sessão NOVA no meio da conversa (o modelo trocou por cota, ou a anterior travou): a
+ * conversa até aqui vai junto, senão o Hermes começa do zero. Puro.
+ */
+export function blocoDaConversa(falas: { role: "user" | "assistant"; content: string }[]): string {
+  if (!falas.length) return "";
+  return `[A CONVERSA ATÉ AGORA — continue dela; o pedido abaixo pode se referir a isto]\n${falas.map((f) => `${f.role === "user" ? "Ele" : "Ely"}: ${f.content}`).join("\n")}\n\n`;
+}
+
 /** O bloco com esses turnos (e esvazia a fila). Puro com a lista. */
 export function blocoForaDoHermes(agora = Date.now()): string {
   const recentes = foraDoHermes.splice(0).filter((t) => agora - t.em < 15 * 60_000);
@@ -256,8 +298,10 @@ export function blocoForaDoHermes(agora = Date.now()): string {
  * no cérebro de sempre.
  */
 export async function agirViaHermes(texto: string, op: { canal?: Canal; onToken?: (t: string) => void } = {}): Promise<RespostaHermes | null> {
-  // 25/11: sem cota (ou acabou de travar duas vezes) vai direto à reserva, em vez de esperar o prazo.
-  if (Date.now() < s.ruimAte || hermesSemCota(getConfig().geminiModelo)) { trocarModeloSemCota(); return null; }
+  // 25/11: acabou de travar duas vezes → vai direto à reserva, em vez de esperar o prazo.
+  // 27/11: sem cota NÃO pula mais o Hermes: troca o principal (sem reiniciar) e a fila cobre.
+  if (Date.now() < s.ruimAte) return null;
+  if (hermesSemCota(getConfig().geminiModelo)) await trocarModeloSemCota();
   if (!hermesPronto()) { if (s.estado === "erro" || s.estado === "desligado") void iniciarHermes(); return null; }
   const con = s.con!;
   let sessao;
@@ -265,7 +309,11 @@ export async function agirViaHermes(texto: string, op: { canal?: Canal; onToken?
   const cfg = getConfig();
   const canal = op.canal ?? "voz";
   const primeiro = sessao.turnos === 0;
-  const corpo = blocoForaDoHermes() + contextoDoTurno(texto, canal, {
+  // 27/11: sessão nova com conversa em andamento → a conversa inteira (que já inclui o que foi
+  // respondido fora do Hermes); sessão em uso → só o que ele não viu.
+  const conversa = primeiro ? falasRecentes() : [];
+  const antes = conversa.length ? (blocoForaDoHermes(), blocoDaConversa(conversa)) : blocoForaDoHermes();
+  const corpo = antes + contextoDoTurno(texto, canal, {
     nome: nomeDoUsuario(),
     tratamento: cfg.tratamento ?? "",
     estilo: cfg.estiloResposta,
@@ -294,7 +342,7 @@ async function tratarFim(fim: FimDoTurno, noTurno: boolean): Promise<RespostaHer
     s.pedido = "";
     console.warn(`[hermes] turno falhou: ${fim.motivo}`);
     s.ruimAte = Date.now() + pausaDoHermes(++s.falhasSeguidas);
-    trocarModeloSemCota();
+    void trocarModeloSemCota();
     // Sessão que demorou a começar pode estar presa: a próxima abre outra.
     if (/demorou|não terminou|parou no meio/.test(fim.motivo)) s.sessao = null;
     return noTurno ? null : { reply: "Não consegui terminar isso agora." };
