@@ -3,7 +3,7 @@ import { playMusic } from "../actions/playMusic";
 import { abrirNoCelularAtual, aparelhoDoPedido } from "./contextoComando";
 import { alvoDoApp, lerPedido, urlDaBusca, type AlvoNoCelular, type Aparelho, type Pedido } from "./destino";
 import { corrigeMusica, type MusicaDita } from "./qualMusica";
-import { resolverPelaConversa } from "./musicaConversa";
+import { musicasParecidas, resolverPelaConversa } from "./musicaConversa";
 import * as spotify from "./spotify";
 
 /**
@@ -36,6 +36,23 @@ async function urlDoVideo(busca: string): Promise<string> {
 }
 
 const onde = (a: Aparelho) => (a === "celular" ? "no celular" : "no PC");
+
+/**
+ * 27/11: o Spotify daquele aparelho estava fechado e acabou de ser aberto na faixa/playlist. Ele
+ * só vira "aparelho" da API alguns segundos depois de acordar: tenta dar o play por ~20 s, em
+ * segundo plano (a resposta não espera — é ela que leva o "abrir" ao celular).
+ */
+let acordando = 0;
+export function tocarQuandoAcordar(aparelho: Aparelho, uri: string | { contexto: string }, esperaMs = 1500, vezes = 14): void {
+  const minha = ++acordando;
+  void (async () => {
+    for (let i = 0; i < vezes && minha === acordando; i++) {
+      await new Promise((r) => setTimeout(r, esperaMs));
+      if (minha !== acordando) return;
+      if (await spotify.tocarNo(aparelho, uri).catch(() => false)) { console.log(`[spotify] tocou ${onde(aparelho)} depois de abrir o app`); return; }
+    }
+  })();
+}
 
 /** A última que tocou a pedido: "não, nada a ver" logo depois é a correção dela. */
 let ultimaTocada: { em: number; nome: string; app: "spotify" | "youtube" | null; aparelho: Aparelho } | null = null;
@@ -72,6 +89,7 @@ export async function tocarMusica(busca: string, app: "spotify" | "youtube" | nu
       const id = faixa.uri.split(":")[2];
       if (aparelho === "celular") {
         const ja = noCelular({ rotulo: faixa.track, url: faixa.uri, reserva: `https://open.spotify.com/track/${id}` });
+        tocarQuandoAcordar("celular", faixa.uri);
         return ja ? `Abri ${nome} no Spotify do celular.` : `Mandei ${nome} para o Spotify do celular.`;
       }
       await shell.openExternal(faixa.uri).catch(() => {});
@@ -107,10 +125,44 @@ async function tocarColecao(busca: string, aparelho: Aparelho): Promise<string |
   const [, tipo, id] = c.uri.split(":");
   if (aparelho === "celular") {
     const ja = noCelular({ rotulo: c.nome, url: c.uri, reserva: `https://open.spotify.com/${tipo}/${id}` });
+    tocarQuandoAcordar("celular", { contexto: c.uri });
     return ja ? `Abri ${o} ${c.nome} no Spotify do celular.` : `Mandei ${o} ${c.nome} para o celular.`;
   }
   await shell.openExternal(c.uri).catch(() => {});
+  tocarQuandoAcordar("pc", { contexto: c.uri });
   return `Abri ${o} ${c.nome} no Spotify do PC.`;
+}
+
+/**
+ * 27/11: "gera uma playlist pra eu me concentrar". As músicas saem da mesma conta das parecidas
+ * (o clima do pedido, conferidas na Deezer), viram uma playlist na conta dele e já tocam no
+ * aparelho certo. Sem modelo ou sem permissão de playlist: toca uma playlist pronta do Spotify.
+ */
+export async function gerarPlaylist(pedido: string, nome: string, aparelho: Aparelho): Promise<string> {
+  if (!spotify.isConnected()) return "Para eu montar playlist, conecte o Spotify no PC (Ajustes → Spotify).";
+  const m = await musicasParecidas(`Monte uma playlist: ${pedido}`).catch(() => null);
+  let falha = "";
+  if (m) {
+    try {
+      const p = await spotify.criarPlaylist((nome || `Ely · ${pedido}`).slice(0, 80), m.itens);
+      if (await spotify.tocarNo(aparelho, { contexto: p.uri })) return `Montei a playlist ${p.nome}, com ${p.total} músicas, e já está tocando ${onde(aparelho)}.`;
+      const id = p.uri.split(":")[2];
+      if (aparelho === "celular") {
+        const ja = noCelular({ rotulo: p.nome, url: p.uri, reserva: `https://open.spotify.com/playlist/${id}` });
+        tocarQuandoAcordar("celular", { contexto: p.uri });
+        return `Montei a playlist ${p.nome}, com ${p.total} músicas, e ${ja ? "abri" : "mandei"} no Spotify do celular.`;
+      }
+      await shell.openExternal(p.uri).catch(() => {});
+      tocarQuandoAcordar("pc", { contexto: p.uri });
+      return `Montei a playlist ${p.nome}, com ${p.total} músicas, e abri no Spotify do PC.`;
+    } catch (e) {
+      falha = e instanceof Error ? e.message : String(e);
+      console.warn("[spotify] playlist nova falhou:", falha);
+    }
+  }
+  const pronta = await tocarColecao(`playlist ${pedido}`, aparelho);
+  if (pronta) return /conecte o Spotify de novo/i.test(falha) ? `${pronta} Para eu criar playlists suas, saia e conecte o Spotify de novo no PC.` : pronta;
+  return `Não consegui montar a playlist agora${falha ? ` (${falha})` : ""}. Me diz um artista ou estilo que eu toco.`;
 }
 
 /** Várias seguidas, na ordem. Com o Spotify do aparelho fechado, abre na primeira. */

@@ -79,7 +79,8 @@ Como agir
 - Se o pedido é só conversa, pergunta geral, opinião ou algo que você sabe sem o PC, não use ferramenta: responda exatamente a palavra CHAT e nada mais. Conta é com a ferramenta calcular — nunca de cabeça.
 - Depois de olhar (programas_abertos, estado_do_pc, rotinas, lembretes…), decida: se o pedido era para fazer algo, chame a ferramenta de ação; ${regraDoAgente(canal)}
 - A resposta diz o que a ferramenta devolveu, e só isso: se ela listou "Bom dia às 07:30", existe a rotina Bom dia às 07:30. Nunca diga que não achou quando a lista tem itens.
-- Fazer é chamar a ferramenta: nunca diga que abriu, fechou, criou ou apagou sem tê-la chamado.
+- Fazer é chamar a ferramenta: nunca diga que abriu, fechou, criou ou apagou sem tê-la chamado, nem prometa fazer depois ("vou gerar", "já mando").
+- Música: tocar_musica toca; gerar_playlist monta uma playlist nova pelo clima do pedido. Se ele falou do celular ("no meu celular", "aqui no celular"), passe aparelho "celular". mandar_para_o_celular é só para texto ou link que ele quer guardar, nunca para tocar música ou abrir app.
 - Não mencione "ferramenta", "função" ou "busca": fale em primeira pessoa, como se você mesmo tivesse olhado e feito.
 - Fale COM o usuário, na segunda pessoa ("seu PC", "você"), nunca sobre ele em terceira pessoa ("o PC do usuário").
 - Em programas_abertos cada item é "processo (título da janela)": "CalculatorApp (Calculadora)" ou "ApplicationFrameHost (Calculadora)" quer dizer que a calculadora está aberta.
@@ -141,6 +142,17 @@ function textoConfiavel(content: string, leituras: { resultado: string }[]): boo
   const nega = /\bn[ãa]o (achei|encontrei|tenho|há|existe|consta|vejo|localizei)\b|\bnenhum[a]?\b|\bnada (aberto|tocando|cadastrad[oa]|registrad[oa])\b/i.test(content);
   const algumaCheia = leituras.some(l => l.resultado && !/^(nenhum|nada|sem |vazi|não há|não tem)/i.test(l.resultado.trim()));
   return !(nega && algumaCheia);
+}
+
+/**
+ * Pedido de tocar ou montar música (27/11): "gera uma playlist", "bota uma música pra eu me
+ * concentrar", "abre o Spotify e coloca algo". Pergunta sobre música ("qual o nome dessa?") não.
+ * Pura, para teste.
+ */
+export function pedeMusica(texto: string): boolean {
+  const t = texto.toLowerCase();
+  return /(?<![\p{L}])(playlist\p{L}*|m[uú]sic\p{L}*|som|spotify|[aá]lbu\p{L}*|lo-?fi)(?![\p{L}])/u.test(t)
+    && /(?<![\p{L}])(toca|toque|tocar|coloca|coloque|colocar|bota|bote|botar|p[oõ]e|ponha|p[oô]r|gera|gere|gerar|cria|crie|criar|monta|monte|montar|faz|fa[cç]a|fazer|abre|abra|abrir|solta|manda|mande)(?![\p{L}])/u.test(t);
 }
 
 /** Ferramentas que só OLHAM. Chamá-las não conta como "ter feito" alguma coisa. */
@@ -225,7 +237,17 @@ export async function agir(
       // "CHAT" solto ou embrulhado em JSON (`{"name": "CHAT", "parameters": {}}`, o 8B faz isso).
       // "CHAT" solto, embrulhado em JSON, ou seguido da resposta ("CHAT Alan Turing foi…", o
       // qwen2.5 faz isso): tudo é conversa — quem escreve a resposta é a composeChatReply.
-      if (/^\W*chat\b/i.test(content) || /^\s*\{[^}]*"chat"/i.test(content)) return { modo: "chat", reply: "", acoes: [{ action: "chat" }], chamadas };
+      const ehChat = /^\W*chat\b/i.test(content) || /^\s*\{[^}]*"chat"/i.test(content);
+      // 27/11: "gera uma playlist e coloca no Spotify do celular" virou conversa, e a conversa
+      // prometeu ("vou gerar e mandar agora") sem nada acontecer. Pedido de música não é papo:
+      // uma cutucada, uma vez.
+      if ((ehChat || !chamadas.length) && !cutucado && pedeMusica(texto)) {
+        cutucado = true;
+        messages.push({ role: "assistant", content: content || "CHAT" });
+        messages.push({ role: "user", content: "Isso é um pedido para tocar ou montar música, não conversa. Chame a ferramenta agora: gerar_playlist para montar uma playlist nova, tocar_musica para tocar algo (com aparelho \"celular\" se ele falou do celular)." });
+        continue;
+      }
+      if (ehChat) return { modo: "chat", reply: "", acoes: [{ action: "chat" }], chamadas };
       // Bloco 130: resposta em texto SEM ter olhado nada é conversa, mesmo sem o "CHAT". O
       // qwen2.5 de 7B costuma responder direto ("Um SSD é…") em vez de dizer CHAT, e esse
       // texto saía como a resposta final — sem o prompt do canal (voz curta / chat escrito),
@@ -251,6 +273,7 @@ export async function agir(
 
     // Executa as chamadas desta rodada e devolve os resultados ao modelo.
     messages.push({ role: "assistant", content: resposta.content ?? "", tool_calls: resposta.toolCalls });
+    const antesDaRodada = chamadas.length;
     for (const c of resposta.toolCalls as ChamadaDeFerramenta[]) {
       if (++totalChamadas > maxChamadas) {
         messages.push({ role: "tool", tool_call_id: c.id, name: c.name, content: "Limite de chamadas atingido; responda com o que já tem." });
@@ -282,7 +305,12 @@ export async function agir(
     // e ainda custava uma chamada. Rodada só de leitura volta ao modelo: ele pode
     // precisar agir com o que leu ("se estiver aberta, fecha").
     if (resposta.toolCalls.some(c => !LEITURA.has(c.name))) {
-      if (inicioFala < 0) inicioFala = chamadas.length - resposta.toolCalls.length;
+      // 27/11: olhar e agir na MESMA rodada ("programas_abertos" + "abrir_programa") punha a
+      // lista crua das janelas na resposta. A fala começa na primeira ação.
+      if (inicioFala < 0) {
+        const i = chamadas.findIndex((c, k) => k >= antesDaRodada && !LEITURA.has(c.nome));
+        inicioFala = i >= 0 ? i : antesDaRodada;
+      }
       rodadasComAcao++;
       // Modo tarefa: enquanto houver parte do pedido sem ação, mais uma volta — com a
       // lembrança explícita do pedido inteiro, porque o 7B esquece o resto depois da 1ª.

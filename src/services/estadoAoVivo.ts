@@ -41,6 +41,7 @@ export function estadoDaFerramenta(nomeBruto: string, args: Record<string, unkno
     case "atualizar_apps": return "Atualizando os apps…";
     case "abrir_site": return "Abrindo o site…";
     case "tocar_musica": return busca ? `Tocando ${busca}…` : "Tocando música…";
+    case "gerar_playlist": return "Montando a playlist…";
     case "midia": case "tocando_agora": return "Mexendo na música…";
     case "volume": return "Ajustando o volume…";
     case "energia": return "Cuidando da energia do PC…";

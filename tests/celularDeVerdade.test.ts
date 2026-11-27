@@ -23,10 +23,26 @@ describe("retomada da resposta (21/10)", () => {
     expect(retomar("pedido-0001", (t) => b.push(t))).toBe(true);
     pedaco(p, "bem.");
     terminar(p, { type: "reply", reply: "Olá, tudo bem." });
-    expect(a.length).toBe(1);
+    // 27/11: o "recebi" sai na hora, antes do primeiro pedaço.
+    expect(a.map(x => JSON.parse(x).type)).toEqual(["andamento", "chunk"]);
+    expect(JSON.parse(a[0])).toEqual({ type: "andamento", id: "pedido-0001", recebido: true });
     expect(JSON.parse(b[0])).toEqual({ type: "retomada", id: "pedido-0001", text: "Olá, tudo " });
     expect(JSON.parse(b[1])).toMatchObject({ type: "chunk", text: "bem." });
     expect(JSON.parse(b[2])).toMatchObject({ type: "reply", reply: "Olá, tudo bem.", id: "pedido-0001" });
+  });
+
+  it("enquanto trabalha, o que a Ely está fazendo vai ao celular; depois do fim, não (27/11)", async () => {
+    const { avisarEstadoAoVivo } = await import("../src/services/estadoAoVivo");
+    const a: string[] = [];
+    const p = abrirPedido("pedido-0009", "toca algo", (t) => a.push(t))!;
+    avisarEstadoAoVivo("Tocando lo-fi…");
+    terminar(p, { type: "reply", reply: "Tocando." });
+    avisarEstadoAoVivo("Outra coisa…");
+    expect(a.map(x => JSON.parse(x))).toEqual([
+      { type: "andamento", id: "pedido-0009", recebido: true },
+      { type: "andamento", id: "pedido-0009", estado: "Tocando lo-fi…" },
+      { type: "reply", reply: "Tocando.", id: "pedido-0009" },
+    ]);
   });
 
   it("retomar depois de terminar entrega o final; id desconhecido ou parado falha", () => {

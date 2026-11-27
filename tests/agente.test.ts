@@ -34,7 +34,7 @@ vi.mock("../src/main/config", () => ({
   nomeDoUsuario: () => "usuário",
 }));
 
-const { agir } = await import("../src/services/agente");
+const { agir, pedeMusica } = await import("../src/services/agente");
 
 beforeEach(() => { respostas.length = 0; executadas.length = 0; chamadasAoModelo.length = 0; });
 
@@ -59,6 +59,35 @@ describe("agente — política do laço", () => {
     expect(r).toMatchObject({ modo: "ferramentas", reply: "calculadora fechado." });
     expect(r?.acoes).toEqual([{ action: "close_app", app_name: "calculadora" }]);
     expect(chamadasAoModelo).toHaveLength(1);
+  });
+
+  it("olhar e agir na MESMA rodada: a lista das janelas não vira resposta (27/11)", async () => {
+    respostas.push({ content: "", toolCalls: [{ id: "1", name: "programas_abertos", args: {} }, { id: "2", name: "fechar_programa", args: { nome: "calculadora" } }] });
+    const r = await agir("cadê a calculadora? fecha ela");
+    expect(r?.reply).toBe("calculadora fechado.");
+    expect(r?.reply).not.toContain("Abertos");
+  });
+
+  it("pedido de música que o modelo chamou de CHAT leva uma cutucada e age (27/11)", async () => {
+    respostas.push({ content: "CHAT", toolCalls: [] });
+    respostas.push({ content: "", toolCalls: [{ id: "1", name: "gerar_playlist", args: { pedido: "foco", aparelho: "celular" } }] });
+    const r = await agir("gera uma playlistzinha pra mim e já coloca no meu Spotify do celular");
+    expect(executadas).toEqual(["gerar_playlist"]);
+    expect(r?.modo).toBe("ferramentas");
+    expect(JSON.stringify(chamadasAoModelo.at(-1))).toContain("gerar_playlist");
+  });
+
+  it("insistiu em CHAT depois da cutucada: aí é conversa", async () => {
+    respostas.push({ content: "CHAT", toolCalls: [] });
+    respostas.push({ content: "CHAT", toolCalls: [] });
+    const r = await agir("bota uma música aí");
+    expect(r?.modo).toBe("chat");
+    expect(chamadasAoModelo).toHaveLength(2);
+  });
+
+  it("pedeMusica: pedir para tocar/montar sim; falar de música não", () => {
+    for (const t of ["Gera uma playlistzinha aí pra mim", "bota uma música pra eu me concentrar", "abre aqui no meu celular o Spotify", "faz uma playlist de matemática", "toca um lo-fi"]) expect(pedeMusica(t), t).toBe(true);
+    for (const t of ["qual o nome dessa música?", "o que você acha do Spotify?", "abre o bloco de notas", "fecha o chrome", "somar 2 com 3"]) expect(pedeMusica(t), t).toBe(false);
   });
 
   it("olhar e depois agir: a leitura não entra na fala", async () => {

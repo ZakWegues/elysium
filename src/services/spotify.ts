@@ -380,7 +380,7 @@ export async function porNaFila(musicas: { titulo: string; artista: string }[]):
   return n;
 }
 
-export async function criarPlaylist(nome: string, musicas: { titulo: string; artista: string }[]): Promise<{ nome: string; total: number }> {
+export async function criarPlaylist(nome: string, musicas: { titulo: string; artista: string }[]): Promise<{ nome: string; total: number; uri: string }> {
   const lista = await uris(musicas);
   if (!lista.length) throw new Error("não achei essas músicas no Spotify");
   try {
@@ -388,7 +388,7 @@ export async function criarPlaylist(nome: string, musicas: { titulo: string; art
     if (!p?.id) throw new Error("o Spotify não criou a playlist");
     try { await api(`/playlists/${p.id}/items`, { method: "POST", body: { uris: lista } }); }
     catch { await api(`/playlists/${p.id}/tracks`, { method: "POST", body: { uris: lista } }); }
-    return { nome, total: lista.length };
+    return { nome, total: lista.length, uri: `spotify:playlist:${p.id}` };
   } catch (e) {
     const m = e instanceof Error ? e.message : String(e);
     if (/Premium|scope|HTTP 401/i.test(m)) throw new Error("Saia e conecte o Spotify de novo no PC para liberar playlists.");

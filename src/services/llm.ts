@@ -78,6 +78,8 @@ export interface ChamadaDeFerramenta {
   id: string;
   name: string;
   args: Record<string, unknown>;
+  /** 27/11: o `extra_content` do Gemini (traz a `thought_signature`), que volta igual na rodada seguinte. */
+  extra?: unknown;
 }
 
 export interface RespostaComFerramentas {
@@ -363,6 +365,8 @@ function mensagensParaFerramentas(msgs: ChatMessage[], provider: Provider): unkn
         tool_calls: m.tool_calls.map(c => ({
           id: c.id, type: "function",
           function: { name: c.name, arguments: provider === "groq" ? JSON.stringify(c.args) : c.args },
+          // Sem isto o Gemini 3 recusa a 2ª rodada: "missing a thought_signature" (HTTP 400).
+          ...(c.extra ? { extra_content: c.extra } : {}),
         })),
       };
     }
@@ -383,7 +387,8 @@ function lerChamadas(brutas: unknown): ChamadaDeFerramenta[] {
     let args: Record<string, unknown> = {};
     if (typeof fn.arguments === "string") { try { args = JSON.parse(fn.arguments); } catch { args = {}; } }
     else if (fn.arguments && typeof fn.arguments === "object") args = fn.arguments as Record<string, unknown>;
-    return [{ id: (c as { id?: string }).id ?? `chamada-${i}`, name: fn.name, args }];
+    const extra = (c as { extra_content?: unknown }).extra_content;
+    return [{ id: (c as { id?: string }).id ?? `chamada-${i}`, name: fn.name, args, ...(extra ? { extra } : {}) }];
   });
 }
 

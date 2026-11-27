@@ -8,6 +8,8 @@
  * sai. O socket caindo NÃO descarta mais o turno — só o "Parar" do celular (`{type:"parar"}`).
  */
 
+import { aoMudarEstadoAoVivo } from "./estadoAoVivo";
+
 export type Envio = (texto: string) => void;
 
 export interface Pedido {
@@ -25,6 +27,8 @@ export interface Pedido {
   ui: Record<string, unknown> | null;
   /** 23/11: o "ainda estou trabalhando" que segura a espera do celular. */
   batida?: ReturnType<typeof setInterval>;
+  /** 27/11: para de repassar o "o que estou fazendo" ao celular. */
+  soltarEstado?: () => void;
 }
 const BATIDA_MS = 12_000;
 const BATIDA_MAXIMA_MS = 4 * 60_000;
@@ -40,8 +44,8 @@ export function idValido(id: unknown): id is string {
 }
 
 function limpar(agora = Date.now()): void {
-  for (const [id, p] of pedidos) if (agora - p.criadoEm > VALIDADE_MS) pedidos.delete(id);
-  while (pedidos.size > MAXIMO) pedidos.delete(pedidos.keys().next().value as string);
+  for (const [id, p] of pedidos) if (agora - p.criadoEm > VALIDADE_MS) { p.soltarEstado?.(); pedidos.delete(id); }
+  while (pedidos.size > MAXIMO) { const id = pedidos.keys().next().value as string; pedidos.get(id)?.soltarEstado?.(); pedidos.delete(id); }
 }
 
 /** Abre o registro do pedido. Devolve null se o id já existe (o mesmo pedido chegou duas vezes). */
@@ -57,6 +61,14 @@ export function abrirPedido(id: string, texto: string, destino: Envio, agora = D
     try { p.destino?.(JSON.stringify({ type: "andamento", id: p.id })); } catch { p.destino = null; }
   }, BATIDA_MS);
   p.batida.unref?.();
+  // 27/11: o celular não sabia se o pedido tinha chegado — ficava nos três pontinhos sem saber se
+  // era a rede ou o PC pensando. Agora: "recebi" na hora e, enquanto trabalha, o que está fazendo
+  // ("Tocando…", "Olhando o PC…"). App antigo só rearma a espera com o `andamento`.
+  try { destino(JSON.stringify({ type: "andamento", id, recebido: true })); } catch { p.destino = null; }
+  p.soltarEstado = aoMudarEstadoAoVivo((t) => {
+    if (p.final || p.parado) return;
+    try { p.destino?.(JSON.stringify({ type: "andamento", id, estado: t.slice(0, 80) })); } catch { p.destino = null; }
+  });
   return p;
 }
 
@@ -72,6 +84,7 @@ export function pedaco(p: Pedido, texto: string): void {
 export function terminar(p: Pedido, final: Record<string, unknown>): void {
   p.final = { ...final, id: p.id };
   clearInterval(p.batida);
+  p.soltarEstado?.();
   if (p.destino && !p.parado) {
     try { p.destino(JSON.stringify(p.final)); } catch { p.destino = null; }
   }
@@ -113,10 +126,12 @@ export function parar(id: string): Pedido | null {
   p.parado = true;
   p.destino = null;
   clearInterval(p.batida);
+  p.soltarEstado?.();
   return p;
 }
 
 /** Só para os testes. */
 export function zerarPedidos(): void {
+  for (const p of pedidos.values()) p.soltarEstado?.();
   pedidos.clear();
 }

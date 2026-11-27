@@ -432,10 +432,36 @@ export const FERRAMENTAS: Ferramenta[] = [
   },
   {
     name: "tocar_musica",
-    description: "Toca uma música, artista ou playlist no Spotify.",
-    parameters: obj({ busca: s("Título e artista exatos. 'Ela', 'essa', 'a segunda': troque pelo nome verdadeiro, tirado da conversa") }, ["busca"]),
-    executar: a => acao({ action: "play_music", query: str(a, "busca") }),
+    description: "Toca uma música, artista, álbum ou playlist no Spotify, no PC ou no celular. Para um clima ('algo pra concentrar'), passe uma busca de playlist, como 'playlist foco instrumental'.",
+    parameters: obj({
+      busca: s("Título e artista exatos. 'Ela', 'essa', 'a segunda': troque pelo nome verdadeiro, tirado da conversa"),
+      aparelho: s("Onde tocar: 'celular' se ele falou do celular; 'pc' se falou do PC; omita se não disse", { enum: ["pc", "celular"] }),
+    }, ["busca"]),
+    // 27/11: era só o PC ("abre no meu celular" tocava no PC). Agora passa pelo aparelho certo.
+    executar: async (a) => {
+      const { tocarMusica } = await import("./tocar");
+      const { aparelhoDoPedido, pedidoAtual } = await import("./contextoComando");
+      const ap = str(a, "aparelho");
+      return tocarMusica(str(a, "busca"), null, ap === "celular" || ap === "pc" ? ap : aparelhoDoPedido(), undefined, pedidoAtual());
+    },
     acao: a => ({ action: "play_music", query: str(a, "busca") }),
+  },
+  {
+    // 27/11: "gera uma playlist pra eu me concentrar e coloca no Spotify do celular".
+    name: "gerar_playlist",
+    description: "Monta uma playlist NOVA no Spotify dele pelo clima ou estilo do pedido (estudar, treinar, relaxar, parecidas com X) e já toca, no PC ou no celular.",
+    parameters: obj({
+      pedido: s("O que ele quer ouvir, com o clima e o porquê: 'instrumental leve para copiar matemática com foco'"),
+      nome: s("Nome curto da playlist (opcional)"),
+      aparelho: s("Onde tocar: 'celular' se ele falou do celular; 'pc' se falou do PC; omita se não disse", { enum: ["pc", "celular"] }),
+    }, ["pedido"]),
+    executar: async (a) => {
+      const { gerarPlaylist } = await import("./tocar");
+      const { aparelhoDoPedido } = await import("./contextoComando");
+      const ap = str(a, "aparelho");
+      return gerarPlaylist(str(a, "pedido"), str(a, "nome"), ap === "celular" || ap === "pc" ? ap : aparelhoDoPedido());
+    },
+    acao: a => ({ action: "play_music", query: str(a, "pedido") }),
   },
   {
     name: "midia",
@@ -938,7 +964,7 @@ export const FERRAMENTAS: Ferramenta[] = [
   },
   {
     name: "mandar_para_o_celular",
-    description: "Manda um texto ou link para o celular do usuário (aparece na Caixa do app).",
+    description: "Guarda um texto ou link na Caixa do app do celular, para ele ler depois. Não abre app nem toca música no celular: para isso use tocar_musica ou gerar_playlist com aparelho 'celular'.",
     parameters: obj({ conteudo: s("Texto ou link") }, ["conteudo"]),
     executar: a => acao({ action: "send_to_mobile", content: str(a, "conteudo") }),
     acao: a => ({ action: "send_to_mobile", content: str(a, "conteudo") }),

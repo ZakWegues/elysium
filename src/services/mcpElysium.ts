@@ -25,7 +25,7 @@ export const FERRAMENTAS_DO_HERMES = new Set([
   "ver_habitos", "painel_do_dia", "ver_timers", "hora_em", "calcular", "nota_necessaria", "revisao_da_semana",
   "treino_de_hoje", "ver_meta_calorias",
   // Ação
-  "tocar_musica", "midia", "volume", "janela", "modo_foco", "abrir_programa", "fechar_programa",
+  "tocar_musica", "gerar_playlist", "midia", "volume", "janela", "modo_foco", "abrir_programa", "fechar_programa",
   "adicionar_na_lista", "concluir_tarefa", "adiar_tarefa", "editar_tarefa", "anotar_varias", "marcar_item",
   "limpar_feitos", "marcar_habito", "avancar_meta", "marcar_treino", "registrar_corrida", "registrar_peso",
   "criar_timer", "cancelar_timer", "criar_lembrete", "cancelar_lembrete", "pomodoro", "guardar_cartao",

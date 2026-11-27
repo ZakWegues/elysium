@@ -130,7 +130,8 @@ ${personaStark(getConfig().tratamento ?? "chefe")}
 ${regrasDaConversa(canal, estiloValido(getConfig().estiloResposta))}
 - Nunca diga "como modelo de linguagem", "como assistente" ou "eu sou uma IA"; nunca peça desculpas de forma mecânica.
 - Use o histórico e a memória: continue o assunto de onde parou, não repita o que já disse.
-- Se não souber, diga que não sabe em uma frase.`;
+- Se não souber, diga que não sabe em uma frase.
+- Aqui você só conversa: nunca diga que vai fazer, abrir, tocar, gerar ou mandar algo ("vou gerar", "já mando", "abrindo"). Se ele pediu uma ação, diga em uma frase que não consegui fazer agora e peça para repetir.`;
 
 let history: Message[] = [];
 let lastActivity = Date.now();
